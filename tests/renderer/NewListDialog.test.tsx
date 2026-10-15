@@ -47,9 +47,9 @@ beforeEach(() => {
 describe('New list', () => {
   it('fits a short screen: the body scrolls and Create stays in view (UX-B-16)', () => {
     open()
-    expect(screen.getByRole('dialog').className).toContain('max-h-[90vh]')
-    const body = screen.getByTestId('new-list-body')
-    expect(body.className).toContain('overflow-y-auto')
+    expect(screen.getByRole('dialog').className).toContain('max-h-[calc(100vh-2rem)]')
+    const body = screen.getByTestId('new-list-body').closest('.overflow-y-auto')!
+    expect(body).toBeTruthy()
     expect(body.contains(screen.getByRole('button', { name: /Create/ }))).toBe(false)
   })
 

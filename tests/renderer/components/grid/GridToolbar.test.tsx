@@ -67,6 +67,8 @@ vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMoc
 
 vi.mock('../../../../src/renderer/utils/animations', () => ({
   dropdownVariants: {},
+  backdropVariants: {},
+  modalPanelVariants: {},
 }))
 
 vi.mock('../../../../src/renderer/utils/safeInvoke', () => ({

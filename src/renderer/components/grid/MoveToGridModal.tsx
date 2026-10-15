@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
-import { ArrowRightLeft, Copy, X, AlertCircle } from 'lucide-react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
+import React, { useEffect, useState } from 'react'
+import { ArrowRightLeft, Copy, AlertCircle } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Grid, Column } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -75,14 +74,11 @@ interface Props {
 
 export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, onCancel }: Props): React.ReactElement {
   const { t } = useVocab(sourceGridId)
-  const trapRef = useRef<HTMLDivElement>(null)
   const [grids, setGrids] = useState<Grid[]>([])
   const [targetGridId, setTargetGridId] = useState<number | null>(null)
   const [targetColumns, setTargetColumns] = useState<Column[]>([])
   const [mode, setMode] = useState<'move' | 'copy'>('move')
   const [busy, setBusy] = useState(false)
-  // Escape cancels like the Cancel button, which waits while a move is under way
-  useFocusTrap(trapRef, true, { onEscape: () => { if (!busy) onCancel() } })
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -147,104 +143,87 @@ export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, on
   const targetGrid = grids.find(g => g.id === targetGridId)
 
   return (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="move-to-grid-title">
-      <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={onCancel} />
-      <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 id="move-to-grid-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            Move or Copy to Another {t('list', { cap: true })}
-          </h2>
-          <button onClick={onCancel} className="hit-44 p-1 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label="Close">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-5">
-          {/* Mode selection */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setMode('move')}
-              className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors ${
-                mode === 'move'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-              Move
-            </button>
-            <button
-              onClick={() => setMode('copy')}
-              className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors ${
-                mode === 'copy'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <Copy className="w-4 h-4" />
-              Copy
-            </button>
-          </div>
-
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {mode === 'move'
-              ? `The ${t('record')} will be moved to the selected ${t('list')} and removed from this one. Columns with matching names will carry over their data.`
-              : `A copy of the ${t('record')} will be added to the selected ${t('list')}. The original stays here. Checklists, ${t('activity', { many: true })} and the ${t('activityLog')} are not copied.`}
-          </p>
-
-          {/* Grid picker */}
-          <div>
-            <label htmlFor="move-dest-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Destination {t('list')}
-            </label>
-            {grids.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400 italic">No other {t('list', { many: true })} available.</p>
-            ) : (
-              <select
-                id="move-dest-grid"
-                className="input w-full"
-                value={targetGridId ?? ''}
-                onChange={e => setTargetGridId(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">— select {t('list', { article: true })} —</option>
-                {grids.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Column match preview */}
-          {targetGridId !== null && (
-            <ColumnCarryPreview sourceColumns={sourceColumns} targetColumns={targetColumns} targetName={targetGrid?.name ?? ''} mode={mode} many={false} />
-          )}
-
-          {mode === 'move' && lostLinks.length > 0 && (
-            <div className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400 text-sm">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-              <span>These links don't apply in {targetGrid?.name} and will be removed: {lostLinks.join(', ')}</span>
-            </div>
-          )}
-
-          {error && (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={onCancel} className="btn-secondary" disabled={busy}>Cancel</button>
+    // Escape, the X and a click outside cancel like the Cancel button, which waits while a move is under way
+    <Dialog open onClose={() => { if (!busy) onCancel() }} size="md"
+      title={<>Move or Copy to Another {t('list', { cap: true })}</>}
+      footer={<>
+        <SecondaryButton onClick={onCancel} disabled={busy}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={handleConfirm} disabled={!targetGridId || busy}>
+          {busy ? 'Working…' : `${mode === 'move' ? 'Move' : 'Copy'} ${t('record')}`}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-5">
+        {/* Mode selection */}
+        <div className="flex gap-3">
           <button
-            onClick={handleConfirm}
-            disabled={!targetGridId || busy}
-            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => setMode('move')}
+            className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors ${
+              mode === 'move'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+            }`}
           >
-            {busy ? 'Working…' : `${mode === 'move' ? 'Move' : 'Copy'} ${t('record')}`}
+            <ArrowRightLeft className="w-4 h-4" />
+            Move
+          </button>
+          <button
+            onClick={() => setMode('copy')}
+            className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors ${
+              mode === 'copy'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+            }`}
+          >
+            <Copy className="w-4 h-4" />
+            Copy
           </button>
         </div>
-      </motion.div>
-    </div>
+
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {mode === 'move'
+            ? `The ${t('record')} will be moved to the selected ${t('list')} and removed from this one. Columns with matching names will carry over their data.`
+            : `A copy of the ${t('record')} will be added to the selected ${t('list')}. The original stays here. Checklists, ${t('activity', { many: true })} and the ${t('activityLog')} are not copied.`}
+        </p>
+
+        {/* Grid picker */}
+        <div>
+          <label htmlFor="move-dest-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Destination {t('list')}
+          </label>
+          {grids.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 italic">No other {t('list', { many: true })} available.</p>
+          ) : (
+            <select
+              id="move-dest-grid"
+              className="input w-full"
+              value={targetGridId ?? ''}
+              onChange={e => setTargetGridId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">— select {t('list', { article: true })} —</option>
+              {grids.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Column match preview */}
+        {targetGridId !== null && (
+          <ColumnCarryPreview sourceColumns={sourceColumns} targetColumns={targetColumns} targetName={targetGrid?.name ?? ''} mode={mode} many={false} />
+        )}
+
+        {mode === 'move' && lostLinks.length > 0 && (
+          <div className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400 text-sm">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>These links don't apply in {targetGrid?.name} and will be removed: {lostLinks.join(', ')}</span>
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
+    </Dialog>
   )
 }
 
@@ -260,12 +239,10 @@ interface BulkProps {
 
 export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDone, onCancel }: BulkProps): React.ReactElement {
   const { t } = useVocab(sourceGridId)
-  const bulkTrapRef = useRef<HTMLDivElement>(null)
   const [grids, setGrids] = useState<Grid[]>([])
   const [targetGridId, setTargetGridId] = useState<number | null>(null)
   const [mode, setMode] = useState<'move' | 'copy'>('move')
   const [busy, setBusy] = useState(false)
-  useFocusTrap(bulkTrapRef, true, { onEscape: () => { if (!busy) onCancel() } })
   const [error, setError] = useState<string | null>(null)
   const [targetColumns, setTargetColumns] = useState<Column[]>([])
 
@@ -339,65 +316,52 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDon
   }
 
   return (
-    <div ref={bulkTrapRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="bulk-move-title">
-      <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={onCancel} />
-      <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 id="bulk-move-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            Move / Copy {rowIds.length} {t('record', { count: rowIds.length })} to Another {t('list', { cap: true })}
-          </h2>
-          <button onClick={onCancel} className="hit-44 p-1 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label="Close">
-            <X className="w-5 h-5" />
+    <Dialog open onClose={() => { if (!busy) onCancel() }} size="md"
+      title={<>Move / Copy {rowIds.length} {t('record', { count: rowIds.length })} to Another {t('list', { cap: true })}</>}
+      footer={<>
+        <SecondaryButton onClick={onCancel} disabled={busy}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={handleConfirm} disabled={!targetGridId || busy}>
+          {busy ? `Processing ${rowIds.length}…` : mode === 'move' ? `Move ${rowIds.length}` : `Copy ${rowIds.length}`}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-5">
+        <div className="flex gap-3">
+          <button onClick={() => setMode('move')}
+            className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors
+              ${mode === 'move' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'}`}>
+            <ArrowRightLeft className="w-4 h-4" /> Move
+          </button>
+          <button onClick={() => setMode('copy')}
+            className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors
+              ${mode === 'copy' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'}`}>
+            <Copy className="w-4 h-4" /> Copy
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          <div className="flex gap-3">
-            <button onClick={() => setMode('move')}
-              className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors
-                ${mode === 'move' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'}`}>
-              <ArrowRightLeft className="w-4 h-4" /> Move
-            </button>
-            <button onClick={() => setMode('copy')}
-              className={`flex-1 flex items-center gap-2 justify-center py-2.5 px-3 rounded-lg border-2 text-base font-medium transition-colors
-                ${mode === 'copy' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'}`}>
-              <Copy className="w-4 h-4" /> Copy
-            </button>
-          </div>
+        <p className="text-base text-slate-500 dark:text-slate-400">
+          {mode === 'move' ? `${t('record', { many: true, cap: true })} will be removed from this ${t('list')}.` : `The originals stay in this ${t('list')}.`}
+        </p>
 
-          <p className="text-base text-slate-500 dark:text-slate-400">
-            {mode === 'move' ? `${t('record', { many: true, cap: true })} will be removed from this ${t('list')}.` : `The originals stay in this ${t('list')}.`}
-          </p>
-
-          <div>
-            <label htmlFor="bulk-move-dest-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">Destination {t('list')}</label>
-            {grids.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400 italic">No other {t('list', { many: true })} available.</p>
-            ) : (
-              <select id="bulk-move-dest-grid" className="input w-full" value={targetGridId ?? ''} onChange={e => setTargetGridId(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">— select {t('list', { article: true })} —</option>
-                {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            )}
-          </div>
-
-          {targetGridId !== null && (
-            <ColumnCarryPreview sourceColumns={sourceColumns} targetColumns={targetColumns} targetName={grids.find(g => g.id === targetGridId)?.name ?? ''} mode={mode} many />
+        <div>
+          <label htmlFor="bulk-move-dest-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">Destination {t('list')}</label>
+          {grids.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 italic">No other {t('list', { many: true })} available.</p>
+          ) : (
+            <select id="bulk-move-dest-grid" className="input w-full" value={targetGridId ?? ''} onChange={e => setTargetGridId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">— select {t('list', { article: true })} —</option>
+              {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
           )}
-
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>
 
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={onCancel} className="btn-secondary" disabled={busy}>Cancel</button>
-          <button onClick={handleConfirm} disabled={!targetGridId || busy}
-            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
-            {busy ? `Processing ${rowIds.length}…` : mode === 'move' ? `Move ${rowIds.length}` : `Copy ${rowIds.length}`}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+        {targetGridId !== null && (
+          <ColumnCarryPreview sourceColumns={sourceColumns} targetColumns={targetColumns} targetName={grids.find(g => g.id === targetGridId)?.name ?? ''} mode={mode} many />
+        )}
+
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      </div>
+    </Dialog>
   )
 }

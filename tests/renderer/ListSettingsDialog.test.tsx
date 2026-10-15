@@ -61,9 +61,10 @@ describe('List settings', () => {
   it('fits a short screen: the body scrolls and Save stays in view (UX-B-16)', async () => {
     await open()
     const dialog = screen.getByRole('dialog')
-    expect(dialog.className).toContain('max-h-[90vh]')
-    expect(screen.getByTestId('list-settings-body').className).toContain('overflow-y-auto')
-    expect(screen.getByTestId('list-settings-body').contains(screen.getByRole('button', { name: 'Save' }))).toBe(false)
+    expect(dialog.className).toContain('max-h-[calc(100vh-2rem)]')
+    const body = screen.getByTestId('list-settings-body').closest('.overflow-y-auto')!
+    expect(body).toBeTruthy()
+    expect(body.contains(screen.getByRole('button', { name: 'Save' }))).toBe(false)
   })
 
   it("suggests a name format from the list's own columns and says what the chips do (UX-B-37)", async () => {

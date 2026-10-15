@@ -24,6 +24,8 @@
  * - Escape, the X and a click on the backdrop all call onClose, unless
  *   dismissible={false}: a step that must be finished with its own button
  *   (the recovery key screen) has no X and ignores Escape and the backdrop.
+ *   closeOnBackdrop={false} keeps the X and Escape but ignores a click outside,
+ *   for a form whose edits a stray click shouldn't throw away.
  * - Other props (data-testid, data-tour, id, aria-*, onKeyDown) go on the panel.
  *
  * Safety details carried over from ConfirmDialog: the shared focus trap (a
@@ -58,6 +60,8 @@ export interface DialogProps extends PanelAttributes {
   footer?: React.ReactNode
   /** false: no X, and Escape and the backdrop do nothing (default true) */
   dismissible?: boolean
+  /** false: a click outside does nothing; the X and Escape still close it (default true) */
+  closeOnBackdrop?: boolean
   children?: React.ReactNode
 }
 
@@ -69,7 +73,7 @@ const WIDTH: Record<DialogSize, string> = {
 }
 
 export function Dialog({
-  open, onClose, title, description, size = 'md', role = 'dialog', initialFocus, icon, footer, dismissible = true, children,
+  open, onClose, title, description, size = 'md', role = 'dialog', initialFocus, icon, footer, dismissible = true, closeOnBackdrop = true, children,
   className, onKeyDown, ...rest
 }: DialogProps): React.ReactElement | null {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -112,7 +116,7 @@ export function Dialog({
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
-        onClick={dismissible ? onClose : undefined}
+        onClick={dismissible && closeOnBackdrop ? onClose : undefined}
         aria-hidden="true"
       />
       <motion.div

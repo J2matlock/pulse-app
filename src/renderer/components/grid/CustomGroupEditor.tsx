@@ -2,11 +2,12 @@
  * CustomGroupEditor — modal dialog for creating or editing a custom group bucket definition.
  * Users assign discrete column values into named buckets, each with an optional accent color.
  */
-import React, { useId, useRef, useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { ACUITY_GROUP_KEY } from '../../../shared/types'
 import type { CustomGroupDef, CustomGroupBucket } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
@@ -39,11 +40,6 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
   const acuityEnabled = acuityFlag && priorityOn
-
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  const titleId = useId()
-  useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const groupableColumns = useMemo(() => columns.filter(c => GROUPABLE_TYPES.has(c.column_type)), [columns])
 
@@ -182,191 +178,166 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
       : groupableColumns.find(c => c.id === selectedColId)?.name ?? ''
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 id={titleId} className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {initialDef ? 'Edit custom group' : 'New custom group'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            style={{ minHeight: 44, minWidth: 44 }}
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <Dialog open onClose={onClose} title={initialDef ? 'Edit custom group' : 'New custom group'} size="xl"
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={handleSave}>{initialDef ? 'Save changes' : 'Create group'}</PrimaryButton>
+      </>}>
+      {/* Error summary */}
+      {errors.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700">
+          {errors.map((e, i) => (
+            <p key={i} className="text-sm text-red-700 dark:text-red-300" style={{ fontSize: 15 }}>{e}</p>
+          ))}
         </div>
+      )}
 
-        {/* Error summary */}
-        {errors.length > 0 && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700">
-            {errors.map((e, i) => (
-              <p key={i} className="text-sm text-red-700 dark:text-red-300" style={{ fontSize: 15 }}>{e}</p>
-            ))}
-          </div>
-        )}
+      {/* Group Name */}
+      <div className="mb-4">
+        <label className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1" style={{ fontSize: 15 }}>
+          Group name
+        </label>
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="e.g. Active and on hold"
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-3 focus:ring-indigo-500"
+          style={{ minHeight: 44, fontSize: 15 }}
+        />
+      </div>
 
-        {/* Group Name */}
-        <div className="mb-4">
-          <label className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1" style={{ fontSize: 15 }}>
-            Group name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="e.g. Active and on hold"
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-3 focus:ring-indigo-500"
-            style={{ minHeight: 44, fontSize: 15 }}
-          />
-        </div>
+      {/* Column selector */}
+      <div className="mb-5">
+        <label className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1" style={{ fontSize: 15 }}>
+          Group by column
+        </label>
+        <select
+          value={String(selectedColId)}
+          onChange={e => handleColumnChange(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-3 focus:ring-indigo-500"
+          style={{ minHeight: 44, fontSize: 15 }}
+        >
+          {acuityEnabled && (
+            <option value={ACUITY_GROUP_KEY}>{t('priority', { cap: true })}</option>
+          )}
+          {groupableColumns.map(col => (
+            <option key={col.id} value={String(col.id)}>{col.name}</option>
+          ))}
+        </select>
+      </div>
 
-        {/* Column selector */}
-        <div className="mb-5">
-          <label className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1" style={{ fontSize: 15 }}>
-            Group by column
-          </label>
-          <select
-            value={String(selectedColId)}
-            onChange={e => handleColumnChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-3 focus:ring-indigo-500"
-            style={{ minHeight: 44, fontSize: 15 }}
-          >
-            {acuityEnabled && (
-              <option value={ACUITY_GROUP_KEY}>{t('priority', { cap: true })}</option>
+      {/* Two-column layout: Unassigned values | Buckets */}
+      <div className="grid grid-cols-[1fr_2fr] gap-4 mb-5">
+        {/* Unassigned values pool */}
+        <div>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2" style={{ fontSize: 15 }}>
+            Unassigned values
+            <span className="ml-1 text-sm text-slate-500 dark:text-slate-400">({unassignedValues.length})</span>
+          </p>
+          <div className="min-h-24 p-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 flex flex-wrap gap-1.5 content-start">
+            {unassignedValues.length === 0 && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 italic w-full text-center py-4">
+                {allValues.length === 0 ? `No values found in "${selectedColName}"` : 'All values assigned'}
+              </p>
             )}
-            {groupableColumns.map(col => (
-              <option key={col.id} value={String(col.id)}>{col.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Two-column layout: Unassigned values | Buckets */}
-        <div className="grid grid-cols-[1fr_2fr] gap-4 mb-5">
-          {/* Unassigned values pool */}
-          <div>
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2" style={{ fontSize: 15 }}>
-              Unassigned values
-              <span className="ml-1 text-sm text-slate-500 dark:text-slate-400">({unassignedValues.length})</span>
-            </p>
-            <div className="min-h-24 p-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 flex flex-wrap gap-1.5 content-start">
-              {unassignedValues.length === 0 && (
-                <p className="text-sm text-slate-500 dark:text-slate-400 italic w-full text-center py-4">
-                  {allValues.length === 0 ? `No values found in "${selectedColName}"` : 'All values assigned'}
-                </p>
-              )}
-              {unassignedValues.map(v => (
-                <button
-                  key={v}
-                  onClick={() => assignValueToBucket(v, focusedBucketIdx)}
-                  title={`Add to bucket ${focusedBucketIdx + 1}: ${buckets[focusedBucketIdx]?.label || '(unlabeled)'}`}
-                  className="hit-44 px-2 py-1 rounded-md text-base bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-400 transition-colors cursor-pointer"
-                  style={{ minHeight: 30 }}
-                >
-                  {selectedColId === ACUITY_GROUP_KEY ? acuityDisplayLabel(v) : v}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Click a value to add it to the selected bucket
-            </p>
-          </div>
-
-          {/* Buckets */}
-          <div className="flex flex-col gap-3">
-            {buckets.map((bucket, idx) => (
-              <div
-                key={idx}
-                onClick={() => setFocusedBucketIdx(idx)}
-                className={`p-3 rounded-lg border-2 transition-colors cursor-pointer ${
-                  focusedBucketIdx === idx
-                    ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                }`}
+            {unassignedValues.map(v => (
+              <button
+                key={v}
+                onClick={() => assignValueToBucket(v, focusedBucketIdx)}
+                title={`Add to bucket ${focusedBucketIdx + 1}: ${buckets[focusedBucketIdx]?.label || '(unlabeled)'}`}
+                className="hit-44 px-2 py-1 rounded-md text-base bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-400 transition-colors cursor-pointer"
+                style={{ minHeight: 30 }}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  {/* Color swatch */}
-                  <input
-                    type="color"
-                    value={bucket.color}
-                    onChange={e => { e.stopPropagation(); updateBucketColor(idx, e.target.value) }}
-                    onClick={e => e.stopPropagation()}
-                    title="Bucket accent color"
-                    className="w-7 h-7 rounded cursor-pointer border border-slate-300 dark:border-slate-600 p-0.5 bg-transparent"
-                    style={{ minHeight: 28 }}
-                  />
-                  {/* Label input */}
-                  <input
-                    type="text"
-                    value={bucket.label}
-                    onChange={e => { e.stopPropagation(); updateBucketLabel(idx, e.target.value) }}
-                    onClick={e => { e.stopPropagation(); setFocusedBucketIdx(idx) }}
-                    placeholder={`Bucket ${idx + 1} label`}
-                    className="flex-1 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-3 focus:ring-indigo-500"
-                    style={{ fontSize: 15, minHeight: 34 }}
-                  />
-                  {/* Remove bucket */}
-                  <button
-                    onClick={e => { e.stopPropagation(); removeBucket(idx) }}
-                    disabled={buckets.length <= 2}
-                    className="hit-44 p-1.5 rounded text-slate-500 dark:text-slate-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    style={{ minHeight: 34, minWidth: 34 }}
-                    title="Remove bucket"
-                    aria-label="Remove bucket"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Assigned values in this bucket */}
-                <div className="flex flex-wrap gap-1.5 min-h-8">
-                  {bucket.values.length === 0 && (
-                    <span className="text-sm text-slate-500 dark:text-slate-400 italic self-center">
-                      {focusedBucketIdx === idx ? 'Click values on the left to add them here' : 'No values'}
-                    </span>
-                  )}
-                  {bucket.values.map(v => (
-                    <button
-                      key={v}
-                      onClick={e => { e.stopPropagation(); removeValueFromBucket(v, idx) }}
-                      title="Remove from bucket"
-                      className="hit-44 px-2 py-0.5 rounded-md text-base text-white flex items-center gap-1 hover:opacity-80 transition-opacity"
-                      style={{ minHeight: 26, backgroundColor: bucket.color }}
-                    >
-                      {selectedColId === ACUITY_GROUP_KEY ? acuityDisplayLabel(v) : v}
-                      <X className="w-3 h-3" />
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {selectedColId === ACUITY_GROUP_KEY ? acuityDisplayLabel(v) : v}
+              </button>
             ))}
-
-            {/* Add bucket */}
-            <button
-              onClick={addBucket}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-full"
-              style={{ minHeight: 44, fontSize: 15 }}
-            >
-              <Plus className="w-4 h-4" />
-              Add bucket
-            </button>
           </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Click a value to add it to the selected bucket
+          </p>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={onClose} className="btn btn-secondary" style={{ minHeight: 44, fontSize: 15 }}>
-            Cancel
-          </button>
-          <button onClick={handleSave} className="btn btn-primary" style={{ minHeight: 44, fontSize: 15 }}>
-            {initialDef ? 'Save changes' : 'Create group'}
+        {/* Buckets */}
+        <div className="flex flex-col gap-3">
+          {buckets.map((bucket, idx) => (
+            <div
+              key={idx}
+              onClick={() => setFocusedBucketIdx(idx)}
+              className={`p-3 rounded-lg border-2 transition-colors cursor-pointer ${
+                focusedBucketIdx === idx
+                  ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {/* Color swatch */}
+                <input
+                  type="color"
+                  value={bucket.color}
+                  onChange={e => { e.stopPropagation(); updateBucketColor(idx, e.target.value) }}
+                  onClick={e => e.stopPropagation()}
+                  title="Bucket accent color"
+                  className="w-7 h-7 rounded cursor-pointer border border-slate-300 dark:border-slate-600 p-0.5 bg-transparent"
+                  style={{ minHeight: 28 }}
+                />
+                {/* Label input */}
+                <input
+                  type="text"
+                  value={bucket.label}
+                  onChange={e => { e.stopPropagation(); updateBucketLabel(idx, e.target.value) }}
+                  onClick={e => { e.stopPropagation(); setFocusedBucketIdx(idx) }}
+                  placeholder={`Bucket ${idx + 1} label`}
+                  className="flex-1 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-3 focus:ring-indigo-500"
+                  style={{ fontSize: 15, minHeight: 34 }}
+                />
+                {/* Remove bucket */}
+                <button
+                  onClick={e => { e.stopPropagation(); removeBucket(idx) }}
+                  disabled={buckets.length <= 2}
+                  className="hit-44 p-1.5 rounded text-slate-500 dark:text-slate-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  style={{ minHeight: 34, minWidth: 34 }}
+                  title="Remove bucket"
+                  aria-label="Remove bucket"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Assigned values in this bucket */}
+              <div className="flex flex-wrap gap-1.5 min-h-8">
+                {bucket.values.length === 0 && (
+                  <span className="text-sm text-slate-500 dark:text-slate-400 italic self-center">
+                    {focusedBucketIdx === idx ? 'Click values on the left to add them here' : 'No values'}
+                  </span>
+                )}
+                {bucket.values.map(v => (
+                  <button
+                    key={v}
+                    onClick={e => { e.stopPropagation(); removeValueFromBucket(v, idx) }}
+                    title="Remove from bucket"
+                    className="hit-44 px-2 py-0.5 rounded-md text-base text-white flex items-center gap-1 hover:opacity-80 transition-opacity"
+                    style={{ minHeight: 26, backgroundColor: bucket.color }}
+                  >
+                    {selectedColId === ACUITY_GROUP_KEY ? acuityDisplayLabel(v) : v}
+                    <X className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Add bucket */}
+          <button
+            onClick={addBucket}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-full"
+            style={{ minHeight: 44, fontSize: 15 }}
+          >
+            <Plus className="w-4 h-4" />
+            Add bucket
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
