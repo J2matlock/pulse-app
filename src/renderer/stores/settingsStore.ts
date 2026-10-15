@@ -9,6 +9,22 @@ import { UI_SCALE_MIN, UI_SCALE_MAX } from '../utils/uiScale'
 import { pulseEvents } from '../events'
 import { normalizeAutoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES } from '../../shared/constants'
 
+/**
+ * The computer's own clock (12- or 24-hour), used until one is chosen in
+ * Settings. Nothing is written, so a stored choice always wins (UX pass Q1c).
+ * Week start stays Sunday until chosen: the main process reads `week_start`
+ * for requirement periods and report weeks, and a renderer-only default
+ * would make the calendar and those disagree.
+ */
+export function localeClockFormat(): '12h' | '24h' {
+  try {
+    const cycle = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle
+    return cycle === 'h23' || cycle === 'h24' ? '24h' : '12h'
+  } catch {
+    return '12h'
+  }
+}
+
 interface SettingsState {
   isLocked: boolean
   isPasswordSetup: boolean
@@ -116,7 +132,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       ...(gridLines ? { gridLines } : {}),
       ...(settings.reduced_motion !== undefined ? { reducedMotion: settings.reduced_motion === 'true' } : {}),
       ...(settings.high_contrast !== undefined ? { highContrast: settings.high_contrast === 'true' } : {}),
-      ...(clockFormat ? { clockFormat } : {}),
+      // Not stored yet: follow the computer's clock
+      clockFormat: clockFormat ?? localeClockFormat(),
       ...(weekStart ? { weekStart } : {}),
       ...(dateFormat ? { dateFormat } : {}),
     })
