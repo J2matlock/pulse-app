@@ -41,7 +41,10 @@ vi.mock('dompurify', () => ({ default: { sanitize: (html: string) => html } }))
 
 import { CaseLog } from '../../../../src/renderer/components/profile/CaseLog'
 import { ScratchPad } from '../../../../src/renderer/components/profile/ScratchPad'
-import { clearAllNoteDrafts, getNoteDraft } from '../../../../src/renderer/utils/noteDrafts'
+import { clearAllNoteDrafts, discardNoteDraft, getNoteDraft, setNoteDraft } from '../../../../src/renderer/utils/noteDrafts'
+import { ProfileHeader } from '../../../../src/renderer/components/profile/ProfileHeader'
+import { MemoryRouter } from 'react-router-dom'
+import type { GridRow } from '../../../../src/shared/types'
 import { pulseEvents } from '../../../../src/renderer/events'
 import { setWords } from '../../vocabFixture'
 import { flushEffects } from '../../renderSettled'
@@ -77,6 +80,53 @@ describe('note drafts', () => {
     expect(getNoteDraft(10)?.content).toBe('Visited Maria at home')
     fireEvent.click(screen.getByTitle('Add a case note'))
     await waitFor(() => expect(getNoteDraft(10)).toBeUndefined())
+    // ...and in the database, at once
+    expect(mockInvoke).toHaveBeenCalledWith('note-draft:put', 10, expect.objectContaining({ content: '' }))
+  })
+
+  it('brings back the stored draft after a lock or a restart (nothing in memory)', async () => {
+    const stored = { content: 'Visit with Odette, BP 130/85', fieldValues: [], followUp: '', minutes: '45', miles: '', extra: {}, savedAt: '2026-10-14T10:00:00.000Z' }
+    mockInvoke.mockImplementation((channel: string, rowId: unknown) => {
+      if (channel === 'note-draft:get') return Promise.resolve({ ok: true, data: rowId === 10 ? stored : null })
+      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: [] })
+      return Promise.resolve({ ok: true, data: null })
+    })
+    act(() => { pulseEvents.emit('app:locked') })
+    render(<CaseLog rowId={10} />)
+    await waitFor(() => expect((screen.getByPlaceholderText(/Add a note entry/) as HTMLTextAreaElement).value).toBe('Visit with Odette, BP 130/85'))
+    // Opening it isn't a change: the stored copy isn't rewritten
+    expect(mockInvoke.mock.calls.filter(c => c[0] === 'note-draft:put')).toEqual([])
+  })
+})
+
+describe('the unsent note chip', () => {
+  const header = (rowId: number, onAddNote = vi.fn()) => render(
+    <MemoryRouter>
+      <ProfileHeader row={{ row_id: rowId, position: 0, is_active: 1, is_starred: 0, acuity_level_id: null, deleted_at: null, created_at: '', updated_at: '' } as GridRow}
+        columns={[]} gridId={1} onRowUpdate={() => {}} onAddNote={onAddNote} />
+    </MemoryRouter>)
+
+  it('shows next to the name while a draft waits, and takes you to the note box', async () => {
+    mockInvoke.mockImplementation((channel: string, rowId: unknown) => Promise.resolve(channel === 'note-draft:get' && rowId === 10
+      ? { ok: true, data: { content: 'Half-written', fieldValues: [], followUp: '', minutes: '', miles: '', extra: {}, savedAt: '2026-10-14T10:00:00.000Z' } }
+      : { ok: true, data: [] }))
+    const onAddNote = vi.fn()
+    header(10, onAddNote)
+    const chip = await screen.findByTestId('unsent-note-chip')
+    expect(chip.textContent).toContain('Unsent case note')
+    fireEvent.click(chip)
+    expect(onAddNote).toHaveBeenCalled()
+  })
+
+  it('is not there without a draft, and goes once the draft is saved', async () => {
+    mockInvoke.mockImplementation(() => Promise.resolve({ ok: true, data: [] }))
+    header(11)
+    await flushEffects()
+    expect(screen.queryByTestId('unsent-note-chip')).toBeNull()
+    act(() => { setNoteDraft(11, { content: 'typing', fieldValues: [], followUp: '', minutes: '', miles: '', extra: {} }) })
+    expect(screen.getByTestId('unsent-note-chip')).toBeTruthy()
+    act(() => { discardNoteDraft(11) })
+    expect(screen.queryByTestId('unsent-note-chip')).toBeNull()
   })
 })
 

@@ -6,7 +6,8 @@ import DOMPurify from 'dompurify'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, StickyNote } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { expandVariables, detectTrigger } from '../../utils/snippetExpander'
+import { SnippetMenu, handleSnippetMenuKey, menuFor, snippetStatusText, type CaretRect, type SnippetMenuState } from './SnippetMenu'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { IPCResult, Snippet } from '../../../shared/types'
 import { pulseEvents } from '../../events'
@@ -61,9 +62,10 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
   // With snippets switched off the "/" menu finds nothing to offer
   const snippets = snippetsOn ? (externalSnippets ?? internalSnippets) : NO_SNIPPETS
-  const [snippetMenu, setSnippetMenu] = useState<{ items: Snippet[]; query: string } | null>(null)
-  const [snippetMenuPos, setSnippetMenuPos] = useState<{ top: number; left: number; maxWidth: number } | null>(null)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [snippetMenu, setSnippetMenu] = useState<SnippetMenuState | null>(null)
+  const [snippetCaret, setSnippetCaret] = useState<CaretRect | null>(null)
+  // The first match is highlighted as the menu opens, so Enter inserts it (R2)
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirtyRef = useRef(false)
   const editorRef = useRef<ReturnType<typeof useEditor>>(null)
@@ -78,14 +80,18 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const rowIdRef = useRef(rowId)
   const globalScopeRef = useRef(globalScope)
+  // The editor's onUpdate is set up once, so it reads the snippets through refs
+  const snippetsRef = useRef(snippets)
+  const snippetsOnRef = useRef(snippetsOn)
+  useEffect(() => { snippetsRef.current = snippets; snippetsOnRef.current = snippetsOn }, [snippets, snippetsOn])
   useEffect(() => { snippetMenuRef.current = snippetMenu }, [snippetMenu])
   useEffect(() => { selectedIndexRef.current = selectedIndex }, [selectedIndex])
   useEffect(() => { clientNameRef.current = clientName }, [clientName])
   useEffect(() => { rowIdRef.current = rowId }, [rowId])
   useEffect(() => { globalScopeRef.current = globalScope }, [globalScope])
 
-  // Reset selection when menu contents change
-  useEffect(() => { setSelectedIndex(-1) }, [snippetMenu?.items.length])
+  // Back to the first match when the matches change
+  useEffect(() => { setSelectedIndex(0) }, [snippetMenu?.items.length])
 
   useEffect(() => {
     if (externalSnippets) return // Skip fetch when parent provides snippets
@@ -118,29 +124,14 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       const { from } = state.selection
       const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\0')
       const match = detectTrigger(textBefore)
-      if (match) {
-        const matched = matchSnippets(snippets, match.query)
-        if (matched.length > 0) {
-          setSnippetMenu({ items: matched, query: match.query })
-          // Position menu near cursor using tiptap's coord resolution
-          try {
-            const coords = editor.view.coordsAtPos(from)
-            const editorEl = editor.view.dom.closest('[data-scratchpad-wrap]') ?? editor.view.dom.parentElement
-            const rect = editorEl?.getBoundingClientRect()
-            if (rect) {
-              const top = Math.min(coords.bottom - rect.top + 4, rect.height - 200)
-              const left = Math.max(0, Math.min(Math.max(coords.left - rect.left, 0), rect.width - 220))
-              // No wider than the room to the pad's right edge, so it isn't cut off in a narrow column (C-29)
-              setSnippetMenuPos({ top, left, maxWidth: Math.max(160, rect.width - left - 8) })
-            }
-          } catch { /* non-fatal — fall back to default position */ }
-        } else {
-          setSnippetMenu(null)
-          setSnippetMenuPos(null)
-        }
-      } else {
-        setSnippetMenu(null)
-        setSnippetMenuPos(null)
+      const menu = match && snippetsOnRef.current ? menuFor(snippetsRef.current, match.query, snippetMenuRef.current) : null
+      setSnippetMenu(menu)
+      if (menu) {
+        // Under the caret, in window coordinates (the menu is on the popover layer)
+        try {
+          const coords = editor.view.coordsAtPos(from)
+          setSnippetCaret({ top: coords.top, bottom: coords.bottom, left: coords.left })
+        } catch { setSnippetCaret(null) /* no layout: the menu picks a place itself */ }
       }
 
       if (loadFailedRef.current || !loadedRef.current) return
@@ -226,14 +217,13 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // The "/" menu is a listbox the editor points at, so a screen reader hears the
   // highlighted snippet (audit A06-32). ProseMirror leaves attributes it didn't set alone.
   const menuId = useId()
-  const optionId = (i: number) => `${menuId}-opt-${i}`
   const menuOpen = !!snippetMenu && snippetMenu.items.length > 0
   useEffect(() => {
     const dom = editor?.view?.dom
     if (!dom || typeof dom.setAttribute !== 'function') return
     if (menuOpen) dom.setAttribute('aria-controls', menuId)
     else dom.removeAttribute('aria-controls')
-    if (menuOpen && selectedIndex >= 0) dom.setAttribute('aria-activedescendant', `${menuId}-opt-${selectedIndex}`)
+    if (menuOpen) dom.setAttribute('aria-activedescendant', `${menuId}-opt-${selectedIndex}`)
     else dom.removeAttribute('aria-activedescendant')
   }, [editor, menuOpen, selectedIndex, menuId])
 
@@ -262,36 +252,14 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     // Insert as plain text to prevent XSS via snippet content containing HTML
     editor.chain().focus().deleteRange({ from: from - match.trigger.length, to: from }).insertContent({ type: 'text', text: expanded }).run()
     setSnippetMenu(null)
-    setSelectedIndex(-1)
+    setSelectedIndex(0)
   }
 
   // Intercept keyboard events BEFORE tiptap processes them (capture phase)
   function handleKeyDownCapture(e: React.KeyboardEvent) {
-    const menu = snippetMenuRef.current
-    if (!menu || menu.items.length === 0) return
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedIndex(i => Math.min(i + 1, menu.items.length - 1))
-      return
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIndex(i => Math.max(i - 1, 0))
-      return
-    }
-    // Enter picks a snippet only once one was chosen with the arrow keys; otherwise it's a new line
-    if (e.key === 'Tab' || (e.key === 'Enter' && selectedIndexRef.current >= 0)) {
-      e.preventDefault()
-      const idx = selectedIndexRef.current >= 0 ? selectedIndexRef.current : 0
-      applySnippet(menu.items[idx]!)
-      return
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      setSnippetMenu(null)
-      setSelectedIndex(-1)
-    }
+    handleSnippetMenuKey(e, snippetMenuRef.current, selectedIndexRef.current, {
+      select: setSelectedIndex, pick: applySnippet, close: () => setSnippetMenu(null),
+    })
   }
 
   function toolbarBtn(pressed: boolean, onClick: () => void, icon: React.ReactNode, title: string) {
@@ -356,40 +324,12 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
           </p>
         )}
 
-        <span role="status" className="sr-only">
-          {menuOpen ? `${snippetMenu.items.length} ${snippetMenu.items.length === 1 ? 'snippet matches' : 'snippets match'}. Tab inserts the first, or the one you choose with the up and down arrows.` : ''}
-        </span>
+        <span role="status" className="sr-only">{snippetStatusText(snippetMenu)}</span>
 
-        {snippetMenu && snippetMenu.items.length > 0 && (
-          <div
-            className="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 max-w-72"
-            style={snippetMenuPos
-              ? { top: snippetMenuPos.top, left: snippetMenuPos.left, maxWidth: Math.min(288, snippetMenuPos.maxWidth) }
-              : { left: 4, right: 4, top: '100%', marginTop: 4 }}
-          >
-            <div id={menuId} role="listbox" aria-label="Snippets">
-            {snippetMenu.items.map((s, i) => (
-              <div
-                key={s.id}
-                id={optionId(i)}
-                role="option"
-                aria-selected={i === selectedIndex}
-                onMouseDown={e => { e.preventDefault(); applySnippet(s) }}
-                className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left cursor-pointer
-                  ${i === selectedIndex
-                    ? 'bg-blue-100 dark:bg-blue-900/40'
-                    : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
-              >
-                <span className="text-sm font-mono text-blue-700 dark:text-blue-300 flex-shrink-0">/{s.trigger_text}</span>
-                <span className="text-sm text-slate-500 dark:text-slate-400 truncate">{s.expansion.slice(0, 40)}</span>
-              </div>
-            ))}
-            </div>
-            <div aria-hidden="true" className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-              <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · Up or Down, then Enter, picks another · Esc closes</span>
-            </div>
-          </div>
+        {/* On the popover layer under the caret, so the pad's scroll box can't clip it */}
+        {snippetMenu && (
+          <SnippetMenu id={menuId} menu={snippetMenu} selected={selectedIndex} caret={snippetCaret}
+            onPick={applySnippet} onClose={() => setSnippetMenu(null)} />
         )}
       </div>
     </section>

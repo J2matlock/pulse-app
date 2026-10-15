@@ -30,17 +30,17 @@ beforeEach(() => {
 })
 
 describe('snippet menu', () => {
-  it('stays shut for "f/u" and only inserts on Enter after an arrow key', async () => {
+  it('stays shut for "f/u"; Shift+Enter is a new line, and Enter inserts the highlighted snippet (R2)', async () => {
     render(<CaseLog rowId={10} snippets={[snippet as never]} />)
     const box = screen.getByPlaceholderText(/Add a note entry/) as HTMLTextAreaElement
     fireEvent.change(box, { target: { value: 'Will f/u', selectionStart: 8 } })
     expect(screen.queryByText('/u')).toBeNull()
     fireEvent.change(box, { target: { value: 'Call /u', selectionStart: 7 } })
     expect(screen.getByText('/u')).toBeTruthy()
-    // Enter without choosing is a new line, not the snippet
-    fireEvent.keyDown(box, { key: 'Enter' })
+    // Shift+Enter is left to the browser (a new line), not the snippet
+    fireEvent.keyDown(box, { key: 'Enter', shiftKey: true })
     expect(box.value).toBe('Call /u')
-    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    // Enter takes the first match, highlighted as the menu opened
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('Call Unable to reach by phone.')
   })

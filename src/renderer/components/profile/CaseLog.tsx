@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast'
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { MessageSquare, Search, Plus, X, ArrowUpDown, Pencil } from 'lucide-react'
+import { MessageSquare, Search, Plus, X, ArrowUpDown, Pencil, Check } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CaseLogEntry as CaseLogEntryType, CreatedCaseLogEntry, Snippet } from '../../../shared/types'
 import { guessArticle } from '../../../shared/vocab'
@@ -14,7 +14,8 @@ import { builtinFormatsFor, composeNote, parseCustomFormats, type NoteFormat } f
 import { NoteFormatsDialog } from './NoteFormatsDialog'
 import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
-import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { expandVariables, detectTrigger } from '../../utils/snippetExpander'
+import { SnippetMenu, caretRectInTextarea, handleSnippetMenuKey, menuFor, snippetStatusText, type CaretRect, type SnippetMenuState } from './SnippetMenu'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -27,7 +28,7 @@ import { FeatureOffer } from '../shared/FeatureOffer'
 import { MenuButton } from '../ui/RowMenu'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
-import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
+import { discardNoteDraft, getNoteDraft, loadNoteDraft, setNoteDraft, type NoteDraft } from '../../utils/noteDrafts'
 import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
 import { localDateString, parseDbTimestamp, ymdLocalDate } from '../../../shared/dates'
 import { friendlyError } from '../../utils/friendlyError'
@@ -36,6 +37,10 @@ import type { NoteSuggestion } from '../../utils/suggestedNote'
 import type { IPCResult } from '../../../shared/types'
 import type { CaseLogCounts } from '../../../shared/ipc-contract'
 import { EmptyState } from '../shared/EmptyState'
+import { ROW_FLASH_MS } from '../../utils/reducedMotion'
+
+/** How long "Case note saved" stays beside Add */
+const SAVED_MESSAGE_MS = 5000
 
 /** What the notes filter hides, from a CASE_LOG_COUNTS answer (none when it failed) */
 function hiddenFrom(res: IPCResult<CaseLogCounts | null>): { changes: number; voided: number } {
@@ -165,6 +170,21 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [newDay, setNewDay] = useState(draft0?.day ?? '')
   const [showFollowUp, setShowFollowUp] = useState(!!draft0?.followUp)
   const [adding, setAdding] = useState(false)
+  // After a save: "Case note saved", and the new entry lit up for a moment
+  const [savedMessage, setSavedMessage] = useState('')
+  const [flashId, setFlashId] = useState<number | null>(null)
+  const kindChipsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (flashId === null) return
+    document.querySelector(`[data-note-id="${flashId}"]`)?.scrollIntoView?.({ block: 'nearest' })
+    const id = setTimeout(() => setFlashId(null), ROW_FLASH_MS)
+    return () => clearTimeout(id)
+  }, [flashId])
+  useEffect(() => {
+    if (!savedMessage) return
+    const id = setTimeout(() => setSavedMessage(''), SAVED_MESSAGE_MS)
+    return () => clearTimeout(id)
+  }, [savedMessage])
   const tracking = useNoteTracking()
   const [newMinutes, setNewMinutes] = useState(draft0?.minutes ?? '')
   const [newMiles, setNewMiles] = useState(draft0?.miles ?? '')
@@ -205,6 +225,27 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   useEffect(() => {
     setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay, format: formatId })
   }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay, formatId])
+  // Not in memory (after a lock, a quit or a crash): the stored draft comes back when it
+  // arrives, unless typing has started (loadNoteDraft answers nothing then)
+  useEffect(() => {
+    if (draft0) return
+    let live = true
+    const restore = (d: NoteDraft) => {
+      setNewContent(d.content)
+      setFieldValues(d.fieldValues)
+      setNewFollowUp(d.followUp)
+      setShowFollowUp(!!d.followUp)
+      setNewMinutes(d.minutes)
+      setNewMiles(d.miles)
+      setNewExtra(d.extra)
+      setNewDay(d.day ?? '')
+      setFormatId(d.format ?? '')
+      if (d.day || d.format) setMoreOpen(true)
+      setComposerOpen(true)
+    }
+    void loadNoteDraft(rowId).then(d => { if (live && d) restore(d) })
+    return () => { live = false }
+  }, [rowId, draft0])
   const [editingFormats, setEditingFormats] = useState(false)
   const builtinFormats = builtinFormatsFor(t('record'))
   const allFormats = [...builtinFormats, ...customFormats]
@@ -213,8 +254,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
   // With snippets switched off the "/" menu finds nothing to offer
   const snippets = snippetsOn ? (externalSnippets ?? internalSnippets) : NO_SNIPPETS
-  const [snippetMenu, setSnippetMenu] = useState<{ items: Snippet[]; query: string } | null>(null)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [snippetMenu, setSnippetMenu] = useState<SnippetMenuState | null>(null)
+  const [snippetCaret, setSnippetCaret] = useState<CaretRect | null>(null)
+  // The first match is highlighted as the menu opens, so Enter inserts it (R2)
+  const [selectedIndex, setSelectedIndex] = useState(0)
   // The "/" menu is a listbox the text box points at (audit A06-32)
   const snippetMenuId = useId()
   const contentRef = useRef<HTMLTextAreaElement>(null)
@@ -222,8 +265,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const selectedIndexRef = useRef(selectedIndex)
   useEffect(() => { snippetMenuRef.current = snippetMenu }, [snippetMenu])
   useEffect(() => { selectedIndexRef.current = selectedIndex }, [selectedIndex])
-  // Reset selection when menu contents change
-  useEffect(() => { setSelectedIndex(-1) }, [snippetMenu?.items.length])
+  // Back to the first match when the matches change
+  useEffect(() => { setSelectedIndex(0) }, [snippetMenu?.items.length])
 
   useEffect(() => {
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_formats')
@@ -316,42 +359,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     const cursor = e.target.selectionStart
     const before = value.slice(0, cursor)
     const match = detectTrigger(before)
-    if (match) {
-      const matched = matchSnippets(snippets, match.query)
-      setSnippetMenu(matched.length > 0 ? { items: matched, query: match.query } : null)
-    } else {
-      setSnippetMenu(null)
-    }
+    const menu = match ? menuFor(snippetsOn ? snippets : NO_SNIPPETS, match.query, snippetMenuRef.current) : null
+    // With snippets switched off, "/" is just a slash
+    setSnippetMenu(snippetsOn ? menu : null)
+    if (menu) setSnippetCaret(caretRectInTextarea(e.target, cursor))
   }
 
   function handleTextareaKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const menu = snippetMenuRef.current
-    if (menu && menu.items.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSelectedIndex(i => Math.min(i + 1, menu.items.length - 1))
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSelectedIndex(i => Math.max(i - 1, 0))
-        return
-      }
-      // Enter picks a snippet only once one was chosen with the arrow keys; otherwise it's a new line
-      if (e.key === 'Tab' || (e.key === 'Enter' && !isMod(e) && selectedIndexRef.current >= 0)) {
-        e.preventDefault()
-        const idx = selectedIndexRef.current >= 0 ? selectedIndexRef.current : 0
-        applySnippet(menu.items[idx]!)
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setSnippetMenu(null)
-        setSelectedIndex(-1)
-        return
-      }
-    }
-    if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); handleAdd() }
+    if (handleSnippetMenuKey(e, snippetMenuRef.current, selectedIndexRef.current, {
+      select: setSelectedIndex, pick: applySnippet, close: () => setSnippetMenu(null),
+    })) return
   }
 
   function applySnippet(snippet: Snippet) {
@@ -375,8 +392,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     })
   }
 
-  async function handleAdd() {
-    if (!composedContent) return
+  async function handleAdd({ byKeyboard = false }: { byKeyboard?: boolean } = {}) {
+    if (!composedContent || adding) return
     setAdding(true)
     const res = await safeInvoke<CreatedCaseLogEntry>(
       IPC.CASE_LOG_CREATE,
@@ -392,10 +409,17 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       newDay && newDay !== localDateString() ? newDay : null
     )
     if (res.ok) {
+      discardNoteDraft(rowId)
       // Time, miles or an appointment written into the text, while that feature is off: offer it
       setOffer(suggestFeature({ trigger: 'noteText', text: composedContent }, k => !featureNow(k)))
       const { updated_dates: updatedDates = [], ...created } = res.data
       setEntries(prev => [created, ...prev].sort(byHappened))
+      // Unmistakable (R2, Candy #23): said, lit up in the list, and the place kept for the next one
+      const savedWord = `${t('activity', { cap: true })} saved`
+      setSavedMessage(savedWord)
+      setFlashId(created.id)
+      if (byKeyboard) toast.success(clientName ? `${savedWord} for ${clientName}` : savedWord, { id: 'note-saved', duration: 3000 })
+      requestAnimationFrame(() => kindChipsRef.current?.querySelector<HTMLElement>('button')?.focus())
       if (updatedDates.length > 0) {
         applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
         toast.success(`Also updated ${datesText(updatedDates)}`, { id: 'note-dates' })
@@ -621,8 +645,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           <Plus className="inline w-4 h-4 mr-2" aria-hidden="true" />Add {t('activity', { article: true })}…
         </button>
       )}
-      {/* Quick-add form */}
-      <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer">
+      {/* Quick-add form. Ctrl+Enter saves from any box in it (Minutes, Miles, When…), as the hint says */}
+      <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer"
+        onKeyDownCapture={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); e.stopPropagation(); void handleAdd({ byKeyboard: true }) } }}>
         {/* Why the box is open with this kind; gone once the deadline is met or another kind is picked */}
         {suggestionShown && suggestion && (suggestion.typeKey === null || chosenType === suggestion.typeKey) && (
           <p className="text-base text-slate-600 dark:text-slate-300" data-testid="note-suggestion">
@@ -630,7 +655,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           </p>
         )}
         {/* Type selector: the first few as chips, the rest under "More…" */}
-        <div className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
+        <div ref={kindChipsRef} className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
           {visibleTypes.map(type => (
             <button
               key={type.key}
@@ -663,7 +688,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                 <textarea id={`note-field-${rowId}-${i}`} rows={2}
                   value={fieldValues[i] ?? ''}
                   onChange={e => { const v = e.target.value; setFieldValues(prev => { const next = [...prev]; next[i] = v; return next }) }}
-                  onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleAdd() } }}
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2 resize-y focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                   style={{ fontSize: 15 }} />
               </div>
@@ -681,7 +705,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             onChange={handleContentInput}
             onKeyDown={handleTextareaKeyDown}
             aria-controls={snippetMenu && snippetMenu.items.length > 0 ? snippetMenuId : undefined}
-            aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 && selectedIndex >= 0 ? `${snippetMenuId}-opt-${selectedIndex}` : undefined}
+            aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 ? `${snippetMenuId}-opt-${Math.min(selectedIndex, snippetMenu.items.length - 1)}` : undefined}
             placeholder={`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry…`}
             rows={3}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
@@ -690,43 +714,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             style={{ fontSize: 15 }}
           />
 
-          <span role="status" className="sr-only">
-            {snippetMenu && snippetMenu.items.length > 0
-              ? `${snippetMenu.items.length} ${snippetMenu.items.length === 1 ? 'snippet matches' : 'snippets match'}. Tab inserts the first, or the one you choose with the up and down arrows.`
-              : ''}
-          </span>
+          <span role="status" className="sr-only">{snippetStatusText(snippetMenu)}</span>
 
-          {/* Snippet autocomplete */}
-          {snippetMenu && snippetMenu.items.length > 0 && (
-            <div className="absolute left-0 bottom-full mb-1 z-50 bg-white dark:bg-slate-800
-                            border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 min-w-48 max-w-xs">
-              <div id={snippetMenuId} role="listbox" aria-label="Snippets">
-              {snippetMenu.items.map((s, i) => (
-                <div
-                  key={s.id}
-                  id={`${snippetMenuId}-opt-${i}`}
-                  role="option"
-                  aria-selected={i === selectedIndex}
-                  onMouseDown={e => { e.preventDefault(); applySnippet(s) }}
-                  className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left cursor-pointer
-                             ${i === selectedIndex
-                               ? 'bg-blue-100 dark:bg-blue-900/40'
-                               : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                             }`}
-                >
-                  <span className="text-sm font-mono text-blue-700 dark:text-blue-300 flex-shrink-0">
-                    /{s.trigger_text}
-                  </span>
-                  <span className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                    {s.expansion.slice(0, 40)}
-                  </span>
-                </div>
-              ))}
-              </div>
-              <div aria-hidden="true" className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-                <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · Up or Down, then Enter, picks another · Esc closes</span>
-              </div>
-            </div>
+          {/* Snippet autocomplete: on the popover layer under the caret, so the card can't clip it */}
+          {snippetMenu && (
+            <SnippetMenu id={snippetMenuId} menu={snippetMenu} selected={selectedIndex} caret={snippetCaret}
+              onPick={applySnippet} onClose={() => setSnippetMenu(null)} />
           )}
         </div>
         {/* Static help, not in the placeholder, so it's still there once typing starts (C-12) */}
@@ -806,9 +799,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
             {moreOpen ? 'Fewer options' : `More options (when${allFormats.length > 0 ? ', format' : ''})`}
           </button>
-          <div className="flex-1" />
+          <p role="status" className="flex-1 text-right text-base font-medium text-green-700 dark:text-green-400" data-testid="note-saved-status">
+            {savedMessage && <><Check className="inline w-4 h-4 mr-1" aria-hidden="true" />{savedMessage}</>}
+          </p>
           <button
-            onClick={handleAdd}
+            type="button"
+            onClick={() => void handleAdd()}
             disabled={!composedContent || adding}
             title={`Add ${t('activity', { article: true })}`}
             className="hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-base
@@ -937,7 +933,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {pinned.map(entry => (
-                <div key={entry.id} className="p-3">
+                <div key={entry.id} data-note-id={entry.id} className={`p-3${flashId === entry.id ? ' motion-flash' : ''}`}>
                   <CaseLogEntry
                     entry={entry}
                     onPin={handlePin}
@@ -960,7 +956,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         {/* Main entries */}
         <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
           {sortedUnpinned.map(entry => (
-            <div key={entry.id} className="p-3">
+            <div key={entry.id} data-note-id={entry.id} className={`p-3${flashId === entry.id ? ' motion-flash' : ''}`}>
               <CaseLogEntry
                 entry={entry}
                 onPin={handlePin}

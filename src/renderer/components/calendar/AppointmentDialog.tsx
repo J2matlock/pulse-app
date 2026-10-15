@@ -2,12 +2,13 @@
  * New or edit appointment (W07 §6): who it's with, when, where, what kind
  * of note it becomes when done, and (for new ones) how it repeats.
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { CalendarClock, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
 import { apptInputSchema, addMinutes, minutesBetween, seriesRuleSchema, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { ymdLocalDate } from '../../../shared/dates'
 import { createAppointment, deleteAppointment, updateAppointment } from '../../utils/appointmentActions'
 import { Dialog } from '../ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
@@ -16,6 +17,8 @@ import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useFeature } from '../../hooks/useFeature'
 import { ScopeDialog } from './ScopeDialog'
 import { RecordSearchField } from './RecordSearchField'
+import { useClosedByLock, useLockSafeDraft, type DraftUpdate } from '../../hooks/useLockSafeDraft'
+import { setOpenAfterUnlock } from '../../utils/formDrafts'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -35,6 +38,25 @@ function ruleKey(r: SeriesRule | null): string {
   return JSON.stringify([r.freq, r.interval, r.freq === 'weekly' ? [...(r.byDay ?? [])].sort() : [], r.until ?? null, r.count ?? null, r.untilColumnId ?? null])
 }
 
+interface ApptFields {
+  title: string
+  who: { rowId: number; gridId: number; name: string } | null
+  date: string
+  allDay: boolean
+  time: string
+  duration: string
+  location: string
+  kind: string
+  notes: string
+  repeat: Repeat
+  every: string
+  byDay: number[]
+  ends: Ends
+  until: string
+  count: string
+  untilCol: number | null
+}
+
 export interface AppointmentDialogProps {
   /** Editing this one; otherwise a new appointment */
   appointment?: Appointment
@@ -47,35 +69,66 @@ export interface AppointmentDialogProps {
    * Calendar's Events layer). Editing one with no record is an event too.
    */
   event?: boolean
+  /** Opened again after a lock closed it: says the details were kept */
+  restored?: boolean
   onClose: () => void
 }
 
-export function AppointmentDialog({ appointment, start, record, event = false, onClose }: AppointmentDialogProps): React.ReactElement {
+export function AppointmentDialog({ appointment, start, record, event = false, restored = false, onClose }: AppointmentDialogProps): React.ReactElement {
   const { t } = useVocab(null)
   const { active: noteTypes } = useActivityTypes()
   const a = appointment
   const apptsOn = useFeature('appointments')
   const isEvent = a ? a.row_id === null : event
   const startAt = a?.start_at ?? start ?? ''
-  const [title, setTitle] = useState(a?.title ?? '')
-  const [who, setWho] = useState<{ rowId: number; gridId: number; name: string } | null>(
-    a?.row_id ? { rowId: a.row_id, gridId: a.grid_id ?? 0, name: a.record_name ?? '' } : record ?? null)
-  const [date, setDate] = useState(startAt.slice(0, 10))
-  const [allDay, setAllDay] = useState(a ? !!a.all_day : false)
-  const [time, setTime] = useState(startAt.length > 10 ? startAt.slice(11, 16) : '09:00')
-  const [duration, setDuration] = useState(a?.end_at && a.start_at.length > 10 ? String(minutesBetween(a.start_at, a.end_at)) : '60')
-  const [location, setLocation] = useState(a?.location ?? '')
-  const [kind, setKind] = useState(a?.activity_type_key ?? '')
-  const [notes, setNotes] = useState(a?.notes ?? '')
-  // Editing a repeating one shows its pattern, which can be changed from this one on (audit S-18)
+  // Every field in one draft, so a lock doesn't throw the form away (R2): it opens again on unlock
   const initialRule = ruleOf(a)
-  const [repeat, setRepeat] = useState<Repeat>(initialRule?.freq ?? 'none')
-  const [every, setEvery] = useState(String(initialRule?.interval ?? 1))
-  const [byDay, setByDay] = useState<number[]>(initialRule?.byDay ?? [])
-  const [ends, setEnds] = useState<Ends>(initialRule?.count ? 'count' : initialRule?.until ? 'date' : initialRule?.untilColumnId ? 'column' : 'never')
-  const [until, setUntil] = useState(initialRule?.until ?? '')
-  const [count, setCount] = useState(String(initialRule?.count ?? 10))
-  const [untilCol, setUntilCol] = useState<number | null>(initialRule?.untilColumnId ?? null)
+  const draftKey = a ? `appointment:edit:${a.id}` : `appointment:new:${record?.rowId ?? 'none'}:${startAt}${event ? ':event' : ''}`
+  const [fields, setFields] = useLockSafeDraft<ApptFields>(draftKey, () => ({
+    title: a?.title ?? '',
+    who: a?.row_id ? { rowId: a.row_id, gridId: a.grid_id ?? 0, name: a.record_name ?? '' } : record ?? null,
+    date: startAt.slice(0, 10),
+    allDay: a ? !!a.all_day : false,
+    time: startAt.length > 10 ? startAt.slice(11, 16) : '09:00',
+    duration: a?.end_at && a.start_at.length > 10 ? String(minutesBetween(a.start_at, a.end_at)) : '60',
+    location: a?.location ?? '',
+    kind: a?.activity_type_key ?? '',
+    notes: a?.notes ?? '',
+    // Editing a repeating one shows its pattern, which can be changed from this one on (audit S-18)
+    repeat: initialRule?.freq ?? 'none',
+    every: String(initialRule?.interval ?? 1),
+    byDay: initialRule?.byDay ?? [],
+    ends: initialRule?.count ? 'count' : initialRule?.until ? 'date' : initialRule?.untilColumnId ? 'column' : 'never',
+    until: initialRule?.until ?? '',
+    count: String(initialRule?.count ?? 10),
+    untilCol: initialRule?.untilColumnId ?? null,
+  }))
+  const { title, who, date, allDay, time, duration, location, kind, notes, repeat, every, byDay, ends, until, count, untilCol } = fields
+  const setter = <K extends keyof ApptFields>(k: K) => (v: DraftUpdate<ApptFields[K]>) =>
+    setFields(f => ({ ...f, [k]: v instanceof Function ? v(f[k]) : v }))
+  const setTitle = setter('title')
+  const setWho = setter('who')
+  const setDate = setter('date')
+  const setAllDay = setter('allDay')
+  const setTime = setter('time')
+  const setDuration = setter('duration')
+  const setLocation = setter('location')
+  const setKind = setter('kind')
+  const setNotes = setter('notes')
+  const setRepeat = setter('repeat')
+  const setEvery = setter('every')
+  const setByDay = setter('byDay')
+  const setEnds = setter('ends')
+  const setUntil = setter('until')
+  const setCount = setter('count')
+  const setUntilCol = setter('untilCol')
+  // Closed by the lock: its host opens it again, as it was, on unlock
+  const reopenRef = useRef({ appointment, start, record, event })
+  reopenRef.current = { appointment, start, record, event }
+  const closedByLock = useClosedByLock()
+  useEffect(() => () => {
+    if (closedByLock()) setOpenAfterUnlock({ key: draftKey, props: reopenRef.current })
+  }, [draftKey, closedByLock])
   const [dateColumns, setDateColumns] = useState<Column[]>([])
   const [error, setError] = useState<string | null>(null)
   // The date/time boxes point at the error when it's about them (audit A06-14)
@@ -92,6 +145,16 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
     if (!who?.gridId) { setDateColumns([]); return }
     void safeInvoke<{ columns: Column[] } | null>(IPC.GRID_GET, who.gridId, false).then(r => setDateColumns(r.ok && r.data ? (r.data.columns ?? []).filter(c => c.column_type === 'date') : []))
   }, [who?.gridId])
+
+  // Weekly with no day picked: the date's weekday shows as on, and follows the date
+  const impliedDay = repeat === 'weekly' && byDay.length === 0 && /^\d{4}-\d{2}-\d{2}$/.test(date) ? ymdLocalDate(date).getDay() : null
+  const dayOn = (i: number) => byDay.includes(i) || impliedDay === i
+  function toggleDay(i: number) {
+    setByDay(b => {
+      const on = b.length ? b : impliedDay !== null ? [impliedDay] : []
+      return on.includes(i) ? on.filter(x => x !== i) : [...on, i]
+    })
+  }
 
   const whenErrorProps = whenError && error ? { 'aria-invalid': true, 'aria-describedby': 'appt-dialog-error' } as const : {}
 
@@ -111,7 +174,10 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
   function rule(): SeriesRule | null {
     if (repeat === 'none') return null
     const r: SeriesRule = { freq: repeat, interval: Math.max(1, Math.min(12, parseInt(every, 10) || 1)) }
-    if (repeat === 'weekly' && byDay.length) r.byDay = [...byDay].sort()
+    // Weekly with no day picked repeats on the date's own weekday; a new one saves that day as
+    // picked (R2, Candy #24). An existing pattern isn't rewritten just by saving it.
+    const days = byDay.length ? [...byDay].sort() : !a && impliedDay !== null ? [impliedDay] : []
+    if (repeat === 'weekly' && days.length) r.byDay = days
     if (ends === 'date' && until) r.until = until
     if (ends === 'count') r.count = Math.max(1, Math.min(500, parseInt(count, 10) || 1))
     if (ends === 'column' && untilCol) r.untilColumnId = untilCol
@@ -145,6 +211,7 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
   return (
     <>
     <Dialog open onClose={onClose} size="lg" title={a ? `Edit ${noun}` : `New ${noun}`}
+      description={restored ? `We kept the ${noun} you were ${a ? 'changing' : 'adding'}.` : undefined}
       icon={<CalendarClock className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
       footer={<>
         {/* Events open straight into this dialog, so it's where they're deleted */}
@@ -227,8 +294,8 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
             {repeat === 'weekly' && (
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="On">
                 {DAYS.map((d, i) => (
-                  <button key={d} type="button" aria-pressed={byDay.includes(i)} onClick={() => setByDay(b => b.includes(i) ? b.filter(x => x !== i) : [...b, i])}
-                    className={`hit-44 w-14 py-1.5 rounded-lg border text-base ${byDay.includes(i) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200'}`}>
+                  <button key={d} type="button" aria-pressed={dayOn(i)} onClick={() => toggleDay(i)}
+                    className={`hit-44 w-14 py-1.5 rounded-lg border text-base ${dayOn(i) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200'}`}>
                     {d}
                   </button>
                 ))}

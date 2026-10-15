@@ -138,6 +138,7 @@ const PLAIN = new Set<string>([
   'Some of those dates could not be read.',
   "That ${word('activity')} is too long (max 100,000 characters).",
   "That ${word('activity')} is already there.",
+  'That draft is too long to keep. Save it, or shorten it.',
   "${word('activity', { many: true, cap: true })} older than ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted. Void it instead: it's kept but hidden.",
   "That ${word('contact')} no longer exists.",
   "That backup couldn't be opened, and Pulse couldn't put your previous data back on its own. A copy of it is saved at ${safetyPath}. Close Pulse, open it again, and restore that copy from Settings → Backup.",

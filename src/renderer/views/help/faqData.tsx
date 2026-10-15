@@ -308,6 +308,13 @@ export const FAQ_ITEMS: FAQItem[] = [
     demo: <DemoCaseLog />,
   },
   {
+    id: 'profile-unsent-note',
+    question: 'What happens to {a activity} I haven\'t saved?',
+    answer: 'It\'s kept. While you type, Pulse keeps what\'s in the box for that {record} inside your encrypted Pulse data, so it\'s still there after Pulse locks, after you close the window, and even after the computer shuts down suddenly (at most the last second of typing is lost). When you unlock, Pulse says which {record:many} have one waiting, and the {record}\'s page shows Unsent {activity} next to the name. Saving the {activity} removes the kept copy. Because it\'s part of your encrypted data, it\'s also in your backups, and restoring a backup brings back the unsent {activity:many} it had.',
+    category: 'client-profiles',
+    keywords: ['draft', 'unsaved', 'lost note', 'closed window', 'crash', 'battery'],
+  },
+  {
     id: 'profile-note-kinds',
     question: 'Can I change the kinds of {activity:many}, like Visit or Phone?',
     answer: 'Yes. Go to Settings > {Activity:many} and look under "Kinds of {activity:many}." Rename a kind, give it an emoji and a color, drag to change the order, or add your own, like Session or No-show. Renaming a kind changes it on older {activity:many} too. A kind that is already used can be archived: it stops showing for new {activity:many}, and older ones keep it. Only a kind that was never used can be deleted.',
