@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Shield, Code2 } from 'lucide-react'
+import { RefreshCw, Download, Shield, Code2, Sparkles } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
@@ -8,6 +8,10 @@ import { PRODUCT_NAME, SOURCE_CODE_URL, type LicenseDoc } from '../../../shared/
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
 import { usePlatform, updateText } from '../../utils/platformText'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
+import { ToggleRow } from '../ui/Toggle'
+import { Section } from '../ui/Section'
+import { PulseMark } from '../ui/PulseMark'
 
 /** Some IT teams want no automatic connections at all; the manual button still works. */
 function AutoUpdateCheckToggle(): React.ReactElement {
@@ -27,18 +31,12 @@ function AutoUpdateCheckToggle(): React.ReactElement {
     if (!res.ok) setEnabled(!next)
   }
   return (
-    <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
-      <input
-        type="checkbox"
-        checked={enabled}
-        onChange={e => void toggle(e.target.checked)}
-        className="mt-1 w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 cursor-pointer flex-shrink-0"
-      />
-      <span>
-        <span className="block text-base text-slate-800 dark:text-slate-100">Check for updates automatically when Pulse opens</span>
-        <span className="block text-sm text-slate-600 dark:text-slate-300">Reads the latest version number from our release page. Nothing about you or your {t('record', { many: true })} is sent.</span>
-      </span>
-    </label>
+    <ToggleRow
+      label="Check for updates automatically when Pulse opens"
+      description={`Reads the latest version number from our release page. Nothing about you or your ${t('record', { many: true })} is sent.`}
+      checked={enabled}
+      onChange={next => void toggle(next)}
+    />
   )
 }
 
@@ -81,17 +79,12 @@ function CheckForUpdatesButton(): React.ReactElement {
     <div className="space-y-4">
       <AutoUpdateCheckToggle />
       <div className="flex items-start gap-3">
-        <button
-          onClick={() => void check()}
-          disabled={checking}
-          className="btn-secondary flex items-center gap-2"
-          style={{ minHeight: 44 }}
-        >
-          <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
+        <SecondaryButton onClick={() => void check()} disabled={checking}
+          icon={<RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />}>
           {checking ? 'Checking…' : 'Check for updates'}
-        </button>
+        </SecondaryButton>
         {result && !result.available && !result.unreachable && (
-          <p className="text-sm text-green-600 dark:text-green-400 self-center">You have the latest version.</p>
+          <p role="status" className="text-base text-slate-700 dark:text-slate-300 self-center">You have the latest version.</p>
         )}
         {result?.unreachable && (
           <p role="status" className="text-base text-slate-700 dark:text-slate-300 self-center">{PRODUCT_NAME} couldn&rsquo;t reach the update page. Check your internet connection and try again.</p>
@@ -102,24 +95,15 @@ function CheckForUpdatesButton(): React.ReactElement {
           <p className="text-base font-medium text-blue-700 dark:text-blue-300">
             Version {result.version} is available
           </p>
-          <button
-            onClick={openDownload}
-            className="btn-primary flex items-center gap-2"
-            style={{ minHeight: 44 }}
-          >
-            <Download className="w-4 h-4" />
+          <PrimaryButton onClick={openDownload} icon={<Download className="w-4 h-4" />}>
             Download update
-          </button>
+          </PrimaryButton>
           {skipped === result.version && (
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-base text-slate-700 dark:text-slate-300">You chose to skip this version, so the update notice doesn&rsquo;t show it.</p>
-              <button
-                onClick={() => void stopSkipping()}
-                className="btn-secondary"
-                style={{ minHeight: 44 }}
-              >
+              <SecondaryButton onClick={() => void stopSkipping()}>
                 Stop skipping this version
-              </button>
+              </SecondaryButton>
             </div>
           )}
         </div>
@@ -133,7 +117,7 @@ function CheckForUpdatesButton(): React.ReactElement {
             {howTo.steps.map(step => <li key={step}>{step}</li>)}
           </ol>
           <div className="flex items-start gap-2 pt-1">
-            <Shield className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 mt-1 flex-shrink-0" aria-hidden="true" />
             <p className="text-sm text-slate-500 dark:text-slate-400">{howTo.dataNote}</p>
           </div>
         </div>
@@ -161,58 +145,47 @@ export function AboutSection(): React.ReactElement {
     load()
   }, [])
 
+  // The mark, the name and the version, then sections told apart by space (Q8)
   return (
-    <>
+    <div>
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">About</h2>
-
-      <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-center space-y-2">
-        <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{PRODUCT_NAME}</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Offline-first {t('list')} management</p>
-        {dbInfo?.version && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">v{dbInfo.version}</p>
-        )}
-        <button type="button" className="btn-compact-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
-          What's new
-        </button>
-      </div>
-
-      <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-        <p>Your data stays on your computer. Nothing goes to the internet, nothing is reported back, and no account is needed.</p>
-        <p>Built by a care coordinator, for anyone who keeps track of people or things with deadlines.</p>
-      </div>
-
-      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
-        <p className="text-base font-semibold text-slate-700 dark:text-slate-200">Free and open source</p>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Pulse is free software: you can use it, share it and change it under the GNU General Public License, version 3. It comes with no warranty.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => void safeInvoke(IPC.APP_OPEN_EXTERNAL, SOURCE_CODE_URL)}
-            className="btn-secondary flex items-center gap-2"
-            style={{ minHeight: 44 }}
-          >
-            <Code2 className="w-4 h-4" />
-            See the source code
-          </button>
-          <button
-            onClick={() => void openLicense('license')}
-            className="btn-secondary"
-            style={{ minHeight: 44 }}
-          >
-            Read the license
-          </button>
-          <button
-            onClick={() => void openLicense('third-party')}
-            className="btn-secondary"
-            style={{ minHeight: 44 }}
-          >
-            Licenses for included software
-          </button>
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <PulseMark size={64} />
+        <div className="min-w-0 flex-1">
+          <p className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{PRODUCT_NAME}</p>
+          {dbInfo?.version && <p className="text-base text-slate-600 dark:text-slate-300">Version {dbInfo.version}</p>}
         </div>
+        <SecondaryButton icon={<Sparkles className="w-4 h-4" />} onClick={() => pulseEvents.emit('whats-new:open')}>
+          What's new
+        </SecondaryButton>
       </div>
+      <p className="mt-4 max-w-prose text-base text-slate-700 dark:text-slate-200">
+        Keeps track of your {t('record', { many: true })} and what's due for each, on this computer only.
+      </p>
 
-      <CheckForUpdatesButton />
-    </>
+      <Section title="Your data">
+        <div className="max-w-prose space-y-2 text-base text-slate-600 dark:text-slate-300">
+          <p>Your data stays on your computer. Nothing goes to the internet, nothing is reported back, and no account is needed.</p>
+          <p>Built by a care coordinator, for anyone who keeps track of people or things with deadlines.</p>
+        </div>
+      </Section>
+
+      <Section title="Free and open source"
+        description="Pulse is free software: you can use it, share it and change it under the GNU General Public License, version 3. It comes with no warranty.">
+        <div className="flex flex-wrap gap-3">
+          <SecondaryButton onClick={() => void safeInvoke(IPC.APP_OPEN_EXTERNAL, SOURCE_CODE_URL)} icon={<Code2 className="w-4 h-4" />}>
+            See the source code
+          </SecondaryButton>
+          <SecondaryButton onClick={() => void openLicense('license')}>Read the license</SecondaryButton>
+          <SecondaryButton onClick={() => void openLicense('third-party')}>Licenses for included software</SecondaryButton>
+        </div>
+      </Section>
+
+      <Section title="Updates">
+        <CheckForUpdatesButton />
+      </Section>
+
+      <p className="mt-8 text-base text-slate-600 dark:text-slate-300">© 2026 BaringaSoft · GPL-3.0</p>
+    </div>
   )
 }
