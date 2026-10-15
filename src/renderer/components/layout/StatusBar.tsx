@@ -5,6 +5,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useFeature } from '../../hooks/useFeature'
 import { BackupWarningButton, useBackupWarning } from './BackupStatusChip'
+import { SampleDataChip, useSamplePlacement } from '../shared/SampleDataBanner'
 
 /** How long "Saved" stays after a real save */
 export const SAVED_SHOWN_MS = 3000
@@ -51,6 +52,8 @@ export function StatusBar(): React.ReactElement {
   }, [acuityEnabled, acuityLevels, rows])
 
   const backupWarning = useBackupWarning()
+  // Sample data gets the full banner only where the samples are; elsewhere this chip (UX-D-38)
+  const { placement: samplePlacement } = useSamplePlacement()
 
   const saveStatus = isSaving
     ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Saving…</span></>
@@ -63,6 +66,7 @@ export function StatusBar(): React.ReactElement {
   if (onList && acuityEnabled && acuityTotal > 0) items.push({ key: 'points', node: <span className="text-sm">{acuityTotal} pts</span> })
   // List name, only where the screen is that list
   if ((onList || onRecord) && activeGrid) items.push({ key: 'list', node: <span className="text-sm truncate">{activeGrid.name}</span> })
+  if (samplePlacement === 'chip') items.push({ key: 'sample', node: <SampleDataChip /> })
   if (backupWarning) items.push({ key: 'backup', node: <BackupWarningButton warning={backupWarning} /> })
   const shown = !!saveStatus || items.length > 0
 

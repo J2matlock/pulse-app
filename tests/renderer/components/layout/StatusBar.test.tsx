@@ -19,6 +19,12 @@ vi.mock('../../../../src/renderer/stores/gridStore', () => ({
   useGridStore: (selector: Function) => selector(mockStoreState),
 }))
 
+let mockPlacement: 'banner' | 'chip' | null = null
+vi.mock('../../../../src/renderer/components/shared/SampleDataBanner', () => ({
+  useSamplePlacement: () => ({ status: null, placement: mockPlacement, onDashboard: false }),
+  SampleDataChip: () => <span>Sample data</span>,
+}))
+
 import { StatusBar, SAVED_SHOWN_MS } from '../../../../src/renderer/components/layout/StatusBar'
 import { setWords } from '../../vocabFixture'
 
@@ -28,6 +34,7 @@ describe('StatusBar', () => {
   beforeEach(() => {
     setWords()
     vi.clearAllMocks()
+    mockPlacement = null
     mockStoreState = {
       rows: [{ row_id: 1 }, { row_id: 2 }, { row_id: 3 }],
       grids: [{ id: 1, name: 'My Caseload' }],
@@ -89,4 +96,13 @@ describe('StatusBar', () => {
     expect(screen.queryByText(/clients/)).toBeNull()
   })
 
+  it('carries a small "Sample data" chip on pages without the sample banner (UX-D-38)', () => {
+    const view = render(at('/calendar'))
+    expect(screen.queryByText('Sample data')).toBeNull()
+    view.unmount()
+    mockPlacement = 'chip'
+    const { container } = render(at('/calendar'))
+    expect(screen.getByText('Sample data')).toBeDefined()
+    expect((container.querySelector('footer') as HTMLElement).style.height).toBe('36px')
+  })
 })

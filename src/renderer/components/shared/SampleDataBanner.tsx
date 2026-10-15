@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Sparkles } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -146,11 +147,30 @@ export function RemoveSampleDataDialog({ open, onClose }: { open: boolean; onClo
   )
 }
 
-/** Shown while sample data exists (the sample list, or sample entries an example added), so nobody mistakes it for real data. */
-export function SampleDataBanner(): React.ReactElement | null {
-  const { t } = useVocab(null)
-  const [status, setStatus] = useState<{ gridId: number | null; sampleRows: number } | null>(null)
-  const [confirming, setConfirming] = useState(false)
+export interface SampleDataStatus { gridId: number | null; sampleRows: number }
+
+/** Where the sample-data reminder goes on this page: the full banner, a small chip in the status bar, or nowhere. */
+export type SamplePlacement = 'banner' | 'chip' | null
+
+/**
+ * The banner goes where the samples are: the dashboard (which shows every list) and the page of a
+ * list that holds sample entries. Anywhere else, including a new list of the user's own, a chip in
+ * the status bar is enough; a full bar on Settings or on an empty "Volunteers" list read as noise
+ * and, with the wrong word, as wrong (UX-D-38, UX-B-32).
+ */
+export function samplePlacement(
+  pathname: string, status: SampleDataStatus | null, activeGridId: number | null, activeListSamples: number,
+): SamplePlacement {
+  if (!status || (status.gridId === null && status.sampleRows === 0)) return null
+  if (pathname === '/dashboard') return 'banner'
+  const onList = pathname === '/' || pathname === '/grid' || pathname.startsWith('/grid/')
+  if (onList && activeGridId !== null && (activeGridId === status.gridId || activeListSamples > 0)) return 'banner'
+  return 'chip'
+}
+
+/** Whether any sample data exists, checked again whenever lists, shown entries or the samples change. */
+export function useSampleDataStatus(): SampleDataStatus | null {
+  const [status, setStatus] = useState<SampleDataStatus | null>(null)
   // A list or entries going to the Trash (or coming back) can take the samples with them
   const grids = useGridStore(s => s.grids)
   const shownRows = useGridStore(s => s.rows.length)
@@ -162,9 +182,40 @@ export function SampleDataBanner(): React.ReactElement | null {
 
   useEffect(() => pulseEvents.on('sample-data:changed', () => { void refresh() }), [refresh])
   useEffect(() => { void refresh() }, [refresh, grids, shownRows])
+  return status
+}
 
-  if (!status || (status.gridId === null && status.sampleRows === 0)) return <SampleKeepPrompt />
-  const sampleList = status.gridId !== null
+/** This page's placement, from the route and the open list's own sample entries. */
+export function useSamplePlacement(): { status: SampleDataStatus | null; placement: SamplePlacement; onDashboard: boolean } {
+  const status = useSampleDataStatus()
+  const { pathname } = useLocation()
+  const activeGridId = useGridStore(s => s.activeGridId)
+  const activeListSamples = useGridStore(s => Object.keys(s.sampleRows ?? {}).length)
+  return { status, placement: samplePlacement(pathname, status, activeGridId, activeListSamples), onDashboard: pathname === '/dashboard' }
+}
+
+/** The status bar's reminder on pages without the banner. */
+export function SampleDataChip(): React.ReactElement {
+  const { t } = useVocab(null)
+  return (
+    <span className="inline-flex items-center gap-1 px-2 rounded-full text-sm leading-6 font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
+      title={`Some ${t('record', { many: true })} are made-up samples. Remove them from the dashboard or Settings → Data.`}>
+      <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />Sample data
+    </span>
+  )
+}
+
+/** Shown while sample data exists (the sample list, or sample entries an example added), so nobody mistakes it for real data. */
+export function SampleDataBanner(): React.ReactElement | null {
+  const { status, placement, onDashboard } = useSamplePlacement()
+  // On a list page, that list's words; the dashboard spans lists
+  const { t } = useVocab(onDashboard ? null : undefined)
+  const activeGridId = useGridStore(s => s.activeGridId)
+  const [confirming, setConfirming] = useState(false)
+
+  if (!status || placement !== 'banner') return <SampleKeepPrompt />
+  // The open list is the sample list, or (on the dashboard) a sample list exists at all
+  const sampleList = status.gridId !== null && (onDashboard || status.gridId === activeGridId)
   return (
     <>
     <SampleKeepPrompt />
