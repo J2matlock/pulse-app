@@ -393,7 +393,7 @@ export async function parsePulseFile(filePath: string): Promise<{ pulse: PulseFi
   }
 
   if (parsed && typeof parsed === 'object' && (parsed as { type?: unknown }).type === 'workspace') {
-    throw new Error('This is a workspace template. Open it from Settings → Workspace → Open a template file.')
+    throw new Error('This is a whole-setup file. Open it from Settings → Words & features → "Open a setup file…".')
   }
 
   // Validate structure with Zod

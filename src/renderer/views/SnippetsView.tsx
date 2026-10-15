@@ -339,17 +339,18 @@ export default function SnippetsView(): React.ReactElement {
                   {s.expansion}
                 </span>
 
-                {/* Actions */}
-                <div className={`flex items-center gap-1 transition-opacity flex-shrink-0 ${confirmDeleteId === s.id ? '' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}>
+                {/* Actions: always shown, in words, so it's clear a snippet can be changed (E-29) */}
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button
+                    type="button"
                     onClick={() => { setEditTarget(s); setShowEditor(true) }}
-                    title="Edit"
-                    aria-label="Edit"
-                    className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-blue-500 hover:bg-slate-100
-                               dark:hover:bg-slate-700 transition-colors
+                    aria-label={`Edit /${s.trigger_text}`}
+                    className="hit-44 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-600
+                               text-base text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
                                focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="w-4 h-4" aria-hidden="true" />
+                    Edit
                   </button>
 
                   {confirmDeleteId === s.id ? (
@@ -376,14 +377,15 @@ export default function SnippetsView(): React.ReactElement {
                     </>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => setConfirmDeleteId(s.id)}
-                      title="Delete"
-                      aria-label="Delete"
-                      className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-red-500 hover:bg-slate-100
-                                 dark:hover:bg-slate-700 transition-colors
-                                 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                      aria-label={`Delete /${s.trigger_text}`}
+                      className="hit-44 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 dark:border-red-700
+                                 text-base text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors
+                                 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      Delete
                     </button>
                   )}
                 </div>

@@ -95,7 +95,7 @@ export function registerStarterHandlers(): void {
 
   define(IPC.STARTER_OPEN_FILE, [], async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: 'Open a template file',
+      title: 'Open a setup file',
       properties: ['openFile'],
       filters: [{ name: 'Pulse template', extensions: ['pulse', 'json'] }],
     })

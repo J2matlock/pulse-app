@@ -328,7 +328,7 @@ export function DataSection(): React.ReactElement {
         )}
         {platform === 'linux' && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            On Linux, double-clicking a .pulse file isn't set up automatically. Open the file from Templates → "Import .pulse File" instead.
+            On Linux, double-clicking a .pulse file isn't set up automatically. Open the file from Templates → "Open a layout file…" instead.
           </p>
         )}
       </div>

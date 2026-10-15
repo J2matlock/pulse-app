@@ -2,7 +2,7 @@
 /** Letter editor and letter making (audit X-35, X-36). */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
@@ -18,7 +18,8 @@ const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
 import { EditTemplateModal } from '../../src/renderer/views/letter-template/EditTemplateModal'
-import { GenerateLetterModal } from '../../src/renderer/views/letter-template/GenerateLetterModal'
+import { GenerateLetterModal, emptyProfileDetails } from '../../src/renderer/views/letter-template/GenerateLetterModal'
+import { PlaceholderReference } from '../../src/renderer/views/letter-template/PlaceholderReference'
 import { TemplateText } from '../../src/renderer/views/LetterTemplateView'
 import { rememberList, rememberedList } from '../../src/renderer/views/letter-template/templateList'
 import { useGridStore } from '../../src/renderer/stores/gridStore'
@@ -123,5 +124,53 @@ describe('template text', () => {
     expect(screen.getByText('client name').getAttribute('title')).toBe('{{client_name}}')
     expect(screen.getByText('due date')).toBeTruthy()
     expect(screen.getByTestId('template-text').textContent).toBe('Dear client name, see you due date.')
+  })
+})
+
+// E-08: a letter that uses "your name" while Settings → Profile is empty says so before it's printed
+describe('making one letter: empty profile details', () => {
+  it('lists the profile details a template uses that are empty', () => {
+    expect(emptyProfileDetails('Hi, I am {{my_name}}, {{ my_title }} at {{case_manager_org}}.', { profile_name: 'Linda', profile_title: ' ' }))
+      .toEqual(['title', 'organization'])
+    expect(emptyProfileDetails('Dear {{client_name}}', null)).toEqual([])
+    expect(emptyProfileDetails('From {{my_name}}', null)).toEqual(['name'])
+  })
+
+  it('warns with a way to Settings → Profile, and stays quiet once the name is set', async () => {
+    const withName = { ...template, content: 'My name is {{my_name}}.' }
+    invoke.mockImplementation(async (channel: string) => channel === IPC.SETTINGS_GET_ALL ? { ok: true, data: { profile_name: '' } } : { ok: true, data: null })
+    const onClose = vi.fn()
+    const { unmount } = render(<GenerateLetterModal template={withName} grids={[{ id: 1, name: 'Intake' }] as never} onClose={onClose} />)
+    expect(await screen.findByText(/Your name isn't set/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill in Settings → Profile' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(window.location.hash).toBe('#/settings?tab=profile')
+    unmount()
+
+    invoke.mockImplementation(async (channel: string) => channel === IPC.SETTINGS_GET_ALL ? { ok: true, data: { profile_name: 'Linda' } } : { ok: true, data: null })
+    render(<GenerateLetterModal template={withName} grids={[{ id: 1, name: 'Intake' }] as never} onClose={vi.fn()} />)
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(IPC.SETTINGS_GET_ALL))
+    expect(screen.queryByText(/isn't set/)).toBeNull()
+  })
+})
+
+// E-26: the editor shows the letter as it reads, next to the text box
+describe('letter editor preview', () => {
+  it('shows typed details by their plain names', () => {
+    render(<EditTemplateModal template={null} onSave={vi.fn()} onClose={vi.fn()} />)
+    const preview = screen.getByRole('region', { name: 'Preview' })
+    expect(preview.textContent).toContain('Type your letter on the left')
+    fireEvent.change(screen.getByLabelText(/^Content/), { target: { value: 'Dear {{name}}, I am {{my_name}}. {{today}}' } })
+    expect(within(preview).getByTestId('template-text').textContent).toBe('Dear Name of the client, I am Your name. Today\'s date')
+  })
+})
+
+// E-27: the reference fills in the record word, not "{record}"
+describe('placeholder reference', () => {
+  it('names the record with the workspace word', () => {
+    render(<PlaceholderReference />)
+    fireEvent.click(screen.getByRole('button', { name: /Placeholder Reference/ }))
+    expect(screen.getByText(/Name of the client/)).toBeTruthy()
+    expect(screen.queryByText(/\{record\}/)).toBeNull()
   })
 })

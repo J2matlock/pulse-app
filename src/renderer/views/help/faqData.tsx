@@ -87,7 +87,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-workspace-share',
     question: 'Can I share my setup with a coworker?',
-    answer: 'Yes. Go to Settings > Words & features and click "Save my setup as a template\u2026" under "Share your setup". The file holds your {list:many}, columns, deadline rules, checklists and words \u2014 never your {record:many}, {activity:many} or anything about you. Your coworker opens it by double-clicking it, or from "Open a template file\u2026" in the same place.',
+    answer: 'Yes. Go to Settings > Words & features and click "Save my whole setup\u2026" under "Share my whole setup". The file holds your {list:many}, columns, deadline rules, checklists and words \u2014 never your {record:many}, {activity:many} or anything about you. Your coworker opens it by double-clicking it, or from "Open a setup file\u2026" in the same place.',
     category: 'getting-started',
     keywords: ['coworker', 'colleague', 'team', 'copy my setup'],
   },
@@ -499,7 +499,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-pulse-file',
     question: 'How do I share my {list}\'s columns and checklists with a coworker?',
-    answer: 'Save the {list}\'s layout as a file: on the Templates page, click "Save this {list} as a template". The file (it ends in .pulse) holds the columns, deadline rules and checklists — never any {record:many}. Your coworker opens it with "Import .pulse File" on their Templates page. To share your whole setup instead (every {list}, your words and rules), use Settings > Words & features > Share your setup.',
+    answer: 'Save the {list}\'s layout as a file: on the Templates page, click "Save this {list}\'s layout\u2026". The layout file (it ends in .pulse) holds the columns, deadline rules and checklists — never any {record:many}. Your coworker opens it with "Open a layout file\u2026" on their Templates page. To share your whole setup instead (every {list}, your words and rules), use Settings > Words & features > Share my whole setup.',
     category: 'import-export',
     keywords: ['.pulse', 'layout file', 'template file', 'share columns', 'coworker'],
   },

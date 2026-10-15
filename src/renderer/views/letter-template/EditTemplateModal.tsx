@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, X, AlertTriangle, Braces } from 'lucide-react'
 import { rlog } from '../../utils/rendererLogger'
 import type { LetterTemplate } from './types'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { VariableInsertMenu, type VariableGroup } from '../../components/shared/VariableInsertMenu'
+import { VariableInsertMenu, VARIABLE_GROUPS, type VariableGroup } from '../../components/shared/VariableInsertMenu'
+import { TemplateText } from './TemplateText'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
@@ -26,7 +27,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   // Which box a missing-value message is about, so that box points at it (audit A06-14)
   const [errorField, setErrorField] = useState<'name' | 'content' | null>(null)
   const [showVarMenu, setShowVarMenu] = useState(false)
-  const { t } = useVocab(null)
+  const { t, f } = useVocab(null)
   // "Insert field" offers a list's columns, deadlines and links (W10 §3): the
   // list this template was last used with, else the open one, and it can be changed
   const activeGridId = useGridStore(s => s.activeGridId)
@@ -37,6 +38,9 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
     if (!fieldGridId) { setFieldGroups([]); return }
     void safeInvoke<VariableGroup[]>(IPC.PLACEHOLDER_FIELDS, fieldGridId).then(r => { if (r.ok) setFieldGroups(r.data) })
   }, [fieldGridId])
+  // Plain names for the preview's chips: "{{my_name}}" shows as "Your name" (E-26)
+  const previewLabels = useMemo(() => Object.fromEntries([...VARIABLE_GROUPS, ...fieldGroups]
+    .flatMap(g => g.items.map(i => [i.key, f(i.desc).replace(/, like .*$/, '')]))), [fieldGroups, f])
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const dirty = name !== (template?.name ?? '') || description !== (template?.description ?? '') || content !== (template?.content ?? '')
   // Closing by Escape, the backdrop, X or Cancel asks first when something was typed
@@ -97,7 +101,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={e => { if (e.target === e.currentTarget) requestClose() }}
     >
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="letter-edit-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="letter-edit-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
@@ -194,6 +198,8 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
                 />
               </div>
             </div>
+            {/* The text box and, beside it, the letter as it reads, with details as plain names (E-26) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <textarea
               id="letter-content"
               ref={contentRef}
@@ -210,6 +216,13 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
                          resize-y"
               style={{ fontSize: 15 }}
             />
+            <section aria-labelledby="letter-preview-heading" className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 px-3 py-2 min-h-[10rem] overflow-y-auto max-h-[28rem]">
+              <h3 id="letter-preview-heading" className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Preview</h3>
+              {content.trim()
+                ? <TemplateText content={content} labels={previewLabels} />
+                : <p className="text-base text-slate-500 dark:text-slate-400">Type your letter on the left. Details you add with "Insert a detail" show here by name.</p>}
+            </section>
+            </div>
           </div>
         </div>
 

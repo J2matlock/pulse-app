@@ -25,7 +25,7 @@ export function WorkspaceSection(): React.ReactElement {
     try {
       const r = await safeInvoke(IPC.WORKSPACE_EXPORT_TEMPLATE)
       if (!r.ok) toast.error(friendlyError(r.error))
-      else if (r.data) toast.success(`Saved your setup as a template. Only ${t('list', { many: true })}, columns and rules are in it, no ${t('record', { many: true })} or ${t('activity', { many: true })}.`)
+      else if (r.data) toast.success(`Saved your whole setup. Only ${t('list', { many: true })}, columns and rules are in it, no ${t('record', { many: true })} or ${t('activity', { many: true })}.`)
     } finally { setBusy(false) }
   }
 
@@ -54,19 +54,19 @@ export function WorkspaceSection(): React.ReactElement {
         </button>
       </section>
       <section className="space-y-2 pt-6 border-t border-slate-200 dark:border-slate-700" aria-labelledby="share-setup">
-        <h2 id="share-setup" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Share your setup</h2>
+        <h2 id="share-setup" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Share my whole setup</h2>
         <p className="text-base text-slate-600 dark:text-slate-300">
-          Save your {t('list', { many: true })}, columns, deadline rules, checklists and words as a template file a coworker can open.
+          Save your {t('list', { many: true })}, columns, deadline rules, checklists and words as one file a coworker can open.
           It never includes {t('record', { many: true })}, {t('activity', { many: true })} or anything about you.
         </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void exportSetup()}>
             <Share2 className="w-4 h-4" aria-hidden="true" />
-            Save my setup as a template…
+            Save my whole setup…
           </button>
           <button type="button" className="btn-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void openFile()}>
             <FolderOpen className="w-4 h-4" aria-hidden="true" />
-            Open a template file…
+            Open a setup file…
           </button>
         </div>
       </section>

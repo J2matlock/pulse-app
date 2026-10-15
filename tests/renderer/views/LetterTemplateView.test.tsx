@@ -94,10 +94,10 @@ describe('LetterTemplateView', () => {
     expect(container.innerHTML.length).toBeGreaterThan(0)
   })
 
-  it('renders the Letter Templates heading', async () => {
+  it('renders the Letters heading (E-28)', async () => {
     render(<MemoryRouter><LetterTemplateView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Letter Templates')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Letters' })).toBeDefined()
   })
 
   it('renders New button', async () => {

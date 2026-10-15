@@ -249,8 +249,9 @@ export default function TemplateManagerView(): React.ReactElement {
       <div className="flex-shrink-0 max-w-7xl w-full mx-auto px-6 pt-8 pb-4">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Templates</h1>
         <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
-          Pulse has two kinds of templates. <strong>{w('list', { cap: true })} templates</strong> save the whole setup of {w('list', { article: true })} so you can reuse it.{' '}
-          <strong>Checklist templates</strong> are reusable to-do lists you can attach to individual {w('record')} profiles.
+          {/* One name per thing: layouts are whole-{list} setups, checklists are to-do lists (E-28) */}
+          <strong>{w('list', { cap: true })} layouts</strong> save the columns and rules of {w('list', { article: true })} so you can reuse them.{' '}
+          <strong>Checklists</strong> are reusable to-do lists you can add to {w('record', { article: true })}'s page.
         </p>
       </div>
 
@@ -262,12 +263,12 @@ export default function TemplateManagerView(): React.ReactElement {
           <div className="flex items-center gap-3 mb-1">
             <FileText className="w-5 h-5 text-blue-500" />
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-              {w('list', { cap: true })} templates
+              {w('list', { cap: true })} layouts
             </h2>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-            Saved as .pulse files. Captures your columns, column types, deadline rules, activity tracking, and checklist assignments.
-            Use these to start a new {w('list')} with the same setup, or share your structure with a colleague.
+            Each is saved as a layout file (.pulse): your columns, column types, deadline rules, note tracking and checklist assignments.
+            Use one to start a new {w('list')} with the same setup, or share it with a colleague.
           </p>
 
           <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -275,8 +276,8 @@ export default function TemplateManagerView(): React.ReactElement {
               type="button"
               onClick={handleImport}
               disabled={importing}
-              title="Import a .pulse template file"
-              aria-label="Import a .pulse template file"
+              title="Open a layout file someone gave you"
+              aria-label="Open a layout file"
               className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
                          text-base text-slate-700 dark:text-slate-300
                          hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[40px]
@@ -284,14 +285,14 @@ export default function TemplateManagerView(): React.ReactElement {
                          focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors"
             >
               <Upload className="w-4 h-4" />
-              {importing ? 'Opening...' : 'Import .pulse File'}
+              {importing ? 'Opening…' : 'Open a layout file…'}
             </button>
             <button
               type="button"
               onClick={handleExportCurrentGrid}
               disabled={exporting}
-              title={`Save the current ${w('list')} as a reusable template`}
-              aria-label={`Save the current ${w('list')} as a reusable template`}
+              title={`Save the current ${w('list')}'s columns and rules as a layout file`}
+              aria-label={`Save this ${w('list')}'s layout`}
               className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
                          text-base text-slate-700 dark:text-slate-300
                          hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[40px]
@@ -299,7 +300,7 @@ export default function TemplateManagerView(): React.ReactElement {
                          focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors"
             >
               <Download className="w-4 h-4" />
-              {exporting ? 'Saving…' : `Save this ${w('list')} as a template`}
+              {exporting ? 'Saving…' : `Save this ${w('list')}'s layout…`}
             </button>
           </div>
 
@@ -321,8 +322,8 @@ export default function TemplateManagerView(): React.ReactElement {
           ) : setupTemplates.length === 0 ? (
             <EmptyState
               icon={<FileText className="w-12 h-12" />}
-              title={`No ${w('list')} templates yet`}
-              description={`${w('list', { cap: true })} templates save the whole setup of ${w('list', { article: true })} so you can reuse it. Import a .pulse file or save one of yours as a template.`}
+              title={`No ${w('list')} layouts yet`}
+              description={`${w('list', { cap: true })} layouts save the columns and rules of ${w('list', { article: true })} so you can reuse them. Open a layout file (.pulse) or save one of yours.`}
             />
           ) : (
             <div className="grid grid-cols-1 gap-3">
@@ -357,7 +358,7 @@ export default function TemplateManagerView(): React.ReactElement {
               <div className="flex items-center gap-3 min-w-0">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
                 <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 truncate">
-                  Checklist Templates
+                  Checklists
                 </h2>
               </div>
               <div className="flex items-center gap-2">
