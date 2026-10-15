@@ -17,7 +17,7 @@ import { User, Star, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
 import type { GridTableHeader } from './gridTable'
 import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
-import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, ADD_COL_WIDTH } from './gridConstants'
+import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, ADD_COL_WIDTH, FROZEN_EDGE_STYLE } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -32,9 +32,11 @@ interface SortableColHeaderProps {
   rowHeight: number
   frozenLeft: number | undefined
   isLastFrozen: boolean
+  /** Just added: lit for a moment so it's seen (UX-B-30) */
+  flash?: boolean
 }
 
-export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen }: SortableColHeaderProps): React.ReactElement {
+export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen, flash = false }: SortableColHeaderProps): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `col_${col.id}`
   })
@@ -48,7 +50,8 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
       aria-colindex={colIndex}
       aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
       className={`relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
-                  bg-slate-50 dark:bg-slate-800 select-none`}
+                  ${flash ? 'bg-blue-100 dark:bg-blue-900/50 ring-3 ring-inset ring-blue-400' : 'bg-slate-50 dark:bg-slate-800'} transition-colors duration-700 select-none`}
+      data-flash={flash || undefined}
       style={{
         width: `var(--cw-${col.id})`,
         height: rowHeight,
@@ -57,7 +60,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 10 : isFrozen ? 12 : 'auto',
         ...(isFrozen ? { position: 'sticky' as const, left: frozenLeft } : {}),
-        ...(isLastFrozen ? { borderRightWidth: 2, borderRightColor: '#94a3b8' } : {}),
+        ...(isLastFrozen ? FROZEN_EDGE_STYLE : {}),
       }}
     >
       <ColumnHeader column={col} dragHandleProps={{ ...attributes, ...listeners }} />
@@ -106,6 +109,8 @@ export interface GridHeaderRowProps {
   onHideTags?: () => void
   /** The "+" after the last column: opens Add column (UX-B-03) */
   onAddColumn?: () => void
+  /** A column just added, lit for a moment (UX-B-30) */
+  flashColumnId?: number | null
 }
 
 export function GridHeaderRow({
@@ -128,6 +133,7 @@ export function GridHeaderRow({
   showTags,
   onHideTags,
   onAddColumn,
+  flashColumnId = null,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
@@ -291,6 +297,7 @@ export function GridHeaderRow({
                   rowHeight={rowHeight}
                   frozenLeft={frozenLeftOffsets.get(col.id)}
                   isLastFrozen={frozenLeftOffsets.has(col.id) && i === frozenColumnCount - 1}
+                  flash={flashColumnId === col.id}
                 />
               )
             })}

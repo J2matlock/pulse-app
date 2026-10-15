@@ -669,6 +669,20 @@ describe('DataGrid', () => {
       expect(screen.getByLabelText('Deselect client')).toBeTruthy()
     })
 
+    it('lights the header of a column just added, and not on the first load (UX-B-30)', async () => {
+      setupStores({ loadedGridId: 1 })
+      renderDataGrid()
+      await flushEffects()
+      expect(document.querySelector('[data-flash]')).toBeNull()
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+      const added = { ...makeColumn(5, 'Housing status', 'text'), created_at: now } as Column
+      await act(async () => { useGridStore.setState({ columns: [...TEST_COLUMNS, added] }) })
+      await flushEffects()
+      const lit = document.querySelector('[data-flash]')
+      expect(lit).toBeTruthy()
+      expect(lit!.textContent).toContain('Housing status')
+    })
+
     it('leaves room under the last row while the bulk bar shows (UX-B-25)', async () => {
       renderDataGrid()
       await flushEffects()

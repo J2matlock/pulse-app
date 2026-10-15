@@ -10,7 +10,7 @@ import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
-import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, FROZEN_EDGE_STYLE } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { pulseEvents } from '../../events'
@@ -337,7 +337,7 @@ export const SortableRow = React.memo(function SortableRow({
             left: frozenLeft,
             zIndex: 10,
           } : {}),
-          ...(isLastFrozenCell ? { borderRightWidth: 2, borderRightColor: '#94a3b8' } : {}),
+          ...(isLastFrozenCell ? FROZEN_EDGE_STYLE : {}),
           // An open editor fills the cell: the cell padding (an unlayered rule p-0 can't beat)
           // squeezed a date's digits under its calendar button
           ...(isEditing ? { paddingLeft: 0, paddingRight: 0 } : {}),

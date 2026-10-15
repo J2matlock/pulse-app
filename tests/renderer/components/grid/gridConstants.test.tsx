@@ -8,6 +8,9 @@ import {
   OPEN_COL_WIDTH,
   STAR_COL_WIDTH,
   HANDLE_STYLE,
+  frozenCountThatFits,
+  headerFitWidth,
+  MAX_AUTO_FIT_WIDTH,
 } from '../../../../src/renderer/components/grid/gridConstants'
 import { setWords } from '../../vocabFixture'
 
@@ -34,5 +37,20 @@ describe('gridConstants', () => {
 
   it('HANDLE_STYLE has width matching HANDLE_WIDTH', () => {
     expect(HANDLE_STYLE.width).toBe(HANDLE_WIDTH)
+  })
+})
+
+describe('kept-in-view columns and new column widths (UX-B-13, UX-B-29)', () => {
+  const cols = [{ width: 200 }, { width: 200 }, { width: 200 }, { width: 200 }]
+  it('keeps only as many columns in view as fit in the room', () => {
+    // 100 lead + 200 + 200 = 500 fits in 600; a third would make 700
+    expect(frozenCountThatFits(cols, 4, 100, 600)).toBe(2)
+    expect(frozenCountThatFits(cols, 1, 100, 600)).toBe(1)
+    expect(frozenCountThatFits(cols, 0, 100, 600)).toBe(0)
+    expect(frozenCountThatFits(cols, 3, 100, 250)).toBe(0)
+  })
+  it('a header fits its name, up to the auto-fit limit', () => {
+    expect(headerFitWidth('Housing status')).toBeGreaterThan(headerFitWidth('Age'))
+    expect(headerFitWidth('x'.repeat(200))).toBe(MAX_AUTO_FIT_WIDTH)
   })
 })

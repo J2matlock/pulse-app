@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast'
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
+import { parseDbTimestamp } from '../../../shared/dates'
 import { useTable, type SortingState } from '@tanstack/react-table'
 import { gridFeatures, type GridTableRow } from './gridTable'
 import {
@@ -30,7 +31,7 @@ import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH, ADD_COL_WIDTH, BULK_BAR_ROOM } from './gridConstants'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH, ADD_COL_WIDTH, BULK_BAR_ROOM, MIN_COL_WIDTH, FROZEN_MAX_SHARE, NEW_COLUMN_MS, frozenCountThatFits, headerFitWidth } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
 import { useGridAnnouncer } from '../../hooks/useGridAnnouncer'
@@ -184,9 +185,71 @@ export function DataGrid(): React.ReactElement {
     useProfileStore.getState().clearSavedScroll()
   }, [savedScroll, activeGridId, listReady])
 
+  // The list's width, for how many columns can be kept in view (UX-B-13)
+  const [gridWidth, setGridWidth] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const update = () => setGridWidth(el.clientWidth)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0)
+  // Kept-in-view columns stop at FROZEN_MAX_SHARE of the list, so the rest can still scroll
+  // past them instead of piling up under them (UX-B-13). Unknown width (not laid out yet): no cap
+  const frozenFitCount = useMemo(
+    () => gridWidth > 0 ? frozenCountThatFits(columns, frozenColumnCount, leadingWidth, gridWidth * FROZEN_MAX_SHARE) : frozenColumnCount,
+    [columns, frozenColumnCount, leadingWidth, gridWidth],
+  )
+  // Asking for more than fits is refused, with a sentence, and the setting stays as it was
+  const lastFrozenRef = useRef({ gridId: loadedGridId, count: frozenColumnCount })
+  useEffect(() => {
+    const last = lastFrozenRef.current
+    lastFrozenRef.current = { gridId: loadedGridId, count: frozenColumnCount }
+    if (last.gridId !== loadedGridId || last.count === frozenColumnCount) return
+    if (frozenColumnCount > last.count && frozenFitCount < frozenColumnCount) {
+      toast(`Too many columns to keep in view at this window size. Try fewer, or narrower columns.`)
+      lastFrozenRef.current = { gridId: loadedGridId, count: last.count }
+      setFrozenColumnCount(last.count)
+    }
+  }, [frozenColumnCount, frozenFitCount, loadedGridId, setFrozenColumnCount])
+
   const { columnSizing, handleColumnSizingChange, autoFitColumn, columnWidthVars, frozenLeftOffsets } = useGridColumnSizing({
-    activeGridId, columns, acuityEnabled, showTagsColumn, frozenColumnCount, updateColumn,
+    activeGridId, columns, acuityEnabled, showTagsColumn, frozenColumnCount: frozenFitCount, updateColumn,
   })
+
+  // A column just added: wide enough for its name, scrolled into view, its header lit
+  // for a moment, the way a new record is (UX-B-29, UX-B-30)
+  const [flashColumnId, setFlashColumnId] = useState<number | null>(null)
+  const knownColumnsRef = useRef<{ gridId: number | null; ids: Set<number> }>({ gridId: null, ids: new Set() })
+  useEffect(() => {
+    const known = knownColumnsRef.current
+    const ids = new Set(columns.map(c => c.id))
+    knownColumnsRef.current = { gridId: loadedGridId, ids }
+    if (known.gridId !== loadedGridId || known.ids.size === 0 || loadedGridId !== activeGridId) return
+    const added = columns.filter(c => !known.ids.has(c.id) && c.created_at && Date.now() - parseDbTimestamp(c.created_at).getTime() < NEW_COLUMN_MS)
+    const col = added[added.length - 1]
+    if (!col) return
+    const fit = headerFitWidth(col.name)
+    if (fit > col.width) handleColumnSizingChange((prev: Record<string, number>) => ({ ...prev, [`col_${col.id}`]: fit }))
+    setFlashColumnId(col.id)
+    requestAnimationFrame(() => {
+      const el = containerRef.current
+      if (!el) return
+      const index = columns.findIndex(c => c.id === col.id)
+      const left = leadingWidth + columns.slice(0, index).reduce((sum, c) => sum + Math.max(c.width, MIN_COL_WIDTH), 0)
+      const right = left + Math.max(fit, col.width)
+      if (right > el.scrollLeft + el.clientWidth) el.scrollLeft = right - el.clientWidth + ADD_COL_WIDTH
+      else if (left < el.scrollLeft) el.scrollLeft = left
+    })
+  }, [columns, loadedGridId, activeGridId, leadingWidth, handleColumnSizingChange])
+  useEffect(() => {
+    if (flashColumnId == null) return
+    const timer = setTimeout(() => setFlashColumnId(null), 1500)
+    return () => clearTimeout(timer)
+  }, [flashColumnId])
 
   // Hint banner — dismissible via localStorage
   const [hintDismissed, setHintDismissed] = useState(() =>
@@ -512,7 +575,7 @@ export function DataGrid(): React.ReactElement {
       findReplaceActiveRowId={findReplaceActiveMatch?.rowId ?? null}
       findReplaceActiveColId={findReplaceActiveMatch?.colId ?? null}
       frozenLeftOffsets={frozenLeftOffsets}
-      frozenColumnCount={frozenColumnCount}
+      frozenColumnCount={frozenFitCount}
       isSample={sampleRows[row.original.row_id] !== undefined}
     />
   )
@@ -590,8 +653,9 @@ export function DataGrid(): React.ReactElement {
             onColumnDragEnd={handleColumnDragEnd}
             autoFitColumn={autoFitColumn}
             frozenLeftOffsets={frozenLeftOffsets}
-            frozenColumnCount={frozenColumnCount}
+            frozenColumnCount={frozenFitCount}
             setFrozenColumnCount={setFrozenColumnCount}
+            flashColumnId={flashColumnId}
           />
         </div>
       </div>
