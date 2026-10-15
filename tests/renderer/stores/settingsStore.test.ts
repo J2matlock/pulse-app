@@ -21,7 +21,7 @@ import type { GridRow, CaseloadTask, Provider } from '../../../src/shared/types'
 const initialState = {
   isLocked: true,
   isPasswordSetup: false,
-  theme: 'dark' as const,
+  theme: 'system' as const,
   autoLockMinutes: 30,
   focusModeOpen: false,
   recoverySession: false,
@@ -173,6 +173,16 @@ describe('settingsStore', () => {
     it('ignores invalid theme values', () => {
       useSettingsStore.getState().hydrateFromSettings({ theme: 'purple' })
       // Should remain unchanged
+      expect(useSettingsStore.getState().theme).toBe('system')
+    })
+
+    it("a new install follows the computer's light/dark choice until a theme is saved (UX-A-02)", () => {
+      expect(useSettingsStore.getInitialState().theme).toBe('system')
+      // Nothing stored (a fresh install): still the computer's choice
+      useSettingsStore.getState().hydrateFromSettings({})
+      expect(useSettingsStore.getState().theme).toBe('system')
+      // An existing install keeps what it saved
+      useSettingsStore.getState().hydrateFromSettings({ theme: 'dark' })
       expect(useSettingsStore.getState().theme).toBe('dark')
     })
 
