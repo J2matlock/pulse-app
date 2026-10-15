@@ -18,6 +18,7 @@ import { ScratchPad } from '../components/profile/ScratchPad'
 import { CaseLog } from '../components/profile/CaseLog'
 import { GridDataSummary } from '../components/profile/GridDataSummary'
 import { isEmptyCell } from '../utils/emptyCell'
+import { MoreSectionsOffer, settingsFeaturePath, useHiddenSections } from '../components/profile/MoreSectionsOffer'
 import { LinkedProviders } from '../components/profile/LinkedProviders'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -324,6 +325,8 @@ export default function ProfileView(): React.ReactElement {
     leaveRecord()
   }
 
+  const hiddenSections = useHiddenSections()
+
   /** The copy is named "<name> (copy)" and its page opens, so the two aren't mistaken for each other (C-03) */
   async function duplicateHere() {
     if (rowId == null) return
@@ -338,6 +341,7 @@ export default function ProfileView(): React.ReactElement {
     ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
     ...(rowInList ? [{ label: `Duplicate (copies details, not ${t('activity', { many: true })})`, onSelect: () => void duplicateHere() }] : []),
     ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
+    ...(hiddenSections.length > 0 ? [{ label: 'Add more sections…', onSelect: () => navigate(settingsFeaturePath()) }] : []),
     { label: 'Move to the Trash…', onSelect: () => setAskTrash(true), danger: true },
   ]
 
@@ -599,6 +603,9 @@ export default function ProfileView(): React.ReactElement {
                 <LinkedProviders rowId={rowId} gridId={activeGridId} onCount={countContacts} />
               </CollapsibleSection>
             )}
+
+            {/* Sections a switched-off feature hides, so they can be found (C-04) */}
+            <MoreSectionsOffer />
           </div>
         </div>
 

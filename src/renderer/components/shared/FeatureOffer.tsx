@@ -17,6 +17,29 @@ async function readDismissed(): Promise<string[]> {
 }
 
 /**
+ * Whether an offer was already turned down, and a way to turn it down. One
+ * list in Settings holds every "Not now", keyed by feature or by the offer's own
+ * key (the record page's "More you can add" line uses `profileSections`).
+ */
+export function useOfferDismissed(key: FeatureKey | 'profileSections'): { dismissed: boolean | null; dismiss: () => Promise<void> } {
+  const [dismissed, setDismissed] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void readDismissed().then(list => { if (alive) setDismissed(list.includes(key)) })
+    return () => { alive = false }
+  }, [key])
+
+  async function dismiss() {
+    setDismissed(true)
+    const list = await readDismissed()
+    if (!list.includes(key)) await safeInvoke(IPC.SETTINGS_UPDATE, DISMISSED_KEY, JSON.stringify([...list, key]))
+  }
+
+  return { dismissed, dismiss }
+}
+
+/**
  * A one-line "Turn on …?" suggestion shown where a switched-off feature
  * would help (W01 §3.4). "Not now" is remembered per feature, so each offer
  * is made at most until someone says no.
@@ -25,31 +48,23 @@ export function FeatureOffer({ feature, message, onDone }: { feature: FeatureKey
   const { f } = useVocab()
   const on = useFeature(feature)
   const update = useWorkspaceStore(s => s.update)
-  const [dismissed, setDismissed] = useState<boolean | null>(null)
+  const { dismissed, dismiss } = useOfferDismissed(feature)
   const def = FEATURES.find(x => x.key === feature)
-
-  useEffect(() => {
-    let alive = true
-    void readDismissed().then(list => { if (alive) setDismissed(list.includes(feature)) })
-    return () => { alive = false }
-  }, [feature])
 
   if (on || dismissed !== false || !def?.available) return null
 
   async function turnOn() {
     try {
       await update({ features: { [feature]: true } })
-      toast.success(`${f(def!.label)} is on. You can turn it off in Settings → Workspace.`)
+      toast.success(`${f(def!.label)} is on. You can turn it off in Settings → Words & features.`)
       onDone?.()
     } catch {
-      toast.error("We couldn't turn that on. Try Settings → Workspace.")
+      toast.error("We couldn't turn that on. Try Settings → Words & features.")
     }
   }
 
   async function notNow() {
-    setDismissed(true)
-    const list = await readDismissed()
-    if (!list.includes(feature)) await safeInvoke(IPC.SETTINGS_UPDATE, DISMISSED_KEY, JSON.stringify([...list, feature]))
+    await dismiss()
     onDone?.()
   }
 
