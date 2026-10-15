@@ -32,6 +32,7 @@ import { friendlyError } from '../../utils/friendlyError'
 import { pulseEvents } from '../../events'
 import { resolveGroupDrop, groupAwareCollision } from '../../views/tasks/groupDrag'
 import { useVocab } from '../../hooks/useVocab'
+import { Toggle } from '../ui/Toggle'
 
 interface Props {
   rowId: number
@@ -1231,18 +1232,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
 
               {/* Recurring */}
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setDraft(d => ({ ...d, isRecurring: !d.isRecurring }))}
-                  className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
-                  role="switch"
-                  aria-checked={draft.isRecurring}
-                  aria-label="Items repeat"
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
-                                   ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
+                <Toggle checked={draft.isRecurring} onChange={on => setDraft(d => ({ ...d, isRecurring: on }))} label="Items repeat" showState={false} />
                 <span className="text-base text-slate-700 dark:text-slate-300">
                   Items repeat
                 </span>

@@ -28,6 +28,7 @@ import { CommandPalette } from '../../../src/renderer/components/shared/CommandP
 import { Dialog } from '../../../src/renderer/components/ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../../../src/renderer/components/ui/Button'
 import { EmptyState } from '../../../src/renderer/components/shared/EmptyState'
+import { Toggle, ToggleRow } from '../../../src/renderer/components/ui/Toggle'
 import { CategoryManager } from '../../../src/renderer/components/contacts/CategoryManager'
 import { UndoHistoryPanel } from '../../../src/renderer/components/shared/UndoHistoryPanel'
 import { useContactsStore } from '../../../src/renderer/stores/contactsStore'
@@ -60,6 +61,15 @@ describe('axe: shared dialogs', () => {
       </Dialog>,
     )
     await expectNoAxeViolations(document.body)
+  })
+
+  it('toggle rows, off and on, have no accessibility problems', async () => {
+    const { container } = render(<div>
+      <ToggleRow label="Less movement" description="Turn off animations" checked={false} onChange={() => {}} />
+      <ToggleRow label="Stronger contrast" checked onChange={() => {}} />
+      <Toggle checked={false} onChange={() => {}} label="Items repeat" showState={false} />
+    </div>)
+    await expectNoAxeViolations(container)
   })
 
   it('a page-size empty state has no accessibility problems', async () => {
