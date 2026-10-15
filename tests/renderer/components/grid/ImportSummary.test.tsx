@@ -137,6 +137,23 @@ describe('ImportSummary after the import', () => {
     expect((onDateAnswers.mock.calls[1]![0] as typeof answers)[3]).toMatchObject({ repeat: 'every', n: 1, unit: 'years', mixed: { picked: 'last' } })
   })
 
+  it('says a Last visit column follows notes, with a box to turn it off (persona study R4)', () => {
+    const answers = { ...guessRepeats(dateColumns), 2: { repeat: 'every' as const, n: 1, unit: 'months' as const, followsNotes: ['visit', 'phone', 'email'] } }
+    const onDateAnswers = vi.fn()
+    const { rerender } = render(<ImportSummary {...props({ dateAnswers: answers, onDateAnswers })} />)
+    expect(screen.getByTestId('follows-notes-line').textContent).toBe('Logging Visit, Phone or Email case notes will update Last visit.')
+    const box = screen.getByRole('checkbox', { name: 'Update Last visit when I log a case note' }) as HTMLInputElement
+    expect(box.checked).toBe(true)
+    fireEvent.click(box)
+    const off = onDateAnswers.mock.calls[0]![0] as typeof answers
+    expect(off[2]).toMatchObject({ followsNotes: ['visit', 'phone', 'email'], followsNotesOff: true })
+    rerender(<ImportSummary {...props({ dateAnswers: off, onDateAnswers })} />)
+    expect(screen.queryByTestId('follows-notes-line')).toBeNull()
+    expect((screen.getByRole('checkbox', { name: 'Update Last visit when I log a case note' }) as HTMLInputElement).checked).toBe(false)
+    // The repeat picker keeps it
+    expect(mergePickerAnswers(off, { ...off, 2: { repeat: 'every', n: 2, unit: 'months' } })[2]).toMatchObject({ n: 2, followsNotes: ['visit', 'phone', 'email'], followsNotesOff: true })
+  })
+
   it('a column changed in the picker keeps its question in step', () => {
     const prev = guessRepeats(dateColumns, { 3: ['2026-12-04', '2025-11-01', '2025-10-01', '2025-09-01'] }, '2026-10-15')
     expect(mergePickerAnswers(prev, { ...prev, 3: { repeat: 'due' } })[3]).toMatchObject({ repeat: 'due', mixed: { picked: 'due' } })

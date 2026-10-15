@@ -637,6 +637,7 @@ export function applyDateRules(gridId: number, answers: import('../shared/ipc-co
   const db = getDb()
   const col = db.prepare("SELECT id, config FROM columns WHERE id = ? AND grid_id = ? AND column_type = 'date'")
   const save = db.prepare('UPDATE columns SET config = ? WHERE id = ?')
+  const noteTypes = userTypeKeys(true)
   return db.transaction(() => {
     let linked = 0
     for (const a of answers) {
@@ -645,7 +646,9 @@ export function applyDateRules(gridId: number, answers: import('../shared/ipc-co
       const rule = ensureRule(db, a.repeat === 'due' ? STANDARD_RULES.due : ruleForInterval(a.n, a.unit), {})
       let cfg: Record<string, unknown> = {}
       try { cfg = JSON.parse(row.config || '{}') as Record<string, unknown> } catch { cfg = {} }
-      save.run(JSON.stringify({ ...cfg, alert_rule_id: rule.id, alert_rule_name: rule.name, log_changes: true }), row.id)
+      // "Last Contact" follows Visit, Phone… notes, so logging one moves it (R4); only people's own note types
+      const follows = [...new Set(a.followsNotes ?? [])].filter(t => noteTypes.has(t))
+      save.run(JSON.stringify({ ...cfg, alert_rule_id: rule.id, alert_rule_name: rule.name, log_changes: true, ...(follows.length ? { note_updates: follows } : {}) }), row.id)
       linked++
     }
     return linked

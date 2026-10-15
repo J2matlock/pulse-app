@@ -15,6 +15,10 @@ export type DateAnswer = ({ repeat: 'no' } | { repeat: 'due' } | { repeat: 'ever
    * `every` is the repeat "last done" keeps.
    */
   mixed?: { future: number; picked: 'due' | 'last' | null; every: { n: number; unit: RepeatUnit } }
+  /** Import: the note types that move this date when logged (a "Last contact" column) */
+  followsNotes?: string[]
+  /** Import: "update from notes" turned off on the summary */
+  followsNotesOff?: true
 }
 
 /** At least this share of a column's dates in the future: they're due dates, whatever the name says */

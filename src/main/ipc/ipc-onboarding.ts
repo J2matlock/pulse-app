@@ -35,9 +35,10 @@ export function inColouredTier(d: Pick<DeadlineItem, 'daysUntil' | 'alert_thresh
   return d.daysUntil <= lead
 }
 
+const followsNotesSchema = z.array(z.string().regex(/^[a-z0-9_]{1,30}$/)).max(20).optional()
 const dateAnswersSchema = z.array(z.union([
-  z.object({ columnId: z.number().int().positive(), repeat: z.literal('due') }).strict(),
-  z.object({ columnId: z.number().int().positive(), repeat: z.literal('every'), n: z.number().int().min(1).max(999), unit: z.enum(['days', 'months', 'years']) }).strict(),
+  z.object({ columnId: z.number().int().positive(), repeat: z.literal('due'), followsNotes: followsNotesSchema }).strict(),
+  z.object({ columnId: z.number().int().positive(), repeat: z.literal('every'), n: z.number().int().min(1).max(999), unit: z.enum(['days', 'months', 'years']), followsNotes: followsNotesSchema }).strict(),
 ])).max(100)
 
 /** Where an interrupted setup stopped, once it has made a list (audit 2.3 / F-02) */

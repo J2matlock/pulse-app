@@ -456,7 +456,8 @@ describe('ImportWizard', () => {
       expect(screen.queryByLabelText('Last visit')).toBeNull()
       fireEvent.click(screen.getByLabelText('Close'))
       await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
-      expect(rulesCall()).toEqual(['onboarding:date-rules', 1, [{ columnId: 10, repeat: 'every', n: 1, unit: 'months' }]])
+      // Last visit follows contact notes from now on (R4): the built-in types stand in until the list loads
+      expect(rulesCall()).toEqual(['onboarding:date-rules', 1, [{ columnId: 10, repeat: 'every', n: 1, unit: 'months', followsNotes: ['visit', 'phone', 'email', 'meeting'] }]])
       // The renderer's own rule path is gone: one look whatever the entry point
       expect(mockInvoke).not.toHaveBeenCalledWith('alert-rule:create', expect.anything())
       // Reloaded before the list does, so the colours show straight away
@@ -487,7 +488,7 @@ describe('ImportWizard', () => {
       expect((screen.getByLabelText('Review Due') as HTMLSelectElement).value).toBe('due')
       fireEvent.click(screen.getByRole('button', { name: 'Done' }))
       await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
-      expect(rulesCall()?.[2]).toEqual([{ columnId: 9, repeat: 'due' }, { columnId: 10, repeat: 'every', n: 1, unit: 'months' }])
+      expect(rulesCall()?.[2]).toEqual([{ columnId: 9, repeat: 'due' }, { columnId: 10, repeat: 'every', n: 1, unit: 'months', followsNotes: ['visit', 'phone', 'email', 'meeting'] }])
     })
 
     it('setup\'s slot shows at the top of the summary, and Done waits for its check', async () => {

@@ -132,11 +132,32 @@ export function newDateColumns(mappings: ColumnMapping[], preview: ImportPreview
     .map(m => ({ id: m.sourceIndex, name: (m.newName || preview.headers[m.sourceIndex] || `Column ${m.sourceIndex + 1}`).trim() }))
 }
 
+/** A date column that says when someone was last contacted: it follows notes after import (R4) */
+const CONTACT_DATE = /last (contact|visit|seen|call|f2f|face)|contact date|home visit/i
+/** Note types that count as a contact, in the order a followed date counts toward requirements */
+const CONTACT_NOTE_KEYS = ['visit', 'phone', 'email', 'meeting', 'call'] as const
+
+/** The active note types that are contacts ("visit", "phone", …), in CONTACT_NOTE_KEYS order */
+export function contactNoteTypes(types: ReadonlyArray<{ key: string; is_archived?: number }>): string[] {
+  const active = new Set(types.filter(t => !t.is_archived).map(t => t.key))
+  return CONTACT_NOTE_KEYS.filter(k => active.has(k))
+}
+
 /**
  * A guess for every new date column, keyed by file place: from its name and
- * the dates the preview read (mostly future = due dates).
+ * the dates the preview read (mostly future = due dates). With `noteTypes`
+ * (the note types there are), a "Last contact" column also follows contact notes.
  */
-export function guessDateAnswers(mappings: ColumnMapping[], preview: ImportPreview): Record<number, DateAnswer> {
+export function guessDateAnswers(mappings: ColumnMapping[], preview: ImportPreview, noteTypes?: ReadonlyArray<{ key: string; is_archived?: number }>): Record<number, DateAnswer> {
+  const columns = newDateColumns(mappings, preview)
   const samples = Object.fromEntries(preview.detectedColumns.map(c => [c.index, c.dateValues]))
-  return guessRepeats(newDateColumns(mappings, preview), samples)
+  const answers = guessRepeats(columns, samples)
+  const follows = noteTypes ? contactNoteTypes(noteTypes) : []
+  if (follows.length === 0) return answers
+  for (const c of columns) {
+    const a = answers[c.id]
+    // A due date doesn't move with notes; a contact date does
+    if (a && a.repeat !== 'due' && CONTACT_DATE.test(c.name)) answers[c.id] = { ...a, followsNotes: follows }
+  }
+  return answers
 }

@@ -8,6 +8,7 @@ import React, { useId, useState } from 'react'
 import { AlertTriangle, Check } from 'lucide-react'
 import type { Column } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
+import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { describeRepeats, everyPhrase, type DateAnswer } from '../../utils/repeatGuess'
 import { DateRepeatPicker } from '../../views/setup/DateRepeatPicker'
 import { SecondaryButton } from '../ui/Button'
@@ -133,13 +134,33 @@ export function pickFutureDates(a: DateAnswer, picked: 'due' | 'last'): DateAnsw
  * due", a repeat = "last done"); "no reminder" drops the question.
  */
 export function mergePickerAnswers(prev: Record<number, DateAnswer>, next: Record<number, DateAnswer>): Record<number, DateAnswer> {
-  return Object.fromEntries(Object.entries(next).map(([id, a]) => {
+  return Object.fromEntries(Object.entries(next).map(([id, a]): [string, DateAnswer] => {
     const old = prev[Number(id)]
-    if (!old?.mixed || a === old) return [id, a]
-    if (a.repeat === 'no') return [id, { repeat: 'no' }]
+    if (!old || a === old) return [id, a]
+    // "Update from notes" is the summary's own checkbox: the picker keeps it
+    const follows = old.followsNotes && a.followsNotes === undefined ? { followsNotes: old.followsNotes, followsNotesOff: old.followsNotesOff } : {}
+    if (!old.mixed) return [id, { ...a, ...follows }]
+    if (a.repeat === 'no') return [id, { repeat: 'no', ...follows }]
     const mixed = a.repeat === 'due' ? { ...old.mixed, picked: 'due' as const } : { ...old.mixed, picked: 'last' as const, every: { n: a.n, unit: a.unit } }
-    return [id, { ...a, mixed }]
+    return [id, { ...a, mixed, ...follows }]
   }))
+}
+
+/** "Visit, Phone or Email" from note type keys */
+function orList(items: string[]): string {
+  if (items.length <= 1) return items.join('')
+  return `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`
+}
+
+/** "Update Last Contact when I log a note": the import's guess, one click to turn off */
+function FollowsNotesBox({ name, on, onChange }: { name: string; on: boolean; onChange: (on: boolean) => void }): React.ReactElement {
+  const { t } = useVocab()
+  return (
+    <label className="flex items-center gap-3 min-h-[44px] text-base text-slate-800 dark:text-slate-100 cursor-pointer">
+      <input type="checkbox" className="w-5 h-5 flex-shrink-0" checked={on} onChange={e => onChange(e.target.checked)} />
+      <span>Update {name} when I log {t('activity', { article: true })}</span>
+    </label>
+  )
 }
 
 /** A column as the summary lists it: its name in the list and what it holds */
@@ -166,6 +187,7 @@ export function ImportSummary({
   dateColumns, dateAnswers, onDateAnswers, askDates, slot, onUseOtherSheet, onPickHeaderRow,
 }: ImportSummaryProps): React.ReactElement {
   const { t } = useVocab(gridId)
+  const activity = useActivityTypes()
   const before = phase === 'before'
 
   if (loading) {
@@ -220,6 +242,15 @@ export function ImportSummary({
     .map(m => preview.headers[m.sourceIndex] ?? '').filter(Boolean) : []
 
   const repeats = describeRepeats(dateColumns, dateAnswers)
+  // Columns that will follow notes ("Logging Visit or Phone notes will update Last Contact"), unless turned off here
+  const followers = dateColumns.flatMap(c => {
+    const a = dateAnswers[c.id]
+    return a?.followsNotes?.length && a.repeat === 'every' ? [{ column: c, types: a.followsNotes, on: !a.followsNotesOff }] : []
+  })
+  const toggleFollow = (id: number, on: boolean) => {
+    const a = dateAnswers[id]
+    if (a) onDateAnswers({ ...dateAnswers, [id]: { ...a, followsNotesOff: on ? undefined : true } })
+  }
   const futureQuestions = dateColumns.flatMap(c => {
     const a = dateAnswers[c.id]
     return a?.mixed ? [{ column: c, answer: { ...a, mixed: a.mixed } }] : []
@@ -314,6 +345,11 @@ export function ImportSummary({
             {repeats ?? 'None of these dates repeat, so they won\'t change color.'}
             {repeats && ' They turn yellow, then red, as they come due.'}
           </p>
+          {followers.filter(f => f.on).map(f => (
+            <p key={f.column.id} className="text-base text-slate-700 dark:text-slate-200" data-testid="follows-notes-line">
+              Logging {orList(f.types.map(k => activity.label(k)))} {t('activity', { many: true })} will update {f.column.name}.
+            </p>
+          ))}
           {askDates && futureQuestions.map(({ column, answer }) => (
             <FutureDatesQuestion key={column.id} name={column.name} answer={answer}
               onPick={picked => onDateAnswers({ ...dateAnswers, [column.id]: pickFutureDates(answer, picked) })} />
@@ -324,7 +360,12 @@ export function ImportSummary({
               <summary className="cursor-pointer min-h-[44px] flex items-center px-4 text-base font-medium text-blue-700 dark:text-blue-300 rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
                 Change these
               </summary>
-              <div className="px-4 pb-4"><DateRepeatPicker columns={dateColumns} value={dateAnswers} onChange={next => onDateAnswers(mergePickerAnswers(dateAnswers, next))} /></div>
+              <div className="px-4 pb-4 space-y-3">
+                <DateRepeatPicker columns={dateColumns} value={dateAnswers} onChange={next => onDateAnswers(mergePickerAnswers(dateAnswers, next))} />
+                {followers.map(f => (
+                  <FollowsNotesBox key={f.column.id} name={f.column.name} on={f.on} onChange={on => toggleFollow(f.column.id, on)} />
+                ))}
+              </div>
             </details>
           )}
         </section>

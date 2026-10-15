@@ -3,6 +3,12 @@
  * visit per month", "2 check-ins per week" for a list, counted from notes.
  * A note counts toward every requirement that lists its type, within that
  * requirement's own calendar period.
+ *
+ * A date column that follows notes ("Last Contact", `note_updates`) counts
+ * too: its date is one contact that day, for every requirement that counts
+ * one of the types it follows, unless a note of those types is on that day
+ * (that note moved the date, and already counts). So an imported spreadsheet's
+ * contacts count from day one (persona study R4).
  */
 import { getDb } from './database'
 import type { ContactRequirement, ContactStatusGrid } from '../shared/types'
@@ -11,7 +17,7 @@ import { localDateString } from '../shared/dates'
 import { ymdToDate } from '../shared/ymd'
 import { userTypeKeys } from './activity-types'
 import { word } from './vocab'
-import { LIVE_ROW, liveGrid } from '../shared/liveRecords'
+import { LIVE_ROW, liveGrid, liveRow } from '../shared/liveRecords'
 
 export const MAX_REQUIREMENTS = 10
 
@@ -100,6 +106,21 @@ export function getRequirementStatus(ref: string = localDateString(), gridId?: n
     GROUP BY cl.row_id, cl.log_type
   `)
   const gridName = db.prepare(`SELECT name FROM grids WHERE id = ? AND ${liveGrid('')}`)
+  // Dates in columns that follow notes, inside the period (YYYY-MM-DD local days, as typed or set by a note)
+  const followedStmt = db.prepare(`
+    SELECT c.row_id, substr(c.value, 1, 10) AS day, json_extract(col.config, '$.note_updates') AS types
+    FROM cells c
+    JOIN columns col ON col.id = c.column_id AND col.column_type IN ('date', 'deadline')
+      AND json_extract(col.config, '$.note_updates') IS NOT NULL
+    JOIN rows r ON r.id = c.row_id AND ${liveRow('r')}
+    WHERE col.grid_id = ? AND substr(c.value, 1, 10) BETWEEN ? AND ?
+  `)
+  const notesOnDayStmt = db.prepare(`
+    SELECT DISTINCT cl.row_id, date(cl.occurred_at, 'localtime') AS day, cl.log_type
+    FROM case_log cl JOIN rows r ON r.id = cl.row_id
+    WHERE r.grid_id = ? AND cl.voided_at IS NULL
+      AND date(cl.occurred_at, 'localtime') BETWEEN ? AND ?
+  `)
 
   const result: ContactStatusGrid[] = []
   for (const [gid, gridReqs] of byGrid) {
@@ -118,12 +139,32 @@ export function getRequirementStatus(ref: string = localDateString(), gridId?: n
       }
       tallies.set(range.key, tally)
     }
+    // Per period: each record's followed dates with the types they follow, less the days a note of one of those types explains
+    const followed = new Map<string, Map<number, Array<{ day: string; types: string[] }>>>()
+    for (const range of ranges) {
+      if (followed.has(range.key)) continue
+      const noted = new Set((notesOnDayStmt.all(gid, range.start, range.end) as Array<{ row_id: number; day: string; log_type: string }>)
+        .map(n => `${n.row_id}|${n.day}|${n.log_type}`))
+      const byRow = new Map<number, Array<{ day: string; types: string[] }>>()
+      for (const f of followedStmt.all(gid, range.start, range.end) as Array<{ row_id: number; day: string; types: string | null }>) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(f.day)) continue
+        const types = parseTypes(f.types ?? '[]')
+        if (types.length === 0 || types.some(t => noted.has(`${f.row_id}|${f.day}|${t}`))) continue
+        byRow.set(f.row_id, [...(byRow.get(f.row_id) ?? []), { day: f.day, types }])
+      }
+      followed.set(range.key, byRow)
+    }
+    /** A requirement's followed-date contacts for one record: one per day, if it counts a type the date follows */
+    const fromDates = (req: ContactRequirement, key: string, rowId: number): number => {
+      const days = new Set((followed.get(key)?.get(rowId) ?? []).filter(f => f.types.some(t => req.note_types.includes(t))).map(f => f.day))
+      return days.size
+    }
     const clients = (clientsStmt.all(`Unnamed ${word('record', {}, gid)}`, gid) as Array<{ row_id: number; client_name: string }>).map(c => ({
       rowId: c.row_id,
       clientName: c.client_name,
       counts: gridReqs.map((req, i) => {
         const tally = tallies.get(ranges[i]!.key)!
-        return req.note_types.reduce((sum, t) => sum + (tally.get(c.row_id)?.get(t) ?? 0), 0)
+        return req.note_types.reduce((sum, t) => sum + (tally.get(c.row_id)?.get(t) ?? 0), 0) + fromDates(req, ranges[i]!.key, c.row_id)
       }),
     }))
     result.push({ gridId: gid, gridName: g.name, requirements: gridReqs, ranges, clients })
