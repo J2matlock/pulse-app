@@ -58,9 +58,6 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   const [recentlyCheckedIds, setRecentlyCheckedIds] = useState<Set<number>>(new Set())
   const addInputRef = useRef<HTMLInputElement>(null)
   const [addFlash, setAddFlash] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
-  const [confirmClear, setConfirmClear] = useState(false)
-  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: number; name: string } | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [pendingTemplateId, setPendingTemplateId] = useState<number | null>(null)
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -384,10 +381,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     }
     setItems(prev => prev.map(i => ({ ...i, is_completed: 0 as const, completed_at: null })))
     setCompletedExpanded(false)
+    // Uncheck all, Remove done items and Delete group don't ask first: each is one step with the Undo toast (Q4)
     if (completedSnapshot.length > 0) {
-      useUndoStore.getState().push({
+      useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(),
-        description: 'Reset checklist cycle',
+        description: `Unchecked ${completedSnapshot.length} completed item${completedSnapshot.length === 1 ? '' : 's'}`,
         timestamp: Date.now(),
         category: 'logged',
         icon: 'reset',
@@ -511,7 +509,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     }
     // Undo brings the group back under a new id; redo must delete that one (bug sweep S2)
     let currentId = groupId
-    useUndoStore.getState().push({
+    useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Deleted group "${deletedGroup.name}"`,
       timestamp: Date.now(),
@@ -708,7 +706,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                     isCollapsed={isCollapsed}
                     onToggleCollapse={() => handleToggleCollapse(group.id)}
                     onRename={(name) => void handleRenameGroup(group.id, name)}
-                    onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
+                    onDelete={() => void handleDeleteGroup(group.id)}
                     isDragDisabled={false}
                     autoEdit={group.id === justAddedGroupId}
                   />
@@ -801,7 +799,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
               Completed ({completedItems.length})
             </button>
             <button
-              onClick={() => setConfirmReset(true)}
+              onClick={() => void doResetCycle()}
               title="Uncheck all completed items so they can be done again"
               className="hit-44 px-3 py-1.5 mr-1 text-base text-slate-500 dark:text-slate-400
                          hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
@@ -811,7 +809,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
               Uncheck all
             </button>
             <button
-              onClick={() => setConfirmClear(true)}
+              onClick={() => void doClearCompleted()}
               title="Remove all completed items from the checklist"
               className="hit-44 px-3 py-1.5 mr-3 text-base text-slate-500 dark:text-slate-400
                          hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
@@ -883,37 +881,6 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         </div>
       )}
 
-      {/* Uncheck all confirmation */}
-      <ConfirmDialog
-        open={confirmReset}
-        title="Uncheck all completed items?"
-        message={`Uncheck ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} for ${clientName} so ${completedItems.length === 1 ? 'it' : 'they'} can be done again. You can undo this.`}
-        confirmLabel="Uncheck all"
-        onConfirm={() => { setConfirmReset(false); void doResetCycle() }}
-        onCancel={() => setConfirmReset(false)}
-      />
-
-      {/* Remove done items confirmation */}
-      <ConfirmDialog
-        open={confirmClear}
-        title={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'}?`}
-        message="You can undo this."
-        confirmLabel={`Delete ${completedItems.length} item${completedItems.length === 1 ? '' : 's'}`}
-        destructive={true}
-        onConfirm={() => { setConfirmClear(false); void doClearCompleted() }}
-        onCancel={() => setConfirmClear(false)}
-      />
-
-      {/* Delete group confirmation */}
-      <ConfirmDialog
-        open={!!confirmDeleteGroup}
-        title={`Delete the group "${confirmDeleteGroup?.name ?? ''}"?`}
-        message="Its items stay on the checklist, ungrouped. You can undo this."
-        confirmLabel="Delete group"
-        destructive={true}
-        onConfirm={() => { if (confirmDeleteGroup) { void handleDeleteGroup(confirmDeleteGroup.id); setConfirmDeleteGroup(null) } }}
-        onCancel={() => setConfirmDeleteGroup(null)}
-      />
     </section>
   )
 }

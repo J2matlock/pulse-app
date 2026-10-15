@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 
 // Mock window.api
@@ -165,17 +165,14 @@ describe('ContactDetail', () => {
     expect(defaultProps.onEdit).toHaveBeenCalledOnce()
   })
 
-  it('shows delete confirmation when Delete button clicked', async () => {
+  it('Delete acts at once, no dialog; the Undo toast is the way back (Q4, E-14)', async () => {
     const provider = makeProvider()
     await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
-    fireEvent.click(screen.getByLabelText('Delete provider'))
-    // Contacts don't go to the Trash, so the dialog says so and the button names the action (AUDIT-060)
-    expect(screen.getByText(/This deletes the provider for good/)).toBeTruthy()
-    expect(screen.getByText(/doesn't go to the Trash/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Delete provider forever' })).toBeTruthy()
-    // E-14: the way back is a button people can see, not only a shortcut
-    expect(screen.getByText(/click Undo in the message at the bottom of the window/)).toBeTruthy()
-    expect(screen.queryByText(/Ctrl\+Z/)).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByLabelText('Delete provider')) })
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(mockDeleteProvider).toHaveBeenCalledWith(provider.id)
+    expect(defaultProps.onDeleted).toHaveBeenCalled()
   })
 
   // E-24: Edit and Delete are words; star, PDF and vCard sit under More

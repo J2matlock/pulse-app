@@ -220,21 +220,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             >
               <Pencil className="w-4 h-4" />
             </button>
-            {confirmDelete && canDelete ? (
-              <>
-                <DangerButton size="compact" onClick={() => onDelete(entry.id)}>
-                  Delete
-                </DangerButton>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  aria-label="Cancel delete"
-                  className="hit-44 p-2 rounded-sm text-slate-500 hover:text-slate-600 hover:bg-slate-100
-                             dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </>
-            ) : confirmDelete ? (
+            {/* A note still inside the delete window goes at once, with the Undo toast (Q4); an older one is
+                voided, which asks for a reason because the reason is part of the record */}
+            {confirmDelete && !canDelete ? (
               <form
                 className="flex items-center gap-1"
                 onSubmit={e => { e.preventDefault(); onVoid(entry.id, voidReason.trim() || 'Voided'); setConfirmDelete(false); setVoidReason('') }}
@@ -264,7 +252,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               </form>
             ) : (
               <button
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => { if (canDelete) onDelete(entry.id); else setConfirmDelete(true) }}
                 title={canDelete ? 'Delete' : 'Void (hides it but keeps it, so it can be restored)'}
                 aria-label={canDelete ? 'Delete' : 'Void'}
                 className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-500 hover:bg-slate-100

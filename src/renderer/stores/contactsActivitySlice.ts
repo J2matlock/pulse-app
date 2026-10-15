@@ -94,6 +94,8 @@ export const createContactActivitySlice = (set: SetState, get: GetState): Contac
           const pid = get().selectedProviderId
           if (pid) await get().loadInteractions(pid)
         },
+        // The trash icon deletes without asking, so the Undo toast is the way back (Q4)
+        { toast: true },
       )
     }
   },

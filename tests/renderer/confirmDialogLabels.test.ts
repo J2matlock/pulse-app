@@ -50,7 +50,9 @@ const uses = sourceFiles(ROOT)
 
 describe('confirmation buttons name their action', () => {
   it('finds the confirmations', () => {
-    expect(uses.length).toBeGreaterThan(30)
+    // Fewer since Q4: what can be undone happens at once with the Undo toast;
+    // tests/renderer/confirmationPolicy.test.ts keeps the list of the ones that stay
+    expect(uses.length).toBeGreaterThan(15)
   })
 
   it('every ConfirmDialog passes its own confirmLabel', () => {

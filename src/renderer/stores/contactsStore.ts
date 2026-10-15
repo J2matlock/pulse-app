@@ -171,7 +171,7 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
     // Undo makes a new contact; redo deletes that one, not a look-alike found by name.
     let currentId: number | null = null
     pushContactUndo(
-      `Deleted ${wordNow('contact', {}, null)} "${provider.name}"`, 'trash',
+      `Deleted ${wordNow('contact', {}, null)} "${provider.name}". It doesn't go to the Trash.`, 'trash',
       async () => {
         currentId = await restoreProvider(snapshot, currentId ?? id)
         await useContactsStore.getState().loadProviders()

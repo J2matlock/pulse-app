@@ -7,6 +7,7 @@ import { DEBOUNCE_SEARCH } from '../../../shared/constants'
 import { relativeTime } from '../../utils/relativeTime'
 import { parseDbTimestamp } from '../../../shared/dates'
 import { isMod, modHelp } from '../../utils/keys'
+import { IconButton } from '../ui/Button'
 
 interface Props {
   providerId: number
@@ -44,7 +45,6 @@ function InteractionEntry({
 }) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(interaction.content)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const editRef = useRef<HTMLTextAreaElement>(null)
   const config = getTypeConfig(interaction.contact_type)
 
@@ -108,14 +108,14 @@ function InteractionEntry({
                 <button
                   onClick={handleSave}
                   className="hit-44 px-3 py-1.5 rounded-md bg-blue-600 text-white text-base font-medium hover:bg-blue-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-                  style={{ minHeight: 36 }}
+                  style={{ minHeight: 44 }}
                 >
                   Save
                 </button>
                 <button
                   onClick={() => { setEditContent(interaction.content); setEditing(false) }}
                   className="hit-44 px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 text-base hover:bg-slate-200 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-                  style={{ minHeight: 36 }}
+                  style={{ minHeight: 44 }}
                 >
                   Cancel
                 </button>
@@ -129,37 +129,9 @@ function InteractionEntry({
         </div>
         {!editing && (
           <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-            <button
-              onClick={() => { setEditContent(interaction.content); setEditing(true) }}
-              className="hit-44 p-2 rounded-md text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-white/60 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
-              title="Edit"
-              aria-label="Edit"
-              style={{ minHeight: 36, minWidth: 36 }}
-            >
-              <Pencil size={15} />
-            </button>
-            {confirmDelete ? (
-              <button
-                onClick={handleDelete}
-                onBlur={() => setConfirmDelete(false)}
-                className="hit-44 p-2 rounded-md text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 focus:outline-hidden focus:ring-3 focus:ring-red-500 focus:opacity-100"
-                title="Click again to delete"
-                aria-label="Click again to delete"
-                style={{ minHeight: 36, minWidth: 36 }}
-              >
-                <Trash2 size={15} />
-              </button>
-            ) : (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="hit-44 p-2 rounded-md text-slate-500 dark:text-slate-400 hover:text-red-600 hover:bg-white/60 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
-                title="Delete"
-                aria-label="Delete"
-                style={{ minHeight: 36, minWidth: 36 }}
-              >
-                <Trash2 size={15} />
-              </button>
-            )}
+            <IconButton label="Edit" icon={<Pencil size={15} />} onClick={() => { setEditContent(interaction.content); setEditing(true) }} />
+            {/* Deletes at once; the Undo toast brings it back (Q4) */}
+            <IconButton label="Delete" icon={<Trash2 size={15} />} onClick={() => void handleDelete()} className="hover:text-red-600" />
           </div>
         )}
       </div>

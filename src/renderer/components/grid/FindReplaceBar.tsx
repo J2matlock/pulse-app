@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { X, ChevronUp, ChevronDown, ArrowRightLeft } from 'lucide-react'
 import type { GridRow, Column, ColumnType } from '../../../shared/types'
 import { columnOptionLabels } from '../../../shared/stages'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
+import toast from 'react-hot-toast'
+import { ToastIcon } from '../shared/ToastHost'
 import { SEARCHABLE_TYPES as SEARCH_TYPES } from '../../utils/searchMatch'
 import { useVocab } from '../../hooks/useVocab'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
@@ -55,7 +56,6 @@ function escapeRegex(str: string): string {
 
 export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onReplaceAll, onHighlightChange, onActiveMatchChange }: FindReplaceBarProps): React.ReactElement | null {
   const { t } = useVocab()
-  const [confirmAll, setConfirmAll] = useState<{ replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }>; records: number; skipped: number } | null>(null)
   const [findText, setFindText] = useState('')
   const [replaceText, setReplaceText] = useState('')
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
@@ -149,7 +149,8 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
     await onReplace(match.rowId, match.colId, match.value, newVal)
   }, [matches, currentMatchIndex, debouncedFind, replaceText, onReplace, columnById])
 
-  // Replace all asks first, with the counts (G-27)
+  // Replace all happens at once as one undo step, with the Undo toast naming the count (Q4);
+  // matches that can't take the new text are left alone and a second toast says how many (G-27)
   const handleReplaceAll = useCallback(() => {
     if (matches.length === 0 || !debouncedFind) return
     const replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }> = []
@@ -160,8 +161,17 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
       if (newVal === null) skipped++
       else replacements.push({ rowId: m.rowId, colId: m.colId, oldVal: m.value, newVal })
     }
-    setConfirmAll({ replacements, records: new Set(replacements.map(r => r.rowId)).size, skipped })
-  }, [matches, debouncedFind, replaceText, columnById])
+    const leftAlone = skipped > 0
+      ? `${skipped} ${skipped === 1 ? 'match was' : 'matches were'} left alone: "${replaceText}" isn't a number or one of the column's choices there.`
+      : ''
+    if (replacements.length === 0) {
+      toast(`Nothing was replaced. ${leftAlone}`.trim(), { icon: <ToastIcon kind="warning" /> })
+      return
+    }
+    void onReplaceAll(replacements).then(() => {
+      if (leftAlone) toast(leftAlone, { icon: <ToastIcon kind="warning" /> })
+    })
+  }, [matches, debouncedFind, replaceText, columnById, onReplaceAll])
 
   const handleFindKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -321,23 +331,6 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
           </PrimaryButton>
         </div>
       </div>
-      <ConfirmDialog
-        open={confirmAll !== null}
-        destructive={false}
-        title={confirmAll && confirmAll.replacements.length > 0
-          ? `Replace in ${confirmAll.replacements.length} ${confirmAll.replacements.length === 1 ? 'cell' : 'cells'} across ${confirmAll.records} ${t('record', { count: confirmAll.records })}?`
-          : 'Nothing can be replaced'}
-        message={confirmAll && confirmAll.skipped > 0
-          ? `${confirmAll.skipped} ${confirmAll.skipped === 1 ? 'match is' : 'matches are'} left alone: "${replaceText}" isn't a number or one of the column's choices there. You can undo this.`
-          : 'You can undo this.'}
-        confirmLabel="Replace"
-        onConfirm={() => {
-          const all = confirmAll
-          setConfirmAll(null)
-          if (all && all.replacements.length > 0) void onReplaceAll(all.replacements)
-        }}
-        onCancel={() => setConfirmAll(null)}
-      />
     </div>
   )
 }

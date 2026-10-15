@@ -18,7 +18,6 @@ import {
 } from '@dnd-kit/sortable'
 import { dndAccessibility } from '../utils/dndAnnouncements'
 import { useShallow } from 'zustand/react/shallow'
-import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { EmptyState } from '../components/shared/EmptyState'
 import { useTaskStore, type TaskSortMode } from '../stores/taskStore'
 import { useGridStore } from '../stores/gridStore'
@@ -71,7 +70,6 @@ export default function TasksView(): React.ReactElement {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingTask, setEditingTask] = useState<CaseloadTask | null>(null)
   const [showCompleted, setShowCompleted] = useState(false)
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [recentlyCheckedIds, setRecentlyCheckedIds] = useState<Set<number>>(new Set())
   const checkedTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
@@ -99,7 +97,6 @@ export default function TasksView(): React.ReactElement {
   useEffect(() => { if (justAddedGroupId != null) setJustAddedGroupId(null) }, [justAddedGroupId])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set())
   const [groupAddTitles, setGroupAddTitles] = useState<Record<number, string>>({})
-  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: number; name: string } | null>(null)
   const [pendingTemplateId, setPendingTemplateId] = useState<number | null>(null)
 
   // Debounce spinner to prevent flash on fast loads
@@ -318,13 +315,13 @@ export default function TasksView(): React.ReactElement {
     const deletedGroup = taskGroups.find(g => g.id === groupId)
     const affectedTasks = tasks.filter(t => t.group_id === groupId)
     const res = await safeInvoke(IPC.TASK_GROUP_DELETE, groupId)
-    if (!res.ok) { toast.error("We couldn't delete the group — try again"); setConfirmDeleteGroup(null); return }
+    if (!res.ok) { toast.error("We couldn't delete the group — try again"); return }
     setTaskGroups(prev => prev.filter(g => g.id !== groupId))
-    setConfirmDeleteGroup(null)
     void loadTasks() // Reload to reflect ungrouped tasks
     let currentId = groupId
+    // Deleting a group (its tasks stay, ungrouped) and Clear completed don't ask first: one step with the Undo toast (Q4)
     if (deletedGroup) {
-      useUndoStore.getState().push({
+      useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(),
         description: `Deleted group "${deletedGroup.name}"`,
         timestamp: Date.now(),
@@ -748,7 +745,7 @@ export default function TasksView(): React.ReactElement {
                               isCollapsed={isCollapsed}
                               onToggleCollapse={() => handleToggleGroupCollapse(group.id)}
                               onRename={(name) => void handleRenameGroup(group.id, name)}
-                              onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
+                              onDelete={() => void handleDeleteGroup(group.id)}
                               isDragDisabled={false}
                               autoEdit={group.id === justAddedGroupId}
                             />
@@ -864,7 +861,7 @@ export default function TasksView(): React.ReactElement {
                       </span>
                     </button>
                     <button
-                      onClick={() => setShowClearConfirm(true)}
+                      onClick={() => { void deleteTasks(completedTasks.map(t => t.id)).then(() => setShowCompleted(false)) }}
                       className="hit-44 px-2.5 py-1 rounded-sm text-base text-slate-500 dark:text-slate-400
                                  hover:text-red-500 dark:hover:text-red-400
                                  hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors
@@ -920,28 +917,6 @@ export default function TasksView(): React.ReactElement {
           onSnooze={until => { snoozeTask(snoozeTaskId, until); setSnoozeTaskId(null) }}
         />
       )}
-
-      {/* Delete group confirmation */}
-      <ConfirmDialog
-        open={confirmDeleteGroup !== null}
-        title={`Delete the group "${confirmDeleteGroup?.name ?? ''}"?`}
-        message="Its tasks stay, ungrouped."
-        confirmLabel="Delete group"
-        destructive
-        onConfirm={() => confirmDeleteGroup && void handleDeleteGroup(confirmDeleteGroup.id)}
-        onCancel={() => setConfirmDeleteGroup(null)}
-      />
-
-      {/* Clear completed confirmation */}
-      <ConfirmDialog
-        open={showClearConfirm}
-        title={`Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? '' : 's'}?`}
-        message="You can undo this."
-        confirmLabel={`Delete ${completedTasks.length} task${completedTasks.length === 1 ? '' : 's'}`}
-        destructive
-        onConfirm={async () => { setShowClearConfirm(false); await deleteTasks(completedTasks.map(t => t.id)); setShowCompleted(false) }}
-        onCancel={() => setShowClearConfirm(false)}
-      />
 
       {/* Checklist template manager */}
       {showTemplates && (
