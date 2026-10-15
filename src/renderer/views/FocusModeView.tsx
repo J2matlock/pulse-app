@@ -385,7 +385,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
 
       {/* Content */}
       <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-3xl mx-auto space-y-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-24 text-slate-600 dark:text-slate-400">
               Loading your day…

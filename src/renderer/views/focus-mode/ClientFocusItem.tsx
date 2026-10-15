@@ -1,6 +1,6 @@
 import React from 'react'
 import { Check } from 'lucide-react'
-import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
+import { PrimaryButton } from '../../components/ui/Button'
 import { Tooltip } from '../../components/shared/Tooltip'
 import type { FocusItem } from './types'
 import { useVocab } from '../../hooks/useVocab'
@@ -9,6 +9,7 @@ import { isOneOffDeadline } from '../dashboard/completeDeadline'
 /**
  * One deadline in Focus mode, with the same choices as the dashboard row:
  * Done, Done on…, Extend…, and Not now to put it aside (UX D-07).
+ * Done is the one filled button; the others are quiet text buttons so the words keep their room (Q8).
  */
 export const ClientFocusItem = React.memo(function ClientFocusItem({ item, celebrating, onComplete, onDoneOnDay, onExtend, onNotNow, onNavigate }: {
   item: FocusItem
@@ -62,7 +63,8 @@ export const ClientFocusItem = React.memo(function ClientFocusItem({ item, celeb
       style={{ minHeight: 64 }}
     >
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${urgencyDot}`} aria-hidden="true" />
-      <div className="flex-1 min-w-0">
+      {/* Wide enough to read before the buttons wrap under it */}
+      <div className="flex-1 min-w-64">
         <button onClick={onNavigate} title={item.clientName} className="hit-44 block max-w-full font-medium text-slate-900 dark:text-white truncate hover:underline text-left focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm">{item.clientName}</button>
         <div className="text-sm text-slate-600 dark:text-slate-400 truncate">
           {item.label}
@@ -76,18 +78,20 @@ export const ClientFocusItem = React.memo(function ClientFocusItem({ item, celeb
       </div>
       {onNotNow && (
         <Tooltip content="Put it aside until you open Focus mode again">
-          <SecondaryButton size="compact" onClick={onNotNow} disabled={celebrating} className="flex-shrink-0"
+          <button type="button" onClick={onNotNow} disabled={celebrating}
+            className="flex-shrink-0 inline-flex min-h-11 items-center px-3 rounded-lg text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent disabled:opacity-50"
             aria-label={`Not now: ${item.columnName} for ${item.clientName}`}>
             Not now
-          </SecondaryButton>
+          </button>
         </Tooltip>
       )}
       {onExtend && item.ruleKind !== 'quota' && (
         <Tooltip content="Give it a new due date, with a reason">
-          <SecondaryButton size="compact" onClick={onExtend} disabled={celebrating} className="flex-shrink-0"
+          <button type="button" onClick={onExtend} disabled={celebrating}
+            className="flex-shrink-0 inline-flex min-h-11 items-center px-3 rounded-lg text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent disabled:opacity-50"
             aria-label={`Extend ${item.columnName} for ${item.clientName}`}>
             Extend…
-          </SecondaryButton>
+          </button>
         </Tooltip>
       )}
       {onDoneOnDay && canPickDay && (
