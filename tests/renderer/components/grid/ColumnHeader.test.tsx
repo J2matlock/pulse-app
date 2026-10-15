@@ -482,6 +482,25 @@ describe('ColumnHeader', () => {
     }
   })
 
+  it('keeps the menu under the name while renaming, scrolling instead of moving over the box (Q3)', () => {
+    const tall = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
+    const h = window.innerHeight
+    Object.defineProperty(window, 'innerHeight', { value: 600, configurable: true })
+    try {
+      setupStores({ columns: [makeColumn(1, 'Name')], hiddenColumns: [] })
+      render(<ColumnHeader column={makeColumn(1, 'Name')} />)
+      // jsdom draws the header at the top: the menu starts at its bottom edge, 0
+      fireEvent.doubleClick(screen.getByText('Name'))
+      const menu = screen.getByText('Move column to the Trash…').closest('.fixed') as HTMLElement
+      expect(menu.style.top).toBe('0px')
+      expect(menu.style.maxHeight).toBe('592px')
+      expect(screen.getByRole('textbox', { name: 'Column name' })).toBeTruthy()
+    } finally {
+      tall.mockRestore()
+      Object.defineProperty(window, 'innerHeight', { value: h, configurable: true })
+    }
+  })
+
   it('column options button opens menu', () => {
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     const optionsBtn = screen.getByLabelText('Column options')

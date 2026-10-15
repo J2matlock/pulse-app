@@ -247,6 +247,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   useLayoutEffect(() => {
     const el = menuRef.current
     if (!showMenu || !el) return
+    // While renaming, the menu stays under the name's box (never over it) and scrolls instead
+    if (isRenaming) return
     const room = window.innerHeight - 16
     const height = el.scrollHeight + 2
     const top = el.getBoundingClientRect().top
@@ -397,7 +399,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                     const menuW = 270 // w-64 ≈ 256px + border/shadow
                     const menuH = 400 // estimated max height
                     const clampedX = Math.min(rawX, window.innerWidth - menuW)
-                    if (rawY + menuH > window.innerHeight - 8) {
+                    if (!isRenaming && rawY + menuH > window.innerHeight - 8) {
                       // Flip upward: anchor bottom to click point
                       return { bottom: Math.max(8, window.innerHeight - rawY), left: Math.max(8, clampedX), maxHeight: rawY - 8 }
                     }
