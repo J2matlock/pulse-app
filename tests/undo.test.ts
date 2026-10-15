@@ -141,7 +141,7 @@ describe('Undo Store', () => {
 
   it('pushWithToast sets toast state', () => {
     useUndoStore.getState().pushWithToast(makeItem('Cell updated'))
-    expect(useUndoStore.getState().toast).toEqual({ description: 'Cell updated' })
+    expect(useUndoStore.getState().toast).toMatchObject({ description: 'Cell updated', itemId: useUndoStore.getState().undoStack[0]!.id })
   })
 
   it('empty stack: undo and redo are no-ops', async () => {

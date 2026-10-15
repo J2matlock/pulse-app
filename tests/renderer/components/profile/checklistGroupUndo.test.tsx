@@ -50,6 +50,9 @@ import { setWords } from '../../vocabFixture'
 let nextGroupId = 100
 let nextItemId = 500
 let groups: Array<{ id: number; row_id: number; name: string; position: number; is_collapsed: number }> = []
+let items: Array<Record<string, unknown>> = []
+const doneItem = (id: number) => ({ id, row_id: 10, title: `Done ${id}`, description: null, is_completed: 1, due_date: null, completed_at: '2026-10-01 10:00:00',
+  completed_by: null, position: id, category: null, priority: 'normal', is_archived: 0, created_at: '', template_source_id: null, recurrence_rule: null, group_id: null })
 
 function calls(channel: string): unknown[][] {
   return mockInvoke.mock.calls.filter(c => c[0] === channel).map(c => c.slice(1))
@@ -62,8 +65,9 @@ beforeEach(() => {
   nextGroupId = 100
   nextItemId = 500
   groups = []
+  items = []
   mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
-    if (channel === 'checklist:get') return Promise.resolve({ ok: true, data: [] })
+    if (channel === 'checklist:get') return Promise.resolve({ ok: true, data: items })
     if (channel === 'checklist:group-get-all') return Promise.resolve({ ok: true, data: groups })
     if (channel === 'cl-template:get-all') return Promise.resolve({ ok: true, data: [{ id: 7, name: 'Intake steps', description: null, items: '[{"title":"Call"}]', is_recurring: 0, recurrence_days: null, is_system: 0, created_at: '' }] })
     if (channel === 'checklist:group-create') return Promise.resolve({ ok: true, data: { id: nextGroupId++, row_id: 10, name: args[1], position: 0, is_collapsed: 0 } })
@@ -89,8 +93,8 @@ describe('checklist group undo and redo track the current ids', () => {
     groups = [{ id: 5, row_id: 10, name: 'Housing', position: 0, is_collapsed: 0 }]
     render(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => expect(screen.getByLabelText('Delete heading Housing')).toBeTruthy())
+    // Deletes at once, no question (Q4)
     fireEvent.click(screen.getByLabelText('Delete heading Housing'))
-    fireEvent.click(screen.getByText('Confirm'))
     await waitFor(() => expect(pushed).toHaveLength(1))
     await act(async () => { await pushed[0]?.undo() })
     await act(async () => { await pushed[0]?.redo() })
@@ -139,5 +143,25 @@ describe('checklist group undo and redo track the current ids', () => {
     await act(async () => { await pushed[0]?.undo() })
     expect(calls('checklist:delete-item').map(c => c[0])).toEqual([500, 501, 502, 503])
     expect(calls('checklist:group-delete')).toEqual([[100], [101]])
+  })
+
+  it('Uncheck all and Remove done items act at once, one undo step each, no question (Q4)', async () => {
+    items = [doneItem(1), doneItem(2)]
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByText('Uncheck all')).toBeTruthy())
+    await act(async () => { fireEvent.click(screen.getByText('Uncheck all')) })
+    expect(screen.queryByText('Confirm')).toBeNull()
+    expect(calls('checklist:reset-cycle')).toEqual([[10]])
+    await waitFor(() => expect(pushed).toHaveLength(1))
+  })
+
+  it('Remove done items deletes the completed items at once', async () => {
+    items = [doneItem(1), doneItem(2)]
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByText('Remove done items')).toBeTruthy())
+    await act(async () => { fireEvent.click(screen.getByText('Remove done items')) })
+    expect(screen.queryByText('Confirm')).toBeNull()
+    expect(calls('checklist:delete-item')).toEqual([[1], [2]])
+    await waitFor(() => expect(pushed).toHaveLength(1))
   })
 })

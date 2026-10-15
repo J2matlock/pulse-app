@@ -1,8 +1,7 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Pencil, Trash2, Download } from 'lucide-react'
 import type { ChecklistTemplate } from '../../../shared/types'
 import { Badge } from './Badge'
-import { ConfirmDialog } from '../../components/shared/ConfirmDialog'
 
 interface CL_RowProps {
   template: ChecklistTemplate
@@ -12,8 +11,6 @@ interface CL_RowProps {
 }
 
 export function ChecklistTemplateRow({ template, onEdit, onDelete, onExport }: CL_RowProps): React.ReactElement {
-  const [confirmDelete, setConfirmDelete] = useState(false)
-
   const itemCount = (() => {
     try {
       const parsed = JSON.parse(template.items) as unknown[]
@@ -70,7 +67,7 @@ export function ChecklistTemplateRow({ template, onEdit, onDelete, onExport }: C
           </button>
           <button
             type="button"
-            onClick={() => setConfirmDelete(true)}
+            onClick={() => onDelete(template.id)}
             className="p-2 rounded-lg text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20
                        min-h-[44px] min-w-[44px] flex items-center justify-center
                        focus:outline-hidden focus:ring-3 focus:ring-red-400 transition-colors"
@@ -79,15 +76,6 @@ export function ChecklistTemplateRow({ template, onEdit, onDelete, onExport }: C
           >
             <Trash2 className="w-4 h-4" />
           </button>
-          {/* One confirmation for every delete, not an inline "Are you sure?" (UX review F-06) */}
-          <ConfirmDialog
-            open={confirmDelete}
-            title={`Delete "${template.name}"?`}
-            message="The checklist template goes away. Checklists already made from it stay. This can't be undone."
-            confirmLabel="Delete"
-            onConfirm={() => { setConfirmDelete(false); onDelete(template.id) }}
-            onCancel={() => setConfirmDelete(false)}
-          />
         </div>
       </td>
     </tr>

@@ -10,6 +10,7 @@ import { REPORT_SOURCES, describeReport, explainReport } from '../../shared/repo
 import { ok, fail, validId, assertSafePath, pickSavePath } from './ipc-utils'
 import { handlersFor, idArg } from './ipc-define'
 import { ReportError, reportFields, runReport, listReports, getReport, saveReport, deleteReport, validateReportConfig, sourceWord, sourceWordOne } from '../report-builder'
+import { deleteKeepingCopy } from '../library-restore'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -65,5 +66,6 @@ export function registerReportHandlers(): void {
     return ok(filePath)
   })
 
-  define(IPC.REPORT_DELETE, [idArg()], (id) => action(() => deleteReport(id)), { write: true })
+  // Keeps a copy (and its dashboard place) for Undo, which puts it back under the same id (Q4)
+  define(IPC.REPORT_DELETE, [idArg()], (id) => action(() => ({ undoToken: deleteKeepingCopy('report', id, () => deleteReport(id)) })), { write: true })
 }

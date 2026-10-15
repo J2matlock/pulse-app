@@ -11,7 +11,7 @@ import type { LetterTemplate } from './letter-template/types'
 import { LoadingOverlay as Spinner } from '../components/shared/LoadingSpinner'
 import { EditTemplateModal } from './letter-template/EditTemplateModal'
 import { GenerateLetterModal } from './letter-template/GenerateLetterModal'
-import { DeleteConfirmModal } from './letter-template/DeleteConfirmModal'
+import { deleteWithUndo, onLibraryChanged } from '../utils/libraryUndo'
 import { PlaceholderReference } from './letter-template/PlaceholderReference'
 import { TemplateText } from './letter-template/TemplateText'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
@@ -37,7 +37,6 @@ export default function LetterTemplateView(): React.ReactElement {
   const [showEdit, setShowEdit] = useState(false)
   const [editTarget, setEditTarget] = useState<LetterTemplate | null>(null)  // null = new
   const [showGenerate, setShowGenerate] = useState(false)
-  const [showDelete, setShowDelete] = useState(false)
   const [showBatch, setShowBatch] = useState(false)
   const activeGridId = useGridStore(s => s.activeGridId)
 
@@ -70,6 +69,8 @@ export default function LetterTemplateView(): React.ReactElement {
   }, [])
 
   useEffect(() => { void load() }, [load])
+  // An undo or redo of a delete, from the toast or anywhere else
+  useEffect(() => onLibraryChanged('letter-template', () => { void load() }), [load])
 
   // ── CRUD operations ────────────────────────────────────────────────────
 
@@ -90,11 +91,10 @@ export default function LetterTemplateView(): React.ReactElement {
     await load()
   }
 
+  // Deletes at once with the Undo toast; Undo brings it back under the same id (Q4)
   async function handleDeleteTemplate() {
     if (!selected) return
-    const res = await safeInvoke<true>(IPC.LETTER_TEMPLATE_DELETE, selected.id)
-    if (!res.ok) throw new Error(res.error ?? 'Could not delete the template.')
-    await load()
+    if (await deleteWithUndo('letter-template', selected.id, `"${selected.name}"`, "We couldn't delete the template — try again")) await load()
   }
 
   async function handleCopyContent() {
@@ -234,7 +234,7 @@ export default function LetterTemplateView(): React.ReactElement {
                   {copied ? 'Copied' : 'Copy'}
                 </button>
                 <button
-                    onClick={() => setShowDelete(true)}
+                    onClick={() => void handleDeleteTemplate()}
                     title="Delete this template"
                     aria-label="Delete template"
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200
@@ -302,13 +302,6 @@ export default function LetterTemplateView(): React.ReactElement {
         />
       )}
 
-      {showDelete && selected && (
-        <DeleteConfirmModal
-          template={selected}
-          onConfirm={handleDeleteTemplate}
-          onClose={() => setShowDelete(false)}
-        />
-      )}
     </div>
   )
 }

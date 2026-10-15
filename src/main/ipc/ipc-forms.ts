@@ -10,6 +10,7 @@ import { buildFormPdf, FormPrintError } from '../export-forms'
 import { atomicWriteFileAsync } from '../export-shared'
 import { localDateString } from '../../shared/dates'
 import { FormError, listForms, getForm, saveForm, deleteForm, submitForm, undoFormSubmit, redoFormSubmit, type FormValues } from '../forms'
+import { deleteKeepingCopy } from '../library-restore'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -34,7 +35,8 @@ export function registerFormHandlers(): void {
 
   define(IPC.FORM_SAVE, [z.unknown()], (input) => action(() => saveForm(input as never)), { write: true })
 
-  define(IPC.FORM_DELETE, [idArg()], (id) => action(() => deleteForm(id)), { write: true })
+  // Keeps a copy for Undo, which puts it back under the same id (Q4)
+  define(IPC.FORM_DELETE, [idArg()], (id) => action(() => ({ undoToken: deleteKeepingCopy('form', id, () => deleteForm(id)) })), { write: true })
 
   define(IPC.FORM_SUBMIT, [
     idArg(),

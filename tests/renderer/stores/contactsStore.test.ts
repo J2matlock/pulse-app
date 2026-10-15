@@ -149,7 +149,7 @@ describe('contactsStore', () => {
 
     expect(useContactsStore.getState().providers).toHaveLength(0)
     // The standard Undo toast (it has an Undo button), not a plain "Press Ctrl+Z" message
-    expect(useUndoStore.getState().toast?.description).toBe('Deleted provider "To Delete"')
+    expect(useUndoStore.getState().toast?.description).toBe('Deleted provider "To Delete". It doesn\'t go to the Trash.')
   })
 
   it('deleteProvider clears selection when deleting selected provider', async () => {

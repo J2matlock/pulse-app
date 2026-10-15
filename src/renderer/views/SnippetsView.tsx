@@ -11,9 +11,9 @@ import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
-import { friendlyError } from '../utils/friendlyError'
-import { PrimaryButton, DangerButton } from '../components/ui/Button'
+import { PrimaryButton } from '../components/ui/Button'
 import { PurposeLine } from '../components/shared/PurposeLine'
+import { deleteWithUndo, onLibraryChanged } from '../utils/libraryUndo'
 
 // ── Variable helper ───────────────────────────────────────────────────────────
 
@@ -218,12 +218,13 @@ export default function SnippetsView(): React.ReactElement {
   const [loading, setLoading] = useState(true)
   const [showEditor, setShowEditor] = useState(false)
   const [editTarget, setEditTarget] = useState<Snippet | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
     load()
   }, [])
+  // An undo or redo of a delete, from the toast or anywhere else
+  useEffect(() => onLibraryChanged('snippet', () => { void load() }), [])
 
   async function load() {
     setLoading(true)
@@ -253,11 +254,12 @@ export default function SnippetsView(): React.ReactElement {
     return true
   }
 
+  // Deletes at once with the Undo toast; Undo brings it back under the same id (Q4)
   async function handleDelete(id: number) {
-    const res = await safeInvoke(IPC.SNIPPET_DELETE, id)
-    setConfirmDeleteId(null)
-    if (!res.ok) { toast.error(friendlyError(res.error, "We couldn't delete that snippet — try again")); return }
-    setSnippets(prev => prev.filter(s => s.id !== id))
+    const trigger = snippets.find(s => s.id === id)?.trigger_text ?? ''
+    if (await deleteWithUndo('snippet', id, `snippet /${trigger}`, "We couldn't delete that snippet — try again")) {
+      setSnippets(prev => prev.filter(s => s.id !== id))
+    }
   }
 
   const filtered = snippets
@@ -352,35 +354,17 @@ export default function SnippetsView(): React.ReactElement {
                     Edit
                   </button>
 
-                  {confirmDeleteId === s.id ? (
-                    <>
-                      <DangerButton size="compact" onClick={() => handleDelete(s.id)} aria-label="Confirm delete snippet">
-                        Delete
-                      </DangerButton>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        title="Cancel delete"
-                        aria-label="Cancel delete"
-                        className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-slate-600 hover:bg-slate-100
-                                   dark:hover:bg-slate-700
-                                   focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteId(s.id)}
-                      aria-label={`Delete /${s.trigger_text}`}
-                      className="hit-44 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 dark:border-red-700
-                                 text-base text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors
-                                 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" aria-hidden="true" />
-                      Delete
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(s.id)}
+                    aria-label={`Delete /${s.trigger_text}`}
+                    className="hit-44 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 dark:border-red-700
+                               text-base text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors
+                               focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}

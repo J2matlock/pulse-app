@@ -322,6 +322,61 @@ describe('IPC Row — ROW_ARCHIVE / ROW_UNARCHIVE', () => {
   })
 })
 
+describe('IPC Row — ROW_ARCHIVE_REASON (a reason added after archiving, Q4)', () => {
+  const reasonOf = (id: number) => (testDb.db.prepare('SELECT archived_reason FROM rows WHERE id = ?').get(id) as { archived_reason: string | null }).archived_reason
+  const notesOf = (id: number) => testDb.db.prepare("SELECT id, content FROM case_log WHERE row_id = ? AND log_type = 'system' ORDER BY id").all(id) as Array<{ id: number; content: string }>
+  beforeEach(() => { setDbWords(testDb.db) })
+
+  it('saves the reason on archived records and adds one note each, returning the note ids', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    await invoke(IPC.ROW_BULK_ACTION, 'archive', rowIds)
+    const res = await invoke(IPC.ROW_ARCHIVE_REASON, rowIds, '  Moved away  ') as { ok: true; data: { noteIds: number[] } }
+    expect(res.ok).toBe(true)
+    expect(res.data.noteIds).toHaveLength(2)
+    for (const id of rowIds) {
+      expect(reasonOf(id)).toBe('Moved away')
+      // The "archived" note stays as it was; the reason is a note of its own
+      expect(notesOf(id).map(n => n.content)).toEqual(['Client archived: Bulk action', 'Reason for archiving: Moved away'])
+    }
+    expect(res.data.noteIds).toEqual(rowIds.map(id => notesOf(id).at(-1)!.id))
+  })
+
+  it('leaves records that are no longer archived, or in the Trash, alone', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    await invoke(IPC.ROW_ARCHIVE, rowIds[0])
+    await invoke(IPC.ROW_ARCHIVE, rowIds[1])
+    await invoke(IPC.ROW_UNARCHIVE, rowIds[1])
+    await invoke(IPC.ROW_ARCHIVE, rowIds[2])
+    await invoke(IPC.ROW_DELETE, rowIds[2])
+    const res = await invoke(IPC.ROW_ARCHIVE_REASON, rowIds, 'Done') as { ok: true; data: { noteIds: number[] } }
+    expect(res.data.noteIds).toHaveLength(1)
+    expect(reasonOf(rowIds[0]!)).toBe('Done')
+    expect(reasonOf(rowIds[1]!)).toBeNull()
+    expect(notesOf(rowIds[2]!).some(n => n.content.startsWith('Reason for archiving'))).toBe(false)
+  })
+
+  it('says so when none of them is archived any more', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const res = await invoke(IPC.ROW_ARCHIVE_REASON, rowIds, 'Done') as { ok: false; error: string }
+    expect(res.ok).toBe(false)
+    expect(res.error).toBe("That client isn't archived any more, so the reason wasn't saved.")
+  })
+
+  it('refuses a blank or too-long reason and bad ids', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    await invoke(IPC.ROW_ARCHIVE, rowIds[0])
+    for (const reason of ['', '   ', 'x'.repeat(1001), 42]) {
+      const res = await invoke(IPC.ROW_ARCHIVE_REASON, rowIds, reason) as { ok: boolean; error?: string }
+      expect(res.ok).toBe(false)
+    }
+    expect(((await invoke(IPC.ROW_ARCHIVE_REASON, rowIds, 'x'.repeat(1001))) as { error: string }).error).toBe('Keep the reason under 1,000 characters.')
+    expect(((await invoke(IPC.ROW_ARCHIVE_REASON, rowIds, 'x'.repeat(1000))) as { ok: boolean }).ok).toBe(true)
+    for (const ids of [[], [-1], 'x', [1.5]]) {
+      expect(((await invoke(IPC.ROW_ARCHIVE_REASON, ids, 'Done')) as { ok: boolean }).ok).toBe(false)
+    }
+  })
+})
+
 describe('IPC Row — ROW_DUPLICATE', () => {
   it('duplicates a row, copying cells', async () => {
     const { gridId, rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2 })
@@ -838,7 +893,7 @@ describe('IPC Row — handler registration', () => {
     const channels = [
       IPC.ROW_CREATE, IPC.ROW_GET, IPC.ROW_DELETE, IPC.ROW_HARD_DELETE,
       IPC.ROW_RESTORE_DELETED, IPC.ROW_PURGE, IPC.ROW_GET_DELETED, IPC.ROW_COUNT_DELETED,
-      IPC.ROW_ARCHIVE, IPC.ROW_UNARCHIVE, IPC.ROW_DUPLICATE,
+      IPC.ROW_ARCHIVE, IPC.ROW_UNARCHIVE, IPC.ROW_ARCHIVE_REASON, IPC.ROW_DUPLICATE,
       IPC.ROW_MOVE_TO_GRID, IPC.ROW_COPY_TO_GRID, IPC.ROW_REORDER,
       IPC.ROW_UPDATE, IPC.ROW_BULK_ACTION,
       IPC.ROW_GET_MANUAL_CONTACTS, IPC.ROW_SET_MANUAL_CONTACTS,

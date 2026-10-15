@@ -127,7 +127,7 @@ describe('contactsStore undo keeps every detail', () => {
     const id = seed({})
     await useContactsStore.getState().loadProviders()
     await useContactsStore.getState().deleteProvider(id)
-    expect(useUndoStore.getState().toast?.description).toBe('Deleted provider "Dr. Full"')
+    expect(useUndoStore.getState().toast?.description).toBe('Deleted provider "Dr. Full". It doesn\'t go to the Trash.')
   })
 
   it('redo of a delete removes the contact undo brought back, not a look-alike', async () => {

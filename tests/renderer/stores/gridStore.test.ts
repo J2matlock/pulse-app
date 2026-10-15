@@ -871,5 +871,49 @@ describe('gridStore', () => {
       expect(mockInvoke).toHaveBeenCalledWith('row:unarchive', 5)
       expect(heard).toHaveBeenCalledTimes(2)
     })
+
+    it('archives at once: the toast says what was cancelled, offers a reason, and Undo voids the reason note (Q4)', async () => {
+      const { useArchiveReasonStore } = await import('../../../src/renderer/stores/archiveReasonStore')
+      useUndoStore.getState().clear()
+      useGridStore.setState({ rows: [{ row_id: 5, is_active: 1 } as unknown as GridRow], columns: [], showArchived: false })
+      mockInvoke.mockImplementation(async (channel: string) => {
+        if (channel === IPC.APPT_UPCOMING_COUNT) return { ok: true, data: 2 }
+        if (channel === IPC.APPT_CANCEL_UPCOMING) return { ok: true, data: { snapshot: { s: 1 }, ids: [7, 8] } }
+        return { ok: true, data: true }
+      })
+      await useGridStore.getState().archiveRow(5, undefined, { cancelAppointments: true })
+      const toast = useUndoStore.getState().toast!
+      expect(toast.description).toBe('"Unnamed record" archived; 2 upcoming appointments cancelled')
+      expect(toast.action?.label).toBe('Add a reason…')
+      toast.action!.run()
+      const req = useArchiveReasonStore.getState().request!
+      expect(req.rowIds).toEqual([5])
+      // As ArchiveReasonDialog does once ROW_ARCHIVE_REASON answers
+      req.step.reason = 'Moved away'
+      req.step.noteIds.push(41)
+      useArchiveReasonStore.setState({ request: null })
+      mockInvoke.mockClear()
+      await useUndoStore.getState().undo()
+      const calls = mockInvoke.mock.calls.map(c => c[0])
+      expect(calls).toContain(IPC.ROW_UNARCHIVE)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC.APPT_RESTORE, { s: 1 })
+      expect(mockInvoke).toHaveBeenCalledWith(IPC.CASE_LOG_VOID, 41, 'Undone action')
+      // The note is voided after the archive is undone (AUDIT-023)
+      expect(calls.indexOf(IPC.CASE_LOG_VOID)).toBeGreaterThan(calls.indexOf(IPC.ROW_UNARCHIVE))
+      mockInvoke.mockClear()
+      await useUndoStore.getState().redo()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC.ROW_ARCHIVE, 5, 'Moved away')
+      mockInvoke.mockReset()
+    })
+
+    it('no reason button when the reason was given, and no appointment words when none were cancelled', async () => {
+      useUndoStore.getState().clear()
+      useGridStore.setState({ rows: [{ row_id: 5, is_active: 1 } as unknown as GridRow], columns: [] })
+      mockInvoke.mockImplementation(async (channel: string) => channel === IPC.APPT_UPCOMING_COUNT ? { ok: true, data: 0 } : { ok: true, data: true })
+      await useGridStore.getState().archiveRow(5, 'Handoff', { cancelAppointments: true })
+      expect(useUndoStore.getState().toast).toEqual({ description: '"Unnamed record" archived', itemId: useUndoStore.getState().undoStack.at(-1)!.id })
+      expect(mockInvoke.mock.calls.some(c => c[0] === IPC.APPT_CANCEL_UPCOMING)).toBe(false)
+      mockInvoke.mockReset()
+    })
   })
 })

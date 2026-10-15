@@ -47,13 +47,12 @@ describe('the form builder', () => {
     expect(saved.fields).toEqual([{ kind: 'column', columnId: 1, required: false }])
   })
 
-  it('Delete → Cancel in the confirm closes only the confirm, not the forms dialog (Q-051)', async () => {
+  it('Delete acts at once (Undo brings it back, Q4) and leaves the forms dialog open (Q-051)', async () => {
     forms = [{ id: 11, grid_id: 3, name: 'Short', intro: null, fields: [{ kind: 'column', columnId: 1 }], log_activity_type: null, position: 0, created_at: '', updated_at: '' }]
     const onClose = vi.fn()
     render(<FormsDialog gridId={3} gridName="Clients" onClose={onClose} />)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Short' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Delete Short' })) })
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(screen.getByRole('dialog', { name: /Forms for Clients/ })).toBeTruthy()

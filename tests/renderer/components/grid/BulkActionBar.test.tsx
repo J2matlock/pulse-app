@@ -19,6 +19,8 @@ if (!globalThis.crypto?.randomUUID) {
 
 vi.mock('../../../../src/renderer/utils/safeInvoke', () => ({
   safeInvoke: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  mustInvoke: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  storeInvoke: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
@@ -41,6 +43,8 @@ import type { GridRow, Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
 import { IPC } from '../../../../src/shared/ipc-channels'
+import { useUndoStore } from '../../../../src/renderer/stores/undoStore'
+import { useArchiveReasonStore } from '../../../../src/renderer/stores/archiveReasonStore'
 
 function makeRow(id: number, isActive = 1): GridRow {
   return {
@@ -70,7 +74,6 @@ function makeProps(overrides: Partial<BulkActionBarProps> = {}): BulkActionBarPr
     acuityLevels: [],
     bulkSetRowAcuityLevel: vi.fn(),
     setSelectedRowIds: vi.fn(),
-    setBulkDeleteTarget: vi.fn(),
     setBulkMoveTarget: vi.fn(),
     ...overrides,
   }
@@ -93,11 +96,15 @@ describe('BulkActionBar', () => {
     expect(screen.getByText('1 client selected')).toBeTruthy()
   })
 
-  it('Move to the Trash (the words of its confirm, UX-B-25) calls setBulkDeleteTarget', () => {
-    const setBulkDeleteTarget = vi.fn()
-    render(<BulkActionBar {...makeProps({ setBulkDeleteTarget })} />)
-    fireEvent.click(screen.getByText('Move to the Trash…'))
-    expect(setBulkDeleteTarget).toHaveBeenCalledWith(true)
+  it('Move to the Trash names the count and acts at once, with an Undo toast, no dialog (UX-B-25, Q4)', async () => {
+    useUndoStore.getState().clear()
+    const setSelectedRowIds = vi.fn()
+    render(<BulkActionBar {...makeProps({ setSelectedRowIds })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Move 2 to the Trash' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await vi.waitFor(() => expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(IPC.ROW_BULK_ACTION, 'delete', [1, 2]))
+    await vi.waitFor(() => expect(useUndoStore.getState().toast?.description).toBe('Moved 2 clients to the Trash'))
+    expect(setSelectedRowIds.mock.calls.at(-1)![0].size).toBe(0)
   })
 
   it('clear selection button calls setSelectedRowIds with empty set', () => {
@@ -113,36 +120,42 @@ describe('BulkActionBar', () => {
 
   it('shows Archive button when all selected rows are active', () => {
     render(<BulkActionBar {...makeProps()} />)
-    expect(screen.getByText('Archive…')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Archive' })).toBeTruthy()
     expect(screen.queryByText('Unarchive')).toBeNull()
   })
 
-  it('the archive question names the list with the workspace word (A28-12)', async () => {
-    // The question shows only when an archived record has upcoming appointments
-    vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: 2 })
+  it('archives at once in one bulk step, no dialog, and the toast offers a reason (Q4, UX-B-26)', async () => {
+    useUndoStore.getState().clear()
     render(<BulkActionBar {...makeProps()} />)
-    fireEvent.click(screen.getByText('Archive…'))
-    expect(await screen.findByText(/hidden from the caseload\. Unarchiving/)).toBeTruthy()
-  })
-
-  it('asks with the same Archive dialog as one record, reason included, even with no appointments (UX-B-26)', async () => {
-    render(<BulkActionBar {...makeProps()} />)
-    fireEvent.click(screen.getByText('Archive…'))
-    expect(screen.getByRole('heading', { name: 'Archive 2 clients' })).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Moved away' } })
     vi.mocked(safeInvoke).mockClear()
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
-    await vi.waitFor(() => expect(vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.ROW_ARCHIVE)).toHaveLength(2))
-    expect(vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.ROW_ARCHIVE).map(c => c.slice(1))).toEqual([[1, 'Moved away'], [2, 'Moved away']])
-  })
-
-  it('archives in one bulk step when no reason is given', async () => {
-    render(<BulkActionBar {...makeProps()} />)
-    fireEvent.click(screen.getByText('Archive…'))
-    vi.mocked(safeInvoke).mockClear()
-    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
-    await vi.waitFor(() => expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(IPC.ROW_BULK_ACTION, 'archive', [1, 2]))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await vi.waitFor(() => expect(useUndoStore.getState().toast).not.toBeNull())
+    expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(IPC.ROW_BULK_ACTION, 'archive', [1, 2])
     expect(vi.mocked(safeInvoke).mock.calls.some(c => c[0] === IPC.ROW_ARCHIVE)).toBe(false)
+    expect(useUndoStore.getState().toast?.description).toBe('Archived 2 clients (Test Client, Test Client)')
+    // "Add a reason…" asks for both records
+    useUndoStore.getState().toast!.action!.run()
+    expect(useArchiveReasonStore.getState().request?.rowIds).toEqual([1, 2])
+    expect(useArchiveReasonStore.getState().request?.label).toBe('2 clients')
+    useArchiveReasonStore.setState({ request: null })
+  })
+
+  it('cancels upcoming appointments with them and says how many; Undo puts them back (audit 1.13)', async () => {
+    useUndoStore.getState().clear()
+    vi.mocked(safeInvoke).mockImplementation(async (channel: string) => {
+      if (channel === IPC.APPT_UPCOMING_COUNT) return { ok: true, data: 2 } as never
+      if (channel === IPC.APPT_CANCEL_UPCOMING) return { ok: true, data: { snapshot: { s: 1 }, ids: [7, 8] } } as never
+      return { ok: true, data: null } as never
+    })
+    render(<BulkActionBar {...makeProps()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    await vi.waitFor(() => expect(useUndoStore.getState().toast?.description).toBe('Archived 2 clients (Test Client, Test Client); 2 upcoming appointments cancelled'))
+    const { mustInvoke } = await import('../../../../src/renderer/utils/safeInvoke')
+    await useUndoStore.getState().undoFromToast()
+    expect(vi.mocked(mustInvoke)).toHaveBeenCalledWith(IPC.ROW_BULK_ACTION, 'unarchive', [1, 2])
+    expect(vi.mocked(mustInvoke)).toHaveBeenCalledWith(IPC.APPT_RESTORE, { s: 1 })
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: true, data: null } as never)
   })
 
   it('says "Change a column…", not "Bulk Edit" (UX-B-25)', () => {
@@ -158,7 +171,7 @@ describe('BulkActionBar', () => {
       rowById: new Map(archivedRows.map(r => [r.row_id, r])),
     })} />)
     expect(screen.getByText('Unarchive')).toBeTruthy()
-    expect(screen.queryByText('Archive…')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull()
   })
 
   it('shows Move to caseload button', () => {

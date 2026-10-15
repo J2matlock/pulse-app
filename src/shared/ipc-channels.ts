@@ -36,6 +36,7 @@ export const IPC = {
   ROW_DELETE: 'row:delete',
   ROW_ARCHIVE: 'row:archive',
   ROW_UNARCHIVE: 'row:unarchive',
+  ROW_ARCHIVE_REASON: 'row:archive-reason',
   ROW_REORDER: 'row:reorder',
   ROW_DUPLICATE: 'row:duplicate',
   ROW_BULK_ACTION: 'row:bulk-action',
@@ -161,6 +162,7 @@ export const IPC = {
   SNIPPET_CREATE: 'snippet:create',
   SNIPPET_UPDATE: 'snippet:update',
   SNIPPET_DELETE: 'snippet:delete',
+  LIBRARY_RESTORE: 'library:restore',
 
   // Dashboard
   DASHBOARD_GET_ALL: 'dashboard:get-all',

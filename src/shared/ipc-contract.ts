@@ -23,6 +23,7 @@ import type {
   ChecklistGroup, ChecklistDueItem, TaskGroup, NoteDateUpdate, NoteDateRevert, ContactRequirement, ContactStatusGrid, MissingInfoGrid,
 } from './types'
 import type { Vocab } from './vocab'
+import type { LibraryKind, LibraryDeleteResult } from './libraryKinds'
 import type { FeatureMap } from './features'
 import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
@@ -260,6 +261,7 @@ export interface IPCContract {
   'row:delete':              { args: [rowId: number];                                                                      return: true }
   'row:archive':             { args: [rowId: number, reason?: string];                                                     return: true }
   'row:unarchive':           { args: [rowId: number];                                                                      return: true }
+  'row:archive-reason':      { args: [rowIds: number[], reason: string];                                                  return: { noteIds: number[] } }
   'row:locate':              { args: [rowId: number];                                                                      return: RowLocation | null }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }
@@ -316,7 +318,7 @@ export interface IPCContract {
   'cl-template:get-all': { args: [];                                                       return: ChecklistTemplate[] }
   'cl-template:create':  { args: [template: Omit<ChecklistTemplate, 'id' | 'created_at'>]; return: ChecklistTemplate }
   'cl-template:update':  { args: [id: number, updates: Partial<ChecklistTemplate>];        return: true }
-  'cl-template:delete':  { args: [id: number];                                             return: true }
+  'cl-template:delete':  { args: [id: number];                                             return: LibraryDeleteResult }
   'cl-template:export':  { args: [id: number, filePath: string];                           return: true }
   'cl-template:import':  { args: [filePath: string];                                       return: ChecklistTemplate }
 
@@ -354,7 +356,8 @@ export interface IPCContract {
   'snippet:get-all': { args: [];                                                                                            return: Snippet[] }
   'snippet:create':  { args: [trigger: string, expansion: string, category: string | null];                                 return: Snippet }
   'snippet:update':  { args: [id: number, updates: { trigger_text?: string; expansion?: string; category?: string | null }]; return: true }
-  'snippet:delete':  { args: [id: number];                                                                                   return: true }
+  'snippet:delete':  { args: [id: number];                                                                                   return: LibraryDeleteResult }
+  'library:restore': { args: [token: string]; return: { kind: LibraryKind; id: number } }
 
   // ── Caseload Tasks ──────────────────────────────────────────────────────
   'task:get-all':     { args: [gridId?: number];                                                                                                    return: CaseloadTask[] }
@@ -478,11 +481,11 @@ export interface IPCContract {
   'documents:batch-preview': { args: [templateId: number | null, target: Record<string, unknown>]; return: { count: number; unknown: string[]; error?: string } }
   'import:undo':             { args: [gridId: number, rowIds: number[]]; return: { moved: number } }
   'setup-template:apply':   { args: [pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean]; return: number }
-  'setup-template:delete':  { args: [id: number];                                                                        return: true }
+  'setup-template:delete':  { args: [id: number];                                                                        return: LibraryDeleteResult }
   'letter-template:get-all':    { args: [];                                                                              return: unknown[] }
   'letter-template:create':     { args: [name: string, description: string | null, content: string];                     return: number }
   'letter-template:update':     { args: [id: number, updates: { name?: string; description?: string | null; content?: string }]; return: true }
-  'letter-template:delete':     { args: [id: number];                                                                    return: true }
+  'letter-template:delete':     { args: [id: number];                                                                    return: LibraryDeleteResult }
   'letter-template:generate':   { args: [templateId: number, rowId: number, gridId: number];                             return: string }
   'letter-template:export-pdf': { args: [opts: { text: string }];                                                        return: string | null }
 
@@ -637,7 +640,7 @@ export interface IPCContract {
   // ── Forms ───────────────────────────────────────────────────────────────
   'forms:list':    { args: [gridId: number];                                                   return: Form[] }
   'forms:save':    { args: [input: FormInput];                                                 return: Form }
-  'forms:delete':  { args: [id: number];                                                       return: void }
+  'forms:delete':  { args: [id: number];                                                       return: LibraryDeleteResult }
   'forms:submit':  { args: [formId: number, rowId: number | null, values: FormValues, noteAnswers?: Record<string, string>]; return: FormChange }
   'forms:undo':    { args: [change: FormChange];                                               return: void }
   /** false: nothing could be put back */
@@ -666,7 +669,7 @@ export interface IPCContract {
   'reports:run-saved':  { args: [id: number];                                                  return: { report: SavedReport; result: ReportResult; explanation: string; listName: string } }
   'reports:list':       { args: [gridId?: number];                                             return: SavedReport[] }
   'reports:save':       { args: [input: { id?: number; name: string; gridId: number; config: ReportConfig }]; return: SavedReport }
-  'reports:delete':     { args: [id: number];                                                  return: void }
+  'reports:delete':     { args: [id: number];                                                  return: LibraryDeleteResult }
   'reports:export':     { args: [gridId: number, config: ReportConfig, format: 'csv' | 'pdf', name?: string]; return: string | null }
 
   // ── Reminders and running in the background ─────────────────────────────

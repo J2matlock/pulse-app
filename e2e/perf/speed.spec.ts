@@ -20,6 +20,7 @@ import {
 } from './perfKit'
 
 const DIALOG = '[role="dialog"], [role="alertdialog"]'
+const UNDO_TOAST = '[data-testid="undo-toast-slot"] [role="status"]'
 const ROWS = '[role="grid"] [role="row"][data-row-index]'
 
 /** Run `fn` at each CPU rate; rates above 1 only when throttling works here */
@@ -99,8 +100,11 @@ for (const records of RECORD_COUNTS) {
           await closeDialog(page)
           await page.locator('[role="row"][data-row-index="0"] [data-testid="row-menu-button"]').click()
           await page.waitForSelector('[role="menu"]')
-          trash.push(await measure(page, { kind: 'click', selector: '[role="menu"] button, [role="menuitem"]', text: 'Move to the Trash' }, { ready: DIALOG, anim: true }))
-          await closeDialog(page)
+          // No confirmation since Q4: the record goes at once and the Undo toast shows; its Undo brings it back
+          trash.push(await measure(page, { kind: 'click', selector: '[role="menu"] button, [role="menuitem"]', text: 'Move to the Trash' }, { ready: UNDO_TOAST, anim: true }))
+          await page.locator(UNDO_TOAST).getByRole('button', { name: 'Undo' }).click()
+          await page.waitForSelector(UNDO_TOAST, { state: 'detached' })
+          await page.waitForSelector('[role="row"][data-row-index="0"]')
           palette.push(await measure(page, { kind: 'key', key: 'k', ctrl: true }, { ready: '[role="dialog"][aria-label="Command palette"]', anim: true }))
           await closeDialog(page)
         }

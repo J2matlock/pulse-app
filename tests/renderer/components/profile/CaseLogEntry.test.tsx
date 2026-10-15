@@ -141,16 +141,11 @@ describe('CaseLogEntry', () => {
     expect(screen.queryByLabelText('Delete')).toBeNull()
   })
 
-  it('delete button requires confirmation', () => {
+  it('delete button deletes a new note at once, without a second click (Q4: the Undo toast is the way back)', () => {
     render(<CaseLogEntry entry={makeEntry()} {...handlers} />)
-    const deleteBtn = screen.getByLabelText('Delete')
-    fireEvent.click(deleteBtn)
-    // Now should show confirm/cancel
-    expect(screen.getByText('Delete')).toBeTruthy()
-    expect(screen.getByLabelText('Cancel delete')).toBeTruthy()
-    // Confirm delete
-    fireEvent.click(screen.getByText('Delete'))
+    fireEvent.click(screen.getByLabelText('Delete'))
     expect(handlers.onDelete).toHaveBeenCalledWith(1)
+    expect(screen.queryByLabelText('Cancel delete')).toBeNull()
   })
 
   it('shows follow-up badge with complete button', () => {

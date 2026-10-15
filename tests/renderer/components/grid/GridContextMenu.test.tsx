@@ -171,7 +171,7 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('Star client')).toBeTruthy()
     expect(screen.getByText('Duplicate client')).toBeTruthy()
     expect(screen.getByText('Move / Copy to another caseload…')).toBeTruthy()
-    expect(screen.getByText('Archive client…')).toBeTruthy()
+    expect(screen.getByText('Archive client')).toBeTruthy()
     expect(screen.getByText('Move to the Trash')).toBeTruthy()
   })
 
@@ -231,6 +231,6 @@ describe('GridContextMenu', () => {
     })
     render(<GridContextMenu {...props} />)
     expect(screen.getByText('Reactivate client')).toBeTruthy()
-    expect(screen.queryByText('Archive client…')).toBeNull()
+    expect(screen.queryByText('Archive client')).toBeNull()
   })
 })

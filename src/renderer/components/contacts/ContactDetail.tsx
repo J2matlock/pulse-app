@@ -10,7 +10,6 @@ import { ContactInteractionLog } from './ContactInteractionLog'
 import { ContactLinkedClients } from './ContactLinkedClients'
 import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { ProfileMoreMenu } from '../profile/ProfileMoreMenu'
 import { ANIM_STAR_BOUNCE, ANIM_CHECKED_FLASH } from '../../../shared/constants'
 import { IPC } from '../../../shared/ipc-channels'
@@ -89,7 +88,6 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
   })))
 
   const [tab, setTab] = useState<DetailTab>('info')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [checkedFlash, setCheckedFlash] = useState(false)
   const [starBounce, setStarBounce] = useState(false)
@@ -138,9 +136,9 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
     })()
   }, [p.id, p.category_id])
 
+  // Deletes at once (Q4): the Undo toast says it doesn't go to the Trash and brings it back
   async function handleDelete() {
     await deleteProvider(p.id)
-    setShowDeleteConfirm(false)
     onDeleted()
   }
 
@@ -214,7 +212,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
               className="btn-secondary inline-flex items-center gap-1.5" style={{ minHeight: 44 }}>
               <Pencil size={16} aria-hidden="true" /> Edit
             </button>
-            <button type="button" onClick={() => setShowDeleteConfirm(true)} aria-label={`Delete ${t('contact')}`}
+            <button type="button" onClick={() => void handleDelete()} aria-label={`Delete ${t('contact')}`}
               className="btn-secondary inline-flex items-center gap-1.5 text-red-700 dark:text-red-300" style={{ minHeight: 44 }}>
               <Trash2 size={16} aria-hidden="true" /> Delete
             </button>
@@ -389,16 +387,6 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
         )}
       </div>
 
-      {/* Delete confirmation */}
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        title={`Delete "${p.name}" forever?`}
-        message={`This deletes the ${t('contact')} for good, with their history, their links to ${t('record', { many: true })}, and their extra details. It doesn't go to the Trash. You can undo this right away: click Undo in the message at the bottom of the window, or the Undo arrow at the top.`}
-        confirmLabel={`Delete ${t('contact')} forever`}
-        onConfirm={handleDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
-        destructive
-      />
     </div>
   )
 }

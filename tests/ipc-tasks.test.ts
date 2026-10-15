@@ -732,6 +732,7 @@ describe('IPC Tasks', () => {
       const id = r.lastInsertRowid as number
       const result = await invoke(IPC.SNIPPET_DELETE, id) as any
       expect(result.ok).toBe(true)
+      expect(typeof result.data.undoToken).toBe('string')
       const row = testDb.db.prepare('SELECT * FROM snippets WHERE id = ?').get(id)
       expect(row).toBeUndefined()
     })

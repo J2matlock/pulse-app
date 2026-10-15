@@ -17,7 +17,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
 import { loadPinnedReports, setReportPinned } from '../../utils/pinnedReports'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { deleteWithUndo } from '../../utils/libraryUndo'
 import { ReportTable } from './ReportTable'
 import { ReportChart, chartValues } from './ReportChart'
 import { friendlyError } from '../../utils/friendlyError'
@@ -106,7 +106,6 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   const [result, setResult] = useState<ReportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pinned, setPinned] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   // Which number the bars show, when a report has more than one
   const [chartValue, setChartValue] = useState<string | undefined>(undefined)
   const { t, f } = useVocab(gridId)
@@ -253,11 +252,10 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     // Tell the page about the save only now, so the reopened report sees it pinned
     if (savedNow) onSaved(report)
   }
+  // Deletes at once with the Undo toast; Undo brings it back under the same id, pinned where it was (Q4)
   async function remove() {
-    setConfirmDelete(false)
     if (!initial) return
-    const r = await safeInvoke(IPC.REPORT_DELETE, initial.id)
-    if (r.ok) { toast.success(`Deleted "${initial.name}"`); onDeleted(initial.id) } else toast.error(friendlyError(r.error))
+    if (await deleteWithUndo('report', initial.id, `"${initial.name}"`)) onDeleted(initial.id)
   }
   function onSort(field: string) {
     patch({ sort: config.sort?.field === field && config.sort.dir === 'asc' ? { field, dir: 'desc' } : { field, dir: 'asc' } })
@@ -462,7 +460,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
             <button type="button" className="btn-secondary" onClick={() => void togglePin()}>
               {pinned ? <><PinOff className="w-4 h-4" aria-hidden="true" />Take off the dashboard</> : <><Pin className="w-4 h-4" aria-hidden="true" />Show on dashboard</>}
             </button>
-            {initial && <button type="button" className="btn-danger" onClick={() => setConfirmDelete(true)}><Trash2 className="w-4 h-4" />Delete</button>}
+            {initial && <button type="button" className="btn-danger" onClick={() => void remove()}><Trash2 className="w-4 h-4" />Delete</button>}
           </div>
         </div>
         <h3 id="report-preview" className="text-base font-semibold text-slate-800 dark:text-slate-100">
@@ -496,15 +494,6 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
           : <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>}
       </section>
 
-      <ConfirmDialog
-        open={confirmDelete}
-        title={`Delete "${initial?.name ?? ''}"?`}
-        message={pinned ? 'The report also comes off the dashboard. This can\'t be undone.' : 'This can\'t be undone.'}
-        confirmLabel="Delete report"
-        destructive
-        onConfirm={() => void remove()}
-        onCancel={() => setConfirmDelete(false)}
-      />
     </div>
   )
 }

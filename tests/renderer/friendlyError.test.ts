@@ -76,6 +76,8 @@ const MUST_SHOW: string[] = [
   "You can import up to 1,000 ${word('contact', { many: true })} at a time.",
   "You can export up to 5,000 ${word('contact', { many: true })} at a time.",
   'Up to ${MAX_HOLIDAYS} days off can be saved.',
+  "That ${word('record')} isn't archived any more, so the reason wasn't saved.",
+  'Keep the reason under 1,000 characters.',
 ]
 
 /**

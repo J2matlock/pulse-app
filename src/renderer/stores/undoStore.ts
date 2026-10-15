@@ -63,10 +63,25 @@ export interface UndoItem {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
+/** A second button on the Undo toast, next to Undo (Archive's "Add a reason…") */
+export interface ToastAction { label: string; run: () => void }
+
+/**
+ * What the Undo toast shows. itemId is the step its Undo button undoes: the
+ * toast goes as soon as that step is no longer on top of the stack, so Undo
+ * never reaches a different step than the one it names. A toast with no
+ * itemId (a failed undo or redo) has no Undo button.
+ */
+export interface UndoToastState {
+  description: string
+  itemId?: string
+  action?: ToastAction
+}
+
 interface UndoState {
   undoStack: UndoItem[]
   redoStack: UndoItem[]
-  toast: { description: string } | null
+  toast: UndoToastState | null
   isUndoing: boolean  // true while executing undo/redo callbacks — suppresses new pushes
 
   /**
@@ -75,12 +90,14 @@ interface UndoState {
    * evenWhileUndoing, so it keeps its own undo entry (L-24).
    */
   push: (item: UndoItem, opts?: PushOptions) => void
-  pushWithToast: (item: UndoItem, opts?: PushOptions) => void
+  pushWithToast: (item: UndoItem, opts?: ToastPushOptions) => void
   /** Replace an existing undo entry (matched by predicate) with an updated one, preserving original undo callback. */
   coalesce: (predicate: (item: UndoItem) => boolean, updated: UndoItem, opts?: PushOptions) => void
   undo: () => Promise<void>
   redo: () => Promise<void>
   undoTo: (itemId: string) => Promise<void>
+  /** The toast's Undo button: undoes the step the toast names, and nothing else */
+  undoFromToast: () => Promise<void>
   dismissToast: () => void
   /** Keep the toast up while the pointer or focus is on it; letting go starts its time again */
   holdToast: (hold: boolean) => void
@@ -88,10 +105,11 @@ interface UndoState {
 }
 
 const MAX_STACK = 100
-/** How long the Undo toast stays up; the top bar's Undo works after that (UX D-28) */
-export const UNDO_TOAST_MS = 5000
+/** How long the Undo toast stays up; the top bar's Undo, Ctrl+Z and the history panel work after that (UX D-28, Q4) */
+export const UNDO_TOAST_MS = 8000
 
 export interface PushOptions { evenWhileUndoing?: boolean }
+export interface ToastPushOptions extends PushOptions { action?: ToastAction }
 
 /** The reason an undo or redo failed, for the toast: handler messages are already plain English */
 /** A handler's own plain-English reason, or '' for technical text that shouldn't reach the screen */
@@ -180,14 +198,21 @@ export const useUndoStore = create<UndoState>((set, get) => {
     }, UNDO_TOAST_MS)
   }
 
-  function showToast(description: string) {
-    set({ toast: { description } })
+  function showToast(description: string, itemId?: string, action?: ToastAction) {
+    set({ toast: { description, ...(itemId ? { itemId } : {}), ...(action ? { action } : {}) } })
     startToastTimer()
   }
 
   function clearToast() {
     if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = null }
     set({ toast: null })
+  }
+
+  // A step pushed or replaced under a showing toast: if the step the toast names is
+  // no longer on top, its Undo would undo something else, so the toast goes (Q4)
+  function dropStaleToast() {
+    const { toast, undoStack } = get()
+    if (toast?.itemId && undoStack[undoStack.length - 1]?.id !== toast.itemId) clearToast()
   }
 
   return {
@@ -203,16 +228,17 @@ export const useUndoStore = create<UndoState>((set, get) => {
         if (next.length > MAX_STACK) next.shift()
         return { undoStack: next, redoStack: [] }
       })
+      dropStaleToast()
     },
 
-    pushWithToast(item: UndoItem, opts?: PushOptions) {
+    pushWithToast(item: UndoItem, opts?: ToastPushOptions) {
       if (get().isUndoing && !opts?.evenWhileUndoing) return
       set(s => {
         const next = [...s.undoStack, item]
         if (next.length > MAX_STACK) next.shift()
         return { undoStack: next, redoStack: [] }
       })
-      showToast(item.description)
+      showToast(item.description, item.id, opts?.action)
     },
 
     coalesce(predicate: (item: UndoItem) => boolean, updated: UndoItem, opts?: PushOptions) {
@@ -230,6 +256,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
         next[idx] = updated
         return { undoStack: next, redoStack: [] }
       })
+      dropStaleToast()
     },
 
     async undo() {
@@ -263,7 +290,9 @@ export const useUndoStore = create<UndoState>((set, get) => {
           _lastFailedUndo = item
           // Only the failed step goes back; steps added while it ran stay (Q-085)
           set(s => ({ undoStack: reinsert(s.undoStack, item, idsBefore), redoStack: s.redoStack.filter(i => i !== item) }))
-          showToast(failureText('Undo', err))
+          // Undo on this toast tries the same step again, if it's back on top
+          const top = get().undoStack[get().undoStack.length - 1]
+          showToast(failureText('Undo', err), top === item ? item.id : undefined)
         }
       } finally {
         _undoMutex = false
@@ -331,7 +360,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
             // Earlier steps really were undone; this one wasn't, so it goes back on the undo stack
             rlog.error('UndoStore', 'undoTo partial failure:', err)
             set(s => ({ undoStack: reinsert(s.undoStack, item, idsBefore), redoStack: s.redoStack.filter(i => i.id !== item.id) }))
-            showToast(failureText('Undo', err))
+            const top = get().undoStack[get().undoStack.length - 1]
+            showToast(failureText('Undo', err), top === item ? item.id : undefined)
             return
           }
         }
@@ -339,6 +369,13 @@ export const useUndoStore = create<UndoState>((set, get) => {
         _undoMutex = false
         set({ isUndoing: false })
       }
+    },
+
+    async undoFromToast() {
+      const { toast, undoStack } = get()
+      if (!toast?.itemId) return
+      if (undoStack[undoStack.length - 1]?.id !== toast.itemId) { clearToast(); return }
+      await get().undo()
     },
 
     dismissToast() {

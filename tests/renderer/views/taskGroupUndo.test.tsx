@@ -47,4 +47,15 @@ describe('Task group undo and redo', () => {
     await act(async () => { await useUndoStore.getState().undo() })
     expect(deletes()).toEqual([10, 11])
   })
+
+  it('deleting a group acts at once, with the Undo toast, no question (Q4)', async () => {
+    render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    await act(async () => { fireEvent.click(screen.getByTitle('Add a group to organize tasks')) })
+    const del = await screen.findByLabelText(/^Delete group/)
+    await act(async () => { fireEvent.click(del) })
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(deletes()).toEqual([10])
+    expect(useUndoStore.getState().toast?.description).toMatch(/^Deleted group "/)
+  })
 })

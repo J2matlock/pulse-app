@@ -4,7 +4,7 @@ import type { Grid } from '../../../shared/types'
 import type { SetupTemplate } from './types'
 import { Badge } from './Badge'
 import { ApplyTemplateDialog } from './ApplyTemplateDialog'
-import { PrimaryButton, DangerButton } from '../../components/ui/Button'
+import { PrimaryButton } from '../../components/ui/Button'
 
 interface SetupTemplateCardProps {
   template: SetupTemplate
@@ -16,8 +16,6 @@ interface SetupTemplateCardProps {
 
 export function SetupTemplateCard({ template, grids, onDelete, onExport, onRefresh }: SetupTemplateCardProps): React.ReactElement {
   const [showApply, setShowApply] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting, setDeleting] = useState(false)
 
   // Parse metadata from pulse_json for badge counts
   const meta = (() => {
@@ -36,16 +34,6 @@ export function SetupTemplateCard({ template, grids, onDelete, onExport, onRefre
       return { columnCount: 0, alertRuleCount: 0, checklistCount: 0 }
     }
   })()
-
-  async function handleDelete() {
-    setDeleting(true)
-    try {
-      onDelete(template.id)
-    } finally {
-      setDeleting(false)
-      setConfirmDelete(false)
-    }
-  }
 
   return (
     <>
@@ -90,35 +78,19 @@ export function SetupTemplateCard({ template, grids, onDelete, onExport, onRefre
               <Download className="w-4 h-4" />
             </button>
 
-            {confirmDelete ? (
-              <div className="flex items-center gap-1">
-                <DangerButton onClick={handleDelete} disabled={deleting}>
-                  {deleting ? '…' : 'Delete'}
-                </DangerButton>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                             text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700
-                             min-h-[44px] focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors text-base"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                title="Delete template"
-                aria-label="Delete template"
-                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                           text-slate-500 hover:text-red-500 hover:border-red-300 dark:hover:border-red-700
-                           min-h-[44px] min-w-[44px] flex items-center justify-center
-                           focus:outline-hidden focus:ring-3 focus:ring-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            {/* Deletes at once; the Undo toast brings it back (Q4) */}
+            <button
+              type="button"
+              onClick={() => onDelete(template.id)}
+              title="Delete template"
+              aria-label="Delete template"
+              className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                         text-slate-500 hover:text-red-500 hover:border-red-300 dark:hover:border-red-700
+                         min-h-[44px] min-w-[44px] flex items-center justify-center
+                         focus:outline-hidden focus:ring-3 focus:ring-red-400 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </>
         </div>
       </div>

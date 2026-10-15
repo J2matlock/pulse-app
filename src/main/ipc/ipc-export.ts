@@ -46,6 +46,7 @@ import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, 
 import { atomicWriteFileAsync } from '../export-shared'
 import { describeRestoreError } from '../restore-errors'
 import { fileWord, safeFileName } from '../../shared/fileName'
+import { deleteKeepingCopy } from '../library-restore'
 
 /** Row and column choices for an export: whole positive ids, and not absurdly many */
 function validIdList(v: unknown): v is number[] {
@@ -658,8 +659,8 @@ export function registerExportHandlers(): void {
   // The id is checked before the read-only gate here, so the gate stays in the body
   define(IPC.SETUP_TEMPLATE_DELETE, [idArg('Invalid template ID')], (id) => {
     const guard = enforceWritable(); if (guard) return guard
-    deleteSetupTemplate(id)
-    return ok(true)
+    // Keeps a copy for Undo, which puts it back under the same id (Q4)
+    return ok({ undoToken: deleteKeepingCopy('setup-template', id, () => deleteSetupTemplate(id)) })
   })
 
   // The id is checked before the read-only gate here, so the gate stays in the body
@@ -733,8 +734,8 @@ export function registerExportHandlers(): void {
   }, { write: true })
 
   define(IPC.LETTER_TEMPLATE_DELETE, [idArg()], (id) => {
-    deleteLetterTemplate(id)
-    return ok(true)
+    // Keeps a copy for Undo, which puts it back under the same id (Q4)
+    return ok({ undoToken: deleteKeepingCopy('letter-template', id, () => deleteLetterTemplate(id)) })
   }, { write: true })
 
   // Batch documents and address labels (W10 §3.1–3.2): built first, so problems show before the save dialog

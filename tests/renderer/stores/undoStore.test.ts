@@ -289,9 +289,84 @@ describe('undoStore', () => {
   })
 
   describe('pushWithToast', () => {
-    it('sets toast with description', () => {
-      useUndoStore.getState().pushWithToast(makeItem({ description: 'Deleted client' }))
-      expect(useUndoStore.getState().toast).toEqual({ description: 'Deleted client' })
+    it('sets toast with description and the step it belongs to', () => {
+      const item = makeItem({ description: 'Deleted client' })
+      useUndoStore.getState().pushWithToast(item)
+      expect(useUndoStore.getState().toast).toEqual({ description: 'Deleted client', itemId: item.id })
+    })
+
+    it('carries a second action when one is given (Q4)', () => {
+      const run = vi.fn()
+      useUndoStore.getState().pushWithToast(makeItem({ description: 'Archived Jane' }), { action: { label: 'Add a reason…', run } })
+      expect(useUndoStore.getState().toast?.action?.label).toBe('Add a reason…')
+    })
+  })
+
+  describe('a toast only ever undoes the step it names (Q4)', () => {
+    it('goes when a plain push lands on top of its step', () => {
+      useUndoStore.getState().pushWithToast(makeItem({ description: 'Moved Jane to the Trash' }))
+      useUndoStore.getState().push(makeItem({ description: 'Changed a cell' }))
+      expect(useUndoStore.getState().toast).toBeNull()
+      expect(useUndoStore.getState().undoStack).toHaveLength(2)
+    })
+
+    it('goes when coalesce puts a different step on top', () => {
+      useUndoStore.getState().pushWithToast(makeItem({ description: 'Moved Jane to the Trash' }))
+      useUndoStore.getState().coalesce(() => false, makeItem({ description: 'Changed a cell' }))
+      expect(useUndoStore.getState().toast).toBeNull()
+    })
+
+    it('stays when coalesce replaces a step under it', () => {
+      const older = makeItem({ id: 'older' })
+      useUndoStore.getState().push(older)
+      const named = makeItem({ description: 'Moved Jane to the Trash' })
+      useUndoStore.getState().pushWithToast(named)
+      useUndoStore.getState().coalesce(i => i.id === 'older', makeItem({ id: 'older' }))
+      expect(useUndoStore.getState().toast?.itemId).toBe(named.id)
+    })
+
+    it('a new toast replaces the old one and names its own step', () => {
+      useUndoStore.getState().pushWithToast(makeItem({ description: 'First' }))
+      const second = makeItem({ description: 'Second' })
+      useUndoStore.getState().pushWithToast(second)
+      expect(useUndoStore.getState().toast).toEqual({ description: 'Second', itemId: second.id })
+    })
+
+    it('undoFromToast undoes the named step', async () => {
+      const named = makeItem({ description: 'Moved Jane to the Trash' })
+      useUndoStore.getState().pushWithToast(named)
+      await useUndoStore.getState().undoFromToast()
+      expect(named.undo).toHaveBeenCalledTimes(1)
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('undoFromToast does nothing to another step on top, and the toast goes', async () => {
+      const named = makeItem({ description: 'Moved Jane to the Trash' })
+      useUndoStore.getState().pushWithToast(named)
+      const other = makeItem({ description: 'Changed a cell' })
+      // As if the toast had been left behind (a stale state from before the fix)
+      useUndoStore.setState(s => ({ undoStack: [...s.undoStack, other] }))
+      await useUndoStore.getState().undoFromToast()
+      expect(other.undo).not.toHaveBeenCalled()
+      expect(named.undo).not.toHaveBeenCalled()
+      expect(useUndoStore.getState().toast).toBeNull()
+    })
+
+    it('a failed undo keeps the step on top and lets the toast try it again', async () => {
+      const named = makeItem({ description: 'Moved Jane to the Trash', undo: vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValue(undefined) })
+      useUndoStore.getState().pushWithToast(named)
+      await useUndoStore.getState().undoFromToast()
+      expect(useUndoStore.getState().toast?.itemId).toBe(named.id)
+      await useUndoStore.getState().undoFromToast()
+      expect(named.undo).toHaveBeenCalledTimes(2)
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('a failed redo shows a toast with no Undo step', async () => {
+      const item = makeItem({ redo: vi.fn().mockRejectedValue(new Error('boom')) })
+      useUndoStore.setState({ redoStack: [item] })
+      await useUndoStore.getState().redo()
+      expect(useUndoStore.getState().toast?.itemId).toBeUndefined()
     })
 
     it('does not push or show toast when isUndoing', () => {
@@ -328,14 +403,18 @@ describe('undoStore', () => {
   })
 
   describe('toast timing (UX D-28)', () => {
-    it('goes after 5 seconds, but waits while held', () => {
+    it('stays 8 seconds', () => {
+      expect(UNDO_TOAST_MS).toBe(8000)
+    })
+
+    it('goes after its time, but waits while held', () => {
       vi.useFakeTimers()
       try {
         useUndoStore.getState().pushWithToast(makeItem({ description: 'Snoozed task' }))
         vi.advanceTimersByTime(4000)
         useUndoStore.getState().holdToast(true)
         vi.advanceTimersByTime(20000)
-        expect(useUndoStore.getState().toast).toEqual({ description: 'Snoozed task' })
+        expect(useUndoStore.getState().toast?.description).toBe('Snoozed task')
         useUndoStore.getState().holdToast(false)
         vi.advanceTimersByTime(UNDO_TOAST_MS - 1)
         expect(useUndoStore.getState().toast).not.toBeNull()

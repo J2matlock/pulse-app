@@ -1,18 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import type { Column } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { MoveToGridModal, BulkMoveToGridModal } from './MoveToGridModal'
 import { useGridStore } from '../../stores/gridStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
+import { wordNow } from '../../utils/vocab'
 
-// ── Archive dialog ───────────────────────────────────────────────────────────
+// ── Upcoming appointments (archive, handoff) ─────────────────────────────────
 
 /** How many upcoming appointments these records have (0 when it can't tell) */
 export function useUpcomingAppointments(rowIds: number[] | null): number {
@@ -41,113 +40,6 @@ export function CancelAppointmentsCheckbox({ count, checked, onChange, many = fa
       <input type="checkbox" className="w-5 h-5 mt-0.5 shrink-0" checked={checked} onChange={e => onChange(e.target.checked)} />
       <span>Also cancel {many ? 'their' : 'its'} {count} upcoming {t('appointment', { count })}</span>
     </label>
-  )
-}
-
-export interface ArchiveDialogProps {
-  /** One record (from its row) or several (from the bulk bar): the same dialog either way (UX-B-26) */
-  archiveTarget: number | number[] | null
-  archiveReason: string
-  setArchiveReason: (v: string) => void
-  onConfirm: (opts: { cancelAppointments: boolean }) => void
-  onCancel: () => void
-}
-
-export function ArchiveDialog({
-  archiveTarget,
-  archiveReason,
-  setArchiveReason,
-  onConfirm,
-  onCancel,
-}: ArchiveDialogProps): React.ReactElement | null {
-  const { t } = useVocab()
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, archiveTarget != null, { onEscape: onCancel })
-  const ids = archiveTarget == null ? null : Array.isArray(archiveTarget) ? archiveTarget : [archiveTarget]
-  const many = (ids?.length ?? 0) > 1
-  const upcoming = useUpcomingAppointments(ids)
-  const [cancelAppts, setCancelAppts] = useState(true)
-  const targetKey = ids?.join(',') ?? ''
-  useEffect(() => { setCancelAppts(true) }, [targetKey])
-  const confirm = () => onConfirm({ cancelAppointments: upcoming > 0 && cancelAppts })
-
-  if (archiveTarget == null) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="archive-record-title">
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h2 id="archive-record-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-          {many ? `Archive ${ids?.length} ${t('record', { many: true })}` : `Archive ${t('record')}`}
-        </h2>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          {many
-            ? `They'll be hidden from the ${t('list')}. Unarchiving brings everything back.`
-            : `This ${t('record')} will be hidden from the ${t('list')}. Unarchiving brings everything back.`}
-        </p>
-        <div>
-          <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Reason (optional)
-          </label>
-          <input
-            id="archive-reason"
-            autoFocus
-            className="input w-full"
-            style={{ minHeight: 44 }}
-            value={archiveReason}
-            onChange={e => setArchiveReason(e.target.value)}
-            placeholder="e.g. Case closed, Transferred, etc."
-            onKeyDown={e => { if (e.key === 'Enter') confirm() }}
-          />
-        </div>
-        <CancelAppointmentsCheckbox count={upcoming} checked={cancelAppts} onChange={setCancelAppts} many={many} />
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="btn-secondary" style={{ minHeight: 44 }}>
-            Cancel
-          </button>
-          <button onClick={confirm} className="btn-primary" style={{ minHeight: 44 }}>
-            Archive
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Delete row confirmation ──────────────────────────────────────────────────
-
-export interface DeleteRowDialogProps {
-  deleteTarget: number | null
-  deleteRow: (id: number) => Promise<void>
-  setDeleteTarget: (v: number | null) => void
-  setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
-}
-
-export function DeleteRowDialog({
-  deleteTarget,
-  deleteRow,
-  setDeleteTarget,
-  setSelectedRowIds,
-}: DeleteRowDialogProps): React.ReactElement {
-  const { t } = useVocab()
-  return (
-    <ConfirmDialog
-      open={deleteTarget != null}
-      title={`Move this ${t('record')} to the Trash?`}
-      message="You can undo this, or bring it back from the Trash within 30 days."
-      confirmLabel="Move to the Trash"
-      onConfirm={async () => {
-        if (deleteTarget != null) {
-          await deleteRow(deleteTarget)
-          setSelectedRowIds(prev => {
-            if (!prev.has(deleteTarget)) return prev
-            const next = new Set(prev)
-            next.delete(deleteTarget)
-            return next
-          })
-        }
-        setDeleteTarget(null)
-      }}
-      onCancel={() => setDeleteTarget(null)}
-    />
   )
 }
 
@@ -181,56 +73,32 @@ export function MoveToGridDialog({
   )
 }
 
-// ── Bulk delete confirmation ─────────────────────────────────────────────────
+// ── Bulk move to the Trash ───────────────────────────────────────────────────
 
-export interface BulkDeleteDialogProps {
-  open: boolean
-  selectedCount: number
-  selectedRowIds: Set<number>
-  activeGridId: number | null
-  setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
-  setBulkDeleteTarget: (v: boolean) => void
-}
-
-export function BulkDeleteDialog({
-  open,
-  selectedCount,
-  selectedRowIds,
-  activeGridId,
-  setSelectedRowIds,
-  setBulkDeleteTarget,
-}: BulkDeleteDialogProps): React.ReactElement {
-  const { t } = useVocab()
-  // Trash can be emptied later, so this is a plain confirm with one Undo; typing is for permanent deletes (G-34)
-  return (
-    <ConfirmDialog
-      open={open}
-      title={`Move ${selectedCount} ${t('record', { count: selectedCount })} to the Trash?`}
-      message={`You can undo this, or bring them back from the Trash within 30 days.`}
-      confirmLabel="Move to the Trash"
-      onConfirm={async () => {
-        const ids = Array.from(selectedRowIds)
-        const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
-        if (!result.ok) { toast.error(friendlyError(result.error)); return }
-        pulseEvents.emit('records:trashed', { rowIds: ids })
-        setSelectedRowIds(new Set())
-        setBulkDeleteTarget(false)
-        const reload = async () => { const g = useGridStore.getState().activeGridId; if (g) await useGridStore.getState().loadGrid(g) }
-        if (activeGridId) void useGridStore.getState().loadGrid(activeGridId)
-        const label = `${ids.length} ${t('record', { count: ids.length })}`
-        useUndoStore.getState().pushWithToast({
-          id: crypto.randomUUID(),
-          description: `Moved ${label} to the Trash`,
-          timestamp: Date.now(),
-          category: 'structural',
-          icon: 'Trash2',
-          undo: async () => { await mustInvoke(IPC.ROW_BULK_ACTION, 'restore', ids); await reload() },
-          redo: async () => { await mustInvoke(IPC.ROW_BULK_ACTION, 'delete', ids); await reload() },
-        })
-      }}
-      onCancel={() => setBulkDeleteTarget(false)}
-    />
-  )
+/**
+ * Move several records to the Trash at once, as one undo step with the Undo
+ * toast. It doesn't ask first (Q4): the bulk bar's button names the count, the
+ * Trash keeps them 30 days, and Undo (toast, top bar, Ctrl+Z) brings them back.
+ * Typing a word stays for deleting forever (G-34). Returns false when it failed.
+ */
+export async function trashRows(ids: number[]): Promise<boolean> {
+  if (ids.length === 0) return false
+  const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
+  if (!result.ok) { toast.error(friendlyError(result.error)); return false }
+  pulseEvents.emit('records:trashed', { rowIds: ids })
+  const reload = async () => { const g = useGridStore.getState().activeGridId; if (g) await useGridStore.getState().loadGrid(g) }
+  void reload()
+  const label = `${ids.length} ${wordNow('record', { count: ids.length })}`
+  useUndoStore.getState().pushWithToast({
+    id: crypto.randomUUID(),
+    description: `Moved ${label} to the Trash`,
+    timestamp: Date.now(),
+    category: 'structural',
+    icon: 'Trash2',
+    undo: async () => { await mustInvoke(IPC.ROW_BULK_ACTION, 'restore', ids); await reload() },
+    redo: async () => { await mustInvoke(IPC.ROW_BULK_ACTION, 'delete', ids); await reload() },
+  })
+  return true
 }
 
 // ── Bulk move to grid modal ──────────────────────────────────────────────────

@@ -29,7 +29,6 @@ import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import { ChecklistTemplateEditor } from '../../../src/renderer/components/profile/ChecklistTemplateEditor'
 import { ImportPreviewModal } from '../../../src/renderer/components/shared/ImportPreviewModal'
 import { ResetPasswordAfterRecoveryDialog } from '../../../src/renderer/components/shared/ResetPasswordAfterRecoveryDialog'
-import { DeleteConfirmModal } from '../../../src/renderer/views/letter-template/DeleteConfirmModal'
 import { setWords } from '../vocabFixture'
 
 beforeEach(() => { setWords() })
@@ -111,11 +110,21 @@ describe('set a new password after recovery (audit A06-14, A06-22)', () => {
 })
 
 describe('submit-time errors are announced (audit A06-14)', () => {
+  // Deleting a letter template no longer asks first (Q4); a failure is a toast, which is a polite status
   it('a letter template that could not be deleted says so out loud', async () => {
-    const template = { id: 4, name: 'Reminder', description: '', content: 'Dear {{client_name}}', is_system: 0, created_at: '', updated_at: '' }
-    render(<DeleteConfirmModal template={template as never} onConfirm={() => Promise.reject(new Error('nope'))} onClose={() => {}} />)
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Delete/ })) })
-    expect(screen.getByRole('alert').textContent).toBe("We couldn't delete the template — try again")
+    const { deleteWithUndo } = await import('../../../src/renderer/utils/libraryUndo')
+    const { ToastHost } = await import('../../../src/renderer/components/shared/ToastHost')
+    const { default: toast } = await import('react-hot-toast')
+    const api = window.api as unknown as { invoke: unknown }
+    const before = api.invoke
+    api.invoke = vi.fn().mockResolvedValue({ ok: false, error: 'SQLITE_BUSY: database is locked' })
+    if (!window.matchMedia) Object.defineProperty(window, 'matchMedia', { configurable: true, value: (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }) })
+    render(<ToastHost />)
+    await act(async () => { await deleteWithUndo('letter-template', 4, '"Reminder"', "We couldn't delete the template — try again") })
+    const status = await screen.findByText("We couldn't delete the template — try again")
+    expect(status.closest('[role="status"]')).not.toBeNull()
     await expectNoAxeViolations(document.body)
+    act(() => { toast.remove() })
+    api.invoke = before
   })
 })

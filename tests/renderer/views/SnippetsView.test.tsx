@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 
@@ -133,10 +133,29 @@ describe('SnippetsView', () => {
     render(<SnippetsView />)
     await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
     fireEvent.click(screen.getByLabelText('Delete /lm'))
-    fireEvent.click(screen.getByLabelText('Confirm delete snippet'))
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("We couldn't delete that snippet — try again"))
     expect(screen.getByText('/lm')).toBeDefined()
     expect(screen.getByText('/fu')).toBeDefined()
+  })
+
+  it('Delete acts at once, no second click; Undo brings the snippet back under the same id (Q4)', async () => {
+    const { useUndoStore } = await import('../../../src/renderer/stores/undoStore')
+    useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+    let list = [...sampleSnippets]
+    mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+      if (channel === 'snippet:delete') { list = list.filter(x => x.id !== args[0]); return Promise.resolve({ ok: true, data: { undoToken: 'tok' } }) }
+      if (channel === 'library:restore') { list = [...sampleSnippets]; return Promise.resolve({ ok: true, data: { kind: 'snippet', id: 1 } }) }
+      return Promise.resolve({ ok: true, data: list })
+    })
+    render(<SnippetsView />)
+    await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
+    fireEvent.click(screen.getByLabelText('Delete /lm'))
+    await waitFor(() => expect(screen.queryByText('/lm')).toBeNull())
+    expect(screen.queryByLabelText('Confirm delete snippet')).toBeNull()
+    expect(useUndoStore.getState().toast?.description).toBe('Deleted snippet /lm')
+    await act(async () => { await useUndoStore.getState().undoFromToast() })
+    expect(mockInvoke).toHaveBeenCalledWith('library:restore', 'tok')
+    await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
   })
 
   // E-29: no hover-only controls

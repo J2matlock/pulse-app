@@ -43,15 +43,17 @@ describe('Today card', () => {
 })
 
 describe('profile appointments', () => {
-  it('have the same actions, and ask before marking a future one done (audit S-19)', async () => {
+  it('have the same actions, and the Done form says a future one has not happened yet (audit S-19, Q4)', async () => {
     render(<MemoryRouter><RecordAppointments rowId={4} gridId={2} name="Jane" /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     expect(screen.getByRole('button', { name: 'Mark cancelled (Review)' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Back to scheduled (Intake)' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Done… (Review)' }))
-    expect(screen.getByText(/Mark it done anyway\?/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Mark it done' }))
+    // No separate question: the Done form opens with a warning line, and its own Never mind is the way out
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.getByText(/is on a later day, so it hasn't happened yet/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Never mind' })).toBeTruthy()
   })
 
   it('shows what is coming up and what happened, and schedules for this record', async () => {
