@@ -32,39 +32,39 @@ export function fuzzyMatch(query: string, text: string): number {
 
 /** The open list's records whose name matches, best first (at most 8) */
 export function useMatchedRecords(query: string, rows: GridRow[], columns: Column[]): GridRow[] {
+  // Names are worked out once per list change, not for every record on every keystroke
+  const named = useMemo(() => rows.map(row => ({ row, name: getClientName(row, columns, '') })), [rows, columns])
   return useMemo(() => query.trim().length > 0
-    ? rows
-        .map(row => {
-          const name = getClientName(row, columns, '')
-          return { row, score: name ? fuzzyMatch(query, name) : 0 }
-        })
+    ? named
+        .map(({ row, name }) => ({ row, score: name ? fuzzyMatch(query, name) : 0 }))
         .filter(r => r.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, 8)
         .map(r => r.row)
-    : [], [query, rows, columns])
+    : [], [query, named])
 }
 
-/** Records in every list matching the query, asked of main 200ms after typing stops; cleared when the palette closes */
-export function useCrossListSearch(open: boolean, query: string): CrossListResult[] {
+/**
+ * Records in the other lists matching the query, asked of main 200ms after typing stops.
+ * The open list's are left out there (`excludeGridId`), or with a big open list they took
+ * every one of the 20 places and other lists never showed. The palette mounts this only
+ * while it's open, so closing it clears the results.
+ */
+export function useCrossListSearch(query: string, excludeGridId: number | null): CrossListResult[] {
   const [crossGridResults, setCrossGridResults] = useState<CrossListResult[]>([])
   const crossGridDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => {
-    if (!open) setCrossGridResults([])
-  }, [open])
 
   useEffect(() => {
     if (crossGridDebounceRef.current) clearTimeout(crossGridDebounceRef.current)
     if (query.trim().length < 2) { setCrossGridResults([]); return }
     crossGridDebounceRef.current = setTimeout(async () => {
       try {
-        const res = await safeInvoke<CrossListResult[]>(IPC.SEARCH_CLIENTS_CROSS_GRID, query.trim())
+        const res = await safeInvoke<CrossListResult[]>(IPC.SEARCH_CLIENTS_CROSS_GRID, query.trim(), 0, excludeGridId ?? undefined)
         if (res.ok) setCrossGridResults(res.data)
       } catch { /* ignore */ }
     }, 200)
     return () => { if (crossGridDebounceRef.current) clearTimeout(crossGridDebounceRef.current) }
-  }, [query])
+  }, [query, excludeGridId])
 
   return crossGridResults
 }

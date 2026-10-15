@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 
 const mockNavigate = vi.fn()
 
@@ -45,14 +45,15 @@ vi.mock('zustand/react/shallow', () => ({ useShallow: (fn: Function) => fn }))
 // Explicit icon mocks — do NOT use Proxy (causes vitest deadlock)
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 
+const gridReads = vi.hoisted(() => ({ n: 0 }))
 vi.mock('../../../../src/renderer/stores/gridStore', () => ({
   useGridStore: Object.assign(
-    (s: Function) => s({
+    (s: Function) => { gridReads.n++; return s({
       rows: [], columns: [],
       grids: [{ id: 1, name: 'Test Grid' }],
       activeGridId: 1,
       addRow: vi.fn(),
-    }),
+    }) },
     { getState: () => ({ loadGrid: vi.fn() }) },
   ),
 }))
@@ -102,6 +103,30 @@ describe('CommandPalette', () => {
     expect(mockPrune).not.toHaveBeenCalled()
     rerender(<CommandPalette open={true} onOpenChange={onOpenChange} />)
     expect(mockPrune).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads nothing from the list while closed, so a cell edit doesn\'t redraw it (plan-Q9 fix 4)', () => {
+    gridReads.n = 0
+    const { rerender } = render(<CommandPalette open={false} onOpenChange={onOpenChange} />)
+    rerender(<CommandPalette open={false} onOpenChange={onOpenChange} />)
+    expect(gridReads.n).toBe(0)
+    rerender(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    expect(gridReads.n).toBeGreaterThan(0)
+  })
+
+  it('opens with an empty box each time', () => {
+    const { rerender } = render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    fireEvent.change(screen.getByRole('dialog').querySelector('input')!, { target: { value: 'Dash' } })
+    rerender(<CommandPalette open={false} onOpenChange={onOpenChange} />)
+    rerender(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    expect((screen.getByRole('dialog').querySelector('input') as HTMLInputElement).value).toBe('')
+  })
+
+  it('asks main for other lists\' records without the open list\'s', async () => {
+    const invoke = vi.mocked(window.api.invoke)
+    render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    fireEvent.change(screen.getByRole('dialog').querySelector('input')!, { target: { value: 'Ann' } })
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('SEARCH_CLIENTS_CROSS_GRID', 'Ann', 0, 1))
   })
 
   it('does not render when closed', () => {

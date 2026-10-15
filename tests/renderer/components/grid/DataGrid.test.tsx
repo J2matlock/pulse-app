@@ -708,6 +708,13 @@ describe('DataGrid', () => {
       expect(useGridStore.getState().sortedRowIds).toEqual([3])
     })
 
+    it('finds a match in a column after the first (the search runs once per record, through the first column)', async () => {
+      setupStores({ searchQuery: '30' })
+      renderDataGrid()
+      await flushEffects()
+      expect(useGridStore.getState().sortedRowIds).toEqual([3])
+    })
+
     it('keeps a record just added on screen, and says when the filter would hide it (G-28)', async () => {
       const toast = (await import('react-hot-toast')).default as unknown as ReturnType<typeof vi.fn>
       toast.mockClear()

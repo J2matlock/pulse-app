@@ -810,6 +810,20 @@ describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
     expect(pct.data.map((r: { rowId: number }) => r.rowId)).toEqual([rowIds[1]])
   })
 
+  it('leaves out the open list when asked, so a big one can\'t take all 20 places (palette "Other lists")', async () => {
+    const open = seedGrid(testDb.db, { rowCount: 25, columnCount: 1 })
+    const other = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    for (const id of open.rowIds) testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run(`Ann ${id}`, id)
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Zoe Annabel', other.rowIds[0])
+    const all = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Ann') as any
+    expect(all.data).toHaveLength(20)
+    expect(all.data.some((r: { gridId: number }) => r.gridId === other.gridId)).toBe(false)
+    const others = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Ann', 0, open.gridId) as any
+    expect(others.data.map((r: { rowId: number }) => r.rowId)).toEqual([other.rowIds[0]])
+    // Anything that isn't a list id leaves nothing out
+    expect(((await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Ann', 0, 'x')) as any).data).toHaveLength(20)
+  })
+
   it('leaves out archived records and records in a deleted list (L-13)', async () => {
     const a = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
     const b = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })

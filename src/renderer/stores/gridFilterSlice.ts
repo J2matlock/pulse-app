@@ -293,7 +293,13 @@ export const createFilterSlice = (set: Set, get: Get) => ({
 
   // ── Sorted row IDs (written by DataGrid for ProfileView prev/next) ──
   sortedRowIds: [] as number[],
-  setSortedRowIds: (ids: number[]) => set({ sortedRowIds: ids }),
+  // DataGrid stores a new array after every change to its rows; the same records in the same
+  // order keep the old one, so the record page and the counts don't redraw after each edit
+  setSortedRowIds: (ids: number[]) => {
+    const prev = get().sortedRowIds
+    if (prev.length === ids.length && prev.every((id, i) => id === ids[i])) return
+    set({ sortedRowIds: ids })
+  },
 
   // ── Row tags map ──────────────────────────────────────────────────────
   rowTagsMap: new Map<number, string[]>(),

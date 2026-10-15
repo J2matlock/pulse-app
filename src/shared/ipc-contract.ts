@@ -43,6 +43,9 @@ import type { IPCChannel, EVENT_CHANNELS } from './ipc-channels'
 /** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
 export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
 
+/** CASE_LOG_COUNTS: notes matching the filter, and the change entries and voided notes a record has */
+export interface CaseLogCounts { total: number; changes: number; voided: number }
+
 /** Where a record lives, so it can be opened from any screen */
 export interface RowLocation {
   gridId: number
@@ -325,6 +328,7 @@ export interface IPCContract {
   // ── Case Log ────────────────────────────────────────────────────────────
   'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery]; return: CaseLogEntry[] }
   'case-log:count':               { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery]; return: number }
+  'case-log:counts':              { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery]; return: CaseLogCounts }
   'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }, occurredOn?: string | null]; return: CaseLogEntry }
   'case-log:update':              { args: [id: number, content: string];                     return: true }
   'case-log:delete':              { args: [id: number];                                      return: true }
@@ -503,7 +507,7 @@ export interface IPCContract {
   'clipboard:write': { args: [text: string]; return: true }
 
   // ── Cross-grid Search ───────────────────────────────────────────────────
-  'search:clients-cross-grid': { args: [search: string, offset?: number]; return: CrossGridSearchResult[] }
+  'search:clients-cross-grid': { args: [search: string, offset?: number, excludeGridId?: number]; return: CrossGridSearchResult[] }
 
   // ── File Association ────────────────────────────────────────────────────
   'file-assoc:get-pending':   { args: [];                   return: { filePath: string; preview: unknown; workspace?: { source: StarterRef; summary: StarterSummary } } | null }

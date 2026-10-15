@@ -28,7 +28,7 @@ beforeEach(() => {
       const [, , , limit, offset] = args as number[]
       return Promise.resolve({ ok: true, data: Array.from({ length: Math.min(limit!, 312 - offset!) }, (_, i) => note(offset! + i + 1)) })
     }
-    if (channel === 'case-log:count') return Promise.resolve({ ok: true, data: 312 })
+    if (channel === 'case-log:counts') return Promise.resolve({ ok: true, data: { total: 312, changes: 0, voided: 0 } })
     return Promise.resolve({ ok: true, data: null })
   })
 })
@@ -47,7 +47,7 @@ describe('note paging', () => {
     await screen.findByText('Showing 50 of 312', undefined, { timeout: 5000 })
     await act(async () => { fireEvent.change(screen.getByLabelText('What to show'), { target: { value: 'everything' } }) })
     expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 0, { query: '', oldestFirst: false })
-    expect(mockInvoke).toHaveBeenCalledWith('case-log:count', 10, true, false, { query: '', oldestFirst: false })
+    expect(mockInvoke).toHaveBeenCalledWith('case-log:counts', 10, true, false, { query: '', oldestFirst: false })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Load more/ })) })
     expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 50, { query: '', oldestFirst: false })
   })
