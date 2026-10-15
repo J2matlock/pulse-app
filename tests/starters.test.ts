@@ -527,6 +527,10 @@ describe('home health nursing starter (R8)', () => {
     const lastVisit = testDb.db.prepare("SELECT config FROM columns WHERE grid_id = ? AND name = 'Last visit'").get(res.gridIds.patients) as { config: string }
     expect(JSON.parse(lastVisit.config)).toMatchObject({ note_updates: ['visit'] })
     expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM appointments').get() as { n: number }).n).toBeGreaterThan(0)
+    // Sample visit notes carry minutes and miles, so the report has something to add up
+    const sums = testDb.db.prepare("SELECT SUM(minutes) AS minutes, SUM(miles) AS miles FROM case_log WHERE log_type = 'visit'").get() as { minutes: number; miles: number }
+    expect(sums.minutes).toBeGreaterThan(0)
+    expect(sums.miles).toBeGreaterThan(0)
   })
 
   it('adds the lists without samples, and pins nothing when its features are left alone', async () => {

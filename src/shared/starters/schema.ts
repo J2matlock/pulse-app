@@ -141,6 +141,9 @@ const sampleDataSchema = z.object({
     type: z.string().check(textLength({ max: 40 })),
     daysAgo: z.number().int().min(0).max(3650),
     text: text(5000),
+    /** Time and mileage on the note, so a mileage report has something to add up */
+    minutes: z.number().int().min(1).max(1440).optional(),
+    miles: z.number().min(0).max(1000).optional(),
   }).strict()).max(1000).optional(),
   /** Sample links: "<list key>#<index>" to "<list key>#<index>", by the from-list's link name */
   links: z.array(z.object({

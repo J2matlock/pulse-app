@@ -431,145 +431,185 @@
         "record": "patients#0",
         "type": "visit",
         "daysAgo": 9,
-        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes."
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 45,
+        "miles": 12.4
       },
       {
         "record": "patients#0",
         "type": "visit",
         "daysAgo": 16,
-        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change."
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 50,
+        "miles": 12.4
       },
       {
         "record": "patients#0",
         "type": "phone",
         "daysAgo": 12,
-        "text": "Phone call with the patient about the next visit time."
+        "text": "Phone call with the patient about the next visit time.",
+        "minutes": 10
       },
       {
         "record": "patients#1",
         "type": "visit",
         "daysAgo": 6,
-        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change."
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 50,
+        "miles": 23.4
       },
       {
         "record": "patients#1",
         "type": "visit",
         "daysAgo": 13,
-        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased."
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 55,
+        "miles": 23.4
       },
       {
         "record": "patients#1",
         "type": "coordination",
         "daysAgo": 9,
-        "text": "Coordinated with the physician's office about the plan of care."
+        "text": "Coordinated with the physician's office about the plan of care.",
+        "minutes": 15
       },
       {
         "record": "patients#2",
         "type": "visit",
         "daysAgo": 3,
-        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased."
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 55,
+        "miles": 8.7
       },
       {
         "record": "patients#2",
         "type": "visit",
         "daysAgo": 10,
-        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done."
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 60,
+        "miles": 8.7
       },
       {
         "record": "patients#2",
         "type": "note",
         "daysAgo": 6,
-        "text": "Pharmacy confirmed the new prescription is ready."
+        "text": "Pharmacy confirmed the new prescription is ready.",
+        "minutes": 20
       },
       {
         "record": "patients#3",
         "type": "visit",
         "daysAgo": 2,
-        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done."
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 60,
+        "miles": 17.8
       },
       {
         "record": "patients#3",
         "type": "visit",
         "daysAgo": 9,
-        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes."
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 50,
+        "miles": 17.8
       },
       {
         "record": "patients#3",
         "type": "phone",
         "daysAgo": 5,
-        "text": "Phone call with the patient about the next visit time."
+        "text": "Phone call with the patient about the next visit time.",
+        "minutes": 10
       },
       {
         "record": "patients#4",
         "type": "visit",
         "daysAgo": 5,
-        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes."
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 45,
+        "miles": 31.2
       },
       {
         "record": "patients#4",
         "type": "visit",
         "daysAgo": 12,
-        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change."
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 55,
+        "miles": 31.2
       },
       {
         "record": "patients#4",
         "type": "coordination",
         "daysAgo": 8,
-        "text": "Coordinated with the physician's office about the plan of care."
+        "text": "Coordinated with the physician's office about the plan of care.",
+        "minutes": 15
       },
       {
         "record": "patients#5",
         "type": "visit",
         "daysAgo": 1,
-        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change."
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 50,
+        "miles": 6.5
       },
       {
         "record": "patients#5",
         "type": "visit",
         "daysAgo": 8,
-        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased."
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 60,
+        "miles": 6.5
       },
       {
         "record": "patients#5",
         "type": "note",
         "daysAgo": 4,
-        "text": "Pharmacy confirmed the new prescription is ready."
+        "text": "Pharmacy confirmed the new prescription is ready.",
+        "minutes": 20
       },
       {
         "record": "patients#6",
         "type": "visit",
         "daysAgo": 4,
-        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased."
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 55,
+        "miles": 14.9
       },
       {
         "record": "patients#6",
         "type": "visit",
         "daysAgo": 11,
-        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done."
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 50,
+        "miles": 14.9
       },
       {
         "record": "patients#6",
         "type": "phone",
         "daysAgo": 7,
-        "text": "Phone call with the patient about the next visit time."
+        "text": "Phone call with the patient about the next visit time.",
+        "minutes": 10
       },
       {
         "record": "patients#7",
         "type": "visit",
         "daysAgo": 20,
-        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done."
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 60,
+        "miles": 19.3
       },
       {
         "record": "patients#7",
         "type": "visit",
         "daysAgo": 27,
-        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes."
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 55,
+        "miles": 19.3
       },
       {
         "record": "patients#7",
         "type": "coordination",
         "daysAgo": 23,
-        "text": "Coordinated with the physician's office about the plan of care."
+        "text": "Coordinated with the physician's office about the plan of care.",
+        "minutes": 15
       }
     ],
     "appointments": [
