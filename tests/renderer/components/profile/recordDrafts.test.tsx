@@ -77,6 +77,22 @@ describe('note drafts', () => {
     expect(getNoteDraft(10)?.content).toBe('Visited Maria at home')
     fireEvent.click(screen.getByTitle('Add a case note'))
     await waitFor(() => expect(getNoteDraft(10)).toBeUndefined())
+    // ...and in the database, at once
+    expect(mockInvoke).toHaveBeenCalledWith('note-draft:put', 10, expect.objectContaining({ content: '' }))
+  })
+
+  it('brings back the stored draft after a lock or a restart (nothing in memory)', async () => {
+    const stored = { content: 'Visit with Odette, BP 130/85', fieldValues: [], followUp: '', minutes: '45', miles: '', extra: {}, savedAt: '2026-10-14T10:00:00.000Z' }
+    mockInvoke.mockImplementation((channel: string, rowId: unknown) => {
+      if (channel === 'note-draft:get') return Promise.resolve({ ok: true, data: rowId === 10 ? stored : null })
+      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: [] })
+      return Promise.resolve({ ok: true, data: null })
+    })
+    act(() => { pulseEvents.emit('app:locked') })
+    render(<CaseLog rowId={10} />)
+    await waitFor(() => expect((screen.getByPlaceholderText(/Add a note entry/) as HTMLTextAreaElement).value).toBe('Visit with Odette, BP 130/85'))
+    // Opening it isn't a change: the stored copy isn't rewritten
+    expect(mockInvoke.mock.calls.filter(c => c[0] === 'note-draft:put')).toEqual([])
   })
 })
 

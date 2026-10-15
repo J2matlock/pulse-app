@@ -478,6 +478,11 @@ export const IPC = {
 
   // Logging
   LOG_FORWARD: 'log:forward',
+
+  // Unsent note drafts (kept in the encrypted database)
+  NOTE_DRAFT_GET: 'note-draft:get',
+  NOTE_DRAFT_PUT: 'note-draft:put',
+  NOTE_DRAFT_LIST: 'note-draft:list',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

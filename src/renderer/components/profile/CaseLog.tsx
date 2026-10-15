@@ -27,7 +27,7 @@ import { FeatureOffer } from '../shared/FeatureOffer'
 import { MenuButton } from '../ui/RowMenu'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
-import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
+import { discardNoteDraft, getNoteDraft, loadNoteDraft, setNoteDraft, type NoteDraft } from '../../utils/noteDrafts'
 import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
 import { localDateString, parseDbTimestamp, ymdLocalDate } from '../../../shared/dates'
 import { friendlyError } from '../../utils/friendlyError'
@@ -205,6 +205,27 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   useEffect(() => {
     setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay, format: formatId })
   }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay, formatId])
+  // Not in memory (after a lock, a quit or a crash): the stored draft comes back when it
+  // arrives, unless typing has started (loadNoteDraft answers nothing then)
+  useEffect(() => {
+    if (draft0) return
+    let live = true
+    const restore = (d: NoteDraft) => {
+      setNewContent(d.content)
+      setFieldValues(d.fieldValues)
+      setNewFollowUp(d.followUp)
+      setShowFollowUp(!!d.followUp)
+      setNewMinutes(d.minutes)
+      setNewMiles(d.miles)
+      setNewExtra(d.extra)
+      setNewDay(d.day ?? '')
+      setFormatId(d.format ?? '')
+      if (d.day || d.format) setMoreOpen(true)
+      setComposerOpen(true)
+    }
+    void loadNoteDraft(rowId).then(d => { if (live && d) restore(d) })
+    return () => { live = false }
+  }, [rowId, draft0])
   const [editingFormats, setEditingFormats] = useState(false)
   const builtinFormats = builtinFormatsFor(t('record'))
   const allFormats = [...builtinFormats, ...customFormats]
@@ -392,6 +413,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       newDay && newDay !== localDateString() ? newDay : null
     )
     if (res.ok) {
+      discardNoteDraft(rowId)
       // Time, miles or an appointment written into the text, while that feature is off: offer it
       setOffer(suggestFeature({ trigger: 'noteText', text: composedContent }, k => !featureNow(k)))
       const { updated_dates: updatedDates = [], ...created } = res.data

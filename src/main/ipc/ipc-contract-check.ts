@@ -29,6 +29,7 @@ import type { getMigrationFailure } from '../database'
 import type { DocTarget } from '../export-documents'
 import type { AuditScope } from '../export-audit'
 import type { HandoffOptions } from '../export-handoff'
+import type { getDraft, putDraft, listDrafts } from '../note-drafts'
 
 /** A fits where the contract says B */
 type Fits<A, B> = [A] extends [B] ? true : false
@@ -134,4 +135,7 @@ export type IPCContractChecks = [
   Expect<Fits<ReturnType<typeof placeholderFields>, Ret<'letter-template:placeholder-fields'>>>,
   Expect<Fits<ReturnType<typeof numberSeries>, Ret<'cell-history:series'>>>,
   Expect<Fits<ReturnType<typeof getMigrationFailure>, Ret<'app:migration-status'>>>,
+  Expect<Same<ReturnType<typeof getDraft>, Ret<'note-draft:get'>>>,
+  Expect<Same<ReturnType<typeof putDraft>, Ret<'note-draft:put'>>>,
+  Expect<Same<ReturnType<typeof listDrafts>, Ret<'note-draft:list'>>>,
 ]

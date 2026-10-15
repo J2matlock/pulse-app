@@ -8,6 +8,7 @@ import { ok, fail } from './ipc-utils'
 import { handlersFor, textArg } from './ipc-define'
 import { getDb } from '../database'
 import { HIDDEN_DEADLINES_KEY, validHiddenColumns } from '../../shared/calendar'
+import { NOTE_DRAFT_PREFIX } from '../../shared/noteDraft'
 
 const ALLOWED_SETTINGS_KEYS = new Set([
   'theme', 'font_size', 'auto_lock_minutes',
@@ -49,7 +50,8 @@ export function registerSettingsHandlers(): void {
   define(IPC.SETTINGS_GET_ALL, [], () => {
     const rows = getDb().prepare('SELECT key, value FROM settings').all() as Array<{ key: string, value: string }>
     const settings: Record<string, string> = {}
-    for (const row of rows) settings[row.key] = row.value
+    // Unsent note drafts are case notes, not settings: only NOTE_DRAFT_* reads them
+    for (const row of rows) if (!row.key.startsWith(NOTE_DRAFT_PREFIX)) settings[row.key] = row.value
     return ok(settings)
   })
 

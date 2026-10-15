@@ -179,7 +179,18 @@ function seedTrash(): void {
     db.prepare('INSERT INTO provider_client_links (provider_id, row_id, grid_id) VALUES (?, ?, ?)').run(providerId, rowId, trashedListId)
   }
   db.prepare("INSERT INTO caseload_tasks (grid_id, title, due_date, position) VALUES (?, ?, ?, 0)").run(trashedListId, `${MARK} list task`, addDays(TODAY, 1))
+
+  // Unsent note drafts (settings rows note_draft:<rowId>): a trashed record's, a trashed list's record's, a live one's
+  const trashedListRow = (db.prepare('SELECT id FROM rows WHERE grid_id = ? LIMIT 1').get(trashedListId) as { id: number }).id
+  const saveDraft = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
+  for (const [rowId, text] of [[t0, `${MARK} draft`], [trashedListRow, `${MARK} list draft`], [seed.activeRowIds[1]!, 'Live draft']] as const) {
+    saveDraft.run(`note_draft:${rowId}`, JSON.stringify({ content: text, fieldValues: [], followUp: '', minutes: '', miles: '', extra: {}, savedAt: '2026-10-01T12:00:00.000Z' }))
+  }
+  draftRowIds = [t0, trashedListRow]
 }
+
+/** Records in the Trash, or in a list in the Trash, that have a draft */
+let draftRowIds: number[] = []
 
 beforeEach(async () => {
   for (const m of h.stores.values()) m.clear()
@@ -246,6 +257,8 @@ async function readAll(): Promise<Record<string, unknown>> {
     'weekly planner rows': loadPlannerRows(TODAY, addDays(TODAY, 6)),
     'batch print records': batchRowIds({ gridId: g }),
     'audit trail': loadAuditTrail({}),
+    'note-draft:list': await invoke(IPC.NOTE_DRAFT_LIST),
+    'note-draft:get (trashed records)': await Promise.all(draftRowIds.map(id => invoke(IPC.NOTE_DRAFT_GET, id))),
   }
   // Format rules come with the list for every row id; they're side data, kept apart below
   for (const k of ['grid:get-full', 'grid:get-full (archived shown)']) {

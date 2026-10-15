@@ -22,6 +22,7 @@ import type {
   SaveDialogResult, OpenDialogResult, RecordKind,
   ChecklistGroup, ChecklistDueItem, TaskGroup, NoteDateUpdate, NoteDateRevert, ContactRequirement, ContactStatusGrid, MissingInfoGrid,
 } from './types'
+import type { NoteDraft, NoteDraftSummary, SavedNoteDraft } from './noteDraft'
 import type { Vocab } from './vocab'
 import type { LibraryKind, LibraryDeleteResult } from './libraryKinds'
 import type { FeatureMap } from './features'
@@ -690,6 +691,12 @@ export interface IPCContract {
   'app:flush-done':        { args: [];                                                         return: null }
   'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: null }
   'cell-history:series':   { args: [rowId: number, columnIds: number[]];                       return: Record<number, Array<{ at: string; value: number }>> }
+
+  // ── Unsent note drafts ──────────────────────────────────────────────────
+  'note-draft:get':  { args: [rowId: number];                   return: SavedNoteDraft | null }
+  /** An empty draft deletes it; false: the record can't take notes now (nothing stored) */
+  'note-draft:put':  { args: [rowId: number, draft: NoteDraft]; return: boolean }
+  'note-draft:list': { args: [];                                return: NoteDraftSummary[] }
 }
 
 /** Union of all typed channel names */
