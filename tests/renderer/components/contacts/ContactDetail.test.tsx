@@ -118,7 +118,8 @@ describe('ContactDetail', () => {
   it('shows availability badge', async () => {
     const provider = makeProvider({ availability_status: 'accepting' })
     await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
-    expect(screen.getByText('Accepting')).toBeTruthy()
+    // In the header and in the Info tab's Availability block
+    expect(screen.getAllByText('Accepting').length).toBe(2)
   })
 
   it('shows contact info (phone, email, website) on info tab', async () => {
@@ -172,6 +173,35 @@ describe('ContactDetail', () => {
     expect(screen.getByText(/This deletes the provider for good/)).toBeTruthy()
     expect(screen.getByText(/doesn't go to the Trash/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Delete provider forever' })).toBeTruthy()
+    // E-14: the way back is a button people can see, not only a shortcut
+    expect(screen.getByText(/click Undo in the message at the bottom of the window/)).toBeTruthy()
+    expect(screen.queryByText(/Ctrl\+Z/)).toBeNull()
+  })
+
+  // E-24: Edit and Delete are words; star, PDF and vCard sit under More
+  it('shows Edit and Delete as text, and the other actions under More', async () => {
+    await renderSettled(<ContactDetail provider={makeProvider()} {...defaultProps} />)
+    expect(screen.getByLabelText('Edit provider').textContent).toContain('Edit')
+    expect(screen.getByLabelText('Delete provider').textContent).toContain('Delete')
+    expect(screen.queryByLabelText('Export PDF')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
+    const items = screen.getAllByRole('menuitem').map(i => i.textContent)
+    expect(items).toEqual(['Star this provider', 'Save as PDF…', 'Export vCard…'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Star this provider' }))
+    expect(mockToggleStar).toHaveBeenCalledWith(1)
+  })
+
+  // E-22, E-23: no bare "Unknown" pill; the Availability block says what "I checked today" confirms
+  it('hides an unknown availability pill and explains it in an Availability block', async () => {
+    await renderSettled(<ContactDetail provider={makeProvider({ availability_status: 'unknown', availability_checked_at: null })} {...defaultProps} />)
+    expect(screen.queryByText('Unknown')).toBeNull()
+    const block = screen.getByRole('group', { name: 'Availability' })
+    expect(block.textContent).toContain('Not checked')
+    expect(block.textContent).toContain('last checked never')
+    fireEvent.click(screen.getByRole('button', { name: 'I checked today' }))
+    expect(mockMarkAvailabilityChecked).toHaveBeenCalledWith(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Change status…' }))
+    expect(defaultProps.onEdit).toHaveBeenCalled()
   })
 
   it('shows referral process when present', async () => {

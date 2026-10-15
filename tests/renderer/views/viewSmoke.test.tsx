@@ -439,7 +439,7 @@ describe('ContactsView', () => {
   it('renders the Provider Directory heading', async () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
-    const heading = screen.getByRole('heading', { name: 'Contacts' })
+    const heading = screen.getByRole('heading', { name: /^Contacts\s*— your / })
     expect(heading).toBeDefined()
     expect(heading.tagName).toBe('H1')
   })

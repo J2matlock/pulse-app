@@ -122,6 +122,14 @@ describe('contactsStore undo keeps every detail', () => {
     expect(customValues.get(back!.id)).toEqual([{ custom_field_id: 7, value: 'NPI-123' }])
   })
 
+  // E-14: the standard Undo toast (with its Undo button), not a "Press Ctrl+Z" message
+  it('a delete shows the Undo toast', async () => {
+    const id = seed({})
+    await useContactsStore.getState().loadProviders()
+    await useContactsStore.getState().deleteProvider(id)
+    expect(useUndoStore.getState().toast?.description).toBe('Deleted provider "Dr. Full"')
+  })
+
   it('redo of a delete removes the contact undo brought back, not a look-alike', async () => {
     const id = seed({ email: 'same@x.org' })
     seed({ name: 'Dr. Full', email: 'same@x.org' }) // same name and email

@@ -197,7 +197,11 @@ export default function ContactsView() {
           <div className="px-4 pt-3 pb-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-1">
             <ViewBreadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: t('contactDirectory', { cap: true }) }]} />
             <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white min-w-0">{t('contactDirectory', { cap: true })}</h1>
+            {/* The page word and the people word together, so "Contacts" and "providers" read as one thing (E-25) */}
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-white min-w-0">
+              {t('contactDirectory', { cap: true })}
+              <span className="font-normal text-slate-500 dark:text-slate-400"> — your {t('contact')} directory</span>
+            </h1>
             <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">
               {providers.length} {t('contact', { count: providers.length })}
             </span>

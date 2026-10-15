@@ -39,7 +39,7 @@ const mockDeleteCategory = vi.fn().mockResolvedValue(undefined)
 const mockLoadCustomFields = vi.fn()
 const mockCreateCustomField = vi.fn().mockResolvedValue(undefined)
 const mockDeleteCustomField = vi.fn().mockResolvedValue(undefined)
-let mockCategories: Array<{ id: number; name: string; color: string; position: number; created_at: string }> = []
+let mockCategories: Array<{ id: number; name: string; color: string; position: number; created_at: string; field_count?: number }> = []
 let mockCustomFields: Array<{ id: number; category_id: number; field_name: string; field_type: string; position: number }> = []
 
 vi.mock('../../../../src/renderer/stores/contactsStore', () => ({
@@ -120,15 +120,15 @@ describe('CategoryManager', () => {
 
   it('shows delete confirmation when delete button clicked', () => {
     render(<CategoryManager {...defaultProps} />)
-    // Each category row has a Delete button (title="Delete")
-    const deleteButtons = screen.getAllByTitle('Delete')
+    // Each category row has a Delete text button, named after the category
+    const deleteButtons = screen.getAllByRole('button', { name: /^Delete / })
     fireEvent.click(deleteButtons[0]!)
     expect(screen.getByText(/Contacts will become Uncategorized/)).toBeTruthy()
   })
 
   it('calls deleteCategory when confirming delete', async () => {
     render(<CategoryManager {...defaultProps} />)
-    const deleteButtons = screen.getAllByTitle('Delete')
+    const deleteButtons = screen.getAllByRole('button', { name: /^Delete / })
     fireEvent.click(deleteButtons[0]!)
     // The confirmation row has a Delete button with red bg styling
     const confirmBtns = screen.getAllByRole('button', { name: 'Delete' })
@@ -140,10 +140,22 @@ describe('CategoryManager', () => {
 
   it('enters edit mode when Edit button is clicked', () => {
     render(<CategoryManager {...defaultProps} />)
-    const editButtons = screen.getAllByTitle('Edit')
+    const editButtons = screen.getAllByRole('button', { name: /^Edit / })
     fireEvent.click(editButtons[0]!)
     // Should show an editable input pre-filled with the category name
     const input = screen.getByDisplayValue('Medical') as HTMLInputElement
     expect(input).toBeTruthy()
+  })
+
+  // E-12: no hover-only controls, and custom fields have a visible handle
+  it('shows Edit and Delete as text on every row, with each category\'s field count', () => {
+    mockCategories = mockCategories.map((c, i) => ({ ...c, field_count: i === 0 ? 2 : 0 }))
+    render(<CategoryManager {...defaultProps} />)
+    const edit = screen.getByRole('button', { name: `Edit ${mockCategories[0]!.name}` })
+    expect(edit.textContent).toBe('Edit')
+    expect(edit.className).not.toMatch(/opacity-0/)
+    expect(screen.getByRole('button', { name: `Delete ${mockCategories[0]!.name}` }).textContent).toBe('Delete')
+    expect(screen.getByText('Fields: 2')).toBeTruthy()
+    expect(screen.getAllByText('Fields: 0').length).toBe(mockCategories.length - 1)
   })
 })

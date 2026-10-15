@@ -438,7 +438,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'contacts-availability',
     question: 'What does the availability status mean?',
-    answer: 'Each {contact} can be marked Accepting (green \u2014 taking new referrals), Waitlist (amber \u2014 accepting but with a wait), Not Accepting (red) or Unknown (gray \u2014 not checked yet). The {contact}\'s page shows when you last checked; click "Mark as Checked Today" after you confirm it.',
+    answer: 'Each {contact} can be marked Accepting (green \u2014 taking new referrals), Waitlist (amber \u2014 accepting but with a wait), Not Accepting (red) or Unknown (gray \u2014 not checked yet). On the {contact}\'s page, the Availability box shows the status and when you last checked; click "I checked today" after you confirm it, or "Change status…" to pick a different one. {Contact:many} that haven\'t been checked show no status on the list.',
     category: 'contacts',
     feature: 'contactsDirectory',
     demo: <DemoAvailabilityStatus />,

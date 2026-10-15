@@ -41,7 +41,7 @@ const FEATURE_DEFS = {
   stages: { group: 'Records', label: 'Stages and board', description: 'Move things through steps, like New → In progress → Done, on a board.', blankDefault: false, available: true },
   forms: { group: 'Records', label: 'Forms', description: 'Fill in or print a form to add or update one.', blankDefault: false, available: true },
   attachments: { group: 'Records', label: 'Files', description: 'Attach documents and photos, stored encrypted inside Pulse.', blankDefault: false, available: true },
-  contactsDirectory: { group: 'Records', label: '{Contact} directory', description: 'A shared list of outside {contact:many} you can link to.', blankDefault: false, available: true },
+  contactsDirectory: { group: 'Records', label: '{ContactDirectory} page', description: 'A shared list of outside {contact:many} you can link to.', blankDefault: false, available: true },
 
   requirements: { group: 'Notes & activity', label: '{Requirement:many}', description: 'Set how many {activity:many} of a kind each {record} needs per period, and see who is behind.', blankDefault: false, available: true },
   timeTracking: { group: 'Notes & activity', label: 'Time on {activity:many}', description: 'Record minutes on {activity:many} and total them as units.', blankDefault: false, available: true },

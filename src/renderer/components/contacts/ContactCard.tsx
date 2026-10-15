@@ -79,7 +79,10 @@ export const ContactCard = React.memo(function ContactCard({ provider, isSelecte
               {p.category_name}
             </span>
           )}
-          <AvailabilityBadge status={p.availability_status} checkedAt={p.availability_checked_at} compact />
+          {/* A grey "Unknown" on every new entry said nothing (E-22) */}
+          {p.availability_status && p.availability_status !== 'unknown' && (
+            <AvailabilityBadge status={p.availability_status} checkedAt={p.availability_checked_at} compact />
+          )}
         </div>
 
         {/* Phone + Email */}
