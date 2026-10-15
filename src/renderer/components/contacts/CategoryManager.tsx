@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { X as XIcon, Trash2, Check, Plus } from 'lucide-react'
+import { X as XIcon, Trash2, Check, Plus, Tags } from 'lucide-react'
 import { Dialog } from '../ui/Dialog'
 import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
 import { normalizeHexColor } from '../../../shared/color'
 import { PrimaryButton, SecondaryButton, DangerButton, IconButton } from '../ui/Button'
+import { EmptyState } from '../shared/EmptyState'
 
 
 const PRESET_COLORS = [
@@ -110,9 +111,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
       {/* Category list */}
       <div>
         {categories.length === 0 && (
-          <p className="text-slate-500 dark:text-slate-400 text-center py-6" style={{ fontSize: 15 }}>
-            No categories yet. Add one below.
-          </p>
+          <EmptyState size="panel" icon={<Tags />} title="No categories yet" description="Add one below." />
         )}
 
         <div className="space-y-2">

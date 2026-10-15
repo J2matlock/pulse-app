@@ -185,6 +185,19 @@ describe('reports view and dashboard card', () => {
     off()
   })
 
+  it('with no reports yet, the home page is one empty state: icon, one sentence, one action (Q8)', async () => {
+    const usual = invoke.getMockImplementation()!
+    invoke.mockImplementation(async (channel: string, ...args: unknown[]) => channel === 'reports:list' ? { ok: true, data: [] } : usual(channel, ...args))
+    render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
+    await wait(50)
+    expect(screen.getByRole('heading', { name: 'No reports yet' })).toBeTruthy()
+    expect(screen.getByText('Ask a question about your work and Pulse will count it.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Make your first report' }))
+    await wait(50)
+    expect(screen.getByLabelText('Report name')).toBeTruthy()
+    invoke.mockImplementation(usual)
+  })
+
   it('lists saved reports and opens one', async () => {
     render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
     await wait()

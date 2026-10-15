@@ -4,7 +4,7 @@
  */
 import { onTabListKeyDown } from '../utils/tabListKeys'
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail, LayoutDashboard } from 'lucide-react'
 import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
 import { Tooltip } from '../components/shared/Tooltip'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
@@ -54,6 +54,7 @@ import { useFeature } from '../hooks/useFeature'
 import { assertNever } from '../../shared/assertNever'
 import { nextStep } from './dashboard/nextStep'
 import { NextStepBanner } from './dashboard/NextStepBanner'
+import { EmptyState } from '../components/shared/EmptyState'
 
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
 
@@ -565,26 +566,17 @@ export default function DashboardView(): React.ReactElement {
               {isLoading ? (
                 showSpinner ? <LoadingOverlay label="Loading dashboard…" /> : <div className="py-16" />
               ) : filteredItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                  {debouncedSearch.trim() ? (
-                    // A search that finds nothing isn't an empty dashboard
-                    <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing matches &ldquo;{debouncedSearch.trim()}&rdquo;</p>
-                  ) : stats?.totalActive === 0 ? (
-                    <>
-                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing here yet</p>
-                      <p className="text-base text-slate-500 dark:text-slate-400">Your dashboard fills up as you add {t('record', { many: true })} with dates.</p>
-                      <button type="button" className="btn-secondary mt-2" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
-                        See an example with sample data
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
-                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">All clear!</p>
-                      <p className="text-base text-slate-500 dark:text-slate-400">No deadlines, tasks, or follow-ups need attention right now.</p>
-                    </>
-                  )}
-                </div>
+                debouncedSearch.trim() ? (
+                  // A search that finds nothing isn't an empty dashboard: words, no action
+                  <p className="py-16 text-center text-base font-semibold text-slate-700 dark:text-slate-300">Nothing matches &ldquo;{debouncedSearch.trim()}&rdquo;</p>
+                ) : stats?.totalActive === 0 ? (
+                  <EmptyState icon={<LayoutDashboard />} title="Nothing here yet"
+                    description={`Your dashboard fills up as you add ${t('record', { many: true })} with dates.`}
+                    action={{ label: 'See an example with sample data', onClick: () => pulseEvents.emit('starters:open', { sample: true }) }} />
+                ) : (
+                  <EmptyState size="panel" icon={<CheckCircle />} title="All clear!"
+                    description="No deadlines, tasks, or follow-ups need attention right now." />
+                )
               ) : (
                 <div role="list">
                   {renderBulkBar(filteredItems)}
@@ -645,11 +637,8 @@ export default function DashboardView(): React.ReactElement {
           {/* Overdue tab */}
           {topTab === 'overdue' && (
             overdueItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
-                <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing overdue</p>
-                <p className="text-base text-slate-500 dark:text-slate-400">Great work — you're all caught up!</p>
-              </div>
+              <EmptyState size="panel" icon={<CheckCircle />} title="Nothing overdue"
+                description="Great work — you're all caught up!" />
             ) : (
               <div role="list">
                 {renderBulkBar(overdueItems)}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  RotateCcw, FolderOpen, Play, Upload, Download, CheckCircle, Loader2,
+  RotateCcw, FolderOpen, Play, Upload, Download, CheckCircle, Loader2, HardDrive,
 } from 'lucide-react'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore } from '../../stores/undoStore'
@@ -20,6 +20,7 @@ import { useBackupStatusStore } from '../../stores/backupStatusStore'
 import { friendlyError } from '../../utils/friendlyError'
 import { saveBackupArchive } from '../../utils/saveBackupArchive'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
+import { EmptyState } from '../shared/EmptyState'
 
 interface BackupPreviewData {
   gridCount: number
@@ -342,9 +343,8 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           </p>
         </div>
         {autoBackups.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400 italic">
-            No auto-backups yet — they appear here after you close and reopen the app.
-          </p>
+          <EmptyState size="panel" icon={<HardDrive />} title="No auto-backups yet"
+            description="They appear here after you close and reopen the app." />
         ) : (
           <div
             className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"

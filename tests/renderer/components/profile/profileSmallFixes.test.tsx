@@ -51,7 +51,8 @@ describe('empty Files and Appointments sections (C-36, C-37)', () => {
   it('Files says it in one line', async () => {
     render(<RecordFiles rowId={7} />)
     await flush()
-    expect(screen.getByText(/^No files yet\. Drop files here or click Add files… They're stored encrypted inside Pulse\.$/)).toBeTruthy()
+    expect(screen.getByText('No files yet')).toBeTruthy()
+    expect(screen.getByText(/^Drop files here or click Add files… They're stored encrypted inside Pulse\.$/)).toBeTruthy()
     expect(screen.queryByText(/copied outside Pulse/)).toBeNull()
   })
 

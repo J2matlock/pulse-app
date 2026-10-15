@@ -5,7 +5,7 @@
  * Priority: Alert rules > Cell formats > Column formats > Row highlights
  */
 import React, { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Palette } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -15,6 +15,7 @@ import type { CellFormatRule, GridRow } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { defaultOpForType, rowLabel } from './cellFormatRules'
 import { CellFormatRuleCard } from './CellFormatRuleCard'
+import { EmptyState } from '../shared/EmptyState'
 
 export { evalCellFormat } from './cellFormatRules'
 
@@ -182,7 +183,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
         </p>
 
         {rules.length === 0 && (
-          <div className="py-6 text-center text-slate-500 dark:text-slate-400 text-base">No color rules yet. Add one below.</div>
+          <EmptyState size="panel" icon={<Palette />} title="No color rules yet" description="Add one below." />
         )}
 
         {rules.map((rule, i) => (

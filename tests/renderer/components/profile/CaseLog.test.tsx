@@ -141,7 +141,7 @@ describe('CaseLog', () => {
     await renderSettled(<CaseLog rowId={10} />)
     expect(screen.getByText('Activity log')).toBeTruthy()
     expect(screen.getByTitle('Add a note')).toBeTruthy()
-    await waitFor(() => expect(screen.getByText('No notes yet.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No notes yet')).toBeTruthy())
     // No clinical DAP/SOAP/BIRP formats outside human services, so no Format control (audit R-16)
     expect(screen.queryByLabelText('Format')).toBeNull()
   })
@@ -149,7 +149,7 @@ describe('CaseLog', () => {
   it('shows empty state when no entries', async () => {
     await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
-      expect(screen.getByText('No case notes yet.')).toBeTruthy()
+      expect(screen.getByText('No case notes yet')).toBeTruthy()
     })
   })
 
@@ -249,7 +249,7 @@ describe('CaseLog', () => {
     await waitFor(() => expect(screen.getByText('Some note')).toBeTruthy())
     fireEvent.change(screen.getByLabelText('What to show'), { target: { value: 'changes' } })
     expect(await screen.findByText(/Nothing of this kind yet/)).toBeTruthy()
-    expect(screen.queryByText('No case notes yet.')).toBeNull()
+    expect(screen.queryByText('No case notes yet')).toBeNull()
   })
 
   it('shows pinned section when entries are pinned', async () => {

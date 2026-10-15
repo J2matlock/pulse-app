@@ -18,6 +18,7 @@ import { FEATURE_SUGGESTIONS } from '../../../shared/featureSuggestions'
 import { DaysOffSection } from './DaysOffSection'
 import { RemindersSection } from './RemindersSection'
 import { BackgroundSection } from './BackgroundSection'
+import { EmptyState } from '../shared/EmptyState'
 
 export function AlertsSection(): React.ReactElement {
   const { t, f } = useVocab(null)
@@ -54,7 +55,8 @@ export function AlertsSection(): React.ReactElement {
       </p>
 
       {alertRules.length === 0 && alertsLoaded && (
-        <p className="text-sm text-slate-500 dark:text-slate-400 italic">No deadline rules yet. To make one, click the ⋯ on a date column in {t('list', { article: true })} and choose "Deadline rule…".</p>
+        <EmptyState size="panel" icon={<Bell />} title="No deadline rules yet"
+          description={`To make one, click the ⋯ on a date column in ${t('list', { article: true })} and choose "Deadline rule…".`} />
       )}
 
       <div className="space-y-2">

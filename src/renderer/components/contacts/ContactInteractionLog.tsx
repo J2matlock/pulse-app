@@ -8,6 +8,7 @@ import { relativeTime } from '../../utils/relativeTime'
 import { parseDbTimestamp } from '../../../shared/dates'
 import { isMod, modHelp } from '../../utils/keys'
 import { IconButton } from '../ui/Button'
+import { EmptyState } from '../shared/EmptyState'
 
 interface Props {
   providerId: number
@@ -273,14 +274,10 @@ export function ContactInteractionLog({ providerId }: Props) {
 
       {/* Interaction list */}
       {filteredInteractions.length === 0 ? (
-        <div className="text-center py-8">
-          <MessageSquare size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-500" />
-          <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>
-            {debouncedSearch.trim()
-              ? 'Nothing in this history matches your search.'
-              : 'No history yet. Note a call, meeting or email above to keep track of what was said.'}
-          </p>
-        </div>
+        debouncedSearch.trim()
+          ? <p className="text-base text-slate-600 dark:text-slate-300 text-center py-8">Nothing in this history matches your search.</p>
+          : <EmptyState size="panel" icon={<MessageSquare />} title="No history yet"
+              description="Note a call, meeting or email above to keep track of what was said." />
       ) : (
         <div className="flex flex-col gap-2">
           {filteredInteractions.map(interaction => (

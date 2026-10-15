@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
-import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check, ListChecks } from 'lucide-react'
 import { deleteWithUndo, onLibraryChanged } from '../../utils/libraryUndo'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
@@ -34,6 +34,7 @@ import { resolveGroupDrop, groupAwareCollision } from '../../views/tasks/groupDr
 import { useVocab } from '../../hooks/useVocab'
 import { Toggle } from '../ui/Toggle'
 import { PrimaryButton } from '../ui/Button'
+import { EmptyState } from '../shared/EmptyState'
 
 interface Props {
   rowId: number
@@ -621,9 +622,9 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         {loading ? (
           <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>
         ) : activeItems.length === 0 && completedItems.length === 0 && !hasGroups ? (
-          <div className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
-            No checklist items yet. Type below and press Enter to add one, or use Templates.
-          </div>
+          <EmptyState size="panel" icon={<ListChecks />} title="No checklist items yet"
+            description="Type below and press Enter, or use Templates."
+            action={{ label: 'Add an item', onClick: () => addInputRef.current?.focus() }} />
         ) : !hasGroups ? (
           /* ── Flat mode (no groups) — identical to previous behavior ── */
           <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>

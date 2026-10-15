@@ -1,6 +1,6 @@
 /** A list's forms (W08 §3): make, edit and delete them. */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ClipboardList, Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
+import { ClipboardList, Pencil, Plus, Printer, Trash2, X, ClipboardPen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Form } from '../../../shared/forms'
@@ -10,6 +10,7 @@ import { useFormStore } from '../../stores/formStore'
 import { deleteWithUndo, onLibraryChanged } from '../../utils/libraryUndo'
 import { FormBuilder } from './FormBuilder'
 import { friendlyError } from '../../utils/friendlyError'
+import { EmptyState } from '../shared/EmptyState'
 
 export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gridName: string; onClose: () => void }): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
@@ -60,7 +61,8 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
             onSaved={() => { setEditing(null); void load() }} onCancel={() => setEditing(null)} />
         ) : (
           <>
-            {forms.length === 0 && <p className="text-base text-slate-500 dark:text-slate-400">No forms yet. A form is a clean way to add or update one, or a blank to print.</p>}
+            {forms.length === 0 && <EmptyState size="panel" icon={<ClipboardPen />} title="No forms yet"
+              description="A form is a clean way to add or update one, or a blank to print." />}
             <ul className="divide-y divide-slate-100 dark:divide-slate-700" aria-label="Forms">
               {forms.map(f => (
                 <li key={f.id} className="flex items-center gap-2 py-2" style={{ minHeight: 44 }}>
