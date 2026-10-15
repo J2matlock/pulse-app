@@ -535,6 +535,8 @@ describe('sharing a setup', () => {
     expect(s.vocab!.record!.one).toBe('customer')
     expect(s.noteFormats![0]!.name).toBe('Visit report')
     expect(s.documentTemplates).toEqual([{ name: 'Welcome', content: 'Hello {{client_name}}' }])
+    // Says what isn't in it in the workspace's words (persona study #14)
+    expect(s.description).toMatch(/^Lists, columns and deadline rules shared on \d{4}-\d{2}-\d{2}\. No customers or notes are included\.$/)
   })
 
   it('opens again as the same setup in another workspace', async () => {

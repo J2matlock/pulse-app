@@ -21,6 +21,7 @@ import { FAQ_ITEMS } from '../../src/renderer/views/help/faqData'
 import { CATEGORY_LABELS } from '../../src/renderer/views/help/types'
 import { RELEASES } from '../../src/renderer/components/shared/WhatsNewModal'
 import { FEATURE_SUGGESTIONS } from '../../src/shared/featureSuggestions'
+import { FEATURE_GROUP_LABEL } from '../../src/shared/features'
 import { HINT_IDS, HINTS } from '../../src/renderer/components/onboarding/screenHints'
 import { FIRST_LOOK_TEXT } from '../../src/renderer/components/onboarding/FirstLook'
 import { fillVocab, resolveVocab, GENERIC_VOCAB, HUMAN_SERVICES_VOCAB, type Vocab } from '../../src/shared/vocab'
@@ -42,6 +43,7 @@ const texts: string[] = [
   ...VARIABLE_GROUPS.flatMap(g => [g.label, ...g.items.map(i => i.desc)]),
   ...PLACEHOLDER_GROUPS.flatMap(g => [g.label, ...g.items.map(i => i.desc)]),
   SECURITY_SUMMARY_TEXT,
+  ...Object.values(FEATURE_GROUP_LABEL),
   ...FAQ_ITEMS.flatMap(i => [i.question, i.answer]),
   ...Object.values(CATEGORY_LABELS),
   ...RELEASES.flatMap(r => r.items),
