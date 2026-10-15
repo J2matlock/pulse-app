@@ -48,7 +48,7 @@ describe('MorningBriefing', () => {
   })
 
   it.each([
-    ['Start Focus Mode'],
+    ['Work through them one by one'],
     ['Open dashboard'],
   ])('unticking "show each day" is saved when leaving with %s', async (button) => {
     setup({})
@@ -59,7 +59,7 @@ describe('MorningBriefing', () => {
     fireEvent.click(screen.getByRole('button', { name: button }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'briefing_enabled', 'false'))
     expect(screen.queryByRole('dialog')).toBeNull()
-    if (button === 'Start Focus Mode') expect(onFocusMode).toHaveBeenCalled()
+    if (button === 'Work through them one by one') expect(onFocusMode).toHaveBeenCalled()
   })
 
   it('closes on Escape and marks the key as handled', async () => {

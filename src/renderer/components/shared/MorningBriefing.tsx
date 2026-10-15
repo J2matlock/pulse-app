@@ -129,15 +129,16 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
             ))}
           </ul>
         )}
+        {/* The dashboard is the usual next step; Focus mode is the one-by-one way through the same list (UX D-07) */}
         <div className="flex flex-wrap gap-3">
-          {!nothingUrgent && showFocus && (
-            <button type="button" className="btn-primary" onClick={() => void close(onFocusMode)}>
-              Start Focus Mode
-            </button>
-          )}
-          <button type="button" className="btn-secondary" onClick={() => void close(() => navigate('/dashboard'))}>
+          <button type="button" className="btn-primary" onClick={() => void close(() => navigate('/dashboard'))}>
             Open dashboard
           </button>
+          {!nothingUrgent && showFocus && (
+            <button type="button" className="btn-secondary" onClick={() => void close(onFocusMode)}>
+              Work through them one by one
+            </button>
+          )}
         </div>
         <label className="mt-5 flex items-center gap-2 text-base text-slate-600 dark:text-slate-300 cursor-pointer select-none" style={{ minHeight: 44 }}>
           <input type="checkbox" checked={keepShowing} onChange={e => setKeepShowing(e.target.checked)}

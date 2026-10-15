@@ -83,7 +83,7 @@ describe('Focus Mode Done', () => {
 
   it('marks a repeating deadline done through the engine instead of erasing the date', async () => {
     await open([row({})])
-    await act(async () => { fireEvent.click(screen.getByText(/Done/)) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Mark Annual review done for Ada/ })) })
     expect(completeDeadlines).toHaveBeenCalledTimes(1)
     const [items] = completeDeadlines.mock.calls[0] as [Array<Record<string, unknown>>]
     expect(items[0]).toMatchObject({ rowId: 1, columnId: 3, ruleKind: 'interval', interval: { days: 0, months: 12, endOfMonth: false } })
@@ -92,8 +92,42 @@ describe('Focus Mode Done', () => {
 
   it('asks for the reading on a meter rule', async () => {
     await open([row({ rule_kind: 'meter' })])
-    await act(async () => { fireEvent.click(screen.getByText(/Done/)) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Mark Annual review done for Ada/ })) })
     expect(completeDeadlines).not.toHaveBeenCalled()
     expect(screen.getByText('Current reading')).toBeTruthy()
+  })
+})
+
+describe('Focus mode row choices (UX D-07)', () => {
+  beforeEach(() => {
+    safeInvoke.mockReset()
+    completeDeadlines.mockReset()
+    completeDeadlines.mockResolvedValue([{}])
+  })
+
+  async function open(rows: RawDeadlineRow[]) {
+    safeInvoke.mockImplementation(async (ch: string) => ch === 'dashboard:get-deadlines' ? { ok: true, data: rows } : { ok: true, data: [] })
+    render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+  }
+
+  it('Done on… asks the day and passes it to the engine', async () => {
+    await open([row({})])
+    fireEvent.click(screen.getByRole('button', { name: 'Done on another day: Annual review for Ada' }))
+    const dialog = screen.getByRole('dialog', { name: 'Mark Annual review done for Ada' })
+    fireEvent.change(screen.getByLabelText('Day it was done'), { target: { value: '2026-01-02' } })
+    await act(async () => { fireEvent.click(dialog.querySelector('button.btn-primary')!) })
+    const [items] = completeDeadlines.mock.calls[0] as [Array<Record<string, unknown>>]
+    expect(items[0]).toMatchObject({ rowId: 1, columnId: 3, doneOn: '2026-01-02' })
+  })
+
+  it('Extend… opens the extension dialog, and Not now puts the row aside', async () => {
+    await open([row({})])
+    fireEvent.click(screen.getByRole('button', { name: 'Extend Annual review for Ada' }))
+    expect(screen.getByRole('dialog', { name: 'Extend: Annual review: Ada' })).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('button', { name: 'Not now: Annual review for Ada' }))
+    expect(screen.queryByRole('button', { name: /^Mark Annual review done for Ada/ })).toBeNull()
+    expect(completeDeadlines).not.toHaveBeenCalled()
   })
 })
