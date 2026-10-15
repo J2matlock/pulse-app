@@ -4,25 +4,45 @@ export type DateAnswer = { repeat: 'no' } | { repeat: 'due' } | { repeat: 'every
 
 /**
  * The likely answer from a column's name, so most people can just click on:
- * "Due date", "Expires" → it's the due date; "Last service", "Annual review"
- * → due again every year; a birthday or anything else → no reminder.
+ * "Due date", "Expires" → it's the due date; "Last contact", "Next visit" →
+ * due again every month; "Last service", "Annual review" → every year; a
+ * birthday or anything else → no reminder. A contact column guessed as yearly
+ * showed no colour for eleven months (UX-A-08), so contacts come first.
  */
 export function suggestRepeat(name: string): DateAnswer {
   const n = name.toLowerCase()
   if (/birth|\bdob\b|born/.test(n)) return { repeat: 'no' }
   if (/\bdue\b|expir|deadline|\bends?\b|renew/.test(n)) return { repeat: 'due' }
-  if (/\blast\b|service|review|inspect/.test(n)) return { repeat: 'every', n: 1, unit: 'years' }
+  if (/contact|visit|\bcall|check[- ]?in|touch/.test(n)) return { repeat: 'every', n: 1, unit: 'months' }
+  if (/annual|yearly|review|assess|\blast\b|service|inspect/.test(n)) return { repeat: 'every', n: 1, unit: 'years' }
   return { repeat: 'no' }
+}
+
+/**
+ * How many days before it's due the cell turns yellow. Mirrors the standard rules
+ * setup makes (src/main/builtin-templates.ts): short cycles up to a month warn a
+ * week ahead, 90 days two weeks ahead, half a year or more a month ahead.
+ */
+export function yellowDaysBefore(answer: DateAnswer): number {
+  if (answer.repeat === 'no') return 0
+  if (answer.repeat === 'due') return 14
+  const months = answer.unit === 'years' ? answer.n * 12 : answer.unit === 'months' ? answer.n : null
+  if (months === 6 || months === 12) return 30
+  if (months === null && (answer.n === 30 || answer.n === 60)) return 7
+  if (months === null && answer.n === 90) return 14
+  const days = months !== null ? months * 30 : answer.n
+  return days <= 31 ? 7 : days <= 120 ? 14 : 30
 }
 
 /** A colored chip like the ones the list shows, so the choice has a visible result */
 function SampleChip({ answer }: { answer: DateAnswer }): React.ReactElement | null {
   if (answer.repeat === 'no') return null
-  const when = answer.repeat === 'due' ? 'the date itself' : `${answer.n} ${answer.n === 1 ? answer.unit.slice(0, -1) : answer.unit} after the date`
+  const yellow = yellowDaysBefore(answer)
+  const next = answer.repeat === 'due' ? 'the date' : `it's next due (${answer.n} ${answer.n === 1 ? answer.unit.slice(0, -1) : answer.unit} after this date)`
   return (
-    <span className="inline-flex items-center gap-2 text-base text-slate-600 dark:text-slate-300">
+    <span className="inline-flex flex-wrap items-center gap-2 text-base text-slate-600 dark:text-slate-300">
       <span className="px-2 py-0.5 rounded-md font-medium bg-yellow-300 text-slate-900" aria-hidden="true">Due soon</span>
-      Turns yellow, then red as {when} comes near
+      Turns yellow {yellow} days before {next}, then red on the day.
     </span>
   )
 }
@@ -72,8 +92,8 @@ export function DateRepeatPicker({ columns, value, onChange }: {
               <select id={`setup-date-${c.id}`} className="input w-auto" value={a.repeat}
                 onChange={e => set(e.target.value === 'every' ? { repeat: 'every', n: 1, unit: 'years' } : { repeat: e.target.value as 'no' | 'due' })}>
                 <option value="no">No reminder</option>
-                <option value="due">This is when it's due</option>
-                <option value="every">It happened on this date; due again every…</option>
+                <option value="due">Is a due date</option>
+                <option value="every">Repeats every…</option>
               </select>
               {a.repeat === 'every' && (
                 <>

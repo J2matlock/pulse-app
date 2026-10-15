@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
+import { localDateString } from '../src/shared/dates'
 
 // ── Handler capture map ──────────────────────────────────────────────────────
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -210,20 +211,57 @@ describe('IPC Onboarding — ONBOARDING_SETUP_GRID', () => {
     expect((await gs()).show).toBe(false)
   })
 
+  /** A "Due date" rule on the column: yellow 14 days before, red on the day */
+  function dueDateRule(columnId: number): void {
+    const thresholds = JSON.stringify([{ daysBefore: 14, bgClass: '#facc15', label: 'Due soon' }, { daysBefore: 0, bgClass: '#dc2626', label: 'Due today' }, { daysBefore: -1, bgClass: 'alert-pulse-dark', label: 'Overdue' }])
+    const ruleId = testDb.db.prepare("INSERT INTO alert_rules (name, interval_days, thresholds, created_at) VALUES ('Due date', 0, ?, datetime('now'))").run(thresholds).lastInsertRowid
+    testDb.db.prepare("UPDATE columns SET config = json_object('alert_rule_id', ?) WHERE id = ?").run(ruleId, columnId)
+  }
+
   it('getting started: a note or reminder on a record in the Trash, or in a list in the Trash, doesn\'t tick its step (Q-084)', async () => {
     const gs = async () => ((await invoke(IPC.ONBOARDING_GETTING_STARTED)) as any).data
     await invoke(IPC.ONBOARDING_COMPLETE)
     const trashed = seedGrid(testDb.db, { rowCount: 1, columnTypes: ['deadline'] })
     const inTrashedList = seedGrid(testDb.db, { rowCount: 1, columnTypes: ['deadline'] })
     for (const g of [trashed, inTrashedList]) {
+      dueDateRule(g.columnIds[0]!)
       testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Called', 'phone')").run(g.rowIds[0])
-      testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '2030-01-01')").run(g.rowIds[0], g.columnIds[0])
+      testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(g.rowIds[0], g.columnIds[0], localDateString())
     }
     testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(trashed.rowIds[0])
     testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(inTrashedList.gridId)
     expect(await gs()).toMatchObject({ record: false, reminder: false, note: false })
     testDb.db.prepare('UPDATE grids SET is_active = 1 WHERE id = ?').run(inTrashedList.gridId)
     expect(await gs()).toMatchObject({ record: true, reminder: true, note: true })
+  })
+
+  it('getting started: the colour step ticks only once one of your own dates actually shows a colour (UX-A-26)', async () => {
+    const gs = async () => ((await invoke(IPC.ONBOARDING_GETTING_STARTED)) as any).data
+    await invoke(IPC.ONBOARDING_COMPLETE)
+    const { rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 2, columnTypes: ['date'] })
+    dueDateRule(columnIds[0]!)
+    // Filled in, but due in years: still white
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '2099-01-01')").run(rowIds[0], columnIds[0])
+    expect((await gs()).reminder).toBe(false)
+    // A sample entry in a colour doesn't count as the person's own
+    testDb.db.prepare("INSERT INTO sample_rows (row_id, grid_id, fingerprint) VALUES (?, 1, '')").run(rowIds[1])
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowIds[1], columnIds[0], localDateString())
+    expect((await gs()).reminder).toBe(false)
+    // Within the rule's first threshold: yellow, so the step is done
+    const soon = new Date(); soon.setDate(soon.getDate() + 10)
+    testDb.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run(localDateString(soon), rowIds[0], columnIds[0])
+    expect((await gs()).reminder).toBe(true)
+  })
+
+  it('inColouredTier follows the rule\'s own first threshold', async () => {
+    const { inColouredTier } = await import('../src/main/ipc/ipc-onboarding')
+    const long = JSON.stringify([{ daysBefore: 60, bgClass: '#bbf7d0', label: 'Coming up' }, { daysBefore: 0, bgClass: '#dc2626', label: 'Due today' }])
+    expect(inColouredTier({ state: 'ok', daysUntil: 45, alert_thresholds: long })).toBe(true)
+    expect(inColouredTier({ state: 'ok', daysUntil: 61, alert_thresholds: long })).toBe(false)
+    expect(inColouredTier({ state: 'ok', daysUntil: 5, alert_thresholds: null })).toBe(true)
+    expect(inColouredTier({ state: 'ok', daysUntil: 8, alert_thresholds: 'not json' })).toBe(false)
+    expect(inColouredTier({ state: 'overdue', daysUntil: -3, alert_thresholds: null })).toBe(true)
+    expect(inColouredTier({ state: 'done', daysUntil: 0, alert_thresholds: null })).toBe(false)
   })
 
   it('drops saved progress whose list was deleted', async () => {

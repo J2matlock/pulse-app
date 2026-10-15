@@ -46,7 +46,7 @@ export function GettingStartedCard(): React.ReactElement | null {
   const openList = `Open your ${t('list')}`
   const steps = [
     { done: p.record, label: `Add your first ${t('record')}`, action: openList, go: () => navigate('/grid') },
-    { done: p.reminder, label: 'Put in a date that has a reminder, and watch its color', action: openList, go: () => navigate('/grid') },
+    { done: p.reminder, label: 'Put in a date that has a reminder, and see it change color as it comes due', action: openList, go: () => navigate('/grid') },
     { done: p.note, label: `Write your first ${t('activity')}`, action: openList, go: () => navigate('/grid') },
     { done: p.backup, label: 'Choose where backups go', action: 'Set up backups', go: () => navigate('/settings?tab=backup') },
     ...(recoverySnoozed && !p.recoveryKey ? [] : [{
