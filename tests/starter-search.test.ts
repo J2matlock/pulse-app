@@ -42,6 +42,10 @@ describe('searchStarters', () => {
     // Candy typed her job: the nursing example first, then whatever else has the words
     expect(ids('home health')[0]).toBe('home-health-nursing')
     for (const q of ['hospice', 'patient', 'visit', 'mileage']) expect(ids(q), q).toContain('home-health-nursing')
+    // Karen is a school social worker
+    const school = ids('school social worker')
+    expect(school).toContain('special-education')
+    expect(school.indexOf('special-education')).toBeLessThan(school.indexOf('human-services'))
     // An empty search keeps the catalog's order
     expect(ids('')).toEqual(all.map(s => s.id))
   })

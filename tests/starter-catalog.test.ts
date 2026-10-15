@@ -120,7 +120,7 @@ const EXPECTED: Record<string, Expected> = {
   },
   'veterans-service-officer': {
     disclaimer: true,
-    lists: { veterans: { columns: ['Intent to file date', 'Claim filed', 'Decision date', 'Appeal filed'], rules: ['Intent to file expires', 'Appeal window'] } },
+    lists: { veterans: { columns: ['Intent to file date', 'Claim filed', 'Decision date', 'Appeal filed', 'VA letter date', 'Evidence sent'], rules: ['Intent to file expires', 'Appeal window', 'Evidence due'] } },
   },
   'hr-generalist': {
     lists: { employees: { columns: ['Hire date', 'Probation review done', 'Benefits enrolled', 'Yearly review'], rules: ['Probation ends', 'Review on hire anniversary'] } },

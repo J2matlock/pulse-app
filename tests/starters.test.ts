@@ -581,6 +581,21 @@ describe('foster home licensing starter (R8)', () => {
   })
 })
 
+describe('veterans service officer evidence letters (R8)', () => {
+  it('works out the 30-day evidence deadline from the VA letter date, and shows its maths', async () => {
+    const { applyStarter } = await starters()
+    const { loadDeadlines } = await import('../src/main/deadlines')
+    const res = applyStarter({ builtinId: 'veterans-service-officer' }, { lists: ['veterans'], applyWords: false, applyFeatures: false, sampleData: false })
+    const gridId = res.gridIds.veterans!
+    const col = (name: string) => (testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND name = ?').get(gridId, name) as { id: number }).id
+    const rowId = Number(testDb.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))").run(gridId).lastInsertRowid)
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, '2026-09-28', datetime('now'))").run(rowId, col('VA letter date'))
+    const due = loadDeadlines({ gridId, rowIds: [rowId] }).find(d => d.column_name === 'Evidence sent')
+    expect(due?.due).toBe('2026-10-28')
+    expect(due?.detail).toBe('Due Oct 28, 2026 (30 days after Sep 28, 2026)')
+  })
+})
+
 describe('sharing a setup', () => {
   function seedWorkspace() {
     const db = testDb.db

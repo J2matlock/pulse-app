@@ -11,7 +11,10 @@
     "special ed",
     "teacher",
     "school",
-    "student"
+    "student",
+    "school social worker",
+    "school counselor",
+    "iep minutes"
   ],
   "vocab": {
     "record": {
