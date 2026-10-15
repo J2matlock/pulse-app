@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React, { useState } from 'react'
+import { Dialog } from '../../components/ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
 import { localDateString } from '../../../shared/dates'
 import { implausibleReading, type MeterInfo } from '../../../shared/deadlineEngine'
 import { isPastOrToday } from './DoneOnDayDialog'
@@ -18,8 +19,6 @@ export function MeterReadingDialog({ title, info, onSave, onClose }: {
   onSave: (reading: number, doneOn?: string) => void
   onClose: () => void
 }): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const [text, setText] = useState(info?.current != null ? String(info.current) : '')
   const [otherDay, setOtherDay] = useState(false)
   const [day, setDay] = useState(localDateString())
@@ -38,17 +37,13 @@ export function MeterReadingDialog({ title, info, onSave, onClose }: {
     onSave(value, otherDay && day !== localDateString() ? day : undefined)
   }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="meter-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <h2 id="meter-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+    <Dialog open onClose={onClose} title={title} size="sm"
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={!valid} onClick={save}>{warning && confirmed === value ? 'Mark done anyway' : 'Mark done'}</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         <label className="block text-base text-slate-700 dark:text-slate-200">
           Current reading{info?.unit ? ` (${info.unit})` : ''}
           <span className="flex items-center gap-2 mt-1">
@@ -77,11 +72,7 @@ export function MeterReadingDialog({ title, info, onSave, onClose }: {
             Done on another day…
           </button>
         )}
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={!valid} onClick={save}>{warning && confirmed === value ? 'Mark done anyway' : 'Mark done'}</button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

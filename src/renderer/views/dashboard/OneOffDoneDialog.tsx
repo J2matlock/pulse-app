@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React, { useState } from 'react'
+import { Dialog } from '../../components/ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
 import { formatDue } from '../../../shared/deadlineEngine'
 
 export type OneOffChoice = { kind: 'renewed'; newDate: string } | { kind: 'finished' }
@@ -15,18 +16,10 @@ export function OneOffDoneDialog({ title, currentDue, onSave, onClose }: {
   onSave: (choice: OneOffChoice) => void
   onClose: () => void
 }): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const [mode, setMode] = useState<'renewed' | 'finished'>('renewed')
   const [date, setDate] = useState('')
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date)
   const valid = mode === 'finished' || validDate
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   function save() {
     if (!valid) return
@@ -34,10 +27,12 @@ export function OneOffDoneDialog({ title, currentDue, onSave, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="oneoff-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <h2 id="oneoff-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">Done: {title}</h2>
+    <Dialog open onClose={onClose} title={`Done: ${title}`} size="md"
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={!valid} onClick={save}>Mark done</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         {currentDue && <p className="text-base text-slate-600 dark:text-slate-300">Was due {formatDue(currentDue)}.</p>}
         <fieldset className="space-y-1">
           <legend className="sr-only">What happened?</legend>
@@ -57,11 +52,7 @@ export function OneOffDoneDialog({ title, currentDue, onSave, onClose }: {
             Finished — nothing more is due for this
           </label>
         </fieldset>
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={!valid} onClick={save}>Mark done</button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
