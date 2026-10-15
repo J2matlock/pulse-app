@@ -10,10 +10,26 @@ import { formatBytes } from '../../../shared/attachments'
 
 interface Check {
   ok: boolean
+  /** The current state in words ("No recovery key yet"), never the name of the check */
   label: string
   /** What to do when not ok */
   fix?: string
   action?: { label: string; onClick: () => void }
+}
+
+/** Element ids of the controls a failing check points at (set in SecuritySection) */
+export const CHECKUP_TARGETS = {
+  recoveryKey: 'settings-recovery-key',
+  autoLock: 'settings-auto-lock',
+} as const
+
+/** Scroll the Settings panel to a control and give it focus, so the fix is right under the mouse */
+function scrollToControl(id: string): void {
+  const el = document.getElementById(id)
+  if (!el) return
+  if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const target = el.matches('button, input, select, textarea, a') ? el : el.querySelector<HTMLElement>('button, input, select, textarea')
+  target?.focus({ preventScroll: true })
 }
 
 /**
@@ -45,13 +61,15 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
   const checks: Check[] = [
     {
       ok: hasRecovery === true,
-      label: 'Recovery key created',
+      label: hasRecovery === true ? 'Recovery key saved' : hasRecovery === null ? 'Checking for a recovery key…' : 'No recovery key yet',
       fix: 'Without one, a forgotten password means losing your data. Create it below and store it somewhere safe.',
+      action: { label: 'Create one below', onClick: () => scrollToControl(CHECKUP_TARGETS.recoveryKey) },
     },
     {
       ok: autoLockMinutes <= 15,
-      label: `Auto-lock after ${autoLockMinutes} minutes`,
-      fix: 'Most organizations expect 15 minutes or less. Change it above.',
+      label: autoLockMinutes <= 15 ? `Auto-lock after ${autoLockMinutes} minutes` : `Auto-lock waits ${autoLockMinutes} minutes`,
+      fix: 'Most organizations expect 15 minutes or less.',
+      action: { label: 'Change it below', onClick: () => scrollToControl(CHECKUP_TARGETS.autoLock) },
     },
     {
       ok: !!backup?.enabled && !backupBesideData && !backupFailing,
@@ -65,7 +83,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
     },
     {
       ok: !cloud,
-      label: cloud ? `Your Pulse data folder is inside ${cloud}` : 'Data folder is not in a cloud-sync folder',
+      label: cloud ? `Your Pulse data folder is inside ${cloud}` : 'Data folder is not in a cloud folder',
       fix: cloud ? `Cloud sync can corrupt the database and copies your data off this computer. Move the Pulse folder out of ${cloud}.` : undefined,
     },
   ]
