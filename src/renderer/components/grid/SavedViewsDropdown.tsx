@@ -265,6 +265,7 @@ export function SavedViewsDropdown() {
                         setName('')
                       }}
                       title="Cancel"
+                      aria-label="Cancel"
                     >
                       <X size={16} />
                     </button>

@@ -175,6 +175,7 @@ export function ChecklistGroupHeader({
                        transition-opacity flex-shrink-0
                        ${hovering ? 'opacity-100' : 'opacity-0'}`}
             title="Rename group"
+            aria-label="Rename group"
             tabIndex={-1}
           >
             <Pencil className="w-3.5 h-3.5" />

@@ -133,6 +133,7 @@ function InteractionEntry({
               onClick={() => { setEditContent(interaction.content); setEditing(true) }}
               className="hit-44 p-2 rounded-md text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-white/60 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
               title="Edit"
+              aria-label="Edit"
               style={{ minHeight: 36, minWidth: 36 }}
             >
               <Pencil size={15} />
@@ -142,7 +143,8 @@ function InteractionEntry({
                 onClick={handleDelete}
                 onBlur={() => setConfirmDelete(false)}
                 className="hit-44 p-2 rounded-md text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 focus:outline-hidden focus:ring-3 focus:ring-red-500 focus:opacity-100"
-                title="Click again to confirm delete"
+                title="Click again to delete"
+                aria-label="Click again to delete"
                 style={{ minHeight: 36, minWidth: 36 }}
               >
                 <Trash2 size={15} />
@@ -152,6 +154,7 @@ function InteractionEntry({
                 onClick={() => setConfirmDelete(true)}
                 className="hit-44 p-2 rounded-md text-slate-500 dark:text-slate-400 hover:text-red-600 hover:bg-white/60 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
                 title="Delete"
+                aria-label="Delete"
                 style={{ minHeight: 36, minWidth: 36 }}
               >
                 <Trash2 size={15} />

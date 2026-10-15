@@ -370,7 +370,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
               placeholder="Type a language and press Enter" className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
             <button onClick={addLanguage} disabled={!langInput.trim()}
               className="flex items-center justify-center rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
-              style={{ minHeight: 44, minWidth: 44 }} title="Add language">
+              style={{ minHeight: 44, minWidth: 44 }} title="Add language" aria-label="Add language">
               <Plus size={18} className="text-slate-600 dark:text-slate-300" />
             </button>
           </div>
@@ -426,7 +426,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
               placeholder="Type a tag and press Enter" className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
             <button onClick={addTag} disabled={!tagInput.trim()}
               className="flex items-center justify-center rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
-              style={{ minHeight: 44, minWidth: 44 }} title="Add tag">
+              style={{ minHeight: 44, minWidth: 44 }} title="Add tag" aria-label="Add tag">
               <Plus size={18} className="text-slate-600 dark:text-slate-300" />
             </button>
           </div>

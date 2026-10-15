@@ -57,7 +57,7 @@ export function CellSwatchPicker({ value, onChange, allowNone }: {
           <span className="text-sm text-slate-500 dark:text-slate-400 w-12 flex-shrink-0">{row.label}</span>
           <div className="flex gap-1.5">
             {row.colors.map(c => (
-              <button key={c.hex} type="button" title={c.name}
+              <button key={c.hex} type="button" title={c.name} aria-label={c.name}
                 onClick={() => onChange(c.hex)}
                 className={`hit-44 w-7 h-7 rounded-lg border-2 transition-all focus-visible:ring-3 focus-visible:ring-blue-500 ${
                   value === c.hex
@@ -75,7 +75,7 @@ export function CellSwatchPicker({ value, onChange, allowNone }: {
           <button type="button" onClick={() => onChange(undefined)}
             className={`hit-44 w-7 h-7 rounded-lg border-2 flex items-center justify-center text-slate-500 text-base ${
               !value ? 'border-slate-700 dark:border-white scale-110' : 'border-slate-300 dark:border-slate-600'
-            }`} title="No color">∅</button>
+            }`} title="No color" aria-label="No color">∅</button>
         )}
         <Pipette className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
         <input type="color" value={value ?? '#ffffff'} onChange={e => onChange(e.target.value)}
@@ -263,9 +263,9 @@ export function CellFormatRuleCard({
               <button type="button" onClick={() => onChange({ borderColor: undefined })}
                 className={`hit-44 w-7 h-7 rounded-lg border-2 flex items-center justify-center text-slate-500 text-base ${
                   !rule.borderColor ? 'border-slate-700 dark:border-white scale-110' : 'border-slate-300 dark:border-slate-600'
-                }`} title="No border">∅</button>
+                }`} title="No border" aria-label="No border">∅</button>
               {BORDER_COLORS.map(c => (
-                <button key={c.hex} type="button" title={c.name}
+                <button key={c.hex} type="button" title={c.name} aria-label={`${c.name} border`}
                   onClick={() => onChange({ borderColor: c.hex })}
                   className={`hit-44 w-7 h-7 rounded-lg border-2 transition-all ${
                     rule.borderColor === c.hex

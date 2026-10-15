@@ -15,8 +15,8 @@ const DEFAULT_LEVELS: Array<{ name: string; abbreviation: string; points: number
 ]
 
 const SWATCH_COLORS = [
-  '#22c55e', '#eab308', '#f97316', '#ef4444',
-  '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280',
+  { hex: '#22c55e', name: 'Green' }, { hex: '#eab308', name: 'Yellow' }, { hex: '#f97316', name: 'Orange' }, { hex: '#ef4444', name: 'Red' },
+  { hex: '#3b82f6', name: 'Blue' }, { hex: '#8b5cf6', name: 'Purple' }, { hex: '#ec4899', name: 'Pink' }, { hex: '#6b7280', name: 'Gray' },
 ]
 
 interface AcuityConfigPanelProps {
@@ -206,7 +206,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
           className="hit-44 w-6 h-6 rounded-sm border border-slate-300 dark:border-slate-600 flex-shrink-0 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ backgroundColor: level.color }}
           title="Change color"
-          aria-label={`Color of ${level.name}`}
+          aria-label={`Change the color of ${level.name}`}
         />
         <AnimatePresence>
           {showColorPicker && (
@@ -219,11 +219,14 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
                 variants={dropdownVariants}
                 initial="hidden" animate="visible" exit="exit"
               >
-                {SWATCH_COLORS.map(c => (
+                {SWATCH_COLORS.map(({ hex: c, name }) => (
                   <button
                     key={c}
                     className={`hit-44 w-6 h-6 rounded-sm border-2 ${c === level.color ? 'border-blue-500' : 'border-transparent'} focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
                     style={{ backgroundColor: c }}
+                    aria-label={name}
+                    aria-pressed={c === level.color}
+                    title={name}
                     onClick={() => { onUpdate(level.id, { color: c }); setShowColorPicker(false) }}
                   />
                 ))}

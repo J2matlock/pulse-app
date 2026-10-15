@@ -1154,6 +1154,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist Templates
                                        hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
                                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                             title="Edit template"
+                            aria-label={`Edit the template "${tpl.name}"`}
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -1163,6 +1164,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist Templates
                                        hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors
                                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
                             title="Delete template"
+                            aria-label={`Delete the template "${tpl.name}"`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

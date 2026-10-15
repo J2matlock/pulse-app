@@ -187,6 +187,7 @@ export function MiniTour({ steps, onComplete, returnRoute = '#/help' }: MiniTour
               onClick={finish}
               className="hit-44 w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
               title="Close (Esc)"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -228,6 +229,8 @@ export function MiniTour({ steps, onComplete, returnRoute = '#/help' }: MiniTour
                           : 'bg-slate-300 dark:bg-slate-600 w-2'
                     }`}
                     title={`Step ${i + 1}`}
+                    aria-label={`Go to step ${i + 1}`}
+                    aria-current={i === stepIndex ? 'step' : undefined}
                   />
                 ))}
               </div>

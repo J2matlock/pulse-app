@@ -13,6 +13,12 @@ const PRESET_COLORS = [
   '#ef4444', '#14b8a6', '#f97316', '#6366f1',
   '#f43f5e', '#64748b', '#ec4899', '#84cc16',
 ]
+/** What each swatch is called, for people who can't see it */
+const COLOR_NAMES: Record<string, string> = {
+  '#3b82f6': 'Blue', '#8b5cf6': 'Purple', '#f59e0b': 'Amber', '#22c55e': 'Green',
+  '#ef4444': 'Red', '#14b8a6': 'Teal', '#f97316': 'Orange', '#6366f1': 'Indigo',
+  '#f43f5e': 'Rose', '#64748b': 'Gray', '#ec4899': 'Pink', '#84cc16': 'Lime',
+}
 
 export function CategoryManager({ open, onClose }: { open: boolean; onClose: () => void }) {
   const trapRef = useRef<HTMLDivElement>(null)
@@ -133,6 +139,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                         <button
                           key={c}
                           onClick={() => setEditColor(c)}
+                          aria-label={COLOR_NAMES[c] ?? c}
+                          aria-pressed={editColor === c}
+                          title={COLOR_NAMES[c] ?? c}
                           className={`hit-44 w-7 h-7 rounded-full border-2 transition-all ${editColor === c ? 'border-blue-500 scale-110' : 'border-transparent hover:border-slate-400'}`}
                           style={{ backgroundColor: c }}
                         />
@@ -297,6 +306,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
               className="hit-44 w-8 h-8 rounded-full flex-shrink-0 border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 transition-colors"
               style={{ backgroundColor: newColor }}
               title="Click to cycle colors"
+              aria-label={`Color: ${COLOR_NAMES[newColor] ?? newColor}. Click for the next color`}
             />
             <input
               value={newName}

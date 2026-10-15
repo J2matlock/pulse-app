@@ -443,30 +443,29 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             )}
           </div>
 
-          {/* Edit and delete sit on this row, not beside the title, so the title keeps the full width (C-07) */}
+          {/* Edit and delete sit on this row, not beside the title, so the title keeps the full width (C-07).
+              They say what they do in words where there's room, not only in a tooltip (UX review F-04) */}
           <button
             onClick={() => setShowEditDialog(true)}
-            className="hit-44 ml-auto p-1 text-slate-500 dark:text-slate-400
+            className="hit-44 ml-auto inline-flex items-center gap-1 p-1 text-base text-slate-500 dark:text-slate-400
                        hover:text-blue-500 dark:hover:text-blue-400
-                       opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm
-                       transition-opacity"
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm"
             aria-label="Edit item"
             title="Edit item"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-4 h-4" aria-hidden="true" />
+            <span className="hidden min-[700px]:inline">Edit</span>
           </button>
           <button
             onClick={onDelete}
-            className="hit-44 p-1 text-slate-500 dark:text-slate-400
+            className="hit-44 inline-flex items-center gap-1 p-1 text-base text-slate-500 dark:text-slate-400
                        hover:text-red-500 dark:hover:text-red-400
-                       opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
-                       transition-opacity"
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm"
             aria-label="Delete item"
             title="Delete item"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
+            <span className="hidden min-[700px]:inline">Delete</span>
           </button>
         </div>
       </div>

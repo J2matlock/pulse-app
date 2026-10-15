@@ -127,6 +127,7 @@ function ColorPicker({
                 key={c.hex}
                 type="button"
                 title={c.name}
+                aria-label={c.name}
                 disabled={disabled}
                 onClick={() => onChange(c.hex)}
                 className={`hit-44 w-8 h-8 rounded-lg border-2 transition-all focus:outline-hidden focus-visible:ring-3 focus-visible:ring-offset-1 focus-visible:ring-blue-500 disabled:cursor-not-allowed ${

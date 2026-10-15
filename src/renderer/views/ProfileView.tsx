@@ -474,7 +474,7 @@ export default function ProfileView(): React.ReactElement {
                          disabled:opacity-30 disabled:cursor-not-allowed
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
               title={`Previous ${t('record')} (Alt+←)`}
-              aria-label={`Previous ${t('record')} (Alt+←)`}
+              aria-label={`Previous ${t('record')}`}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -494,7 +494,7 @@ export default function ProfileView(): React.ReactElement {
                          disabled:opacity-30 disabled:cursor-not-allowed
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
               title={`Next ${t('record')} (Alt+→)`}
-              aria-label={`Next ${t('record')} (Alt+→)`}
+              aria-label={`Next ${t('record')}`}
             >
               <ChevronRight className="w-5 h-5" />
             </button>
