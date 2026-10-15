@@ -81,8 +81,13 @@ describe('guessRepeats reads the dates (persona study R4)', () => {
     expect(g[1]).toEqual({ repeat: 'due', mixed: { future: 0.55, picked: 'due', every: { n: 1, unit: 'years' } } })
   })
 
-  it('leaves all-past dates, no dates, and birthdays to the name', () => {
-    const g = guessRepeats(cols, { 1: dates(10, 0), 2: dates(10, 1), 3: dates(10, 9) }, today)
+  it('asks from 5 %: a review imported with 15 % future dates (Linda\'s file)', () => {
+    expect(guessRepeats(cols, { 1: dates(20, 3) }, today)[1]).toMatchObject({ ...yearly, mixed: { future: 0.15, picked: null } })
+    expect(guessRepeats(cols, { 1: dates(20, 1) }, today)[1]).toMatchObject({ mixed: { future: 0.05 } })
+  })
+
+  it('leaves all-past dates, a stray future date, no dates, and birthdays to the name', () => {
+    const g = guessRepeats(cols, { 1: dates(10, 0), 2: dates(40, 1), 3: dates(10, 9) }, today)
     expect(g[1]).toEqual(yearly)
     expect(g[2]).toEqual(monthly)
     expect(g[3]).toEqual({ repeat: 'no' })

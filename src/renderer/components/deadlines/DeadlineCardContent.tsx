@@ -145,7 +145,13 @@ export function FutureLastDone({ gridId, rowId, columnId, columnName, stored, on
         </>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {isDateColumn && <SecondaryButton size="compact" onClick={() => setAsking(true)}>Make this column&apos;s dates the due dates</SecondaryButton>}
+          {/* A link-style button: the words wrap in a narrow card, where a compact button's don't */}
+          {isDateColumn && (
+            <button type="button" onClick={() => setAsking(true)}
+              className="hit-44 px-1 text-left text-base font-medium text-blue-700 dark:text-blue-300 underline rounded-lg focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              Make this column&apos;s dates the due dates
+            </button>
+          )}
           <SecondaryButton size="compact" onClick={() => { futureDateOk.add(`${rowId}:${columnId}:${day}`); setHidden(n => n + 1) }}>It&apos;s right</SecondaryButton>
         </div>
       )}

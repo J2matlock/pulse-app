@@ -23,8 +23,13 @@ export type DateAnswer = ({ repeat: 'no' } | { repeat: 'due' } | { repeat: 'ever
 
 /** At least this share of a column's dates in the future: they're due dates, whatever the name says */
 export const FUTURE_DUE_SHARE = 0.6
-/** From this share up to FUTURE_DUE_SHARE, the import asks */
-export const FUTURE_MIXED_SHARE = 0.2
+/**
+ * From this share up to FUTURE_DUE_SHARE, the import asks. Low on purpose: a
+ * "last done" date can't be in the future, and Linda's file had 13–17 %
+ * future review dates (the plan's 20 % never asked her). One stray date in
+ * twenty-odd doesn't ask.
+ */
+export const FUTURE_MIXED_SHARE = 0.05
 
 /**
  * The likely answer from a column's name, so most people can just click on:
