@@ -41,7 +41,6 @@ const ALLOWED = new Set<string>([
  */
 const PENDING = new Set<string>([
   'Saved views',                 // P3a renames the "Views" button
-  'Keep a history of changes',   // P3b renames "Log changes in timeline"
 ])
 
 function sourceFiles(dir: string): string[] {

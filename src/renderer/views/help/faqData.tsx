@@ -269,7 +269,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-acuity-customize',
     question: 'How do I change the {priority:many} and their points?',
-    answer: 'Open the "Show" menu in the toolbar and choose "{Priority:many}\u2026". Each level has a color, a name, a short name (1 to 4 letters, shown on the badge) and a point value. Change any of them in place \u2014 they save when you click away. Use the arrows to put levels in order, the trash icon to remove one, or "Add Level" to make a new one.',
+    answer: 'Open the "Show" menu in the toolbar and choose "{Priority:many}\u2026". Each level has a color, a name, a short name (1 to 4 letters, shown on the badge) and a point value. Change any of them in place \u2014 they save when you click away. Use the arrows to put levels in order, the trash icon to remove one, or "Add a level" to make a new one.',
     category: 'caseload-grid',
     feature: 'priority',
     keywords: ['levels', 'points', 'customize', 'acuity'],
