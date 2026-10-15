@@ -166,6 +166,7 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
       <div key={item.id}>
         <button
           onClick={() => toggleItem(item.id)}
+          data-help-question=""
           className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
           style={{ minHeight: 44 }}
           aria-expanded={isOpen}
@@ -228,38 +229,8 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
     }
   }
 
-  return (
-    <div ref={scrollRef} className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-6 h-6 text-slate-500 dark:text-slate-400" aria-hidden="true" />
-              <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Help Center</h1>
-            </div>
-            <PurposeLine className="mt-1">Type a question, or pick a topic below.</PurposeLine>
-          </div>
-          {/* Search */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            {/* Search is how this screen is used: ready to type on arrival (Q2) */}
-            <input
-              ref={searchRef}
-              autoFocus
-              type="search"
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600
-                         bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
-                         text-[15px] placeholder-slate-500
-                         focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Search help…"
-              value={search}
-              onChange={e => handleSearchChange(e.target.value)}
-              style={{ minHeight: 44 }}
-            />
-          </div>
-        </div>
-
+  const browseLinks = (
+    <>
         {/* One slim row for the tour, what's new and the security summary, so the first
             question is on the first screen at 768 px (E-17) */}
         <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
@@ -279,7 +250,6 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
             </button>
           </Tooltip>
         </div>
-        <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
 
         {/* Category chips */}
         <div className="flex gap-2 flex-wrap">
@@ -309,6 +279,50 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
             </button>
           ))}
         </div>
+
+    </>
+  )
+
+  return (
+    <div ref={scrollRef} className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-900">
+      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-6 h-6 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+              <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Help Center</h1>
+            </div>
+            <PurposeLine className="mt-1">Type a question, or pick a topic below.</PurposeLine>
+          </div>
+          {/* Search */}
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+            {/* Search is how this screen is used: ready to type on arrival (Q2) */}
+            <input
+              ref={searchRef}
+              autoFocus
+              type="search"
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600
+                         bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
+                         text-[15px] placeholder-slate-500
+                         focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search help…"
+              value={search}
+              onChange={e => handleSearchChange(e.target.value)}
+              // Down arrow goes to the first answer
+              onKeyDown={e => {
+                if (e.key !== 'ArrowDown') return
+                const first = scrollRef.current?.querySelector<HTMLElement>('[data-help-question]')
+                if (first) { e.preventDefault(); first.focus() }
+              }}
+              style={{ minHeight: 44 }}
+            />
+          </div>
+        </div>
+
+        {!searching && browseLinks}
+        <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
 
         {suggested && (
           <FeatureOffer feature={suggested} always message={f(suggestionMessage(suggested, 'help'))} />
@@ -358,6 +372,10 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
             </div>
           </div>
         )}
+
+        {/* While searching, the answers come right after the search box, and the tour and the
+            topics after them, so Tab doesn't reach "Take the tour" first (persona study, Mark) */}
+        {searching && browseLinks}
 
         {/* Bottom spacer */}
         <div className="h-8" />
