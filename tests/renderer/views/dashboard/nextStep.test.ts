@@ -59,6 +59,13 @@ describe('nextStep', () => {
     expect(nextStep({ overdueItems: late, priorityItems: late, t: hs })!.sentence).toBe('2 deadlines are overdue.')
   })
 
+  it('calls a deadline by what is due when its rule says so (R6: "Appeal window", not "Appeal filed")', () => {
+    const late = [deadline('Walt', 'Appeal filed', -3, { title: 'Appeal window' })]
+    const step = nextStep({ overdueItems: late, priorityItems: late, t: hs })!
+    expect(step.sentence).toBe('Appeal window is overdue for 1 client.')
+    expect(step.detail).toBe('Appeal window, 3 days overdue')
+  })
+
   it('says how many records too when some have more than one overdue (R6: 38 deadlines, 36 people)', () => {
     const late = [
       deadline('Maria', 'Annual Review', -20, { rowId: 1 }), deadline('Maria', 'Last Visit', -9, { rowId: 1 }),

@@ -39,6 +39,7 @@ import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
 import { dashboardTileCounts, deadlinesMayBeCut, followUpsMayBeCut } from './dashboard/tileCounts'
 import { useListsChanged } from './dashboard/useDashboardRefresh'
+import { deadlineLabel } from '../../shared/deadlineLabel'
 import { ColorKeyPopover } from '../components/grid/ColorKeyPopover'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
@@ -281,6 +282,8 @@ export default function DashboardView(): React.ReactElement {
         gridName: row.grid_name,
         columnId: row.column_id,
         columnName: row.column_name,
+        // "Appeal window", not "Appeal filed", when the date comes from another column (R6)
+        title: deadlineLabel(rule, { name: row.column_name }).title,
         dateValue: row.date_value,
         daysUntil,
         alertRuleId,
@@ -388,7 +391,7 @@ export default function DashboardView(): React.ReactElement {
     const has = (s: string | null | undefined) => (s ?? '').toLowerCase().includes(q)
     return priorityItems.filter(it => {
       switch (it.kind) {
-        case 'deadline': return has(it.data.clientName) || has(it.data.columnName) || has(it.data.gridName)
+        case 'deadline': return has(it.data.clientName) || has(it.data.title) || has(it.data.columnName) || has(it.data.gridName)
         case 'task': return has(it.data.title) || has(it.data.category)
         case 'checklist': return has(it.data.title) || has(it.data.client_name) || has(it.data.grid_name)
         case 'followup': return has(it.data.client_name) || has(it.data.content) || has(it.data.grid_name)

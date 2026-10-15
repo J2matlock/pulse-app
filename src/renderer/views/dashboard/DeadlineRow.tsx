@@ -20,6 +20,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
 }): React.ReactElement {
   const navigate = useNavigate()
   const { daysUntil, threshold, clientName, columnName, gridName, dateValue, rowId, gridId } = deadline
+  // What's due ("Appeal window"); Done fills in the column ("Appeal filed") (R6)
+  const title = deadline.title ?? columnName
   const { ruleKind, ruleInterval, recurring } = deadlineTraits(deadline)
   const usedUp = isUsedUp({ state: deadline.state, daysUntil })
   const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
@@ -55,7 +57,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   })()
 
   // The engine's own words, for every kind: they include a working-day move and an extension
-  const tooltip = deadline.detail || formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
+  const engineWords = deadline.detail || formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
+  const tooltip = title !== columnName ? `${engineWords}\nWhen it's done, the date goes in ${columnName}.` : engineWords
 
   return (
     <div
@@ -70,7 +73,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           type="checkbox"
           checked={!!selected}
           onChange={onToggleSelect}
-          aria-label={`Select ${columnName} for ${clientName}`}
+          aria-label={`Select ${title} for ${clientName}`}
           className="hit-44 w-5 h-5 flex-shrink-0 rounded border-slate-400 dark:border-slate-500 text-blue-600 focus:ring-3 focus:ring-blue-500 cursor-pointer"
         />
       )}
@@ -86,7 +89,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
             className="hit-44 font-medium text-slate-800 dark:text-slate-100 truncate hover:underline text-left focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
           >{clientName}</button>
           <span className="text-slate-600 dark:text-slate-300 text-sm flex-shrink-0">·</span>
-          <span className="text-slate-600 dark:text-slate-300 text-sm truncate">{columnName}</span>
+          <span className="text-slate-600 dark:text-slate-300 text-sm truncate">{title}</span>
         </div>
         {/* slate-600: rows can carry a tinted alert background, where slate-500 drops below 4.5:1 */}
         <div className="text-sm text-slate-600 dark:text-slate-300 truncate">
