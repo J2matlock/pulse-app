@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** The UI Scale slider and number box go up to 200% (WCAG 1.4.4, AUDIT-055). */
+/** The UI Scale slider goes up to 200% (WCAG 1.4.4, AUDIT-055); the % box that repeated it went in Q1c. */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, within } from '@testing-library/react'
@@ -49,20 +49,18 @@ describe('Text and button size presets', () => {
 })
 
 describe('UI Scale up to 200%', () => {
-  it('the slider and the number box both stop at 200, and the scale shows 200%', () => {
+  it('the slider stops at 200, and the scale shows 200%', () => {
     renderSection(vi.fn())
     expect(screen.getByRole('slider').getAttribute('max')).toBe('200')
-    expect(screen.getByRole('spinbutton').getAttribute('max')).toBe('200')
     expect(screen.getByText('200%')).toBeTruthy()
   })
 
-  it('typing 180 sets 180%, and typing past 200 stops at 200%', () => {
+  it('there is no separate % number box; the slider shows the size it is at', () => {
     const setUiScale = vi.fn()
-    renderSection(setUiScale)
-    const box = screen.getByRole('spinbutton')
-    fireEvent.change(box, { target: { value: '180' } })
-    expect(setUiScale).toHaveBeenLastCalledWith(180)
-    fireEvent.change(box, { target: { value: '300' } })
-    expect(setUiScale).toHaveBeenLastCalledWith(200)
+    renderSection(setUiScale, 180)
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    expect(screen.getByText('180%').tagName).toBe('OUTPUT')
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '190' } })
+    expect(setUiScale).toHaveBeenLastCalledWith(190)
   })
 })

@@ -3,9 +3,10 @@ import { Moon, Sun, Monitor } from 'lucide-react'
 import type { Theme } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { modHelp } from '../../utils/keys'
-import { useSettingsStore } from '../../stores/settingsStore'
+import { useSettingsStore, localeClockFormat } from '../../stores/settingsStore'
 import { UI_SCALE_MIN, UI_SCALE_MAX } from '../../utils/uiScale'
 import { Toggle } from '../ui/Toggle'
+import { MoreSettings } from './MoreSettings'
 
 /** Three sizes to pick without reading a percentage; the slider stays for anything between */
 const TEXT_SIZE_PRESETS = [
@@ -13,6 +14,21 @@ const TEXT_SIZE_PRESETS = [
   { label: 'Larger', scale: 125 },
   { label: 'Largest', scale: 150 },
 ] as const
+
+/** Anything under Appearance's "More settings" that isn't its default, so the group opens by itself */
+export function appearanceChanged(v: {
+  uiScale: number
+  gridDensity: string
+  rowStriping: boolean
+  gridLines: string
+  sidebarWidth: string
+  clockFormat: '12h' | '24h'
+  weekStart: string
+}): boolean {
+  return !TEXT_SIZE_PRESETS.some(p => p.scale === v.uiScale)
+    || v.gridDensity !== 'comfortable' || v.rowStriping || v.gridLines !== 'full'
+    || v.sidebarWidth !== 'normal' || v.clockFormat !== localeClockFormat() || v.weekStart !== 'sunday'
+}
 
 interface AppearanceSectionProps {
   theme: Theme
@@ -88,6 +104,10 @@ export function AppearanceSection({
 
       {/* Subsection 2: text and button size (E-40: "UI scale" meant nothing to anyone) */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-3">
+        <div>
+          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Text and button size</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Makes everything on the screen bigger</p>
+        </div>
         <div role="group" aria-label="Text and button size presets" className="flex flex-wrap gap-2">
           {TEXT_SIZE_PRESETS.map(p => (
             <button key={p.label} type="button" aria-pressed={uiScale === p.scale} onClick={() => setUiScale(p.scale)}
@@ -100,156 +120,11 @@ export function AppearanceSection({
             </button>
           ))}
         </div>
-        <div className="flex items-center justify-between">
-          <label htmlFor="settings-ui-scale" className="block text-base font-medium text-slate-700 dark:text-slate-300">
-            Text and button size
-            <span className="block text-sm text-slate-500 dark:text-slate-400 font-normal mt-0.5">Makes everything on the screen bigger or smaller (100% is normal)</span>
-            {' '}
-            <input
-              type="number"
-              min={UI_SCALE_MIN}
-              max={UI_SCALE_MAX}
-              step={5}
-              value={uiScale}
-              onChange={e => {
-                const v = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, Math.round(Number(e.target.value) / 5) * 5))
-                if (Number.isFinite(v)) setUiScale(v)
-              }}
-              className="inline-block w-16 text-base font-normal text-slate-500 dark:text-slate-400 bg-transparent border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-center focus:outline-none focus:ring-3 focus:ring-blue-500"
-              style={{ minHeight: 'auto' }}
-            />
-            <span className="font-normal text-slate-500 dark:text-slate-400">%</span>
-          </label>
-          {uiScale !== 100 && (
-            <button
-              onClick={() => setUiScale(100)}
-              className="text-base text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
-              style={{ minHeight: 44 }}
-            >
-              Reset
-            </button>
-          )}
-        </div>
-        <input
-          id="settings-ui-scale"
-          type="range"
-          min={UI_SCALE_MIN}
-          max={UI_SCALE_MAX}
-          step={5}
-          value={uiScale}
-          onChange={e => setUiScale(Number(e.target.value))}
-          className="w-full accent-slate-700 dark:accent-slate-300"
-          style={{ minHeight: 44 }}
-        />
-        {/* 100% sits a third of the way along, not in the middle */}
-        <div className="relative flex justify-between text-sm text-slate-500 dark:text-slate-400">
-          <span>{UI_SCALE_MIN}%</span>
-          <span className="absolute -translate-x-1/2" style={{ left: `${((100 - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN)) * 100}%` }}>100%</span>
-          <span>{UI_SCALE_MAX}%</span>
-        </div>
-        {uiScale < 100 && (
-          <p className="text-sm text-amber-700 dark:text-amber-400">Smaller text can be harder to read</p>
-        )}
         <p className="text-sm text-slate-500 dark:text-slate-400">{modHelp('Ctrl+= / Ctrl+- to zoom, Ctrl+0 to reset')}</p>
       </div>
 
-      {/* Subsection 3: list display */}
+      {/* Subsection 3: Date format (main reads it for imports, so it can't follow the computer; it stays in view) */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
-        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">{t('list', { many: true, cap: true })}</label>
-
-        {/* Density: the choices drop under the label when the column is narrow, rather than cutting off "Spacious" */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <div className="flex-1 min-w-[12rem]">
-            <span className="text-base text-slate-700 dark:text-slate-300">Density</span>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How tall each line of {t('list', { article: true })} is</p>
-          </div>
-          <div role="group" aria-label="Density" className="flex flex-shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {([
-              { value: 'compact', label: 'Compact' },
-              { value: 'comfortable', label: 'Comfortable' },
-              { value: 'spacious', label: 'Spacious' },
-            ] as const).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setGridDensity(opt.value)}
-                className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
-                  gridDensity === opt.value
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Row striping */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Shade every other line</span>
-            <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Makes a long line easier to follow across the screen</p>
-          </div>
-          <Toggle checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} describedBy={`${ids}-striping-desc`} />
-        </div>
-
-        {/* Grid Lines */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <span className="text-base text-slate-700 dark:text-slate-300">Cell borders</span>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Show lines between cells</p>
-          </div>
-          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {([
-              { value: 'full', label: 'Full' },
-              { value: 'horizontal', label: 'Horizontal' },
-              { value: 'none', label: 'None' },
-            ] as const).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setGridLines(opt.value)}
-                className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
-                  gridLines === opt.value
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Subsection 4: Sidebar width */}
-      <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-3">
-        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Sidebar width</label>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How wide the sidebar on the left is</p>
-        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden w-fit">
-          {([
-            { value: 'narrow', label: 'Narrow' },
-            { value: 'normal', label: 'Normal' },
-            { value: 'wide', label: 'Wide' },
-          ] as const).map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setSidebarWidth(opt.value)}
-              className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
-                sidebarWidth === opt.value
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                  : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Subsection 5: Date & Time */}
-      <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
-        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Date and time</label>
-
         {/* Date format */}
         <div className="space-y-1">
           <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date format</label>
@@ -271,61 +146,9 @@ export function AppearanceSection({
             <option value="eu">14/10/2026 (day first)</option>
           </select>
         </div>
-
-        {/* Clock format */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <span className="text-base text-slate-700 dark:text-slate-300">Clock format</span>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Choose 12-hour or 24-hour time</p>
-          </div>
-          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {([
-              { value: '12h', label: '12-hour' },
-              { value: '24h', label: '24-hour' },
-            ] as const).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setClockFormat(opt.value)}
-                className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
-                  clockFormat === opt.value
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Week starts on */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <span className="text-base text-slate-700 dark:text-slate-300">Week starts on</span>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">First day of the week in calendars</p>
-          </div>
-          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {([
-              { value: 'sunday', label: 'Sunday' },
-              { value: 'monday', label: 'Monday' },
-            ] as const).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setWeekStart(opt.value)}
-                className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
-                  weekStart === opt.value
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
-                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Subsection 6: Accessibility */}
+      {/* Subsection 4: Accessibility */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Accessibility</label>
 
@@ -347,6 +170,196 @@ export function AppearanceSection({
           <Toggle checked={highContrast} onChange={setHighContrast} labelId={`${ids}-contrast`} describedBy={`${ids}-contrast-desc`} />
         </div>
       </div>
+
+      {/* The rest is right as it is for nearly everyone; it opens by itself when one of these was changed (Q1c) */}
+      <MoreSettings changed={appearanceChanged({ uiScale, gridDensity, rowStriping, gridLines, sidebarWidth, clockFormat, weekStart })} className="mt-6" data-testid="appearance-more">
+        {/* Exact text size: the presets above cover most people (the % box repeated the slider and went, Q1c) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label htmlFor="settings-ui-scale" className="block text-base font-medium text-slate-700 dark:text-slate-300">
+              Exact size: <output htmlFor="settings-ui-scale" className="font-normal">{uiScale}%</output>
+              <span className="block text-sm text-slate-500 dark:text-slate-400 font-normal mt-0.5">Makes everything on the screen bigger or smaller (100% is normal)</span>
+            </label>
+            {uiScale !== 100 && (
+              <button
+                onClick={() => setUiScale(100)}
+                className="text-base text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
+                style={{ minHeight: 44 }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <input
+            id="settings-ui-scale"
+            type="range"
+            min={UI_SCALE_MIN}
+            max={UI_SCALE_MAX}
+            step={5}
+            value={uiScale}
+            onChange={e => setUiScale(Number(e.target.value))}
+            className="w-full accent-slate-700 dark:accent-slate-300"
+            style={{ minHeight: 44 }}
+          />
+          {/* 100% sits a third of the way along, not in the middle */}
+          <div className="relative flex justify-between text-sm text-slate-500 dark:text-slate-400">
+            <span>{UI_SCALE_MIN}%</span>
+            <span className="absolute -translate-x-1/2" style={{ left: `${((100 - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN)) * 100}%` }}>100%</span>
+            <span>{UI_SCALE_MAX}%</span>
+          </div>
+          {uiScale < 100 && (
+            <p className="text-sm text-amber-700 dark:text-amber-400">Smaller text can be harder to read</p>
+          )}
+        </div>
+
+        {/* List display */}
+        <div className="space-y-4">
+          <label className="block text-base font-medium text-slate-700 dark:text-slate-300">{t('list', { many: true, cap: true })}</label>
+
+          {/* Density: the choices drop under the label when the column is narrow, rather than cutting off "Spacious" */}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="flex-1 min-w-[12rem]">
+              <span className="text-base text-slate-700 dark:text-slate-300">Density</span>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How tall each line of {t('list', { article: true })} is</p>
+            </div>
+            <div role="group" aria-label="Density" className="flex flex-shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {([
+                { value: 'compact', label: 'Compact' },
+                { value: 'comfortable', label: 'Comfortable' },
+                { value: 'spacious', label: 'Spacious' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setGridDensity(opt.value)}
+                  className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
+                    gridDensity === opt.value
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Row striping */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Shade every other line</span>
+              <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Makes a long line easier to follow across the screen</p>
+            </div>
+            <Toggle checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} describedBy={`${ids}-striping-desc`} />
+          </div>
+
+          {/* Grid Lines */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="text-base text-slate-700 dark:text-slate-300">Cell borders</span>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Show lines between cells</p>
+            </div>
+            <div role="group" aria-label="Cell borders" className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {([
+                { value: 'full', label: 'Full' },
+                { value: 'horizontal', label: 'Horizontal' },
+                // No borders breaks the chunky-gridlines rule: offered only while it's the stored value (Q1c)
+                ...(gridLines === 'none' ? [{ value: 'none', label: 'None' } as const] : []),
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setGridLines(opt.value)}
+                  className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
+                    gridLines === opt.value
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar width */}
+        <div className="space-y-3">
+          <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Sidebar width</label>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How wide the sidebar on the left is</p>
+          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden w-fit">
+            {([
+              { value: 'narrow', label: 'Narrow' },
+              { value: 'normal', label: 'Normal' },
+              { value: 'wide', label: 'Wide' },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSidebarWidth(opt.value)}
+                className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
+                  sidebarWidth === opt.value
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Clock format */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="text-base text-slate-700 dark:text-slate-300">Clock format</span>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Choose 12-hour or 24-hour time</p>
+            </div>
+            <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {([
+                { value: '12h', label: '12-hour' },
+                { value: '24h', label: '24-hour' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setClockFormat(opt.value)}
+                  className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
+                    clockFormat === opt.value
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Week starts on */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="text-base text-slate-700 dark:text-slate-300">Week starts on</span>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">First day of the week in calendars</p>
+            </div>
+            <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {([
+                { value: 'sunday', label: 'Sunday' },
+                { value: 'monday', label: 'Monday' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setWeekStart(opt.value)}
+                  className={`px-3 py-2 text-base font-medium transition-colors min-h-[44px] ${
+                    weekStart === opt.value
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </MoreSettings>
     </>
   )
 }
