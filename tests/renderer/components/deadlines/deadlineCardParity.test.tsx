@@ -19,7 +19,9 @@ Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, wr
 
 import { DeadlineRow } from '../../../../src/renderer/views/dashboard/DeadlineRow'
 import { CalendarItemPanel } from '../../../../src/renderer/components/calendar/CalendarItemPanel'
+import { DeadlinePanel } from '../../../../src/renderer/components/profile/DeadlinePanel'
 import { toInfo, type Loaded } from '../../../../src/renderer/components/deadlines/useRecordDeadlines'
+import type { Column, GridRow, ParsedAlertRule } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
 const base: Loaded = {
@@ -62,6 +64,20 @@ async function onCalendar(d: Loaded) {
   return out
 }
 
+async function onProfile(d: Loaded) {
+  served = [d]
+  const col = { id: d.column_id, grid_id: 1, name: d.column_name, column_type: 'date', width: 150, position: 1, is_visible: 1, is_required: 0, is_identifier: 0, is_name_column: 0,
+    default_value: null, description: null, config: '{"alert_rule_id":7}', conditional_format: '[]', created_at: '' } as Column
+  // The page draws its colours with the renderer's engine; the buttons come from main's, as everywhere else
+  const rule = { id: 7, name: 'Yearly', description: null, is_system: 0, thresholds: [], interval_days: null, interval_months: 12, created_at: '', kind: 'interval' } as ParsedAlertRule
+  const row = { row_id: d.row_id, [`col_${d.column_id}`]: d.date_value } as unknown as GridRow
+  render(<MemoryRouter><DeadlinePanel row={row} columns={[col]} alertRules={[rule]} onDateSave={async () => {}} /></MemoryRouter>)
+  await screen.findByTestId('deadline-card-actions')
+  const out = cardButtons()
+  cleanup()
+  return out
+}
+
 beforeEach(() => {
   // Not the default words, so "Open {record}" proves it goes through the vocabulary layer
   setWords({ record: { one: 'vehicle', many: 'vehicles', article: 'a' } })
@@ -75,6 +91,9 @@ describe('one deadline card everywhere', () => {
       expect(dash.length).toBeGreaterThan(0)
       expect(withoutOpen(cal)).toEqual(dash)
       expect(cal[cal.length - 1]![0]).toBe('Open vehicle')
+      // The profile: the record is open already, and a quota is renewed in its own fields there
+      const profile = await onProfile(d)
+      expect(profile).toEqual(dash.filter(([label]) => label !== 'Renew…'))
     })
   }
 

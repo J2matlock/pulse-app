@@ -2,6 +2,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, act, fireEvent } from '@testing-library/react'
 import React from 'react'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { MemoryRouter } from 'react-router-dom'
 
 // Mock lucide-react
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
@@ -253,12 +256,55 @@ describe('DeadlinePanel', () => {
     expect(screen.queryByText(/worked out from this date/)).toBeNull()
   })
 
-  it('Extend… is a full-size button, not small link text (C-31)', () => {
+  /** Main's engine has this deadline due, as DEADLINES_GET returns it */
+  function serveDeadline(over: Record<string, unknown> = {}) {
+    const invoke = vi.fn(async (channel: string) => channel === 'deadlines:get' ? { ok: true, data: [{
+      row_id: 1, grid_id: 1, grid_name: 'Caseload', column_id: 1, column_name: 'Last Contact', column_config: '{"alert_rule_id":1}',
+      date_value: '2026-04-01', client_name: 'Robert', interval_days: 30, interval_months: null, end_of_month: null, rule_kind: 'interval',
+      due: '2026-05-01', state: 'ok', daysUntil: 10, estimated: false, detail: '', ...over,
+    }] } : { ok: true, data: null })
+    Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
+    return invoke
+  }
+
+  it('Extend… is a full-size button, not small link text (C-31)', async () => {
+    serveDeadline()
     const col = makeColumn({ id: 1, name: 'Last Contact' })
-    render(<DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
-    const extend = screen.getByRole('button', { name: 'Extend…' })
-    // The shared compact button: 15 px text, 36 px drawn inside a 44 px click area
-    expect(extend.className).toMatch(/btn-compact-secondary/)
+    render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)
+    const extend = await screen.findByRole('button', { name: 'Extend…' })
+    // The shared button: 15 px text, 44 px tall
+    expect(extend.className).toMatch(/(^|\s)btn-secondary(\s|$)/)
     expect(extend.className).not.toMatch(/text-sm|underline/)
+  })
+
+  it('offers Done · Done on… · Extend… like everywhere else, at 44 px, without Open (Q3)', async () => {
+    serveDeadline()
+    const col = makeColumn({ id: 1, name: 'Last Contact' })
+    render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)
+    const actions = await screen.findByTestId('deadline-card-actions')
+    const buttons = Array.from(actions.querySelectorAll('button'))
+    expect(buttons.map(b => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Mark Last Contact done for Robert', 'Done on another day: Last Contact for Robert', 'Extend…',
+    ])
+    for (const b of buttons) expect(b.className).toMatch(/(^|\s)btn-(primary|secondary)(\s|$)/)
+  })
+
+  it('shows no Done for a finished date, and Remove extension for an extended one', async () => {
+    serveDeadline({ state: 'done' })
+    const col = makeColumn({ id: 1, name: 'Last Contact' })
+    const { unmount } = render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)
+    const actions = await screen.findByTestId('deadline-card-actions')
+    expect(actions.querySelectorAll('button').length).toBe(0)
+    unmount()
+    serveDeadline({ extension_id: 4, detail: 'Extended: waiting on the report' })
+    render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)
+    expect(await screen.findByRole('button', { name: 'Remove extension' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Extend…' })).toBeNull()
+  })
+
+  it('keeps no Done, Extend or meter dialogs of its own: the shared card has them', () => {
+    const src = readFileSync(join(__dirname, '../../../../src/renderer/components/profile/DeadlinePanel.tsx'), 'utf8')
+    for (const own of ['ExtendDeadlineDialog', 'MeterReadingDialog', 'OneOffDoneDialog', 'completeDeadlines']) expect(src).not.toContain(own)
+    expect(src).toContain('<DeadlineCardContent')
   })
 })
