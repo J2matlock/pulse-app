@@ -476,6 +476,19 @@ describe('EXPORT_PDF_PROFILE', () => {
     const result = await invoke(IPC.EXPORT_PDF_PROFILE, { gridId: 1, rowId: -1, destPath: '/tmp/p.pdf' }) as { ok: false }
     expect(result.ok).toBe(false)
   })
+
+  const sections = { deadlines: true, checklist: true, caseLog: true, scratchPad: false, contactInfo: true, gridData: true }
+
+  it('refuses sections with a choice missing, with the friendly message (C-21)', async () => {
+    const { gridData: _left, ...missing } = sections
+    const result = await invoke(IPC.EXPORT_PDF_PROFILE, { gridId: 1, rowId: 1, destPath: '/tmp/p.pdf', includeSections: missing })
+    expect(result).toEqual({ ok: false, error: 'Invalid export choice' })
+  })
+
+  it('refuses an "all notes" choice that isn\'t yes or no (C-21)', async () => {
+    const result = await invoke(IPC.EXPORT_PDF_PROFILE, { gridId: 1, rowId: 1, destPath: '/tmp/p.pdf', includeSections: { ...sections, allNotes: 'yes' } })
+    expect(result).toEqual({ ok: false, error: 'Invalid export choice' })
+  })
 })
 
 describe('EXPORT_SUPERVISOR_REPORT', () => {

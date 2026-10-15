@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { IPC } from '../../../shared/ipc-channels'
-import type { ChecklistItem, CaseLogEntry, ScrapNote, GridRow } from '../../../shared/types'
+import type { ChecklistItem, CaseLogEntry, ScrapNote, GridRow, IPCResult } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -28,6 +28,19 @@ interface ProfilePrintLayoutProps {
 type DeadlineLine = DeadlineResult & { column_id: number; column_name: string }
 interface ManualContact { type: string; label: string; value: string }
 
+const NOTE_PAGE = 1000
+
+/** Every real note, a page at a time: CASE_LOG_GET caps a page at 1000, which would cut a long record short (C-21) */
+async function loadAllNotes(rowId: number): Promise<IPCResult<CaseLogEntry[]>> {
+  const all: CaseLogEntry[] = []
+  for (let offset = 0; ; offset += NOTE_PAGE) {
+    const res = await safeInvoke<CaseLogEntry[]>(IPC.CASE_LOG_GET, rowId, false, false, NOTE_PAGE, offset)
+    if (!res.ok) return res
+    all.push(...res.data)
+    if (res.data.length < NOTE_PAGE) return { ok: true, data: all }
+  }
+}
+
 /**
  * The record on paper, with the sections chosen in "Print / PDF…" (3.6).
  * Deadlines come from the deadline engine, like the PDF, so the two agree.
@@ -54,14 +67,16 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, row, sections, o
         const [clRes, logRes, noteRes, dlRes, contactRes] = await Promise.all([
           sections.checklist ? safeInvoke<ChecklistItem[]>(IPC.CHECKLIST_GET, rowId) : null,
           // Real notes only; the app's own entries are in the audit trail
-          sections.caseLog ? safeInvoke<CaseLogEntry[]>(IPC.CASE_LOG_GET, rowId, false, false, 10, 0) : null,
+          !sections.caseLog ? null
+            : sections.allNotes ? loadAllNotes(rowId)
+            : safeInvoke<CaseLogEntry[]>(IPC.CASE_LOG_GET, rowId, false, false, 10, 0),
           sections.scratchPad ? safeInvoke<ScrapNote>(IPC.SCRAP_NOTE_GET, rowId) : null,
           sections.deadlines ? safeInvoke<DeadlineLine[]>(IPC.DEADLINES_GET, { rowIds: [rowId] }) : null,
           sections.contactInfo ? safeInvoke<ManualContact[]>(IPC.ROW_GET_MANUAL_CONTACTS, rowId) : null,
         ])
         if (cancelled) return
         if (clRes?.ok) setChecklist(clRes.data.filter(i => i.is_completed === 0 && i.is_archived === 0))
-        if (logRes?.ok) setCaseLog(logRes.data.slice(0, 10))
+        if (logRes?.ok) setCaseLog(sections.allNotes ? logRes.data : logRes.data.slice(0, 10))
         if (noteRes?.ok && noteRes.data) setScrapNotes(htmlToText(noteRes.data.content))
         if (dlRes?.ok) setDeadlines(dlRes.data)
         if (contactRes?.ok) setContacts(contactRes.data.filter(c => c.value?.trim()))
@@ -191,7 +206,9 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, row, sections, o
 
       {caseLog.length > 0 && (
         <div style={sectionStyle}>
-          <h2 style={headingStyle}>Recent {t('activity', { many: true })} ({caseLog.length})</h2>
+          <h2 style={headingStyle}>
+            {sections.allNotes ? t('activity', { many: true, cap: true }) : `Recent ${t('activity', { many: true })}`} ({caseLog.length})
+          </h2>
           <table style={tableStyle}>
             <thead>
               <tr>

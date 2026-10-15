@@ -371,13 +371,17 @@ export function renderProfileToDoc(
 
   // ── Case Log ──
   if (includeSections.caseLog) {
+    // The last 10, or all of them when asked (C-21); SQLite's LIMIT -1 is no limit
+    const allNotes = includeSections.allNotes === true
     const entries = db.prepare(`
       SELECT content, log_type, occurred_at AS created_at FROM case_log
       WHERE row_id = ? AND voided_at IS NULL AND log_type != 'system'
-      ORDER BY occurred_at DESC, id DESC LIMIT 10
-    `).all(rowId) as Array<{ content: string; log_type: string; created_at: string }>
+      ORDER BY occurred_at DESC, id DESC LIMIT ?
+    `).all(rowId, allNotes ? -1 : 10) as Array<{ content: string; log_type: string; created_at: string }>
     if (entries.length > 0) {
-      addSection(`Recent ${term(v, 'activity', { many: true })} (last 10)`)
+      addSection(allNotes
+        ? `${term(v, 'activity', { many: true, cap: true })} (all ${entries.length})`
+        : `Recent ${term(v, 'activity', { many: true })} (last 10)`)
       for (const entry of entries) {
         if (y > pageH - 20) { doc.addPage(); y = 18 }
         const dt = parseDbTimestamp(entry.created_at)

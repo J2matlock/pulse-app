@@ -84,11 +84,57 @@ describe('printing the record', () => {
       })
       const row = { row_id: 4, col_1: 'Maria' } as unknown as GridRow
       render(<ProfilePrintLayout rowId={4} gridId={1} clientName="Maria" row={row} onClose={vi.fn()}
-        sections={{ gridData: false, deadlines: true, checklist: false, caseLog: false, contactInfo: false, scratchPad: false }} />)
+        sections={{ gridData: false, deadlines: true, checklist: false, caseLog: false, contactInfo: false, scratchPad: false, allNotes: false }} />)
       await act(async () => { await vi.advanceTimersByTimeAsync(10) })
       expect(screen.getByText(/Next due Oct 20, 2026.+Due in 10 days/)).toBeTruthy()
       expect(screen.queryByText('private')).toBeNull()
       expect(mockInvoke.mock.calls.some(c => c[0] === 'scrap-note:get')).toBe(false)
     } finally { vi.useRealTimers() }
+  })
+
+  describe('the last 10 notes or all of them (C-21)', () => {
+    const note = (id: number) => ({ id, row_id: 4, content: `Numbered note ${id}`, log_type: 'note', occurred_at: '2026-09-25 12:00:00', created_at: '2026-09-25 12:00:00', is_pinned: 0 })
+    const notes = (from: number, n: number) => Array.from({ length: n }, (_, i) => note(from + i))
+    const notesOnly = { gridData: false, deadlines: false, checklist: false, caseLog: true, contactInfo: false, scratchPad: false }
+
+    async function printWith(allNotes: boolean, pages: (offset: number) => unknown[]) {
+      window.print = vi.fn()
+      useGridStore.setState({ columns: [], grids: [{ id: 1, name: 'People' } as never] })
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: pages(args[4] as number) })
+        return Promise.resolve({ ok: true, data: [] })
+      })
+      const row = { row_id: 4, col_1: 'Maria' } as unknown as GridRow
+      render(<ProfilePrintLayout rowId={4} gridId={1} clientName="Maria" row={row} onClose={vi.fn()} sections={{ ...notesOnly, allNotes }} />)
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+    }
+
+    it('prints the 10 most recent by default', async () => {
+      vi.useFakeTimers()
+      try {
+        await printWith(false, () => notes(1, 15))
+        expect(screen.getByRole('heading', { name: 'Recent case notes (10)' })).toBeTruthy()
+        expect(screen.getAllByText(/Numbered note/)).toHaveLength(10)
+        expect(mockInvoke.mock.calls.filter(c => c[0] === 'case-log:get')).toEqual([['case-log:get', 4, false, false, 10, 0]])
+      } finally { vi.useRealTimers() }
+    })
+
+    it('prints all of them, reading past the 1000-a-page cap', async () => {
+      vi.useFakeTimers()
+      try {
+        await printWith(true, offset => offset === 0 ? notes(1, 1000) : offset === 1000 ? notes(1001, 5) : [])
+        expect(screen.getByRole('heading', { name: 'Case notes (1005)' })).toBeTruthy()
+        expect(mockInvoke.mock.calls.filter(c => c[0] === 'case-log:get').map(c => c[5])).toEqual([0, 1000])
+      } finally { vi.useRealTimers() }
+    }, 30_000) // 1,005 rows on the page: slow in jsdom when the machine is busy
+
+    it('says the workspace\'s word', async () => {
+      setWords({ activity: { one: 'visit', many: 'visits', article: 'a' } })
+      vi.useFakeTimers()
+      try {
+        await printWith(true, () => notes(1, 15))
+        expect(screen.getByRole('heading', { name: 'Visits (15)' })).toBeTruthy()
+      } finally { vi.useRealTimers() }
+    })
   })
 })
