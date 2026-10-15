@@ -11,6 +11,7 @@ import { storeInvoke as invoke } from '../utils/safeInvoke'
 import { pulseEvents } from '../events'
 import { clearCellCoalescing } from './gridCellEditSlice'
 import type { GridState } from './gridTypes'
+import { motionReduced } from '../utils/reducedMotion'
 
 /** Values main filled in on a new row (auto numbers), so it shows them straight away. */
 async function autoFilledValues(gridId: number, rowId: number, columns: Column[]): Promise<Partial<GridRow>> {
@@ -29,10 +30,49 @@ async function autoFilledValues(gridId: number, rowId: number, columns: Column[]
 type SetState = (partial: Partial<GridState> | ((s: GridState) => Partial<GridState>)) => void
 type GetState = () => GridState
 
+/** How long a leaving record takes to close up (--motion-base in motion.css) */
+export const ROW_LEAVE_MS = 180
+/** How long a record that just arrived stays lit (.motion-flash) */
+export const ROW_FLASH_MS = 1200
+
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Light up a record that just arrived: added, or back from the Trash or the archive (Q6) */
+function flashRow(set: SetState, rowId: number): void {
+  if (flashTimer) clearTimeout(flashTimer)
+  set({ flashRowId: rowId })
+  flashTimer = setTimeout(() => {
+    flashTimer = null
+    set(s => s.flashRowId === rowId ? { flashRowId: null } : {})
+  }, ROW_FLASH_MS)
+}
+
+function setLeaving(set: SetState, rowId: number, on: boolean): void {
+  set(s => {
+    if (s.leavingRowIds.has(rowId) === on) return {}
+    const next = new Set(s.leavingRowIds)
+    if (on) next.add(rowId)
+    else next.delete(rowId)
+    return { leavingRowIds: next }
+  })
+}
+
+/**
+ * A record leaving the list dims at once and closes up (Q6): the click shows it
+ * landed before the save is back. Resolves when the closing-up has had its
+ * time, counted from `startedAt`; at once under reduced motion.
+ */
+function leaveFinished(startedAt: number): Promise<void> {
+  const left = motionReduced() ? 0 : ROW_LEAVE_MS - (Date.now() - startedAt)
+  return left > 0 ? new Promise(resolve => setTimeout(resolve, left)) : Promise.resolve()
+}
+
 export const createRowSlice = (set: SetState, get: GetState) => ({
   rows: [] as GridRow[],
   mapRows: (fn: (row: GridRow) => GridRow) => set(s => ({ rows: s.rows.map(fn) })),
   lastAddedRowId: null as number | null,
+  flashRowId: null as number | null,
+  leavingRowIds: new Set<number>(),
   pinnedRowId: null as number | null,
   sampleRows: {} as Record<number, number>,
   sampleKeepPrompt: null as number | null,
@@ -80,6 +120,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         updated_at: new Date().toISOString()
       }
       set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId, pinnedRowId: newRowId }))
+      flashRow(set, newRowId)
       // Undo moves it to the Trash and redo brings back the same record, so
       // later steps (the values typed into it) still find it by id
       useUndoStore.getState().push({
@@ -105,6 +146,8 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
   },
 
   deleteRow: async (rowId: number) => {
+    const startedAt = Date.now()
+    setLeaving(set, rowId, true)
     try {
       const row = get().rows.find(r => r.row_id === rowId)
       const clientName = row ? getClientName(row, get().columns) : wordNow('record', { cap: true })
@@ -113,7 +156,9 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
       await invoke(IPC.ROW_DELETE, rowId)
       // Clean up coalesce index entries for this row
       clearCellCoalescing(rowId)
+      await leaveFinished(startedAt)
       set(s => ({ rows: s.rows.filter(r => r.row_id !== rowId) }))
+      setLeaving(set, rowId, false)
       pulseEvents.emit('records:trashed', { rowIds: [rowId] })
 
       const gridId = get().activeGridId
@@ -127,7 +172,10 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         contextId: rowId,
         undo: async () => {
           await invoke(IPC.ROW_RESTORE_DELETED, rowId)
-          if (gridId && get().activeGridId === gridId) await get().loadGrid(gridId)
+          if (gridId && get().activeGridId === gridId) {
+            await get().loadGrid(gridId)
+            flashRow(set, rowId)
+          }
         },
         redo: async () => {
           await invoke(IPC.ROW_DELETE, rowId)
@@ -135,6 +183,8 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         },
       })
     } catch (err) {
+      // It stays: the record comes back into view with the error
+      setLeaving(set, rowId, false)
       rlog.error('GridStore', 'Failed to delete row', err)
       toast.error(`We couldn't move the ${wordNow('record')} to the Trash — try again`)
     }
@@ -143,6 +193,10 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
   archiveRow: async (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => {
     const row = get().rows.find(r => r.row_id === rowId)
     const clientName = row ? getClientName(row, get().columns) : wordNow('record', { cap: true })
+    // Shown archived records stay (greyed); hidden ones leave the list
+    const leaves = !get().showArchived
+    const startedAt = Date.now()
+    if (leaves) setLeaving(set, rowId, true)
     try {
       await invoke(IPC.ROW_ARCHIVE, rowId, reason)
       pulseEvents.emit('records:archive-changed')
@@ -163,10 +217,12 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         }
       }
       // If not showing archived, remove from view; otherwise update is_active flag
+      if (leaves) await leaveFinished(startedAt)
       set(s => s.showArchived
         ? { rows: s.rows.map(r => r.row_id === rowId ? { ...r, is_active: 0 as const } : r) }
         : { rows: s.rows.filter(r => r.row_id !== rowId) }
       )
+      if (leaves) setLeaving(set, rowId, false)
       // Archive doesn't ask first (Q4): a reason can be added from the toast, and the step learns it
       const reasonStep: ArchiveReasonState = { reason, noteIds: [] }
       const apptText = cancelled > 0 ? `; ${cancelled} upcoming ${wordNow('appointment', { count: cancelled })} cancelled` : ''
@@ -186,6 +242,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         redo: async () => { await get().archiveRow(rowId, reasonStep.reason, opts) },
       }, reason ? undefined : { action: archiveReasonAction([rowId], `"${clientName}"`, reasonStep) })
     } catch (err) {
+      if (leaves) setLeaving(set, rowId, false)
       rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to archive row', err)
       toast.error(`We couldn't archive the ${wordNow('record')} — try again`)
@@ -205,6 +262,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         // Row was removed from view when archived — reload the grid to bring it back
         const gridId = get().activeGridId
         if (gridId) await get().loadGrid(gridId)
+        if (get().rows.some(r => r.row_id === rowId)) flashRow(set, rowId)
       }
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
