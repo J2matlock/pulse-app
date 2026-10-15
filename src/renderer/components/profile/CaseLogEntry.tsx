@@ -86,7 +86,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
   const [editing, setEditing] = useState(false)
   const { copied, copyToClipboard } = useCopyFeedback()
   const [editContent, setEditContent] = useState(entry.content)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [askVoid, setAskVoid] = useState(false)
   const [voidReason, setVoidReason] = useState('')
   const canDelete = isWithinDeleteWindow(entry.created_at)
   const [contentExpanded, setContentExpanded] = useState(false)
@@ -222,10 +222,10 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             </button>
             {/* A note still inside the delete window goes at once, with the Undo toast (Q4); an older one is
                 voided, which asks for a reason because the reason is part of the record */}
-            {confirmDelete && !canDelete ? (
+            {askVoid && !canDelete ? (
               <form
                 className="flex items-center gap-1"
-                onSubmit={e => { e.preventDefault(); onVoid(entry.id, voidReason.trim() || 'Voided'); setConfirmDelete(false); setVoidReason('') }}
+                onSubmit={e => { e.preventDefault(); onVoid(entry.id, voidReason.trim() || 'Voided'); setAskVoid(false); setVoidReason('') }}
               >
                 <input
                   autoFocus
@@ -242,7 +242,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                 </DangerButton>
                 <button
                   type="button"
-                  onClick={() => { setConfirmDelete(false); setVoidReason('') }}
+                  onClick={() => { setAskVoid(false); setVoidReason('') }}
                   aria-label="Cancel void"
                   className="hit-44 p-2 rounded-sm text-slate-500 hover:text-slate-600 hover:bg-slate-100
                              dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
@@ -252,7 +252,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               </form>
             ) : (
               <button
-                onClick={() => { if (canDelete) onDelete(entry.id); else setConfirmDelete(true) }}
+                onClick={() => { if (canDelete) onDelete(entry.id); else setAskVoid(true) }}
                 title={canDelete ? 'Delete' : 'Void (hides it but keeps it, so it can be restored)'}
                 aria-label={canDelete ? 'Delete' : 'Void'}
                 className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-500 hover:bg-slate-100
@@ -265,7 +265,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
         )}
       </div>
 
-      {confirmDelete && !canDelete && (
+      {askVoid && !canDelete && (
         <p className="px-3 pt-2 text-base text-slate-600 dark:text-slate-300">
           {t('activity', { many: true, cap: true })} older than {CASE_NOTE_DELETE_WINDOW_MINUTES} minutes aren't deleted — voiding hides this one and keeps it in the record, and you can restore it later. Say why (optional):
         </p>
