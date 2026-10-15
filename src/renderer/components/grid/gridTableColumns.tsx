@@ -45,12 +45,14 @@ export function buildTableColumns({
       sortFn: (rowA, rowB) => byAcuity(rowA.original, rowB.original),
       enableSorting: true,
       enableResizing: false,
+      // Search runs through the first list column (below); this one only when there's none
+      enableGlobalFilter: columns.length === 0,
       size: 0,
     }
   )] : []
 
   // columns() keeps each definition's value type (the priority column's is a number)
-  return columnHelper.columns([...acuityCol, ...columns.map(col => {
+  return columnHelper.columns([...acuityCol, ...columns.map((col, index) => {
     const isCalcDays = col.column_type === 'calculated_days'
     const isAge = col.column_type === 'age_from_dob'
     const isLink = col.column_type === 'link'
@@ -89,6 +91,10 @@ export function buildTableColumns({
         : col.column_type === 'date' ? (rowA, rowB) => byDate(rowA.original, rowB.original)
         : (rowA, rowB) => byText(rowA.original, rowB.original),
       enableSorting: true,
+      // The search function looks at the whole record, so the table asks it once per record,
+      // through the first column. With every column on, a record that doesn't match was searched
+      // once per column (5,000 x 40 x 40 cells), which made each search keystroke take a third of a second
+      enableGlobalFilter: index === 0,
       // The comparators place blank cells, missing values included, themselves (last either
       // way). Left on, the table would skip the comparator when both values are missing,
       // which a column added since the list loaded has on every record
