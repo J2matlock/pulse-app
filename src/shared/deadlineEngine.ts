@@ -646,6 +646,19 @@ export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   return evaluateHeld(rule, ctx)
 }
 
+/**
+ * A stored "last done" date that hasn't happened yet: a repeating rule
+ * (interval with a repeat, or calendar) whose own date is after today. Most
+ * likely a due date typed or imported as a done date ("Last done Dec 4, 2026",
+ * persona study R4); screens say so instead. The result above is unchanged.
+ */
+export function lastDoneInFuture(storedYmd: string | null | undefined, rule: Pick<EngineRule, 'kind' | 'interval'>, today: string): boolean {
+  const stored = storedYmd ? toYmd(storedYmd) : null
+  if (!stored) return false
+  const repeating = rule.kind === 'calendar' || (rule.kind === 'interval' && hasInterval(rule.interval))
+  return repeating && stored > today
+}
+
 /** A rule whose condition holds (or has none): the kind's date, then extensions and days off. */
 function evaluateHeld(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   const res = evaluateKind(rule, ctx)

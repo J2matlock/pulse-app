@@ -11,13 +11,22 @@
  * date column, where the caller can open its editor. The dialogs Done needs
  * (a reading, Renewed or Finished, which day) come from useDeadlineActions.
  */
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check } from 'lucide-react'
-import { formatDue, isUsedUp } from '../../../shared/deadlineEngine'
+import toast from 'react-hot-toast'
+import { AlertTriangle, Check } from 'lucide-react'
+import { formatDue, isUsedUp, lastDoneInFuture } from '../../../shared/deadlineEngine'
+import type { RuleKind } from '../../../shared/deadlineEngine'
+import type { RuleInterval } from '../../../shared/ruleInterval'
 import { daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
-import { shortDate } from '../../../shared/dates'
+import { localDateString, shortDate } from '../../../shared/dates'
+import { IPC } from '../../../shared/ipc-channels'
 import { useVocab } from '../../hooks/useVocab'
+import { useAlertStore } from '../../stores/alertStore'
+import { useGridStore } from '../../stores/gridStore'
+import { useUndoStore } from '../../stores/undoStore'
+import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 import type { ExtendedDeadlineInfo } from '../../views/dashboard/types'
 import { useDeadlineActions } from '../../views/dashboard/useDeadlineActions'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
@@ -54,6 +63,96 @@ function storedDate(dateValue: string): string {
   try { return shortDate(new Date(dateValue.includes('T') ? dateValue : `${dateValue}T00:00:00`)) } catch { return dateValue }
 }
 
+/** "It's right" on a future last-done date: hidden for that record, column and date until the app restarts */
+const futureDateOk = new Set<string>()
+
+/** Whether a stored date shows the future "last done" warning (not dismissed this session) */
+export function showsFutureLastDone(rowId: number, columnId: number, stored: string | null | undefined, rule: { kind: RuleKind; interval: RuleInterval }): boolean {
+  return !!stored && lastDoneInFuture(stored, rule, localDateString()) && !futureDateOk.has(`${rowId}:${columnId}:${stored.slice(0, 10)}`)
+}
+
+/**
+ * Every date in a date column read as the day it's due (setup's "Due date"
+ * rule), with Undo. For a column whose "last done" dates are in the future.
+ */
+async function makeColumnDueDates(gridId: number, columnId: number, columnName: string, onChanged?: () => Promise<void>): Promise<boolean> {
+  const before = () => { const g = useGridStore.getState(); return [...g.columns, ...g.hiddenColumns].find(c => c.id === columnId) }
+  const prevConfig = before()?.config || '{}'
+  const apply = async (): Promise<boolean> => {
+    const res = await safeInvoke(IPC.ONBOARDING_DATE_RULES, gridId, [{ columnId, repeat: 'due' }])
+    if (!res.ok) { toast.error(friendlyError(res.error, "We couldn't change the column — try again")); return false }
+    await useAlertStore.getState().loadRules()
+    if (useGridStore.getState().activeGridId === gridId) await useGridStore.getState().loadGrid(gridId)
+    await onChanged?.()
+    return true
+  }
+  if (!await apply()) return false
+  useUndoStore.getState().pushWithToast({
+    id: crypto.randomUUID(),
+    description: `“${columnName}” dates are now due dates`,
+    timestamp: Date.now(),
+    category: 'silent',
+    icon: 'calendar',
+    undo: async () => {
+      await useGridStore.getState().updateColumn(columnId, { config: prevConfig })
+      await useAlertStore.getState().loadRules()
+      await onChanged?.()
+    },
+    redo: async () => { await apply() },
+  })
+  return true
+}
+
+/**
+ * "Dec 4, 2026 is in the future. Is that when it's due?" in place of "Last
+ * done Dec 4, 2026" (persona study R4): a review date imported as a done date
+ * put the deadline a year out. The fix is a click away; "It's right" hides it.
+ */
+export function FutureLastDone({ gridId, rowId, columnId, columnName, stored, onChanged }: {
+  gridId: number
+  rowId: number
+  columnId: number
+  columnName: string
+  stored: string
+  onChanged?: () => Promise<void>
+}): React.ReactElement | null {
+  const { t } = useVocab(gridId)
+  const [, setHidden] = useState(0)
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const isDateColumn = useGridStore(s => [...s.columns, ...s.hiddenColumns].find(c => c.id === columnId)?.column_type === 'date')
+  const day = stored.slice(0, 10)
+  if (futureDateOk.has(`${rowId}:${columnId}:${day}`)) return null
+  const shown = shortDate(new Date(`${day}T00:00:00`))
+  return (
+    <div className="rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2" data-testid="future-last-done">
+      <p className="flex items-start gap-2 text-base text-slate-800 dark:text-slate-100">
+        <AlertTriangle className="w-4 h-4 mt-1 flex-shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+        <span><strong>{shown} is in the future.</strong> Is that when it&apos;s due?</span>
+      </p>
+      {asking ? (
+        <>
+          <p className="text-base text-slate-700 dark:text-slate-200">
+            Every date in “{columnName}” will be read as the day it&apos;s due, for every {t('record')}. You can undo it.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <PrimaryButton size="compact" busy={busy}
+              onClick={() => { setBusy(true); void makeColumnDueDates(gridId, columnId, columnName, onChanged).finally(() => { setBusy(false); setAsking(false) }) }}>
+              Make them due dates
+            </PrimaryButton>
+            <SecondaryButton size="compact" disabled={busy} onClick={() => setAsking(false)}>Cancel</SecondaryButton>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {isDateColumn && <SecondaryButton size="compact" onClick={() => setAsking(true)}>Make this column&apos;s dates the due dates</SecondaryButton>}
+          <SecondaryButton size="compact" onClick={() => { futureDateOk.add(`${rowId}:${columnId}:${day}`); setHidden(n => n + 1) }}>It&apos;s right</SecondaryButton>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function DeadlineCardContent({ info, where, layout, words = layout === 'stack', onChanged, onDone, onChangeDate, onOpenRecord }: DeadlineCardContentProps): React.ReactElement {
   const navigate = useNavigate()
   const { t } = useVocab(info.gridId)
@@ -73,7 +172,9 @@ export function DeadlineCardContent({ info, where, layout, words = layout === 's
       {words && (
         <div className="space-y-1">
           <p className="text-base font-medium text-slate-800 dark:text-slate-100" data-testid="deadline-card-due">{dueWords(info)}</p>
-          {act.recurring && info.dateValue && <p className="text-base text-slate-600 dark:text-slate-300">Last done {storedDate(info.dateValue)}</p>}
+          {act.recurring && info.dateValue && (showsFutureLastDone(info.rowId, info.columnId, info.dateValue, { kind: act.ruleKind, interval: act.ruleInterval })
+            ? <FutureLastDone gridId={info.gridId} rowId={info.rowId} columnId={info.columnId} columnName={info.columnName} stored={info.dateValue} onChanged={onChanged} />
+            : <p className="text-base text-slate-600 dark:text-slate-300">Last done {storedDate(info.dateValue)}</p>)}
           {info.label && !usedUp && act.ruleKind !== 'interval' && <p className="text-base text-slate-600 dark:text-slate-300">{info.label}</p>}
           {info.detail && <p className="text-base text-slate-600 dark:text-slate-300">{info.detail}</p>}
         </div>

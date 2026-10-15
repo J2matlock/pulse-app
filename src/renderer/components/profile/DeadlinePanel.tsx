@@ -13,7 +13,7 @@ import { useToday } from '../../hooks/useToday'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 import { PrimaryButton } from '../ui/Button'
 import { useRecordDeadlines, deadlineKey } from '../deadlines/useRecordDeadlines'
-import { DeadlineCardContent } from '../deadlines/DeadlineCardContent'
+import { DeadlineCardContent, FutureLastDone, showsFutureLastDone } from '../deadlines/DeadlineCardContent'
 
 /** Maps a bgClass to a solid (full-opacity) hex color for borders / progress bars. */
 function solidColor(bgClass: string): string {
@@ -297,6 +297,8 @@ export function DeadlinePanel({
           // The stored date is when it was last done for repeating and worked-out rules; for a plain date it's the due date (R-23)
           const storedIsLastDone = !!rule && ((rule.kind ?? 'interval') !== 'interval' || hasInterval(interval))
           const info = rule ? infos?.get(deadlineKey(row.row_id, col.id)) : undefined
+          // A "last done" date that hasn't happened yet asks whether it's the due date (R4)
+          const futureLastDone = !!rule && !!rawValue && storedIsLastDone && showsFutureLastDone(row.row_id, col.id, rawValue, engineRuleFrom(rule))
 
           return (
             <div
@@ -395,7 +397,7 @@ export function DeadlinePanel({
                       className="font-medium text-slate-900 dark:text-slate-100 group-hover:underline decoration-dotted"
                       style={{ fontSize: 15 }}
                     >
-                      {storedIsLastDone ? `Last done ${formatDate(rawValue)}` : formatDate(rawValue)}
+                      {storedIsLastDone && !futureLastDone ? `Last done ${formatDate(rawValue)}` : formatDate(rawValue)}
                     </div>
                     {daysUntil !== null && !result && (
                       <div className={`mt-0.5 font-medium ${urgencyClass}`} style={{ fontSize: 15 }}>
@@ -414,6 +416,12 @@ export function DeadlinePanel({
                   >
                     No date set — click to add
                   </button>
+                )}
+
+                {futureLastDone && !isEditing && rawValue && (
+                  <div className="mt-2">
+                    <FutureLastDone gridId={col.grid_id} rowId={row.row_id} columnId={col.id} columnName={col.name} stored={rawValue} onChanged={changed} />
+                  </div>
                 )}
 
                 {/* The shared card's buttons: Done · Done on… · Extend… (or Remove extension) */}

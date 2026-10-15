@@ -240,6 +240,15 @@ describe('DeadlinePanel', () => {
     expect(names()).toEqual(['Last Contact', 'Annual Review'])
   })
 
+  it('a "last done" date in the future asks whether it is the due date (persona study R4)', () => {
+    const col = makeColumn({ id: 1, name: 'Plan Review' })
+    const later = new Date(); later.setHours(12, 0, 0, 0); later.setDate(later.getDate() + 50)
+    render(<DeadlinePanel row={makeRow({ col_1: localDateString(later) })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
+    expect(screen.getByTestId('future-last-done').textContent).toMatch(/is in the future\. Is that when it's due\?/)
+    expect(screen.queryByText(/^Last done/)).toBeNull()
+    expect(screen.getByRole('button', { name: "It's right" })).toBeTruthy()
+  })
+
   it('says which date is being edited and what the next due date becomes (C-15)', () => {
     const col = makeColumn({ id: 1, name: 'Last Contact' })
     render(<DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)

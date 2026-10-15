@@ -1,7 +1,7 @@
 /** "Only while Status is Active" (W05 §3.7): conditions hide or pause a deadline. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
-import { evaluate, engineRuleFrom, conditionHolds, conditionBlank, referencedColumns } from '../src/shared/deadlineEngine'
+import { evaluate, engineRuleFrom, conditionHolds, conditionBlank, lastDoneInFuture, referencedColumns } from '../src/shared/deadlineEngine'
 
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
@@ -71,6 +71,20 @@ describe('conditions', () => {
     expect(conditionBlank({ columnId: 5, op: 'is', values: ['Yes'], whenFalse: 'hide' }, { 5: 'No' })).toBe(false)
     expect(conditionBlank({ columnId: 5, op: 'empty', whenFalse: 'hide' }, { 5: 'x' })).toBe(false)
     expect(conditionBlank(null, {})).toBe(false)
+  })
+
+  it('lastDoneInFuture: a repeating rule\'s own date after today (persona study R4)', () => {
+    const yearly = { kind: 'interval' as const, interval: { days: 0, months: 12, endOfMonth: false } }
+    expect(lastDoneInFuture('2026-12-04', yearly, '2026-10-15')).toBe(true)
+    expect(lastDoneInFuture('2026-10-15', yearly, '2026-10-15')).toBe(false)
+    expect(lastDoneInFuture('2025-12-04', yearly, '2026-10-15')).toBe(false)
+    expect(lastDoneInFuture('2026-12-04T09:00:00', yearly, '2026-10-15')).toBe(true)
+    expect(lastDoneInFuture('2026-12-04', { kind: 'calendar', interval: yearly.interval }, '2026-10-15')).toBe(true)
+    // A one-off date is the due date, and other kinds don't store a done date
+    expect(lastDoneInFuture('2026-12-04', { kind: 'interval', interval: { days: 0, months: 0, endOfMonth: false } }, '2026-10-15')).toBe(false)
+    expect(lastDoneInFuture('2026-12-04', { kind: 'relative', interval: yearly.interval }, '2026-10-15')).toBe(false)
+    expect(lastDoneInFuture(null, yearly, '2026-10-15')).toBe(false)
+    expect(lastDoneInFuture('soon', yearly, '2026-10-15')).toBe(false)
   })
 
   it('keep business days and extensions on a blank-condition deadline', () => {
