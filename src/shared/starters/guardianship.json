@@ -70,23 +70,9 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 1,
-          "width": 150
-        },
-        {
-          "name": "Appointment date",
-          "column_type": "date",
-          "position": 2,
-          "width": 150,
-          "is_required": 1,
-          "description": "The date of the court order appointing you"
-        },
-        {
           "name": "Annual report",
           "column_type": "deadline",
-          "position": 3,
+          "position": 1,
           "width": 140,
           "description": "The yearly report to the court; mark it done when filed",
           "config": "{\"alert_rule_name\":\"Annual report to the court\"}"
@@ -94,22 +80,36 @@
         {
           "name": "Last visit",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
         },
         {
-          "name": "Physician",
-          "column_type": "text",
-          "position": 5,
-          "width": 160
-        },
-        {
           "name": "Medicaid renewal",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 4,
+          "width": 150
+        },
+        {
+          "name": "Appointment date",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "is_required": 1,
+          "description": "The date of the court order appointing you"
+        },
+        {
+          "name": "Physician",
+          "column_type": "text",
+          "position": 6,
+          "width": 160
         },
         {
           "name": "Powers",
@@ -244,23 +244,23 @@
           "is_required": 1
         },
         {
+          "name": "Next hearing",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
           "name": "Court",
           "column_type": "text",
-          "position": 1,
+          "position": 2,
           "width": 180
         },
         {
           "name": "Judge",
           "column_type": "text",
-          "position": 2,
-          "width": 150
-        },
-        {
-          "name": "Next hearing",
-          "column_type": "date",
           "position": 3,
-          "width": 150,
-          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+          "width": 150
         },
         {
           "name": "Attorney",

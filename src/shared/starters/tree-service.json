@@ -129,43 +129,9 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 2,
-          "width": 200
-        },
-        {
-          "name": "Address",
-          "column_type": "address",
-          "position": 3,
-          "width": 180,
-          "is_required": 1
-        },
-        {
-          "name": "Preferred contact",
-          "column_type": "dropdown",
-          "position": 4,
-          "width": 150,
-          "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
-        },
-        {
-          "name": "Property notes",
-          "column_type": "notes",
-          "position": 5,
-          "width": 240,
-          "description": "Gate code, dogs, power lines, where to park the chipper"
-        },
-        {
           "name": "Last tree check",
           "column_type": "date",
-          "position": 6,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Date you last walked the property with them; Pulse reminds you a year later"
@@ -173,10 +139,44 @@
         {
           "name": "Ash tree treatment",
           "column_type": "date",
-          "position": 7,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 2 years\", \"log_changes\": true}",
           "description": "Last emerald ash borer injection. Leave blank if they have no ash trees"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 4,
+          "width": 200
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 5,
+          "width": 180,
+          "is_required": 1
+        },
+        {
+          "name": "Preferred contact",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 150,
+          "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+        },
+        {
+          "name": "Property notes",
+          "column_type": "notes",
+          "position": 7,
+          "width": 240,
+          "description": "Gate code, dogs, power lines, where to park the chipper"
         }
       ],
       "alertRules": [
@@ -217,36 +217,9 @@
           "is_required": 1
         },
         {
-          "name": "Stage",
-          "column_type": "status",
-          "position": 1,
-          "width": 160,
-          "config": "{\"options\": [{\"label\": \"Estimate requested\", \"color\": \"#64748b\"}, {\"label\": \"Estimate sent\", \"color\": \"#3b82f6\"}, {\"label\": \"Approved\", \"color\": \"#8b5cf6\"}, {\"label\": \"Scheduled\", \"color\": \"#f59e0b\"}, {\"label\": \"In progress\", \"color\": \"#f97316\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Not going ahead\", \"color\": \"#ef4444\"}]}"
-        },
-        {
-          "name": "Work type",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 150,
-          "config": "{\"options\": [\"Removal\", \"Pruning\", \"Stump grinding\", \"Storm cleanup\", \"Plant health care\", \"Cabling and bracing\", \"Inspection\"]}"
-        },
-        {
-          "name": "Estimate",
-          "column_type": "currency",
-          "position": 3,
-          "width": 120
-        },
-        {
-          "name": "Estimate sent on",
-          "column_type": "date",
-          "position": 4,
-          "width": 150,
-          "description": "Filled in when the job moves to Estimate sent"
-        },
-        {
           "name": "Estimate follow-up",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Estimate follow-up\", \"log_changes\": true}",
           "description": "Date you called back about the estimate"
@@ -254,7 +227,7 @@
         {
           "name": "Scheduled for",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Scheduled date\", \"log_changes\": true}",
           "description": "The day the crew is booked"
@@ -262,25 +235,52 @@
         {
           "name": "Permit expires",
           "column_type": "date",
-          "position": 7,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
           "description": "Tree removal permit from the town, if one is needed"
         },
         {
-          "name": "Completed on",
-          "column_type": "date",
-          "position": 8,
-          "width": 150,
-          "description": "Filled in when the job moves to Done"
-        },
-        {
           "name": "Follow-up call",
           "column_type": "date",
-          "position": 9,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Follow-up call\", \"log_changes\": true}",
           "description": "Date you checked the cleanup was OK and asked for a review"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 5,
+          "width": 160,
+          "config": "{\"options\": [{\"label\": \"Estimate requested\", \"color\": \"#64748b\"}, {\"label\": \"Estimate sent\", \"color\": \"#3b82f6\"}, {\"label\": \"Approved\", \"color\": \"#8b5cf6\"}, {\"label\": \"Scheduled\", \"color\": \"#f59e0b\"}, {\"label\": \"In progress\", \"color\": \"#f97316\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Not going ahead\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Work type",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 150,
+          "config": "{\"options\": [\"Removal\", \"Pruning\", \"Stump grinding\", \"Storm cleanup\", \"Plant health care\", \"Cabling and bracing\", \"Inspection\"]}"
+        },
+        {
+          "name": "Estimate",
+          "column_type": "currency",
+          "position": 7,
+          "width": 120
+        },
+        {
+          "name": "Estimate sent on",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Filled in when the job moves to Estimate sent"
+        },
+        {
+          "name": "Completed on",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Filled in when the job moves to Done"
         },
         {
           "name": "Invoice total",
@@ -442,36 +442,16 @@
           "is_required": 1
         },
         {
-          "name": "Type",
-          "column_type": "dropdown",
-          "position": 1,
-          "width": 140,
-          "config": "{\"options\": [\"Chipper\", \"Stump grinder\", \"Bucket truck\", \"Crane\", \"Truck\", \"Loader\", \"Chainsaws\", \"Trailer\"]}"
-        },
-        {
-          "name": "Hour meter",
-          "column_type": "number",
-          "position": 2,
-          "width": 120,
-          "description": "Engine hours; update it now and then so Pulse can forecast service"
-        },
-        {
-          "name": "Hours at last service",
-          "column_type": "number",
-          "position": 3,
-          "width": 160
-        },
-        {
           "name": "Last service",
           "column_type": "date",
-          "position": 4,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Service\", \"log_changes\": true}"
         },
         {
           "name": "Aerial lift inspection",
           "column_type": "date",
-          "position": 5,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Yearly inspection for bucket trucks and lifts"
@@ -479,7 +459,7 @@
         {
           "name": "Dielectric test",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Yearly test for insulated booms used near power lines"
@@ -487,9 +467,29 @@
         {
           "name": "Registration expires",
           "column_type": "date",
-          "position": 7,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}"
+        },
+        {
+          "name": "Type",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 140,
+          "config": "{\"options\": [\"Chipper\", \"Stump grinder\", \"Bucket truck\", \"Crane\", \"Truck\", \"Loader\", \"Chainsaws\", \"Trailer\"]}"
+        },
+        {
+          "name": "Hour meter",
+          "column_type": "number",
+          "position": 6,
+          "width": 120,
+          "description": "Engine hours; update it now and then so Pulse can forecast service"
+        },
+        {
+          "name": "Hours at last service",
+          "column_type": "number",
+          "position": 7,
+          "width": 160
         },
         {
           "name": "Notes",
@@ -544,22 +544,9 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Role",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 150,
-          "config": "{\"options\": [\"Crew lead\", \"Climber\", \"Ground worker\", \"Bucket operator\", \"Estimator\"]}"
-        },
-        {
           "name": "Arborist certification expires",
           "column_type": "date",
-          "position": 3,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}",
           "description": "ISA Certified Arborist or similar; renews every 3 years"
@@ -567,14 +554,14 @@
         {
           "name": "CPR / first aid expires",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
         },
         {
           "name": "CDL medical card expires",
           "column_type": "date",
-          "position": 5,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}",
           "description": "For anyone who drives the trucks"
@@ -582,10 +569,23 @@
         {
           "name": "Chainsaw safety training",
           "column_type": "date",
-          "position": 6,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Date of the last refresher"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Role",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 150,
+          "config": "{\"options\": [\"Crew lead\", \"Climber\", \"Ground worker\", \"Bucket operator\", \"Estimator\"]}"
         }
       ],
       "alertRules": [

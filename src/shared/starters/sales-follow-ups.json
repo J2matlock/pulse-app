@@ -63,50 +63,50 @@
           "is_required": 1
         },
         {
+          "name": "Next follow-up",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
           "name": "Company",
           "column_type": "text",
-          "position": 1,
+          "position": 2,
           "width": 180
         },
         {
           "name": "Phone",
           "column_type": "phone",
-          "position": 2,
+          "position": 3,
           "width": 140
         },
         {
           "name": "Email",
           "column_type": "email",
-          "position": 3,
+          "position": 4,
           "width": 200
         },
         {
           "name": "Source",
           "column_type": "dropdown",
-          "position": 4,
+          "position": 5,
           "width": 150,
           "config": "{\"options\":[\"Referral\",\"Website\",\"Event\",\"Cold call\",\"Repeat customer\"]}"
         },
         {
           "name": "Stage",
           "column_type": "status",
-          "position": 5,
+          "position": 6,
           "width": 130,
           "config": "{\"options\":[{\"label\":\"New\",\"color\":\"#64748b\"},{\"label\":\"Contacted\",\"color\":\"#3b82f6\"},{\"label\":\"Proposal\",\"color\":\"#a855f7\"},{\"label\":\"Won\",\"color\":\"#22c55e\"},{\"label\":\"Lost\",\"color\":\"#ef4444\"}]}"
         },
         {
           "name": "Value",
           "column_type": "currency",
-          "position": 6,
-          "width": 110
-        },
-        {
-          "name": "Next follow-up",
-          "column_type": "date",
           "position": 7,
-          "width": 150,
-          "is_required": 1,
-          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+          "width": 110
         },
         {
           "name": "Closed on",

@@ -107,64 +107,64 @@
           "is_required": 1
         },
         {
+          "name": "Plan signed",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "description": "Date the employment plan was signed",
+          "config": "{\"alert_rule_name\":\"Plan due\",\"log_changes\":true}"
+        },
+        {
+          "name": "Follow-up done",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "description": "Date of the 90-day follow-up after starting work",
+          "config": "{\"alert_rule_name\":\"Placement follow-up\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last contact",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
           "name": "Phone",
           "column_type": "phone",
-          "position": 1,
+          "position": 4,
           "width": 140,
           "is_required": 1
         },
         {
           "name": "Application date",
           "column_type": "date",
-          "position": 2,
+          "position": 5,
           "width": 150
         },
         {
           "name": "Eligibility date",
           "column_type": "date",
-          "position": 3,
+          "position": 6,
           "width": 150
-        },
-        {
-          "name": "Plan signed",
-          "column_type": "date",
-          "position": 4,
-          "width": 150,
-          "description": "Date the employment plan was signed",
-          "config": "{\"alert_rule_name\":\"Plan due\",\"log_changes\":true}"
         },
         {
           "name": "Job goal",
           "column_type": "text",
-          "position": 5,
+          "position": 7,
           "width": 170
         },
         {
           "name": "Job start date",
           "column_type": "date",
-          "position": 6,
+          "position": 8,
           "width": 150
-        },
-        {
-          "name": "Follow-up done",
-          "column_type": "date",
-          "position": 7,
-          "width": 150,
-          "description": "Date of the 90-day follow-up after starting work",
-          "config": "{\"alert_rule_name\":\"Placement follow-up\",\"log_changes\":true}"
         },
         {
           "name": "Employer",
           "column_type": "text",
-          "position": 8,
-          "width": 160
-        },
-        {
-          "name": "Last contact",
-          "column_type": "date",
           "position": 9,
-          "width": 150,
-          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+          "width": 160
         },
         {
           "name": "Status",

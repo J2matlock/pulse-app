@@ -131,29 +131,9 @@
           "is_required": 1
         },
         {
-          "name": "Breed",
-          "column_type": "text",
-          "position": 1,
-          "width": 150
-        },
-        {
-          "name": "Born",
-          "column_type": "date",
-          "position": 2,
-          "width": 130,
-          "description": "Year or date of birth, if known"
-        },
-        {
-          "name": "Stall",
-          "column_type": "text",
-          "position": 3,
-          "width": 100,
-          "description": "Stall or pasture"
-        },
-        {
           "name": "Last farrier visit",
           "column_type": "date",
-          "position": 4,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 7 weeks\", \"log_changes\": true}",
           "description": "Trim or shoes; the next visit comes due 7 weeks later"
@@ -161,14 +141,14 @@
         {
           "name": "Last deworming",
           "column_type": "date",
-          "position": 5,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 12 weeks\", \"log_changes\": true}"
         },
         {
           "name": "Coggins test",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Date the last negative Coggins was drawn; most shows and barns want one within 12 months"
@@ -176,7 +156,7 @@
         {
           "name": "Last vaccines",
           "column_type": "date",
-          "position": 7,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}",
           "description": "Spring and fall shots"
@@ -184,30 +164,15 @@
         {
           "name": "Teeth floated",
           "column_type": "date",
-          "position": 8,
+          "position": 5,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Last dental visit"
         },
         {
-          "name": "Breeding status",
-          "column_type": "dropdown",
-          "position": 9,
-          "width": 150,
-          "config": "{\"options\": [\"Open\", \"Bred\", \"In foal\", \"Foaled\"]}",
-          "description": "For mares; leave blank for geldings and stallions"
-        },
-        {
-          "name": "Breeding date",
-          "column_type": "date",
-          "position": 10,
-          "width": 150,
-          "description": "Last cover or insemination date"
-        },
-        {
           "name": "Pregnancy check",
           "column_type": "date",
-          "position": 11,
+          "position": 6,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Pregnancy check\", \"log_changes\": true}",
           "description": "Date of the ultrasound check, about 15 days after breeding"
@@ -215,10 +180,45 @@
         {
           "name": "Foaled on",
           "column_type": "date",
-          "position": 12,
+          "position": 7,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Foaling due\", \"log_changes\": true}",
           "description": "Foaling is due about 340 days after breeding; fill this in when the foal arrives"
+        },
+        {
+          "name": "Breed",
+          "column_type": "text",
+          "position": 8,
+          "width": 150
+        },
+        {
+          "name": "Born",
+          "column_type": "date",
+          "position": 9,
+          "width": 130,
+          "description": "Year or date of birth, if known"
+        },
+        {
+          "name": "Stall",
+          "column_type": "text",
+          "position": 10,
+          "width": 100,
+          "description": "Stall or pasture"
+        },
+        {
+          "name": "Breeding status",
+          "column_type": "dropdown",
+          "position": 11,
+          "width": 150,
+          "config": "{\"options\": [\"Open\", \"Bred\", \"In foal\", \"Foaled\"]}",
+          "description": "For mares; leave blank for geldings and stallions"
+        },
+        {
+          "name": "Breeding date",
+          "column_type": "date",
+          "position": 12,
+          "width": 150,
+          "description": "Last cover or insemination date"
         }
       ],
       "alertRules": [
@@ -304,35 +304,43 @@
           "is_required": 1
         },
         {
+          "name": "Boarding agreement signed",
+          "column_type": "date",
+          "position": 1,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Renew the agreement every year"
+        },
+        {
           "name": "Phone",
           "column_type": "phone",
-          "position": 1,
+          "position": 2,
           "width": 140,
           "is_required": 1
         },
         {
           "name": "Email",
           "column_type": "email",
-          "position": 2,
+          "position": 3,
           "width": 200
         },
         {
           "name": "Address",
           "column_type": "address",
-          "position": 3,
+          "position": 4,
           "width": 170
         },
         {
           "name": "Board plan",
           "column_type": "dropdown",
-          "position": 4,
+          "position": 5,
           "width": 140,
           "config": "{\"options\": [\"Full board\", \"Pasture board\", \"Self-care\", \"Training\"]}"
         },
         {
           "name": "Emergency contact",
           "column_type": "text",
-          "position": 5,
+          "position": 6,
           "width": 170,
           "is_required": 1,
           "description": "Who to call if the owner can't be reached"
@@ -340,16 +348,8 @@
         {
           "name": "Emergency phone",
           "column_type": "phone",
-          "position": 6,
-          "width": 140
-        },
-        {
-          "name": "Boarding agreement signed",
-          "column_type": "date",
           "position": 7,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
-          "description": "Renew the agreement every year"
+          "width": 140
         },
         {
           "name": "Notes",

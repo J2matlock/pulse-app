@@ -70,53 +70,9 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 2,
-          "width": 140
-        },
-        {
-          "name": "Insurance",
-          "column_type": "dropdown",
-          "position": 3,
-          "width": 150,
-          "config": "{\"options\":[\"Medicaid\",\"Blue Plan\",\"Choice Health\",\"Employee assistance\",\"Self-pay\"]}"
-        },
-        {
-          "name": "Main concern",
-          "column_type": "dropdown",
-          "position": 4,
-          "width": 150,
-          "config": "{\"options\":[\"Anxiety\",\"Depression\",\"Grief\",\"Trauma\",\"Relationships\",\"Stress\",\"Other\"]}"
-        },
-        {
-          "name": "Sessions authorized",
-          "column_type": "number",
-          "position": 5,
-          "width": 130
-        },
-        {
-          "name": "Authorization start",
-          "column_type": "date",
-          "position": 6,
-          "width": 140
-        },
-        {
-          "name": "Authorization end",
-          "column_type": "date",
-          "position": 7,
-          "width": 140
-        },
-        {
           "name": "Sessions left",
           "column_type": "deadline",
-          "position": 8,
+          "position": 1,
           "width": 140,
           "description": "Sessions used against the authorization, and when it ends",
           "config": "{\"alert_rule_name\":\"Sessions left\"}"
@@ -124,7 +80,7 @@
         {
           "name": "Treatment plan review",
           "column_type": "date",
-          "position": 9,
+          "position": 2,
           "width": 160,
           "description": "Date the treatment plan was last reviewed; due again every 90 days",
           "config": "{\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
@@ -132,10 +88,54 @@
         {
           "name": "Consent signed",
           "column_type": "date",
-          "position": 10,
+          "position": 3,
           "width": 140,
           "description": "Consent and release forms; renewed every year",
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 4,
+          "width": 140
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Insurance",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 150,
+          "config": "{\"options\":[\"Medicaid\",\"Blue Plan\",\"Choice Health\",\"Employee assistance\",\"Self-pay\"]}"
+        },
+        {
+          "name": "Main concern",
+          "column_type": "dropdown",
+          "position": 7,
+          "width": 150,
+          "config": "{\"options\":[\"Anxiety\",\"Depression\",\"Grief\",\"Trauma\",\"Relationships\",\"Stress\",\"Other\"]}"
+        },
+        {
+          "name": "Sessions authorized",
+          "column_type": "number",
+          "position": 8,
+          "width": 130
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 9,
+          "width": 140
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 10,
+          "width": 140
         },
         {
           "name": "PHQ-9",

@@ -62,52 +62,52 @@
           "is_required": 1
         },
         {
+          "name": "Visits left",
+          "column_type": "deadline",
+          "position": 1,
+          "width": 140,
+          "description": "Visits used against the authorization, and when it ends",
+          "config": "{\"alert_rule_name\":\"Visits left\"}"
+        },
+        {
           "name": "Date of birth",
           "column_type": "date",
-          "position": 1,
+          "position": 2,
           "width": 150
         },
         {
           "name": "Insurance",
           "column_type": "dropdown",
-          "position": 2,
+          "position": 3,
           "width": 170,
           "config": "{\"options\":[\"Medicaid\",\"Medicare Advantage\",\"Blue Plan\",\"Choice Health\",\"Other\"]}"
         },
         {
           "name": "Authorization number",
           "column_type": "text",
-          "position": 3,
+          "position": 4,
           "width": 170
         },
         {
           "name": "Visits authorized",
           "column_type": "number",
-          "position": 4,
+          "position": 5,
           "width": 130,
           "is_required": 1
         },
         {
           "name": "Authorization start",
           "column_type": "date",
-          "position": 5,
+          "position": 6,
           "width": 150,
           "is_required": 1
         },
         {
           "name": "Authorization end",
           "column_type": "date",
-          "position": 6,
+          "position": 7,
           "width": 150,
           "is_required": 1
-        },
-        {
-          "name": "Visits left",
-          "column_type": "deadline",
-          "position": 7,
-          "width": 140,
-          "description": "Visits used against the authorization, and when it ends",
-          "config": "{\"alert_rule_name\":\"Visits left\"}"
         },
         {
           "name": "Service",

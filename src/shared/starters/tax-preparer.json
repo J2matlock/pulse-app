@@ -134,49 +134,9 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 2,
-          "width": 210
-        },
-        {
-          "name": "Address",
-          "column_type": "address",
-          "position": 3,
-          "width": 180
-        },
-        {
-          "name": "Client type",
-          "column_type": "dropdown",
-          "position": 4,
-          "width": 150,
-          "config": "{\"options\": [\"Individual\", \"Household\", \"Sole proprietor\", \"Small business\"]}"
-        },
-        {
-          "name": "Services",
-          "column_type": "dropdown",
-          "position": 5,
-          "width": 180,
-          "config": "{\"options\": [\"Taxes only\", \"Taxes and bookkeeping\", \"Bookkeeping only\"]}"
-        },
-        {
-          "name": "Pays estimated taxes",
-          "column_type": "dropdown",
-          "position": 6,
-          "width": 150,
-          "config": "{\"options\": [\"Yes\", \"No\"]}"
-        },
-        {
           "name": "Engagement letter signed",
           "column_type": "date",
-          "position": 7,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Date they signed this year's engagement letter; renew every year"
@@ -184,7 +144,7 @@
         {
           "name": "Estimated taxes",
           "column_type": "deadline",
-          "position": 8,
+          "position": 2,
           "width": 150,
           "description": "Quarterly payment reminder (Jan, Apr, Jun, Sep 15) for clients who pay estimated taxes; mark it done when they have paid",
           "config": "{\"alert_rule_name\": \"Estimated taxes\"}"
@@ -192,7 +152,7 @@
         {
           "name": "1099s",
           "column_type": "deadline",
-          "position": 9,
+          "position": 3,
           "width": 150,
           "description": "Contractor 1099s are due Jan 31 for sole proprietors and businesses; mark it done when filed",
           "config": "{\"alert_rule_name\": \"1099s due\"}"
@@ -200,10 +160,50 @@
         {
           "name": "Monthly close",
           "column_type": "deadline",
-          "position": 10,
+          "position": 4,
           "width": 150,
           "description": "Books reconciled and closed by the 15th of each month, for bookkeeping clients",
           "config": "{\"alert_rule_name\": \"Monthly close\"}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 6,
+          "width": 210
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 7,
+          "width": 180
+        },
+        {
+          "name": "Client type",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 150,
+          "config": "{\"options\": [\"Individual\", \"Household\", \"Sole proprietor\", \"Small business\"]}"
+        },
+        {
+          "name": "Services",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 180,
+          "config": "{\"options\": [\"Taxes only\", \"Taxes and bookkeeping\", \"Bookkeeping only\"]}"
+        },
+        {
+          "name": "Pays estimated taxes",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 150,
+          "config": "{\"options\": [\"Yes\", \"No\"]}"
         },
         {
           "name": "Notes",
@@ -271,36 +271,9 @@
           "is_required": 1
         },
         {
-          "name": "Stage",
-          "column_type": "status",
-          "position": 1,
-          "width": 170,
-          "config": "{\"options\": [{\"label\": \"Waiting on documents\", \"color\": \"#64748b\"}, {\"label\": \"Documents in\", \"color\": \"#3b82f6\"}, {\"label\": \"Preparing\", \"color\": \"#f59e0b\"}, {\"label\": \"Review\", \"color\": \"#8b5cf6\"}, {\"label\": \"Extended\", \"color\": \"#f97316\"}, {\"label\": \"Filed\", \"color\": \"#22c55e\"}]}"
-        },
-        {
-          "name": "Return type",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 170,
-          "config": "{\"options\": [\"Individual (1040)\", \"S corporation (1120-S)\", \"Partnership (1065)\", \"Nonprofit (990)\", \"Amended return\", \"Sales tax\", \"Payroll (941)\"]}"
-        },
-        {
-          "name": "Tax year",
-          "column_type": "number",
-          "position": 3,
-          "width": 100
-        },
-        {
-          "name": "Documents requested on",
-          "column_type": "date",
-          "position": 4,
-          "width": 170,
-          "description": "The day you sent the document request"
-        },
-        {
           "name": "Documents follow-up",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Documents follow-up\", \"log_changes\": true}",
           "description": "Date you followed up about missing documents"
@@ -308,25 +281,52 @@
         {
           "name": "Filing deadline",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Filing deadline\", \"log_changes\": true}",
           "description": "Apr 15 for most individual returns, Mar 15 for S corporations and partnerships. If you file an extension, change it to the extended date"
         },
         {
-          "name": "Filed on",
-          "column_type": "date",
-          "position": 7,
-          "width": 150,
-          "description": "Filled in when the return moves to Filed"
-        },
-        {
           "name": "E-file accepted",
           "column_type": "date",
-          "position": 8,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"E-file acceptance\", \"log_changes\": true}",
           "description": "Date you confirmed the IRS or state accepted the e-file"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 4,
+          "width": 170,
+          "config": "{\"options\": [{\"label\": \"Waiting on documents\", \"color\": \"#64748b\"}, {\"label\": \"Documents in\", \"color\": \"#3b82f6\"}, {\"label\": \"Preparing\", \"color\": \"#f59e0b\"}, {\"label\": \"Review\", \"color\": \"#8b5cf6\"}, {\"label\": \"Extended\", \"color\": \"#f97316\"}, {\"label\": \"Filed\", \"color\": \"#22c55e\"}]}"
+        },
+        {
+          "name": "Return type",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 170,
+          "config": "{\"options\": [\"Individual (1040)\", \"S corporation (1120-S)\", \"Partnership (1065)\", \"Nonprofit (990)\", \"Amended return\", \"Sales tax\", \"Payroll (941)\"]}"
+        },
+        {
+          "name": "Tax year",
+          "column_type": "number",
+          "position": 6,
+          "width": 100
+        },
+        {
+          "name": "Documents requested on",
+          "column_type": "date",
+          "position": 7,
+          "width": 170,
+          "description": "The day you sent the document request"
+        },
+        {
+          "name": "Filed on",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Filled in when the return moves to Filed"
         },
         {
           "name": "Fee",

@@ -62,51 +62,51 @@
           "is_required": 1
         },
         {
-          "name": "Odometer",
-          "column_type": "number",
-          "position": 1,
-          "width": 120,
-          "description": "Update it now and then; Pulse works out how fast the miles add up"
-        },
-        {
-          "name": "Odometer at last oil change",
-          "column_type": "number",
-          "position": 2,
-          "width": 170
-        },
-        {
           "name": "Last oil change",
           "column_type": "date",
-          "position": 3,
+          "position": 1,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Oil change\",\"log_changes\":true}"
         },
         {
-          "name": "Odometer at last rotation",
-          "column_type": "number",
-          "position": 4,
-          "width": 170
-        },
-        {
           "name": "Last rotation",
           "column_type": "date",
-          "position": 5,
+          "position": 2,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Tire rotation\",\"log_changes\":true}"
         },
         {
           "name": "Registration expires",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
         },
         {
           "name": "Insurance renews",
           "column_type": "date",
-          "position": 7,
+          "position": 4,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Odometer",
+          "column_type": "number",
+          "position": 5,
+          "width": 120,
+          "description": "Update it now and then; Pulse works out how fast the miles add up"
+        },
+        {
+          "name": "Odometer at last oil change",
+          "column_type": "number",
+          "position": 6,
+          "width": 170
+        },
+        {
+          "name": "Odometer at last rotation",
+          "column_type": "number",
+          "position": 7,
+          "width": 170
         },
         {
           "name": "Notes",

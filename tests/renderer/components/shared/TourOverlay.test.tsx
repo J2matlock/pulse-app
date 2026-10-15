@@ -12,6 +12,10 @@ Object.defineProperty(window, 'api', { value: { invoke: vi.fn(async () => ({ ok:
 import { STEPS, FIRST_RUN_TOUR, TourOverlay, tourSteps } from '../../../../src/renderer/components/shared/TourOverlay'
 import { showMeSteps } from '../../../../src/renderer/views/HelpView'
 import { FAQ_ITEMS as faqItems } from '../../../../src/renderer/views/help/faqData'
+import { firstRuleColumnId, ruleColumnTarget } from '../../../../src/renderer/components/shared/tourSteps'
+import { computeTooltipPosition } from '../../../../src/renderer/components/shared/tourPosition'
+import { useGridStore } from '../../../../src/renderer/stores/gridStore'
+import type { Column } from '../../../../src/shared/types'
 import { setWords, setFeatures, EXISTING_FEATURES } from '../../vocabFixture'
 
 function sourceFiles(dir: string): string[] {
@@ -75,5 +79,46 @@ describe('TourOverlay', () => {
     fireEvent.click(screen.getByRole('button', { name: /Next/ }))
     expect(screen.getByText(/^Step 2 of/)).toBeTruthy()
     vi.useRealTimers()
+  })
+})
+
+describe('deadline colours step (UX-A-03, UX-A-10)', () => {
+  const col = (id: number, column_type: Column['column_type'], config = '{}'): Column =>
+    ({ id, column_type, config, name: `c${id}`, position: id } as unknown as Column)
+  const step = () => STEPS.find(s => s.id === 'deadline-colors')!
+
+  it('points at the first column with a rule, beside it, and says so', () => {
+    useGridStore.setState({ columns: [col(1, 'text'), col(2, 'date'), col(3, 'date', JSON.stringify({ alert_rule_id: 7 })), col(4, 'deadline')] })
+    expect(firstRuleColumnId()).toBe(3)
+    expect(ruleColumnTarget()).toBe('[role="columnheader"][style*="--cw-3)"]')
+    expect(step().target).toBe(ruleColumnTarget())
+    expect(step().position).toBe('right')
+    expect(step().description).toMatch(/This column has a rule/)
+  })
+
+  it('falls back to the whole list when no column has a rule', () => {
+    useGridStore.setState({ columns: [col(1, 'text'), col(2, 'date', 'not json')] })
+    expect(firstRuleColumnId()).toBeNull()
+    expect(step().target).toBe('[data-tour="grid"]')
+    expect(step().position).toBe('bottom')
+    expect(step().description).toMatch(/None of your date columns has a rule yet/)
+  })
+
+  it('no step promises to open a page the short tour never shows', () => {
+    for (const s of STEPS.filter(x => FIRST_RUN_TOUR.includes(x.id))) expect(s.description).not.toMatch(/Let's take a look/)
+  })
+})
+
+describe('tour card position', () => {
+  const rect = (left: number, width: number) => ({ top: 100, left, right: left + width, bottom: 600, width, height: 500 })
+
+  it('sits to the right of the target, clear of the pulse ring', () => {
+    const style = computeTooltipPosition(rect(0, 220), 'right', 300, { width: 1366, height: 768 }, 420, 24)
+    expect(style.left).toBe(244)
+  })
+
+  it('moves to the left of a target near the right edge instead of covering it', () => {
+    const style = computeTooltipPosition(rect(1000, 150), 'right', 300, { width: 1366, height: 768 }, 420, 24)
+    expect(style.left).toBe(1000 - 24 - 420)
   })
 })

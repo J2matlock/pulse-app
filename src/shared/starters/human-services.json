@@ -117,48 +117,48 @@
               "is_identifier": 1
             },
             {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 1,
-              "width": 120
-            },
-            {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 2,
-              "width": 130
-            },
-            {
-              "name": "Email",
-              "column_type": "email",
-              "position": 3,
-              "width": 180
-            },
-            {
-              "name": "Address",
-              "column_type": "address",
-              "position": 4,
-              "width": 200
-            },
-            {
-              "name": "Case Open Date",
-              "column_type": "date",
-              "position": 5,
-              "width": 130
-            },
-            {
               "name": "Next Review",
               "column_type": "date",
-              "position": 6,
+              "position": 1,
               "width": 130,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Annual Assessment",
               "column_type": "date",
-              "position": 7,
+              "position": 2,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 3,
+              "width": 120
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 4,
+              "width": 130
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 5,
+              "width": 180
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 6,
+              "width": 200
+            },
+            {
+              "name": "Case Open Date",
+              "column_type": "date",
+              "position": 7,
+              "width": 130
             },
             {
               "name": "Status",
@@ -544,38 +544,38 @@
               "is_identifier": 1
             },
             {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120
-            },
-            {
               "name": "Annual Assessment Due",
               "column_type": "date",
-              "position": 3,
+              "position": 2,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Quarterly Contact Due",
               "column_type": "date",
-              "position": 4,
+              "position": 3,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Monthly Contact Due",
               "column_type": "date",
-              "position": 5,
+              "position": 4,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Plan of Care Review",
               "column_type": "date",
-              "position": 6,
+              "position": 5,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 6,
+              "width": 120
             },
             {
               "name": "Phone",
@@ -958,43 +958,43 @@
               "is_identifier": 1
             },
             {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120
-            },
-            {
-              "name": "Grade",
-              "column_type": "text",
-              "position": 3,
-              "width": 80
-            },
-            {
-              "name": "School",
-              "column_type": "text",
-              "position": 4,
-              "width": 160
-            },
-            {
               "name": "IEP Annual Review",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Triennial Evaluation",
               "column_type": "date",
-              "position": 6,
+              "position": 3,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Next IEP Meeting",
               "column_type": "date",
-              "position": 7,
+              "position": 4,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 5,
+              "width": 120
+            },
+            {
+              "name": "Grade",
+              "column_type": "text",
+              "position": 6,
+              "width": 80
+            },
+            {
+              "name": "School",
+              "column_type": "text",
+              "position": 7,
+              "width": 160
             },
             {
               "name": "Eligibility Date",
@@ -1384,50 +1384,50 @@
               "is_identifier": 1
             },
             {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120
-            },
-            {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 3,
-              "width": 130
-            },
-            {
-              "name": "Address",
-              "column_type": "address",
-              "position": 4,
-              "width": 200
-            },
-            {
               "name": "Next Check-In",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 140,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Court Date",
               "column_type": "date",
-              "position": 6,
+              "position": 3,
               "width": 130,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Supervision End",
               "column_type": "date",
-              "position": 7,
+              "position": 4,
               "width": 140,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Drug Test Due",
               "column_type": "date",
-              "position": 8,
+              "position": 5,
               "width": 130,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 6,
+              "width": 120
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 7,
+              "width": 130
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 8,
+              "width": 200
             },
             {
               "name": "Supervision Level",
@@ -1786,61 +1786,61 @@
               "is_identifier": 1
             },
             {
-              "name": "Date of Birth",
+              "name": "Auth Expiration",
               "column_type": "date",
               "position": 1,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Next Appointment",
+              "column_type": "date",
+              "position": 2,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Annual Assessment Due",
+              "column_type": "date",
+              "position": 3,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 4,
               "width": 120
             },
             {
               "name": "Phone",
               "column_type": "phone",
-              "position": 2,
+              "position": 5,
               "width": 130
             },
             {
               "name": "Email",
               "column_type": "email",
-              "position": 3,
+              "position": 6,
               "width": 180
             },
             {
               "name": "Insurance",
               "column_type": "text",
-              "position": 4,
+              "position": 7,
               "width": 150
-            },
-            {
-              "name": "Auth Expiration",
-              "column_type": "date",
-              "position": 5,
-              "width": 140,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Auth Sessions Remaining",
               "column_type": "number",
-              "position": 6,
+              "position": 8,
               "width": 150
-            },
-            {
-              "name": "Next Appointment",
-              "column_type": "date",
-              "position": 7,
-              "width": 140,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Treatment Start",
               "column_type": "date",
-              "position": 8,
-              "width": 130
-            },
-            {
-              "name": "Annual Assessment Due",
-              "column_type": "date",
               "position": 9,
-              "width": 150,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+              "width": 130
             },
             {
               "name": "Diagnosis",
@@ -2226,52 +2226,52 @@
               "is_identifier": 1
             },
             {
-              "name": "Medicaid ID",
-              "column_type": "text",
-              "position": 1,
-              "width": 130,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 3,
-              "width": 130
-            },
-            {
               "name": "Last Face-to-Face",
               "column_type": "date",
-              "position": 4,
+              "position": 1,
               "width": 150,
               "config": "{\"note_updates\":[\"visit\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
             },
             {
               "name": "Last Phone Contact",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 150,
               "config": "{\"note_updates\":[\"phone\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
             },
             {
               "name": "Last Care Plan Review",
               "column_type": "date",
-              "position": 6,
+              "position": 3,
               "width": 170,
               "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
             },
             {
               "name": "Last Reassessment",
               "column_type": "date",
-              "position": 7,
+              "position": 4,
               "width": 160,
               "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+            },
+            {
+              "name": "Medicaid ID",
+              "column_type": "text",
+              "position": 5,
+              "width": 130,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 6,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 7,
+              "width": 130
             },
             {
               "name": "Guardian",
@@ -2655,38 +2655,38 @@
               "is_identifier": 1
             },
             {
-              "name": "Student ID",
-              "column_type": "text",
-              "position": 1,
-              "width": 110,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Grade",
-              "column_type": "text",
-              "position": 2,
-              "width": 80
-            },
-            {
               "name": "Last Check-In",
               "column_type": "date",
-              "position": 3,
+              "position": 1,
               "width": 140,
               "config": "{\"note_updates\":[\"meeting\",\"visit\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
             },
             {
               "name": "504/IEP Review Due",
               "column_type": "date",
-              "position": 4,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Next Meeting",
               "column_type": "date",
-              "position": 5,
+              "position": 3,
               "width": 140,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Student ID",
+              "column_type": "text",
+              "position": 4,
+              "width": 110,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Grade",
+              "column_type": "text",
+              "position": 5,
+              "width": 80
             },
             {
               "name": "Focus",
@@ -3000,58 +3000,58 @@
               "is_identifier": 1
             },
             {
-              "name": "Case #",
-              "column_type": "text",
-              "position": 1,
-              "width": 110,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Placement",
-              "column_type": "text",
-              "position": 3,
-              "width": 170
-            },
-            {
-              "name": "Placement Date",
-              "column_type": "date",
-              "position": 4,
-              "width": 140
-            },
-            {
               "name": "Last Home Visit",
               "column_type": "date",
-              "position": 5,
+              "position": 1,
               "width": 150,
               "config": "{\"note_updates\":[\"visit\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
             },
             {
               "name": "Next Court Hearing",
               "column_type": "date",
-              "position": 6,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Last Case Plan Review",
               "column_type": "date",
-              "position": 7,
+              "position": 3,
               "width": 170,
               "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
             },
             {
               "name": "Medical Exam Due",
               "column_type": "date",
-              "position": 8,
+              "position": 4,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Case #",
+              "column_type": "text",
+              "position": 5,
+              "width": 110,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 6,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Placement",
+              "column_type": "text",
+              "position": 7,
+              "width": 170
+            },
+            {
+              "name": "Placement Date",
+              "column_type": "date",
+              "position": 8,
+              "width": 140
             },
             {
               "name": "Caregiver",
@@ -3428,44 +3428,44 @@
               "is_identifier": 1
             },
             {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 1,
-              "width": 120,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 2,
-              "width": 130
-            },
-            {
-              "name": "Address",
-              "column_type": "address",
-              "position": 3,
-              "width": 200
-            },
-            {
               "name": "Next Visit",
               "column_type": "date",
-              "position": 4,
+              "position": 1,
               "width": 130,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Recertification Due",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Plan of Care Signed",
               "column_type": "date",
-              "position": 6,
+              "position": 3,
               "width": 160,
               "config": "{\"alert_rule_name\":\"Every 60 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 4,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 5,
+              "width": 130
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 6,
+              "width": 200
             },
             {
               "name": "Physician",
@@ -3802,51 +3802,51 @@
               "is_identifier": 1
             },
             {
-              "name": "ID #",
-              "column_type": "text",
-              "position": 1,
-              "width": 110,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 3,
-              "width": 130
-            },
-            {
-              "name": "Release Date",
-              "column_type": "date",
-              "position": 4,
-              "width": 130
-            },
-            {
               "name": "Last Contact",
               "column_type": "date",
-              "position": 5,
+              "position": 1,
               "width": 140,
               "config": "{\"note_updates\":[\"visit\",\"phone\",\"meeting\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
             },
             {
               "name": "Next Appointment",
               "column_type": "date",
-              "position": 6,
+              "position": 2,
               "width": 150,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
             },
             {
               "name": "Benefits Application Due",
               "column_type": "date",
-              "position": 7,
+              "position": 3,
               "width": 180,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "ID #",
+              "column_type": "text",
+              "position": 4,
+              "width": 110,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 5,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 6,
+              "width": 130
+            },
+            {
+              "name": "Release Date",
+              "column_type": "date",
+              "position": 7,
+              "width": 130
             },
             {
               "name": "Housing",
@@ -4209,59 +4209,59 @@
               "is_identifier": 1
             },
             {
-              "name": "Medicaid ID",
-              "column_type": "text",
-              "position": 1,
-              "width": 130,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120,
-              "config": "{\"required\":true}"
-            },
-            {
-              "name": "Waiver Program",
-              "column_type": "text",
-              "position": 3,
-              "width": 150
-            },
-            {
               "name": "Last Monthly Contact",
               "column_type": "date",
-              "position": 4,
+              "position": 1,
               "width": 160,
               "config": "{\"note_updates\":[\"visit\",\"phone\",\"meeting\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
             },
             {
               "name": "Last Home Visit",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 150,
               "config": "{\"note_updates\":[\"visit\"],\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
             },
             {
               "name": "Last Service Plan Review",
               "column_type": "date",
-              "position": 6,
+              "position": 3,
               "width": 180,
               "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
             },
             {
               "name": "Last Level of Care Review",
               "column_type": "date",
-              "position": 7,
+              "position": 4,
               "width": 180,
               "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
             },
             {
               "name": "Medicaid Recertification Due",
               "column_type": "date",
-              "position": 8,
+              "position": 5,
               "width": 200,
               "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Medicaid ID",
+              "column_type": "text",
+              "position": 6,
+              "width": 130,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 7,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Waiver Program",
+              "column_type": "text",
+              "position": 8,
+              "width": 150
             },
             {
               "name": "Guardian",

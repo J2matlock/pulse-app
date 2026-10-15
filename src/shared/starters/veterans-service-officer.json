@@ -61,50 +61,17 @@
           "is_required": 1
         },
         {
-          "name": "Branch",
-          "column_type": "dropdown",
-          "position": 1,
-          "width": 130,
-          "config": "{\"options\":[\"Army\",\"Navy\",\"Air Force\",\"Marine Corps\",\"Coast Guard\",\"Space Force\"]}"
-        },
-        {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 2,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Claim type",
-          "column_type": "dropdown",
-          "position": 3,
-          "width": 190,
-          "config": "{\"options\":[\"Disability compensation\",\"Pension\",\"Education\",\"Health care\",\"Burial\"]}"
-        },
-        {
-          "name": "Intent to file date",
-          "column_type": "date",
-          "position": 4,
-          "width": 150
-        },
-        {
           "name": "Claim filed",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 150,
           "description": "Date the claim was filed",
           "config": "{\"alert_rule_name\":\"Intent to file expires\",\"log_changes\":true}"
         },
         {
-          "name": "Decision date",
-          "column_type": "date",
-          "position": 6,
-          "width": 150
-        },
-        {
           "name": "Appeal filed",
           "column_type": "date",
-          "position": 7,
+          "position": 2,
           "width": 150,
           "description": "Date an appeal was filed, if any",
           "config": "{\"alert_rule_name\":\"Appeal window\",\"log_changes\":true}"
@@ -112,9 +79,42 @@
         {
           "name": "Next appointment",
           "column_type": "date",
-          "position": 8,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Branch",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 130,
+          "config": "{\"options\":[\"Army\",\"Navy\",\"Air Force\",\"Marine Corps\",\"Coast Guard\",\"Space Force\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Claim type",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 190,
+          "config": "{\"options\":[\"Disability compensation\",\"Pension\",\"Education\",\"Health care\",\"Burial\"]}"
+        },
+        {
+          "name": "Intent to file date",
+          "column_type": "date",
+          "position": 7,
+          "width": 150
+        },
+        {
+          "name": "Decision date",
+          "column_type": "date",
+          "position": 8,
+          "width": 150
         },
         {
           "name": "Status",

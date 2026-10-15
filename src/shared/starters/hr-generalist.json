@@ -62,35 +62,9 @@
           "is_required": 1
         },
         {
-          "name": "Job title",
-          "column_type": "text",
-          "position": 1,
-          "width": 170
-        },
-        {
-          "name": "Department",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 150,
-          "config": "{\"options\":[\"Operations\",\"Sales\",\"Finance\",\"Customer service\",\"Warehouse\"]}"
-        },
-        {
-          "name": "Manager",
-          "column_type": "text",
-          "position": 3,
-          "width": 160
-        },
-        {
-          "name": "Hire date",
-          "column_type": "date",
-          "position": 4,
-          "width": 150,
-          "is_required": 1
-        },
-        {
           "name": "Probation review done",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 150,
           "description": "Date the end-of-probation review was held",
           "config": "{\"alert_rule_name\":\"Probation ends\",\"log_changes\":true}"
@@ -98,7 +72,7 @@
         {
           "name": "Benefits enrolled",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 150,
           "description": "Date the employee enrolled (or declined) benefits",
           "config": "{\"alert_rule_name\":\"Benefits eligibility\",\"log_changes\":true}"
@@ -106,10 +80,36 @@
         {
           "name": "Yearly review",
           "column_type": "deadline",
-          "position": 7,
+          "position": 3,
           "width": 140,
           "description": "The next review, on the hire anniversary; mark it done each year",
           "config": "{\"alert_rule_name\":\"Review on hire anniversary\"}"
+        },
+        {
+          "name": "Job title",
+          "column_type": "text",
+          "position": 4,
+          "width": 170
+        },
+        {
+          "name": "Department",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 150,
+          "config": "{\"options\":[\"Operations\",\"Sales\",\"Finance\",\"Customer service\",\"Warehouse\"]}"
+        },
+        {
+          "name": "Manager",
+          "column_type": "text",
+          "position": 6,
+          "width": 160
+        },
+        {
+          "name": "Hire date",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "is_required": 1
         },
         {
           "name": "I-9 complete",

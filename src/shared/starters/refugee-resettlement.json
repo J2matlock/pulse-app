@@ -108,64 +108,64 @@
           "is_required": 1
         },
         {
+          "name": "Milestones",
+          "column_type": "deadline",
+          "position": 1,
+          "width": 140,
+          "description": "The next resettlement step; mark it done to move on",
+          "config": "{\"alert_rule_name\":\"Resettlement milestones\"}"
+        },
+        {
+          "name": "Last contact",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
           "name": "Country of origin",
           "column_type": "text",
-          "position": 1,
+          "position": 3,
           "width": 150
         },
         {
           "name": "Language",
           "column_type": "dropdown",
-          "position": 2,
+          "position": 4,
           "width": 130,
           "config": "{\"options\":[\"Arabic\",\"Dari\",\"Pashto\",\"Spanish\",\"Swahili\",\"Ukrainian\",\"Burmese\"]}"
         },
         {
           "name": "Arrival date",
           "column_type": "date",
-          "position": 3,
+          "position": 5,
           "width": 150,
           "is_required": 1
         },
         {
-          "name": "Milestones",
-          "column_type": "deadline",
-          "position": 4,
-          "width": 140,
-          "description": "The next resettlement step; mark it done to move on",
-          "config": "{\"alert_rule_name\":\"Resettlement milestones\"}"
-        },
-        {
           "name": "Household size",
           "column_type": "number",
-          "position": 5,
+          "position": 6,
           "width": 120
         },
         {
           "name": "Address",
           "column_type": "address",
-          "position": 6,
+          "position": 7,
           "width": 160
         },
         {
           "name": "Phone",
           "column_type": "phone",
-          "position": 7,
+          "position": 8,
           "width": 140
         },
         {
           "name": "Employment",
           "column_type": "dropdown",
-          "position": 8,
+          "position": 9,
           "width": 130,
           "config": "{\"options\":[\"Employed\",\"Job search\",\"In training\",\"Not yet\"]}"
-        },
-        {
-          "name": "Last contact",
-          "column_type": "date",
-          "position": 9,
-          "width": 150,
-          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
         }
       ],
       "alertRules": [

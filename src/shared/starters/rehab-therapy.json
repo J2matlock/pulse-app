@@ -140,44 +140,9 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 2,
-          "width": 140
-        },
-        {
-          "name": "Discipline",
-          "column_type": "dropdown",
-          "position": 3,
-          "width": 130,
-          "is_required": 1,
-          "config": "{\"options\": [\"Speech\", \"OT\", \"PT\"]}"
-        },
-        {
-          "name": "Stage",
-          "column_type": "status",
-          "position": 4,
-          "width": 140,
-          "config": "{\"options\": [{\"label\": \"Evaluation\", \"color\": \"#64748b\"}, {\"label\": \"Active\", \"color\": \"#3b82f6\"}, {\"label\": \"On hold\", \"color\": \"#f59e0b\"}, {\"label\": \"Discharged\", \"color\": \"#22c55e\"}]}"
-        },
-        {
-          "name": "Evaluation date",
-          "column_type": "date",
-          "position": 5,
-          "width": 150,
-          "description": "Day of the first evaluation; the signed order is due 30 days later",
-          "is_required": 1
-        },
-        {
           "name": "Order signed on",
           "column_type": "date",
-          "position": 6,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Physician order\", \"log_changes\": true}",
           "description": "Date the doctor signed the plan of care. Due within 30 days of the evaluation"
@@ -185,52 +150,87 @@
         {
           "name": "Plan of care start",
           "column_type": "date",
-          "position": 7,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Plan of care recert\", \"log_changes\": true}",
           "description": "Start of the current plan of care; recertify every 90 days"
         },
         {
-          "name": "Visits authorized",
-          "column_type": "number",
-          "position": 8,
-          "width": 130
-        },
-        {
-          "name": "Authorization start",
-          "column_type": "date",
-          "position": 9,
-          "width": 150
-        },
-        {
-          "name": "Authorization end",
-          "column_type": "date",
-          "position": 10,
-          "width": 150
-        },
-        {
           "name": "Visits left",
           "column_type": "deadline",
-          "position": 11,
+          "position": 3,
           "width": 140,
           "description": "Visits used against the authorization, and when it ends",
           "config": "{\"alert_rule_name\": \"Visits left\"}"
         },
         {
-          "name": "Last progress note",
-          "column_type": "date",
-          "position": 12,
-          "width": 150,
-          "description": "Date of the last progress note (or the evaluation). Update it each time you write one",
-          "config": "{\"log_changes\": true}"
-        },
-        {
           "name": "Progress note due",
           "column_type": "deadline",
-          "position": 13,
+          "position": 4,
           "width": 150,
           "description": "Treatment visits since the last progress note; one is due every 10",
           "config": "{\"alert_rule_name\": \"Progress note every 10 visits\"}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 6,
+          "width": 140
+        },
+        {
+          "name": "Discipline",
+          "column_type": "dropdown",
+          "position": 7,
+          "width": 130,
+          "is_required": 1,
+          "config": "{\"options\": [\"Speech\", \"OT\", \"PT\"]}"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 8,
+          "width": 140,
+          "config": "{\"options\": [{\"label\": \"Evaluation\", \"color\": \"#64748b\"}, {\"label\": \"Active\", \"color\": \"#3b82f6\"}, {\"label\": \"On hold\", \"color\": \"#f59e0b\"}, {\"label\": \"Discharged\", \"color\": \"#22c55e\"}]}"
+        },
+        {
+          "name": "Evaluation date",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Day of the first evaluation; the signed order is due 30 days later",
+          "is_required": 1
+        },
+        {
+          "name": "Visits authorized",
+          "column_type": "number",
+          "position": 10,
+          "width": 130
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 11,
+          "width": 150
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 12,
+          "width": 150
+        },
+        {
+          "name": "Last progress note",
+          "column_type": "date",
+          "position": 13,
+          "width": 150,
+          "description": "Date of the last progress note (or the evaluation). Update it each time you write one",
+          "config": "{\"log_changes\": true}"
         }
       ],
       "alertRules": [

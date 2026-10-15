@@ -174,9 +174,41 @@
           "is_required": 1
         },
         {
+          "name": "Compensation claim filed",
+          "column_type": "date",
+          "position": 1,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Compensation claim deadline\", \"log_changes\": true}",
+          "description": "Date the crime victim compensation claim was filed"
+        },
+        {
+          "name": "Protective order expires",
+          "column_type": "date",
+          "position": 2,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Protective order (30 days ahead)\", \"log_changes\": true}",
+          "description": "Leave blank if there is no order"
+        },
+        {
+          "name": "Last safety check-in",
+          "column_type": "date",
+          "position": 3,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 30 days\", \"log_changes\": true}",
+          "description": "Date you last went over the safety plan together"
+        },
+        {
+          "name": "Restitution follow-up",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
+          "description": "Next time to check on restitution payments"
+        },
+        {
           "name": "Safe contact method",
           "column_type": "dropdown",
-          "position": 1,
+          "position": 5,
           "width": 190,
           "is_required": 1,
           "description": "How it is safe to reach them. Check this every time before you call, text or mail anything",
@@ -185,62 +217,30 @@
         {
           "name": "Safe phone",
           "column_type": "phone",
-          "position": 2,
+          "position": 6,
           "width": 140,
           "description": "A number they said is safe to use"
         },
         {
           "name": "Safe times and notes",
           "column_type": "notes",
-          "position": 3,
+          "position": 7,
           "width": 240,
           "description": "When it is safe to reach them, and whether you may leave a message"
         },
         {
           "name": "Referred by",
           "column_type": "dropdown",
-          "position": 4,
+          "position": 8,
           "width": 150,
           "config": "{\"options\": [\"Police\", \"Prosecutor's office\", \"Hospital\", \"Shelter\", \"Self\", \"Other\"]}"
         },
         {
           "name": "Incident date",
           "column_type": "date",
-          "position": 5,
+          "position": 9,
           "width": 150,
           "description": "The date the crime happened. The compensation claim deadline is counted from it"
-        },
-        {
-          "name": "Compensation claim filed",
-          "column_type": "date",
-          "position": 6,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Compensation claim deadline\", \"log_changes\": true}",
-          "description": "Date the crime victim compensation claim was filed"
-        },
-        {
-          "name": "Protective order expires",
-          "column_type": "date",
-          "position": 7,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Protective order (30 days ahead)\", \"log_changes\": true}",
-          "description": "Leave blank if there is no order"
-        },
-        {
-          "name": "Last safety check-in",
-          "column_type": "date",
-          "position": 8,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Every 30 days\", \"log_changes\": true}",
-          "description": "Date you last went over the safety plan together"
-        },
-        {
-          "name": "Restitution follow-up",
-          "column_type": "date",
-          "position": 9,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
-          "description": "Next time to check on restitution payments"
         },
         {
           "name": "Status",
@@ -369,22 +369,9 @@
           "is_required": 1
         },
         {
-          "name": "Type",
-          "column_type": "dropdown",
-          "position": 1,
-          "width": 170,
-          "config": "{\"options\": [\"Arraignment\", \"Pretrial\", \"Trial\", \"Sentencing\", \"Protective order hearing\", \"Restitution hearing\", \"Parole hearing\"]}"
-        },
-        {
-          "name": "Court",
-          "column_type": "text",
-          "position": 2,
-          "width": 200
-        },
-        {
           "name": "Hearing date",
           "column_type": "date",
-          "position": 3,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Hearing\", \"log_changes\": true}",
           "description": "The date of the hearing; record the result afterwards"
@@ -392,10 +379,23 @@
         {
           "name": "Client reminded",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Remind 2 days before\", \"log_changes\": true}",
           "description": "Date you reminded them, using their safe contact method"
+        },
+        {
+          "name": "Type",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 170,
+          "config": "{\"options\": [\"Arraignment\", \"Pretrial\", \"Trial\", \"Sentencing\", \"Protective order hearing\", \"Restitution hearing\", \"Parole hearing\"]}"
+        },
+        {
+          "name": "Court",
+          "column_type": "text",
+          "position": 4,
+          "width": 200
         },
         {
           "name": "Going with them",

@@ -62,63 +62,63 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 1,
-          "width": 150
-        },
-        {
-          "name": "Guardian",
-          "column_type": "text",
-          "position": 2,
-          "width": 160
-        },
-        {
-          "name": "Guardian phone",
-          "column_type": "phone",
-          "position": 3,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Funding",
-          "column_type": "dropdown",
-          "position": 4,
-          "width": 160,
-          "config": "{\"options\":[\"Medicaid\",\"Private insurance\",\"School district\",\"Self-pay\"]}"
-        },
-        {
-          "name": "Sessions authorized",
-          "column_type": "number",
-          "position": 5,
-          "width": 150
-        },
-        {
-          "name": "Authorization start",
-          "column_type": "date",
-          "position": 6,
-          "width": 150
-        },
-        {
-          "name": "Authorization end",
-          "column_type": "date",
-          "position": 7,
-          "width": 150
-        },
-        {
           "name": "Sessions left",
           "column_type": "deadline",
-          "position": 8,
+          "position": 1,
           "width": 140,
           "config": "{\"alert_rule_name\":\"Sessions left\"}"
         },
         {
           "name": "Treatment plan review",
           "column_type": "date",
-          "position": 9,
+          "position": 2,
           "width": 150,
           "description": "Date of the last treatment plan update; due again in 6 months",
           "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "Guardian",
+          "column_type": "text",
+          "position": 4,
+          "width": 160
+        },
+        {
+          "name": "Guardian phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Funding",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 160,
+          "config": "{\"options\":[\"Medicaid\",\"Private insurance\",\"School district\",\"Self-pay\"]}"
+        },
+        {
+          "name": "Sessions authorized",
+          "column_type": "number",
+          "position": 7,
+          "width": 150
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 8,
+          "width": 150
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 9,
+          "width": 150
         },
         {
           "name": "Status",
@@ -176,21 +176,9 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 2,
-          "width": 200
-        },
-        {
           "name": "RBT certification expires",
           "column_type": "date",
-          "position": 3,
+          "position": 1,
           "width": 150,
           "is_required": 1,
           "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
@@ -198,7 +186,7 @@
         {
           "name": "Last supervision",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 150,
           "description": "Date of the last supervision session",
           "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
@@ -206,9 +194,21 @@
         {
           "name": "CPR expires",
           "column_type": "date",
-          "position": 5,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 4,
+          "width": 140
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 5,
+          "width": 200
         },
         {
           "name": "Status",

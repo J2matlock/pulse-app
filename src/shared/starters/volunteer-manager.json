@@ -141,54 +141,17 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 2,
-          "width": 200
-        },
-        {
-          "name": "Status",
-          "column_type": "dropdown",
-          "position": 3,
-          "width": 130,
-          "config": "{\"options\": [\"Active\", \"On a break\", \"Moved on\"]}",
-          "default_value": "Active"
-        },
-        {
-          "name": "Signed up",
-          "column_type": "date",
-          "position": 4,
-          "width": 140,
-          "description": "The day they signed up",
-          "config": "{\"log_changes\": true}"
-        },
-        {
           "name": "Orientation done",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Orientation\", \"log_changes\": true}",
           "description": "Date they finished orientation; due within 30 days of signing up"
         },
         {
-          "name": "Needs background check",
-          "column_type": "dropdown",
-          "position": 6,
-          "width": 190,
-          "config": "{\"options\": [\"Yes\", \"No\"]}",
-          "description": "Yes for roles with children, vulnerable adults, money or keys"
-        },
-        {
           "name": "Background check",
           "column_type": "date",
-          "position": 7,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Background check\", \"log_changes\": true}",
           "description": "Date of the last check; renews every 2 years"
@@ -196,26 +159,63 @@
         {
           "name": "Last training",
           "column_type": "date",
-          "position": 8,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Date of the last yearly refresher"
         },
         {
-          "name": "Last shift",
-          "column_type": "date",
-          "position": 9,
-          "width": 140,
-          "description": "The last time they came in",
-          "config": "{\"log_changes\": true}"
-        },
-        {
           "name": "Checked in",
           "column_type": "date",
-          "position": 10,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Check-in\", \"log_changes\": true}",
           "description": "Date you last called or wrote to someone you haven’t seen in 60 days"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 6,
+          "width": 200
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 7,
+          "width": 130,
+          "config": "{\"options\": [\"Active\", \"On a break\", \"Moved on\"]}",
+          "default_value": "Active"
+        },
+        {
+          "name": "Signed up",
+          "column_type": "date",
+          "position": 8,
+          "width": 140,
+          "description": "The day they signed up",
+          "config": "{\"log_changes\": true}"
+        },
+        {
+          "name": "Needs background check",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 190,
+          "config": "{\"options\": [\"Yes\", \"No\"]}",
+          "description": "Yes for roles with children, vulnerable adults, money or keys"
+        },
+        {
+          "name": "Last shift",
+          "column_type": "date",
+          "position": 10,
+          "width": 140,
+          "description": "The last time they came in",
+          "config": "{\"log_changes\": true}"
         },
         {
           "name": "Total hours",

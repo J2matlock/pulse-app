@@ -1,11 +1,14 @@
 import type React from 'react'
 
+/** The part of a DOMRect the tour uses, so a spotlight can be built from two elements */
+export type TourRect = Pick<DOMRect, 'top' | 'left' | 'right' | 'bottom' | 'width' | 'height'>
+
 /**
  * Compute tooltip positioning given target rect, preferred position, tooltip height,
  * and viewport dimensions. Shared between TourOverlay and MiniTour.
  */
 export function computeTooltipPosition(
-  rect: DOMRect | null,
+  rect: TourRect | null,
   position: 'top' | 'bottom' | 'left' | 'right',
   tooltipHeight: number,
   viewport: { width: number; height: number },
@@ -32,10 +35,15 @@ export function computeTooltipPosition(
 
   switch (position) {
     case 'right': {
+      const width = Math.min(maxWidth, vw - 48)
       const idealLeft = rect.right + padding
-      const idealTop = rect.top
-      style.left = Math.min(idealLeft, vw - maxWidth - 16)
-      style.top = Math.max(16, Math.min(idealTop, vh - effectiveHeight - 16))
+      // No room on the right: go to the left of the target rather than on top of it
+      if (idealLeft + width > vw - 16 && rect.left - padding - width >= 16) {
+        style.left = rect.left - padding - width
+      } else {
+        style.left = Math.min(idealLeft, vw - maxWidth - 16)
+      }
+      style.top = Math.max(16, Math.min(rect.top, vh - effectiveHeight - 16))
       break
     }
     case 'left': {

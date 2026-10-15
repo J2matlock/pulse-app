@@ -62,54 +62,23 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Address",
-          "column_type": "address",
-          "position": 2,
-          "width": 160
-        },
-        {
-          "name": "Birthday",
-          "column_type": "date",
-          "position": 3,
-          "width": 150
-        },
-        {
           "name": "Next birthday",
           "column_type": "deadline",
-          "position": 4,
+          "position": 1,
           "width": 140,
           "config": "{\"alert_rule_name\":\"Birthday\"}"
         },
         {
-          "name": "Anniversary",
-          "column_type": "date",
-          "position": 5,
-          "width": 150
-        },
-        {
           "name": "Next anniversary",
           "column_type": "deadline",
-          "position": 6,
+          "position": 2,
           "width": 140,
           "config": "{\"alert_rule_name\":\"Wedding anniversary\"}"
         },
         {
-          "name": "Date of loss",
-          "column_type": "date",
-          "position": 7,
-          "width": 150,
-          "description": "When someone close to them died; bereavement care counts from here"
-        },
-        {
           "name": "Bereavement care",
           "column_type": "deadline",
-          "position": 8,
+          "position": 3,
           "width": 140,
           "description": "The next bereavement contact; mark it done to move on",
           "config": "{\"alert_rule_name\":\"Bereavement care\"}"
@@ -117,9 +86,40 @@
         {
           "name": "Last visit",
           "column_type": "date",
-          "position": 9,
+          "position": 4,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 6,
+          "width": 160
+        },
+        {
+          "name": "Birthday",
+          "column_type": "date",
+          "position": 7,
+          "width": 150
+        },
+        {
+          "name": "Anniversary",
+          "column_type": "date",
+          "position": 8,
+          "width": 150
+        },
+        {
+          "name": "Date of loss",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "When someone close to them died; bereavement care counts from here"
         },
         {
           "name": "Care needs",

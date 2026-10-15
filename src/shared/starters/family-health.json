@@ -126,9 +126,63 @@
           "is_required": 1
         },
         {
+          "name": "Checkups",
+          "column_type": "deadline",
+          "position": 1,
+          "width": 150,
+          "description": "The next well-child checkup; mark it done to move on",
+          "config": "{\"alert_rule_name\": \"Well-child checkups\"}"
+        },
+        {
+          "name": "Last physical",
+          "column_type": "date",
+          "position": 2,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Yearly physical\", \"log_changes\": true}",
+          "description": "For adults: date of the last yearly physical"
+        },
+        {
+          "name": "Last dental cleaning",
+          "column_type": "date",
+          "position": 3,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}"
+        },
+        {
+          "name": "Last eye exam",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+        },
+        {
+          "name": "Flu shot",
+          "column_type": "deadline",
+          "position": 5,
+          "width": 150,
+          "description": "This season's flu shot; mark it done when they've had it",
+          "config": "{\"alert_rule_name\": \"Flu shot\"}"
+        },
+        {
+          "name": "Next refill",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
+          "description": "When the next prescription refill is needed"
+        },
+        {
+          "name": "Insurance renews",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Renewal\", \"log_changes\": true}",
+          "description": "Health or dental plan renewal, or when the card expires"
+        },
+        {
           "name": "Who",
           "column_type": "dropdown",
-          "position": 1,
+          "position": 8,
           "width": 110,
           "is_required": 1,
           "description": "Child or adult: decides which checkups apply",
@@ -137,76 +191,22 @@
         {
           "name": "Date of birth",
           "column_type": "date",
-          "position": 2,
+          "position": 9,
           "width": 150,
           "description": "Children's checkups count from here"
         },
         {
-          "name": "Checkups",
-          "column_type": "deadline",
-          "position": 3,
-          "width": 150,
-          "description": "The next well-child checkup; mark it done to move on",
-          "config": "{\"alert_rule_name\": \"Well-child checkups\"}"
-        },
-        {
-          "name": "Last physical",
-          "column_type": "date",
-          "position": 4,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Yearly physical\", \"log_changes\": true}",
-          "description": "For adults: date of the last yearly physical"
-        },
-        {
-          "name": "Last dental cleaning",
-          "column_type": "date",
-          "position": 5,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}"
-        },
-        {
-          "name": "Last eye exam",
-          "column_type": "date",
-          "position": 6,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
-        },
-        {
-          "name": "Flu shot",
-          "column_type": "deadline",
-          "position": 7,
-          "width": 150,
-          "description": "This season's flu shot; mark it done when they've had it",
-          "config": "{\"alert_rule_name\": \"Flu shot\"}"
-        },
-        {
           "name": "Allergies",
           "column_type": "notes",
-          "position": 8,
+          "position": 10,
           "width": 180
         },
         {
           "name": "Medications",
           "column_type": "notes",
-          "position": 9,
+          "position": 11,
           "width": 200,
           "description": "Name, dose and how often"
-        },
-        {
-          "name": "Next refill",
-          "column_type": "date",
-          "position": 10,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
-          "description": "When the next prescription refill is needed"
-        },
-        {
-          "name": "Insurance renews",
-          "column_type": "date",
-          "position": 11,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Renewal\", \"log_changes\": true}",
-          "description": "Health or dental plan renewal, or when the card expires"
         }
       ],
       "alertRules": [

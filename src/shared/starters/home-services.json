@@ -192,36 +192,9 @@
               "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
             },
             {
-              "name": "Address",
-              "column_type": "address",
-              "position": 1,
-              "width": 180,
-              "is_required": 1
-            },
-            {
-              "name": "Gate and pet notes",
-              "column_type": "notes",
-              "position": 2,
-              "width": 220,
-              "description": "Gate code, dogs, where to park, anything the crew should know"
-            },
-            {
-              "name": "Service plan",
-              "column_type": "dropdown",
-              "position": 3,
-              "width": 170,
-              "config": "{\"options\": [\"Weekly mowing\", \"Every 2 weeks\", \"Fertilizer program only\", \"Full service\"]}"
-            },
-            {
-              "name": "Lawn size (sq ft)",
-              "column_type": "number",
-              "position": 4,
-              "width": 140
-            },
-            {
               "name": "Last fertilizer round",
               "column_type": "date",
-              "position": 5,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Fertilizer rounds\", \"log_changes\": true}",
               "description": "Date of the last round; the next one is due in Apr, Jun, Aug or Oct"
@@ -229,7 +202,7 @@
             {
               "name": "Irrigation started",
               "column_type": "date",
-              "position": 6,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Irrigation start-up\", \"log_changes\": true}",
               "description": "Date the sprinklers were turned on; due again each April"
@@ -237,10 +210,37 @@
             {
               "name": "Irrigation winterized",
               "column_type": "date",
-              "position": 7,
+              "position": 3,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Winterize\", \"log_changes\": true}",
               "description": "Date the lines were blown out; due again each October"
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 6,
+              "width": 170,
+              "config": "{\"options\": [\"Weekly mowing\", \"Every 2 weeks\", \"Fertilizer program only\", \"Full service\"]}"
+            },
+            {
+              "name": "Lawn size (sq ft)",
+              "column_type": "number",
+              "position": 7,
+              "width": 140
             }
           ],
           "alertRules": [
@@ -301,26 +301,26 @@
               "is_required": 1
             },
             {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
               "name": "Stage",
               "column_type": "status",
-              "position": 1,
+              "position": 2,
               "width": 140,
               "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
             },
             {
               "name": "Service",
               "column_type": "dropdown",
-              "position": 2,
+              "position": 3,
               "width": 170,
               "config": "{\"options\": [\"Mowing\", \"Fertilizer\", \"Aeration\", \"Cleanup\", \"Irrigation\", \"Landscaping\"]}"
-            },
-            {
-              "name": "Scheduled for",
-              "column_type": "date",
-              "position": 3,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
-              "description": "The day the visit is booked"
             },
             {
               "name": "Completed on",
@@ -447,38 +447,38 @@
               "is_required": 1
             },
             {
-              "name": "Type",
-              "column_type": "dropdown",
-              "position": 1,
-              "width": 140,
-              "config": "{\"options\": [\"Mower\", \"Trimmer\", \"Blower\", \"Aerator\", \"Truck\", \"Trailer\"]}"
-            },
-            {
-              "name": "Hour meter",
-              "column_type": "number",
-              "position": 2,
-              "width": 120,
-              "description": "Engine hours; update it now and then so Pulse can forecast service"
-            },
-            {
-              "name": "Hours at last service",
-              "column_type": "number",
-              "position": 3,
-              "width": 160
-            },
-            {
               "name": "Last service",
               "column_type": "date",
-              "position": 4,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Service\", \"log_changes\": true}"
             },
             {
               "name": "Registration expires",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}"
+            },
+            {
+              "name": "Type",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 140,
+              "config": "{\"options\": [\"Mower\", \"Trimmer\", \"Blower\", \"Aerator\", \"Truck\", \"Trailer\"]}"
+            },
+            {
+              "name": "Hour meter",
+              "column_type": "number",
+              "position": 4,
+              "width": 120,
+              "description": "Engine hours; update it now and then so Pulse can forecast service"
+            },
+            {
+              "name": "Hours at last service",
+              "column_type": "number",
+              "position": 5,
+              "width": 160
             },
             {
               "name": "Notes",
@@ -1112,37 +1112,9 @@
               "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
             },
             {
-              "name": "Address",
-              "column_type": "address",
-              "position": 1,
-              "width": 180,
-              "is_required": 1
-            },
-            {
-              "name": "Gate and pet notes",
-              "column_type": "notes",
-              "position": 2,
-              "width": 220,
-              "description": "Gate code, dogs, where to park, anything the crew should know"
-            },
-            {
-              "name": "Service plan",
-              "column_type": "dropdown",
-              "position": 3,
-              "width": 170,
-              "config": "{\"options\": [\"Quarterly\", \"Monthly\", \"One-time\", \"Termite protection\"]}"
-            },
-            {
-              "name": "Pests seen",
-              "column_type": "text",
-              "position": 4,
-              "width": 180,
-              "description": "What the customer has been seeing"
-            },
-            {
               "name": "Last quarterly service",
               "column_type": "date",
-              "position": 5,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every 3 months\", \"log_changes\": true}",
               "description": "Date of the last plan visit; the next is due 3 months later"
@@ -1150,10 +1122,38 @@
             {
               "name": "Termite protection renews",
               "column_type": "date",
-              "position": 6,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Renews\", \"log_changes\": true}",
               "description": "Yearly termite bond or warranty renewal"
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 3,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 4,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 5,
+              "width": 170,
+              "config": "{\"options\": [\"Quarterly\", \"Monthly\", \"One-time\", \"Termite protection\"]}"
+            },
+            {
+              "name": "Pests seen",
+              "column_type": "text",
+              "position": 6,
+              "width": 180,
+              "description": "What the customer has been seeing"
             }
           ],
           "alertRules": [
@@ -1202,41 +1202,41 @@
               "is_required": 1
             },
             {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
+              "name": "Follow-up visit",
+              "column_type": "date",
+              "position": 2,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Follow-up visit\", \"log_changes\": true}",
+              "description": "Date you went back to check the treatment worked"
+            },
+            {
               "name": "Stage",
               "column_type": "status",
-              "position": 1,
+              "position": 3,
               "width": 140,
               "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
             },
             {
               "name": "Service",
               "column_type": "dropdown",
-              "position": 2,
+              "position": 4,
               "width": 170,
               "config": "{\"options\": [\"Quarterly service\", \"Treatment\", \"Inspection\", \"Termite\"]}"
             },
             {
-              "name": "Scheduled for",
-              "column_type": "date",
-              "position": 3,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
-              "description": "The day the visit is booked"
-            },
-            {
               "name": "Completed on",
               "column_type": "date",
-              "position": 4,
+              "position": 5,
               "width": 150,
               "description": "Filled in when the visit moves to Done"
-            },
-            {
-              "name": "Follow-up visit",
-              "column_type": "date",
-              "position": 5,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Follow-up visit\", \"log_changes\": true}",
-              "description": "Date you went back to check the treatment worked"
             },
             {
               "name": "Products used",
@@ -1372,38 +1372,38 @@
               "is_required": 1
             },
             {
+              "name": "Applicator license expires",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+            },
+            {
+              "name": "Last safety training",
+              "column_type": "date",
+              "position": 2,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            },
+            {
               "name": "Phone",
               "column_type": "phone",
-              "position": 1,
+              "position": 3,
               "width": 140
             },
             {
               "name": "Applicator license number",
               "column_type": "text",
-              "position": 2,
+              "position": 4,
               "width": 180,
               "is_required": 1
             },
             {
-              "name": "Applicator license expires",
-              "column_type": "date",
-              "position": 3,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
-            },
-            {
               "name": "Training credits this cycle",
               "column_type": "number",
-              "position": 4,
+              "position": 5,
               "width": 180,
               "description": "Continuing education credits toward renewal"
-            },
-            {
-              "name": "Last safety training",
-              "column_type": "date",
-              "position": 5,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
             }
           ],
           "alertRules": [
@@ -1928,30 +1928,9 @@
               "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
             },
             {
-              "name": "Address",
-              "column_type": "address",
-              "position": 1,
-              "width": 180,
-              "is_required": 1
-            },
-            {
-              "name": "Gate and pet notes",
-              "column_type": "notes",
-              "position": 2,
-              "width": 220,
-              "description": "Gate code, dogs, where to park, anything the crew should know"
-            },
-            {
-              "name": "Service plan",
-              "column_type": "dropdown",
-              "position": 3,
-              "width": 170,
-              "config": "{\"options\": [\"Maintenance agreement\", \"Pay per visit\"]}"
-            },
-            {
               "name": "AC tune-up",
               "column_type": "date",
-              "position": 4,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Spring AC tune-up\", \"log_changes\": true}",
               "description": "Date of the last cooling tune-up; due again each spring"
@@ -1959,7 +1938,7 @@
             {
               "name": "Furnace tune-up",
               "column_type": "date",
-              "position": 5,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Fall furnace tune-up\", \"log_changes\": true}",
               "description": "Date of the last heating tune-up; due again each fall"
@@ -1967,10 +1946,31 @@
             {
               "name": "Filter changed",
               "column_type": "date",
-              "position": 6,
+              "position": 3,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every 90 days\", \"log_changes\": true}",
               "description": "Date the filter was last changed"
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 6,
+              "width": 170,
+              "config": "{\"options\": [\"Maintenance agreement\", \"Pay per visit\"]}"
             },
             {
               "name": "Filter size",
@@ -2036,26 +2036,26 @@
               "is_required": 1
             },
             {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
               "name": "Stage",
               "column_type": "status",
-              "position": 1,
+              "position": 2,
               "width": 140,
               "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
             },
             {
               "name": "Service",
               "column_type": "dropdown",
-              "position": 2,
+              "position": 3,
               "width": 170,
               "config": "{\"options\": [\"Tune-up\", \"Repair\", \"Install\", \"Filter change\"]}"
-            },
-            {
-              "name": "Scheduled for",
-              "column_type": "date",
-              "position": 3,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
-              "description": "The day the visit is booked"
             },
             {
               "name": "Completed on",
@@ -2183,31 +2183,31 @@
               "description": "e.g. \"Dubois – furnace\""
             },
             {
+              "name": "Warranty ends",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Warranty\", \"log_changes\": true}",
+              "description": "Parts or labor warranty end date"
+            },
+            {
               "name": "Type",
               "column_type": "dropdown",
-              "position": 1,
+              "position": 2,
               "width": 140,
               "config": "{\"options\": [\"Furnace\", \"Air conditioner\", \"Heat pump\", \"Boiler\", \"Mini-split\", \"Water heater\"]}"
             },
             {
               "name": "Make and model",
               "column_type": "text",
-              "position": 2,
+              "position": 3,
               "width": 180
             },
             {
               "name": "Installed",
               "column_type": "date",
-              "position": 3,
-              "width": 140
-            },
-            {
-              "name": "Warranty ends",
-              "column_type": "date",
               "position": 4,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Warranty\", \"log_changes\": true}",
-              "description": "Parts or labor warranty end date"
+              "width": 140
             },
             {
               "name": "Refrigerant",
@@ -2263,40 +2263,40 @@
               "is_required": 1
             },
             {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 1,
-              "width": 140
-            },
-            {
-              "name": "EPA 608 certification",
-              "column_type": "dropdown",
-              "position": 2,
-              "width": 170,
-              "config": "{\"options\": [\"Type I\", \"Type II\", \"Type III\", \"Universal\"]}",
-              "is_required": 1,
-              "description": "Does not expire, but you need it on file"
-            },
-            {
               "name": "State license expires",
               "column_type": "date",
-              "position": 3,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
             },
             {
               "name": "Driver's license expires",
               "column_type": "date",
-              "position": 4,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
             },
             {
               "name": "Last safety training",
               "column_type": "date",
-              "position": 5,
+              "position": 3,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 4,
+              "width": 140
+            },
+            {
+              "name": "EPA 608 certification",
+              "column_type": "dropdown",
+              "position": 5,
+              "width": 170,
+              "config": "{\"options\": [\"Type I\", \"Type II\", \"Type III\", \"Universal\"]}",
+              "is_required": 1,
+              "description": "Does not expire, but you need it on file"
             }
           ],
           "alertRules": [
@@ -2935,50 +2935,9 @@
               "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
             },
             {
-              "name": "Address",
-              "column_type": "address",
-              "position": 1,
-              "width": 180,
-              "is_required": 1
-            },
-            {
-              "name": "Gate and pet notes",
-              "column_type": "notes",
-              "position": 2,
-              "width": 220,
-              "description": "Gate code, dogs, where to park, anything the crew should know"
-            },
-            {
-              "name": "Service plan",
-              "column_type": "dropdown",
-              "position": 3,
-              "width": 170,
-              "config": "{\"options\": [\"Weekly service\", \"Every 2 weeks\", \"Opening and closing only\"]}"
-            },
-            {
-              "name": "Pool type",
-              "column_type": "dropdown",
-              "position": 4,
-              "width": 130,
-              "config": "{\"options\": [\"Chlorine\", \"Salt\", \"Spa / hot tub\"]}"
-            },
-            {
-              "name": "Gallons",
-              "column_type": "number",
-              "position": 5,
-              "width": 110
-            },
-            {
-              "name": "Pump and filter",
-              "column_type": "text",
-              "position": 6,
-              "width": 180,
-              "description": "Make and model, filter type"
-            },
-            {
               "name": "Opened",
               "column_type": "date",
-              "position": 7,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Opening\", \"log_changes\": true}",
               "description": "Date the pool was opened; due again each May"
@@ -2986,7 +2945,7 @@
             {
               "name": "Closed",
               "column_type": "date",
-              "position": 8,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Closing\", \"log_changes\": true}",
               "description": "Date the pool was closed; due again each September"
@@ -2994,10 +2953,51 @@
             {
               "name": "Filter cleaned",
               "column_type": "date",
-              "position": 9,
+              "position": 3,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every 3 months\", \"log_changes\": true}",
               "description": "Date the filter was last cleaned"
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 6,
+              "width": 170,
+              "config": "{\"options\": [\"Weekly service\", \"Every 2 weeks\", \"Opening and closing only\"]}"
+            },
+            {
+              "name": "Pool type",
+              "column_type": "dropdown",
+              "position": 7,
+              "width": 130,
+              "config": "{\"options\": [\"Chlorine\", \"Salt\", \"Spa / hot tub\"]}"
+            },
+            {
+              "name": "Gallons",
+              "column_type": "number",
+              "position": 8,
+              "width": 110
+            },
+            {
+              "name": "Pump and filter",
+              "column_type": "text",
+              "position": 9,
+              "width": 180,
+              "description": "Make and model, filter type"
             }
           ],
           "alertRules": [
@@ -3056,26 +3056,26 @@
               "is_required": 1
             },
             {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
               "name": "Stage",
               "column_type": "status",
-              "position": 1,
+              "position": 2,
               "width": 140,
               "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
             },
             {
               "name": "Service",
               "column_type": "dropdown",
-              "position": 2,
+              "position": 3,
               "width": 170,
               "config": "{\"options\": [\"Weekly cleaning\", \"Opening\", \"Closing\", \"Repair\", \"Green pool cleanup\"]}"
-            },
-            {
-              "name": "Scheduled for",
-              "column_type": "date",
-              "position": 3,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
-              "description": "The day the visit is booked"
             },
             {
               "name": "Completed on",
@@ -3711,37 +3711,9 @@
               "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
             },
             {
-              "name": "Address",
-              "column_type": "address",
-              "position": 1,
-              "width": 180,
-              "is_required": 1
-            },
-            {
-              "name": "Gate and pet notes",
-              "column_type": "notes",
-              "position": 2,
-              "width": 220,
-              "description": "Gate code, dogs, where to park, anything the crew should know"
-            },
-            {
-              "name": "Service plan",
-              "column_type": "dropdown",
-              "position": 3,
-              "width": 170,
-              "config": "{\"options\": [\"Yearly\", \"Twice a year\", \"One-time\"]}"
-            },
-            {
-              "name": "Stories",
-              "column_type": "number",
-              "position": 4,
-              "width": 90,
-              "description": "For ladders and gutter length"
-            },
-            {
               "name": "Last chimney sweep",
               "column_type": "date",
-              "position": 5,
+              "position": 1,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
               "description": "Date of the last sweep; due again a year later"
@@ -3749,7 +3721,7 @@
             {
               "name": "Gutters cleaned",
               "column_type": "date",
-              "position": 6,
+              "position": 2,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Spring and fall\", \"log_changes\": true}",
               "description": "Date the gutters were last cleaned; due each May and November"
@@ -3757,16 +3729,44 @@
             {
               "name": "Windows washed",
               "column_type": "date",
-              "position": 7,
+              "position": 3,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
             },
             {
               "name": "Dryer vent cleaned",
               "column_type": "date",
-              "position": 8,
+              "position": 4,
               "width": 160,
               "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 5,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 6,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 7,
+              "width": 170,
+              "config": "{\"options\": [\"Yearly\", \"Twice a year\", \"One-time\"]}"
+            },
+            {
+              "name": "Stories",
+              "column_type": "number",
+              "position": 8,
+              "width": 90,
+              "description": "For ladders and gutter length"
             }
           ],
           "alertRules": [
@@ -3817,26 +3817,26 @@
               "is_required": 1
             },
             {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 1,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
               "name": "Stage",
               "column_type": "status",
-              "position": 1,
+              "position": 2,
               "width": 140,
               "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
             },
             {
               "name": "Service",
               "column_type": "dropdown",
-              "position": 2,
+              "position": 3,
               "width": 170,
               "config": "{\"options\": [\"Chimney sweep\", \"Chimney inspection\", \"Gutter cleaning\", \"Window washing\", \"Dryer vent\", \"Repair\"]}"
-            },
-            {
-              "name": "Scheduled for",
-              "column_type": "date",
-              "position": 3,
-              "width": 160,
-              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
-              "description": "The day the visit is booked"
             },
             {
               "name": "Completed on",

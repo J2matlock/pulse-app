@@ -62,63 +62,16 @@
           "is_required": 1
         },
         {
-          "name": "Grade",
-          "column_type": "dropdown",
-          "position": 1,
-          "width": 90,
-          "config": "{\"options\":[\"K\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"]}"
-        },
-        {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 2,
-          "width": 150,
-          "is_required": 1
-        },
-        {
-          "name": "Guardian",
-          "column_type": "text",
-          "position": 3,
-          "width": 160
-        },
-        {
-          "name": "Guardian phone",
-          "column_type": "phone",
-          "position": 4,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Allergies",
-          "column_type": "text",
-          "position": 5,
-          "width": 160,
-          "description": "Food, medicine or other allergies"
-        },
-        {
-          "name": "Conditions",
-          "column_type": "tag",
-          "position": 6,
-          "width": 140,
-          "description": "Health conditions, e.g. asthma, diabetes"
-        },
-        {
-          "name": "Immunizations complete",
-          "column_type": "checkbox",
-          "position": 7,
-          "width": 130
-        },
-        {
           "name": "Medication authorization expires",
           "column_type": "date",
-          "position": 8,
+          "position": 1,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Expires (30-day warning)\",\"log_changes\":true}"
         },
         {
           "name": "Health plan review",
           "column_type": "date",
-          "position": 9,
+          "position": 2,
           "width": 150,
           "description": "Date of the last health plan review",
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
@@ -126,7 +79,7 @@
         {
           "name": "Vision screening",
           "column_type": "date",
-          "position": 10,
+          "position": 3,
           "width": 150,
           "description": "Date of the last vision screening",
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
@@ -134,10 +87,57 @@
         {
           "name": "Hearing screening",
           "column_type": "date",
-          "position": 11,
+          "position": 4,
           "width": 150,
           "description": "Date of the last hearing screening",
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Grade",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 90,
+          "config": "{\"options\":[\"K\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"]}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Guardian",
+          "column_type": "text",
+          "position": 7,
+          "width": 160
+        },
+        {
+          "name": "Guardian phone",
+          "column_type": "phone",
+          "position": 8,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Allergies",
+          "column_type": "text",
+          "position": 9,
+          "width": 160,
+          "description": "Food, medicine or other allergies"
+        },
+        {
+          "name": "Conditions",
+          "column_type": "tag",
+          "position": 10,
+          "width": 140,
+          "description": "Health conditions, e.g. asthma, diabetes"
+        },
+        {
+          "name": "Immunizations complete",
+          "column_type": "checkbox",
+          "position": 11,
+          "width": 130
         }
       ],
       "alertRules": [
