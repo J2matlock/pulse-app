@@ -16,6 +16,7 @@ import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { shortDate } from '../../../shared/dates'
 import { PrimaryButton } from '../ui/Button'
+import { loadNoteDraft, useHasNoteDraft } from '../../utils/noteDrafts'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
 type ContactType = typeof CONTACT_TYPES[number]
@@ -126,6 +127,12 @@ export function ProfileHeader({
   const [newContactValue, setNewContactValue] = useState('')
 
   const rowId = row.row_id
+  const hasDraft = useHasNoteDraft(rowId)
+  useEffect(() => { void loadNoteDraft(rowId) }, [rowId])
+  function goToDraft() {
+    onAddNote?.()
+    document.querySelector('[data-testid="note-composer"]')?.scrollIntoView?.({ block: 'center' })
+  }
   const loadTags = useCallback(async () => {
     try {
       const tags = await invoke<Tag[]>(IPC.TAG_GET_ALL, gridId)
@@ -385,6 +392,14 @@ export function ProfileHeader({
                 {clientName}
               </h1>
               {isSample && <SamplePill />}
+              {hasDraft && (
+                // An unsent note waits in the note box (kept across a lock, a quit or a crash)
+                <button type="button" onClick={goToDraft} data-testid="unsent-note-chip"
+                  className="hit-44 inline-flex items-center gap-2 px-3 py-1 rounded-full text-base font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                  Unsent {t('activity')}
+                </button>
+              )}
               {statusIdentifiers.map(col => {
                 const val = row[`col_${col.id}` as keyof GridRow] as string | null
                 if (!val) return null

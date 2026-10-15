@@ -28,6 +28,7 @@ const ReportsView = lazy(() => import('./views/ReportsView'))
 import { CommandPalette } from './components/shared/CommandPalette'
 import { KeyboardShortcutsModal } from './components/shared/KeyboardShortcutsModal'
 import { ToastHost } from './components/shared/ToastHost'
+import { UnsentNotesNotice } from './components/shared/UnsentNotesNotice'
 import { TourOverlay } from './components/shared/TourOverlay'
 import { MiniTour } from './components/shared/MiniTour'
 import { ScreenHint } from './components/onboarding/ScreenHint'
@@ -367,6 +368,7 @@ export default function App(): React.ReactElement {
         )}
       </HashRouter>
       <ToastHost withUndo />
+      <UnsentNotesNotice />
     </AppMotionConfig>
   )
 }
