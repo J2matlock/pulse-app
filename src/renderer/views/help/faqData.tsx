@@ -87,7 +87,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-workspace-share',
     question: 'Can I share my setup with a coworker?',
-    answer: 'Yes. Go to Settings > Words & features and click "Save my whole setup\u2026" under "Share my whole setup". The file holds your {list:many}, columns, deadline rules, checklists and words \u2014 never your {record:many}, {activity:many} or anything about you. Your coworker opens it by double-clicking it, or from "Open a setup file\u2026" in the same place.',
+    answer: 'Yes. Go to Settings > Words & features, open "More settings" at the bottom and click "Save my whole setup\u2026" under "Share my whole setup". The file holds your {list:many}, columns, deadline rules, checklists and words \u2014 never your {record:many}, {activity:many} or anything about you. Your coworker opens it by double-clicking it, or from "Open a setup file\u2026" in the same place.',
     category: 'getting-started',
     keywords: ['coworker', 'colleague', 'team', 'copy my setup'],
   },
@@ -231,14 +231,14 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-cell-history',
     question: 'Can I see what a cell\'s previous value was?',
-    answer: 'Yes! Right-click the cell and choose "View history". Pulse keeps the last 50 changes to each cell: what the value was, when it changed, and what it became. Handy for checking when a status was last updated. Settings > Data says how long history is kept.',
+    answer: 'Yes! Right-click the cell and choose "View history". Pulse keeps the last 50 changes to each cell: what the value was, when it changed, and what it became. Handy for checking when a status was last updated. Settings > Data > More settings says how long history is kept.',
     category: 'caseload-grid',
     keywords: ['old value', 'who changed', 'when did it change', 'audit'],
   },
   {
     id: 'grid-activity-tracking',
     question: 'Can Pulse record when a status or date changed?',
-    answer: 'Yes. Click the \u22ef on the column\'s header (or right-click it), open the column\'s settings and turn on "Keep a history of changes". From then on, every change to a cell in that column is written to the {record}\'s {activityLog} as a "Change" entry with the old and new values. It\'s set per column, and it carries over when you save the {list}\'s layout to share.',
+    answer: 'Yes. Click the \u22ef on the column\'s header (or right-click it), open the column\'s settings, open "More settings" and turn on "Keep a history of changes". From then on, every change to a cell in that column is written to the {record}\'s {activityLog} as a "Change" entry with the old and new values. It\'s set per column, and it carries over when you save the {list}\'s layout to share.',
     category: 'caseload-grid',
     keywords: ['track changes', 'log changes', 'history', 'status changed', 'audit trail'],
   },
@@ -499,7 +499,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-pulse-file',
     question: 'How do I share my {list}\'s columns and checklists with a coworker?',
-    answer: 'Save the {list}\'s layout as a file: on the Templates page, click "Save this {list}\'s layout\u2026". The layout file (it ends in .pulse) holds the columns, deadline rules and checklists — never any {record:many}. Your coworker opens it with "Open a layout file\u2026" on their Templates page. To share your whole setup instead (every {list}, your words and rules), use Settings > Words & features > Share my whole setup.',
+    answer: 'Save the {list}\'s layout as a file: on the Templates page, click "Save this {list}\'s layout\u2026". The layout file (it ends in .pulse) holds the columns, deadline rules and checklists — never any {record:many}. Your coworker opens it with "Open a layout file\u2026" on their Templates page. To share your whole setup instead (every {list}, your words and rules), use Settings > Words & features > More settings > Share my whole setup.',
     category: 'import-export',
     keywords: ['.pulse', 'layout file', 'template file', 'share columns', 'coworker'],
   },
@@ -635,13 +635,13 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-kinds',
     question: 'What kinds of deadlines can Pulse work out?',
-    answer: 'Click the ⋯ on a date column\'s header, choose "Deadline rule" and pick a rule, or make a new one. Under "How is this deadline worked out?" pick one of six: after the date in this column (every 30 days, 6 months, a year); from another date (45 days after the referral date, 60 days before a lease ends); on fixed dates (every March 31, or quarterly on the 15th); by usage (every 5,000 miles or 6 months, whichever comes first); a limited number of visits (12 sessions until an authorization ends); or a series of steps (a 30-day review, a 90-day review, then every year). The preview at the bottom shows what the rule says for one of your {record:many} before you save. "Only when…" makes a deadline apply only while, say, Status is Active.',
+    answer: 'Click the ⋯ on a date column\'s header, choose "Deadline rule" and pick a rule, or make a new one. Under "How is this deadline worked out?" pick one of six: after the date in this column (every 30 days, 6 months, a year); from another date (45 days after the referral date, 60 days before a lease ends); on fixed dates (every March 31, or quarterly on the 15th); by usage (every 5,000 miles or 6 months, whichever comes first); a limited number of visits (12 sessions until an authorization ends); or a series of steps (a 30-day review, a 90-day review, then every year). The preview at the bottom shows what the rule says for one of your {record:many} before you save. "Only when…" (under "More settings") makes a deadline apply only while, say, Status is Active.',
     category: 'dashboard-deadlines',
   },
   {
     id: 'dl-days-off',
     question: 'Can a deadline count working days only, or skip holidays?',
-    answer: 'Yes. In a deadline rule, under "If it lands on a weekend or day off", choose whether the due date stays, moves to the working day before, or moves to the next one. A rule counted in "working days" (like 10 school days before) skips weekends and days off as it counts. Set your weekend and days off in Settings > Deadlines & reminders > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
+    answer: 'Yes. In a deadline rule, open "More settings", then under "If it lands on a weekend or day off" choose whether the due date stays, moves to the working day before, or moves to the next one. A rule counted in "working days" (like 10 school days before) skips weekends and days off as it counts. Set your weekend and days off in Settings > Deadlines & reminders > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
     category: 'dashboard-deadlines',
     keywords: ['business days', 'holidays', 'weekend', 'school days'],
   },

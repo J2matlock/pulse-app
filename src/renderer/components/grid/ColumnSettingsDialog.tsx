@@ -12,6 +12,7 @@ import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CalendarColumnSwitch } from './CalendarColumnSwitch'
 import { dateOnlyOn } from './dateOnly'
 import { SettingSwitchRow } from './SettingSwitchRow'
+import { MoreSettings } from '../settings/MoreSettings'
 
 export interface ColumnSettingsDialogProps {
   column: Column
@@ -40,6 +41,7 @@ export function ColumnSettingsDialog({
   const { t } = useVocab()
   const checklistsOn = useFeature('checklists')
   const stagesOn = useFeature('stages')
+  const doneChecklistShown = takesDeadlineRule(column.column_type) && !!currentAlertRule && checklistsOn
   // A modal: focus goes in, Tab stays in, Escape closes, focus comes back (AUDIT-047)
   const settingsRef = useRef<HTMLDivElement>(null)
   useFocusTrap(settingsRef, true, { onEscape: onClose })
@@ -50,14 +52,6 @@ export function ColumnSettingsDialog({
         <h2 id={`col-settings-${column.id}`} className="text-lg font-semibold text-slate-800 dark:text-slate-100 px-3 mb-2">“{column.name}” settings</h2>
         <div onClick={e => { if ((e.target as HTMLElement).closest('button[data-opens]')) onClose() }}>
         {/* The on/off settings are real switches with a line each on what they do (B-10) */}
-        <SettingSwitchRow
-          icon={<Activity className="w-4 h-4" />}
-          label="Keep a history of changes"
-          description={`Write every change to this column into the ${t('record')}'s notes.`}
-          checked={!!colConfig.log_changes}
-          onChange={onToggleLogChanges}
-        />
-
         {canBeRequired(column.column_type) && (
           <SettingSwitchRow
             icon={<Asterisk className="w-4 h-4" />}
@@ -136,11 +130,22 @@ export function ColumnSettingsDialog({
               value={Array.isArray(colConfig.note_updates) ? colConfig.note_updates : []}
               onChange={onNoteUpdatesChange}
             />
-            {currentAlertRule && checklistsOn && (
-              <DoneChecklistPicker value={colConfig.done_checklist_id ?? null} onChange={onDoneChecklistChange} />
-            )}
           </div>
         )}
+
+        {/* Few use these: folded away, open when one is set (Q1c) */}
+        <MoreSettings changed={!!colConfig.log_changes || (doneChecklistShown && colConfig.done_checklist_id != null)} className="mt-2" data-testid="column-settings-more">
+          <SettingSwitchRow
+            icon={<Activity className="w-4 h-4" />}
+            label="Keep a history of changes"
+            description={`Write every change to this column into the ${t('record')}'s notes.`}
+            checked={!!colConfig.log_changes}
+            onChange={onToggleLogChanges}
+          />
+          {doneChecklistShown && (
+            <DoneChecklistPicker value={colConfig.done_checklist_id ?? null} onChange={onDoneChecklistChange} />
+          )}
+        </MoreSettings>
         </div>
         <div className="flex justify-end mt-4 px-3">
           <button type="button" className="btn-secondary" onClick={onClose}>Close</button>

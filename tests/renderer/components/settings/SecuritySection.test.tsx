@@ -150,6 +150,15 @@ describe('SecuritySection — also re-encrypt my data (P-001)', () => {
     await waitFor(() => expect(screen.queryByText('Your data has a new key. Save a new backup now.')).toBeNull())
   })
 
+  it('revoking keeps the new-key option under Advanced, like the password change (Q1c)', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
+    const box = screen.getByLabelText(/Also give my data a new key/) as HTMLInputElement
+    const details = box.closest('details') as HTMLDetailsElement
+    expect(details.open).toBe(false)
+    expect(details.querySelector('summary')!.textContent).toMatch(/^Advanced: if someone may have this recovery key/)
+  })
+
   it('revoking can re-encrypt too, and only sends the option when ticked', async () => {
     render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Revoke' }))

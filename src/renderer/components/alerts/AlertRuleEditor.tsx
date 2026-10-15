@@ -20,6 +20,9 @@ import { useRuleList } from './useRuleList'
 import { ruleSummary } from '../../../shared/ruleSummary'
 import { usedByText } from '../../stores/alertStore'
 import { KindCards, KindFields, ConditionFields, RulePreview, previewRule } from './RuleKindFields'
+import { RuleColorKey } from './RuleColorKey'
+import { MoreSettings } from '../settings/MoreSettings'
+import { SecondaryButton } from '../ui/Button'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
 // 3 rows: subtle (low-urgency) → medium → vivid (high-urgency)
@@ -259,6 +262,8 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
     ]
   )
   const [expandedThreshold, setExpandedThreshold] = useState<number | null>(null)
+  // An existing rule shows its colors to edit; a new one starts with the standard set as a key
+  const [editColors, setEditColors] = useState(!isNew)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -460,11 +465,6 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                 <span className="text-base text-slate-600 dark:text-slate-300">after the date entered</span>
               </div>
             )}
-            <label className="mt-3 flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input type="checkbox" className="w-5 h-5" checked={endOfMonth} disabled={isSystem}
-                onChange={e => setEndOfMonth(e.target.checked)} />
-              Due by the end of that month
-            </label>
             {hasInterval(interval) && (
               <p className="mt-2 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">
                 <strong>{describeInterval(interval)}.</strong> Colors are measured from that deadline.
@@ -473,20 +473,30 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           </div>
           )}
 
-          {/* A quota's date is the end of its period; moving it would only hide its warnings */}
-          {draft.kind !== 'quota' && (
-          <fieldset>
-            <legend className="text-base font-medium text-slate-700 dark:text-slate-300">If it lands on a weekend or day off</legend>
-            {([[0, 'Leave it on that day'], [1, 'Move it to the working day before'], [2, 'Move it to the next working day']] as const).map(([v, text]) => (
-              <label key={v} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
-                <input type="radio" name="rule-days-off" className="w-5 h-5" checked={businessDays === v} disabled={isSystem} onChange={() => setBusinessDays(v)} />
-                {text}
+          {/* Right as they are for most rules; open when one is set (Q1c) */}
+          <MoreSettings changed={endOfMonth || businessDays !== 0 || draft.condOn} data-testid="rule-more">
+            {isInterval && (
+              <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input type="checkbox" className="w-5 h-5" checked={endOfMonth} disabled={isSystem}
+                  onChange={e => setEndOfMonth(e.target.checked)} />
+                Due by the end of that month
               </label>
-            ))}
-          </fieldset>
-          )}
+            )}
+            {/* A quota's date is the end of its period; moving it would only hide its warnings */}
+            {draft.kind !== 'quota' && (
+            <fieldset>
+              <legend className="text-base font-medium text-slate-700 dark:text-slate-300">If it lands on a weekend or day off</legend>
+              {([[0, 'Leave it on that day'], [1, 'Move it to the working day before'], [2, 'Move it to the next working day']] as const).map(([v, text]) => (
+                <label key={v} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <input type="radio" name="rule-days-off" className="w-5 h-5" checked={businessDays === v} disabled={isSystem} onChange={() => setBusinessDays(v)} />
+                  {text}
+                </label>
+              ))}
+            </fieldset>
+            )}
 
-          {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
+            {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
+          </MoreSettings>
 
           {/* Name and description, under More: a new rule is named after what it does (D-17) */}
           <details open={!isNew} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
@@ -513,121 +523,131 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-base font-medium text-slate-700 dark:text-slate-300">Colors as it gets close</label>
-              {!isSystem && (
+              {!isSystem && editColors && (
                 <button onClick={addThreshold}
                   className="hit-44 flex items-center gap-1 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
                   <Plus className="w-4 h-4" />Add a color
                 </button>
               )}
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-              Click a color step to change it.
-            </p>
+            {/* A new rule starts with the usual colors: show them as a key, with the editor one click away (Q1c) */}
+            {!editColors ? (
+              <div className="space-y-2" data-testid="rule-colors-key">
+                <RuleColorKey rule={{ name: 'this rule', thresholds }} compact />
+                <SecondaryButton onClick={() => setEditColors(true)}>Change colors…</SecondaryButton>
+              </div>
+            ) : (
+            <>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
+                Click a color step to change it.
+              </p>
 
-            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet. Add one to say how many days before the date the cell changes color.</p>}
+              {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet. Add one to say how many days before the date the cell changes color.</p>}
 
-            <div className="space-y-2">
-              {thresholds.map((t, i) => {
-                const absValue = Math.abs(t.daysBefore)
-                const direction: 'before' | 'after' = t.daysBefore >= 0 ? 'before' : 'after'
-                const isOpen = expandedThreshold === i
-                const { className: colorClass, style: colorStyle } = resolveAlertColor(t.bgClass)
+              <div className="space-y-2">
+                {thresholds.map((t, i) => {
+                  const absValue = Math.abs(t.daysBefore)
+                  const direction: 'before' | 'after' = t.daysBefore >= 0 ? 'before' : 'after'
+                  const isOpen = expandedThreshold === i
+                  const { className: colorClass, style: colorStyle } = resolveAlertColor(t.bgClass)
 
-                return (
-                  <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
-                    {/* Summary row — click to expand/collapse color picker */}
-                    <div
-                      className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                        isOpen ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                      }`}
-                      onClick={() => setExpandedThreshold(isOpen ? null : i)}
-                    >
-                      {/* Color preview swatch — a real button, so keyboard users can change the color (D-27) */}
-                      <button
-                        type="button"
-                        aria-expanded={isOpen}
-                        aria-label={`Change color for ${t.label || 'this step'}`}
-                        disabled={isSystem}
-                        onClick={e => { e.stopPropagation(); setExpandedThreshold(isOpen ? null : i) }}
-                        className={`hit-44 w-6 h-6 rounded-sm flex-shrink-0 border border-slate-300 dark:border-slate-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${colorClass}`}
-                        style={colorStyle}
-                      />
-
-                      {/* Timing, then the step's name; the name drops to its own line when the row is narrow */}
-                      <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-                        {!isSystem ? (
-                          <>
-                            {/* Room for three digits beside the spinner arrows: "60" was cut to "6(" */}
-                            <input
-                              type="number" min={0}
-                              className="input w-[9ch] min-w-[9ch] flex-shrink-0 px-2 text-center py-0.5 text-base"
-                              style={{ minHeight: 44 }}
-                              aria-label={`Number of days for ${t.label || 'this step'}`}
-                              value={absValue}
-                              onChange={e => { e.stopPropagation(); setThresholdDays(i, parseInt(e.target.value, 10) || 0, direction) }}
-                              onClick={e => e.stopPropagation()}
-                              disabled={isSystem}
-                            />
-                            {/* .input is full width: as a flex item it took the name box's room too */}
-                            <select
-                              className="input w-auto flex-shrink-0 py-0.5 text-base"
-                              style={{ minHeight: 44 }}
-                              aria-label={`Before or past the deadline, for ${t.label || 'this step'}`}
-                              value={direction}
-                              onChange={e => { e.stopPropagation(); setThresholdDays(i, absValue, e.target.value as 'before' | 'after') }}
-                              onClick={e => e.stopPropagation()}
-                              disabled={isSystem}
-                            >
-                              <option value="before">days before deadline</option>
-                              <option value="after">days past deadline</option>
-                            </select>
-                          </>
-                        ) : (
-                          <span className="text-sm text-slate-600 dark:text-slate-300">
-                            {absValue} {direction === 'before' ? 'days before' : 'days past'} deadline
-                          </span>
-                        )}
-                        {/* The step's name: the color key, the shape's tooltip and screen readers say it */}
-                        <input
-                          type="text"
-                          className="input flex-1 basis-40 min-w-[10rem] py-0.5 text-base"
-                          style={{ minHeight: 44 }}
-                          value={t.label}
-                          onChange={e => { e.stopPropagation(); updateThreshold(i, { label: e.target.value }) }}
-                          onClick={e => e.stopPropagation()}
+                  return (
+                    <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
+                      {/* Summary row — click to expand/collapse color picker */}
+                      <div
+                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                          isOpen ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                        }`}
+                        onClick={() => setExpandedThreshold(isOpen ? null : i)}
+                      >
+                        {/* Color preview swatch — a real button, so keyboard users can change the color (D-27) */}
+                        <button
+                          type="button"
+                          aria-expanded={isOpen}
+                          aria-label={`Change color for ${t.label || 'this step'}`}
                           disabled={isSystem}
-                          aria-label="Name for this color step"
-                          title="A name for this color step, like “Due soon”. It shows in the color key and is read out by screen readers."
-                          placeholder="Name, like “Due soon”"
+                          onClick={e => { e.stopPropagation(); setExpandedThreshold(isOpen ? null : i) }}
+                          className={`hit-44 w-6 h-6 rounded-sm flex-shrink-0 border border-slate-300 dark:border-slate-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${colorClass}`}
+                          style={colorStyle}
                         />
+
+                        {/* Timing, then the step's name; the name drops to its own line when the row is narrow */}
+                        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                          {!isSystem ? (
+                            <>
+                              {/* Room for three digits beside the spinner arrows: "60" was cut to "6(" */}
+                              <input
+                                type="number" min={0}
+                                className="input w-[9ch] min-w-[9ch] flex-shrink-0 px-2 text-center py-0.5 text-base"
+                                style={{ minHeight: 44 }}
+                                aria-label={`Number of days for ${t.label || 'this step'}`}
+                                value={absValue}
+                                onChange={e => { e.stopPropagation(); setThresholdDays(i, parseInt(e.target.value, 10) || 0, direction) }}
+                                onClick={e => e.stopPropagation()}
+                                disabled={isSystem}
+                              />
+                              {/* .input is full width: as a flex item it took the name box's room too */}
+                              <select
+                                className="input w-auto flex-shrink-0 py-0.5 text-base"
+                                style={{ minHeight: 44 }}
+                                aria-label={`Before or past the deadline, for ${t.label || 'this step'}`}
+                                value={direction}
+                                onChange={e => { e.stopPropagation(); setThresholdDays(i, absValue, e.target.value as 'before' | 'after') }}
+                                onClick={e => e.stopPropagation()}
+                                disabled={isSystem}
+                              >
+                                <option value="before">days before deadline</option>
+                                <option value="after">days past deadline</option>
+                              </select>
+                            </>
+                          ) : (
+                            <span className="text-sm text-slate-600 dark:text-slate-300">
+                              {absValue} {direction === 'before' ? 'days before' : 'days past'} deadline
+                            </span>
+                          )}
+                          {/* The step's name: the color key, the shape's tooltip and screen readers say it */}
+                          <input
+                            type="text"
+                            className="input flex-1 basis-40 min-w-[10rem] py-0.5 text-base"
+                            style={{ minHeight: 44 }}
+                            value={t.label}
+                            onChange={e => { e.stopPropagation(); updateThreshold(i, { label: e.target.value }) }}
+                            onClick={e => e.stopPropagation()}
+                            disabled={isSystem}
+                            aria-label="Name for this color step"
+                            title="A name for this color step, like “Due soon”. It shows in the color key and is read out by screen readers."
+                            placeholder="Name, like “Due soon”"
+                          />
+                        </div>
+
+                        {!isSystem && (
+                          <button
+                            onClick={e => { e.stopPropagation(); removeThreshold(i) }}
+                            aria-label="Remove this color step"
+                            title="Remove this color step"
+                            className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
-                      {!isSystem && (
-                        <button
-                          onClick={e => { e.stopPropagation(); removeThreshold(i) }}
-                          aria-label="Remove this color step"
-                          title="Remove this color step"
-                          className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      {/* Expanded color picker */}
+                      {isOpen && !isSystem && (
+                        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                          <ColorPicker
+                            value={t.bgClass}
+                            onChange={v => updateThreshold(i, { bgClass: v })}
+                            disabled={isSystem}
+                          />
+                        </div>
                       )}
                     </div>
-
-                    {/* Expanded color picker */}
-                    {isOpen && !isSystem && (
-                      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
-                        <ColorPicker
-                          value={t.bgClass}
-                          onChange={v => updateThreshold(i, { bgClass: v })}
-                          disabled={isSystem}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </>
+            )}
           </div>
 
           <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />

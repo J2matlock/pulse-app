@@ -145,4 +145,25 @@ describe('BackupSection', () => {
     expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Later' })).toBeNull()
   })
+
+  describe('"More settings" (Q1c)', () => {
+    it('folds frequency and reminder days away at their defaults, still reachable by label', async () => {
+      scheduled = { ...scheduled, enabled: true }
+      render(<BackupSection saveSetting={vi.fn()} />)
+      const freq = await screen.findByLabelText('Frequency')
+      expect((freq.closest('details') as HTMLDetailsElement).open).toBe(false)
+      const days = screen.getByLabelText('Remind after how many days without a backup?')
+      expect((days.closest('details') as HTMLDetailsElement).open).toBe(false)
+      // Destination and Run now stay in view
+      expect(screen.getByRole('button', { name: 'Run now' }).closest('details')).toBeNull()
+    })
+
+    it('opens by itself when either was changed', async () => {
+      scheduled = { ...scheduled, enabled: true, intervalHours: 168 }
+      settings = { backup_reminder_days: '14' }
+      render(<BackupSection saveSetting={vi.fn()} />)
+      await waitFor(() => expect((screen.getByLabelText('Frequency').closest('details') as HTMLDetailsElement).open).toBe(true))
+      await waitFor(() => expect((screen.getByLabelText('Remind after how many days without a backup?').closest('details') as HTMLDetailsElement).open).toBe(true))
+    })
+  })
 })

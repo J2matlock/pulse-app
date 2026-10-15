@@ -11,6 +11,7 @@ import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { friendlyError } from '../../utils/friendlyError'
+import { MoreSettings } from '../settings/MoreSettings'
 
 interface Props {
   gridId: number
@@ -348,44 +349,47 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 </div>
               </div>
             </label>
-            <label
-              className="flex items-center gap-3 cursor-pointer"
-              style={{ minHeight: 44 }}
-            >
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
-                checked={includeSystemActivity}
-                onChange={e => setIncludeSystemActivity(e.target.checked)}
-              />
-              <div>
-                <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
-                  Include system activity
+            {/* Both on suits nearly every report (Q1c) */}
+            <MoreSettings changed={!includeSystemActivity || !includeTaskSummary} data-testid="report-more">
+              <label
+                className="flex items-center gap-3 cursor-pointer"
+                style={{ minHeight: 44 }}
+              >
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+                  checked={includeSystemActivity}
+                  onChange={e => setIncludeSystemActivity(e.target.checked)}
+                />
+                <div>
+                  <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
+                    Include system activity
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Auto-logged events: value changes, checklist updates, label changes
+                  </div>
                 </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Auto-logged events: value changes, checklist updates, label changes
+              </label>
+              <label
+                className="flex items-center gap-3 cursor-pointer"
+                style={{ minHeight: 44 }}
+              >
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+                  checked={includeTaskSummary}
+                  onChange={e => setIncludeTaskSummary(e.target.checked)}
+                />
+                <div>
+                  <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
+                    Include task summary
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Tasks completed within the date range
+                  </div>
                 </div>
-              </div>
-            </label>
-            <label
-              className="flex items-center gap-3 cursor-pointer"
-              style={{ minHeight: 44 }}
-            >
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
-                checked={includeTaskSummary}
-                onChange={e => setIncludeTaskSummary(e.target.checked)}
-              />
-              <div>
-                <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
-                  Include task summary
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Tasks completed within the date range
-                </div>
-              </div>
-            </label>
+              </label>
+            </MoreSettings>
           </div>
 
           {/* Format */}

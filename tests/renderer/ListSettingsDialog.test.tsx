@@ -139,4 +139,33 @@ describe('List settings', () => {
     expect(settingsCalls()).toEqual([])
     expect(onClose).toHaveBeenCalled()
   })
+
+  describe('"More settings" (Q1c)', () => {
+    const more = () => screen.getByTestId('list-settings-more') as HTMLDetailsElement
+
+    it('keeps the name, priorities and deleted columns in view; kind, words and name format are under a closed "More settings"', async () => {
+      await open()
+      expect(screen.getByLabelText('Name').closest('details')).toBeNull()
+      expect(more().open).toBe(false)
+      expect(screen.getByText(/What does this list hold/).closest('details')).toBe(more())
+      expect(screen.getByText(/What do you call one of them/).closest('details')).toBe(more())
+      expect(screen.getByLabelText("How to show each one's name").closest('details')).toBe(more())
+    })
+
+    it('opens by itself when this list has a name format, its own words or a different kind', async () => {
+      const was = { ...grid }
+      try {
+        Object.assign(grid, { display_format: '{Nickname} – {Plate}' })
+        await open()
+        expect(more().open).toBe(true)
+      } finally { Object.assign(grid, was) }
+    })
+
+    it('opens by itself when the list holds something other than the other lists', async () => {
+      useGridStore.setState({ grids: [grid, { ...grid, id: 4, record_kind: 'thing' }, { ...grid, id: 5, record_kind: 'thing' }] as never })
+      await open()
+      expect(more().open).toBe(true)
+    })
+  })
 })
+

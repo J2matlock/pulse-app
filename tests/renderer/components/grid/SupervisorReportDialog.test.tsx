@@ -67,6 +67,15 @@ describe('SupervisorReportDialog', () => {
     expect(screen.getByText('This quarter')).toBeTruthy()
   })
 
+  it('keeps "Include activity log" in view; system activity and the task summary are under a closed "More settings" (Q1c)', () => {
+    render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
+    const more = screen.getByTestId('report-more') as HTMLDetailsElement
+    expect(more.open).toBe(false)
+    expect(screen.getByLabelText(/Include activity log/).closest('details')).toBeNull()
+    expect(screen.getByLabelText(/Include system activity/).closest('details')).toBe(more)
+    expect(screen.getByLabelText(/Include task summary/).closest('details')).toBe(more)
+  })
+
   it('renders format selection labels', () => {
     render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
     expect(screen.getByText('Format')).toBeTruthy()

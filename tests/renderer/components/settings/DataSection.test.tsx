@@ -84,3 +84,36 @@ describe('DataSection — reset everything', () => {
     expect(screen.queryByText(/grid/)).toBeNull()
   })
 })
+
+describe('DataSection — "More settings" (Q1c)', () => {
+  beforeEach(() => {
+    setWords()
+    mockInvoke.mockReset()
+  })
+
+  it('folds old cell values, the file check and file association away; sample data and Erase everything stay in view', async () => {
+    mockInvoke.mockImplementation(() => Promise.resolve({ ok: false, error: 'not in this test' }))
+    render(<DataSection />)
+    const more = screen.getByTestId('data-more') as HTMLDetailsElement
+    expect(more.open).toBe(false)
+    for (const el of [
+      screen.getByLabelText('Keep'),
+      screen.getByRole('button', { name: 'Remove older ones' }),
+      screen.getByRole('button', { name: 'Delete all history…' }),
+      screen.getByRole('button', { name: 'Check the data file' }),
+      screen.getByText('File association'),
+    ]) expect(el.closest('details')).toBe(more)
+    expect(screen.getByText('Sample data').closest('details')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Erase everything' }).closest('details')).toBeNull()
+  })
+
+  it('opens by itself when .pulse files are registered', async () => {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'file-assoc:is-registered' ? { ok: true, data: true }
+        : channel === 'app:get-info' ? { ok: true, data: { platform: 'win32' } }
+          : { ok: false, error: 'not in this test' }))
+    render(<DataSection />)
+    await waitFor(() => expect((screen.getByTestId('data-more') as HTMLDetailsElement).open).toBe(true))
+    expect(screen.getByRole('button', { name: 'Unregister .pulse files' })).toBeTruthy()
+  })
+})

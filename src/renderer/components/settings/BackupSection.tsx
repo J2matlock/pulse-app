@@ -13,6 +13,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { LoadingOverlay } from '../shared/LoadingSpinner'
 import { parseDbTimestamp } from '../../../shared/dates'
 import { MoveComputerWizard } from './MoveComputerWizard'
+import { MoreSettings } from './MoreSettings'
 import { RestoreFromBackupForm } from '../shared/RestoreFromBackupForm'
 import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
@@ -417,23 +418,6 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
 
         {scheduledConfig.enabled && (
           <div className="space-y-3 pl-1">
-            {/* Interval */}
-            <div className="space-y-1">
-              <label htmlFor="settings-backup-freq" className="block text-base font-medium text-slate-600 dark:text-slate-400">Frequency</label>
-              <select
-                id="settings-backup-freq"
-                className="input"
-                style={{ minHeight: 44, fontSize: 15 }}
-                value={scheduledConfig.intervalHours}
-                onChange={e => updateScheduledConfig({ intervalHours: Number(e.target.value) })}
-              >
-                <option value={24}>Daily (every 24 hours)</option>
-                <option value={72}>Every 3 days</option>
-                <option value={168}>Weekly</option>
-                <option value={12}>Every 12 hours</option>
-              </select>
-            </div>
-
             {/* Destination */}
             <div className="space-y-1">
               <label className="block text-base font-medium text-slate-600 dark:text-slate-400">Destination folder</label>
@@ -490,6 +474,25 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 </button>
               </div>
             </div>
+
+            {/* Daily suits nearly everyone (Q1c) */}
+            <MoreSettings changed={scheduledConfig.intervalHours !== 24}>
+              <div className="space-y-1">
+                <label htmlFor="settings-backup-freq" className="block text-base font-medium text-slate-600 dark:text-slate-400">Frequency</label>
+                <select
+                  id="settings-backup-freq"
+                  className="input"
+                  style={{ minHeight: 44, fontSize: 15 }}
+                  value={scheduledConfig.intervalHours}
+                  onChange={e => updateScheduledConfig({ intervalHours: Number(e.target.value) })}
+                >
+                  <option value={24}>Daily (every 24 hours)</option>
+                  <option value={72}>Every 3 days</option>
+                  <option value={168}>Weekly</option>
+                  <option value={12}>Every 12 hours</option>
+                </select>
+              </div>
+            </MoreSettings>
           </div>
         )}
       </div>
@@ -519,28 +522,31 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
             Enable backup reminders
           </span>
         </label>
+        {/* A week suits nearly everyone (Q1c) */}
         {backupReminderEnabled && (
-          <div className="space-y-1 pl-1">
-            <label htmlFor="settings-backup-reminder-days" className="block text-base font-medium text-slate-600 dark:text-slate-400">
-              Remind after how many days without a backup?
-            </label>
-            <select
-              id="settings-backup-reminder-days"
-              className="input"
-              style={{ minHeight: 44, fontSize: 15 }}
-              value={backupReminderDays}
-              onChange={e => {
-                const d = Number(e.target.value)
-                setBackupReminderDays(d)
-                void saveSetting('backup_reminder_days', String(d))
-              }}
-            >
-              <option value={3}>3 days</option>
-              <option value={7}>7 days (usual)</option>
-              <option value={14}>14 days</option>
-              <option value={30}>30 days</option>
-            </select>
-          </div>
+          <MoreSettings changed={backupReminderDays !== 7}>
+            <div className="space-y-1">
+              <label htmlFor="settings-backup-reminder-days" className="block text-base font-medium text-slate-600 dark:text-slate-400">
+                Remind after how many days without a backup?
+              </label>
+              <select
+                id="settings-backup-reminder-days"
+                className="input"
+                style={{ minHeight: 44, fontSize: 15 }}
+                value={backupReminderDays}
+                onChange={e => {
+                  const d = Number(e.target.value)
+                  setBackupReminderDays(d)
+                  void saveSetting('backup_reminder_days', String(d))
+                }}
+              >
+                <option value={3}>3 days</option>
+                <option value={7}>7 days (usual)</option>
+                <option value={14}>14 days</option>
+                <option value={30}>30 days</option>
+              </select>
+            </div>
+          </MoreSettings>
         )}
       </div>
 

@@ -10,19 +10,27 @@ import { ListSettingsDialog } from '../grid/ListSettingsDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
 import { IPC_READ_ONLY } from '../../../shared/constants'
+import { isOn, type FeatureKey } from '../../../shared/features'
+import { MoreSettings } from './MoreSettings'
 
-/** The words people can change, in the order they matter. (Appointments and stages arrive with their features.) */
-const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
+/**
+ * The words people can change, in the order they matter. (Appointments and stages arrive with their features.)
+ * `more`: under "More words" (most people keep them); `feature`: only shown while that feature is on (Q1c).
+ * A hidden word is still stored and saved as it is.
+ */
+const ROWS: Array<{ key: VocabKey; label: string; hint: string; more?: true; feature?: FeatureKey }> = [
   { key: 'record', label: 'What you track', hint: 'The people or things in your lists' },
   { key: 'list', label: 'Lists', hint: 'The groups in the sidebar' },
-  { key: 'activity', label: 'Notes', hint: 'What you write about each one' },
-  { key: 'activityLog', label: 'Notes history', hint: 'Where those notes are listed' },
-  { key: 'contact', label: 'Outside contacts', hint: 'People and organizations you work with' },
-  { key: 'contactDirectory', label: 'Contacts page', hint: 'The page that lists them' },
-  { key: 'requirement', label: 'Requirements', hint: 'How many calls or visits each one needs in a period' },
-  { key: 'priority', label: 'Priority', hint: 'How much attention each one needs' },
-  { key: 'worker', label: 'Your role', hint: 'Used on letters and reports' },
+  { key: 'activity', label: 'Notes', hint: 'What you write about each one', more: true },
+  { key: 'activityLog', label: 'Notes history', hint: 'Where those notes are listed', more: true },
+  { key: 'contact', label: 'Outside contacts', hint: 'People and organizations you work with', more: true, feature: 'contactsDirectory' },
+  { key: 'contactDirectory', label: 'Contacts page', hint: 'The page that lists them', more: true, feature: 'contactsDirectory' },
+  { key: 'requirement', label: 'Requirements', hint: 'How many calls or visits each one needs in a period', more: true, feature: 'requirements' },
+  { key: 'priority', label: 'Priority', hint: 'How much attention each one needs', more: true, feature: 'priority' },
+  { key: 'worker', label: 'Your role', hint: 'Used on letters and reports', more: true },
 ]
+
+const sameTerm = (a: Term, b: Term): boolean => a.one === b.one && a.many === b.many
 
 const BAD_CHARS = /[<>{}]/
 
@@ -59,6 +67,8 @@ export function WordsEditor(): React.ReactElement {
   const [draft, setDraft] = useState<Vocab>(() => resolveVocab(saved))
   const [saving, setSaving] = useState(false)
   const { t } = useVocab(null)
+  const features = useWorkspaceStore(s => s.features)
+  const rows = useMemo(() => ROWS.filter(r => !r.feature || isOn(features, r.feature)), [features])
   const gridVocab = useWorkspaceStore(s => s.gridVocab)
   const grids = useGridStore(s => s.grids)
   const [editingList, setEditingList] = useState<number | null>(null)
@@ -71,11 +81,11 @@ export function WordsEditor(): React.ReactElement {
   useEffect(() => { setDraft(resolveVocab(saved)) }, [saved])
 
   const dirty = JSON.stringify(toStored(draft)) !== JSON.stringify(toStored(resolveVocab(saved)))
-  const errors = useMemo(() => Object.fromEntries(ROWS.flatMap(r => {
+  const errors = useMemo(() => Object.fromEntries(rows.flatMap(r => {
     const one = wordError(draft[r.key].one)
     const many = wordError(draft[r.key].many)
     return one || many ? [[r.key, { one, many }]] : []
-  })) as Partial<Record<VocabKey, { one: string | null; many: string | null }>>, [draft])
+  })) as Partial<Record<VocabKey, { one: string | null; many: string | null }>>, [draft, rows])
   const hasErrors = Object.keys(errors).length > 0
 
   // Leaving the tab (or Settings) with changes saves them instead of dropping them
@@ -116,6 +126,33 @@ export function WordsEditor(): React.ReactElement {
 
   const v = draft
   const cell = 'px-2 py-1.5 align-top'
+  function renderRow(r: (typeof ROWS)[number]): React.ReactElement {
+    return (
+      <li key={r.key} className={`${cell} py-3 grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2 items-start`}>
+        <div>
+          <span className="block font-medium text-slate-800 dark:text-slate-100">{r.label}</span>
+          <span className="block text-sm text-slate-500 dark:text-slate-400">{r.hint}</span>
+        </div>
+        {(['one', 'many'] as const).map(form => {
+          const err = errors[r.key]?.[form]
+          const id = `word-${r.key}-${form}`
+          return (
+            <div key={form}>
+              {/* The visible label is short; the box's spoken name says which word it is */}
+              <label htmlFor={id} className="block text-sm text-slate-600 dark:text-slate-300 mb-0.5">
+                {form === 'one' ? 'One' : 'More than one'}
+              </label>
+              <input id={id} className="input w-full" value={v[r.key][form]} maxLength={VOCAB_WORD_MAX + 10}
+                aria-label={`${r.label}: ${form === 'one' ? 'one' : 'more than one'}`}
+                aria-invalid={!!err} aria-describedby={err ? `${id}-err` : undefined}
+                onChange={e => setWord(r.key, form, e.target.value)} />
+              {err && <span id={`${id}-err`} className="block text-sm text-red-700 dark:text-red-300 mt-1">{err}</span>}
+            </div>
+          )
+        })}
+      </li>
+    )
+  }
   return (
     <section className="space-y-3" aria-labelledby="words-heading">
       <h2 id="words-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Words</h2>
@@ -150,32 +187,18 @@ export function WordsEditor(): React.ReactElement {
       {/* Each word is a block with its two boxes under the label, so a long default like
           "contact requirements" never gets cut off in a narrow panel (E-39) */}
       <ul className="divide-y divide-slate-200 dark:divide-slate-700 border-y border-slate-300 dark:border-slate-600">
-        {ROWS.map(r => (
-          <li key={r.key} className={`${cell} py-3 grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2 items-start`}>
-            <div>
-              <span className="block font-medium text-slate-800 dark:text-slate-100">{r.label}</span>
-              <span className="block text-sm text-slate-500 dark:text-slate-400">{r.hint}</span>
-            </div>
-            {(['one', 'many'] as const).map(form => {
-              const err = errors[r.key]?.[form]
-              const id = `word-${r.key}-${form}`
-              return (
-                <div key={form}>
-                  {/* The visible label is short; the box's spoken name says which word it is */}
-                  <label htmlFor={id} className="block text-sm text-slate-600 dark:text-slate-300 mb-0.5">
-                    {form === 'one' ? 'One' : 'More than one'}
-                  </label>
-                  <input id={id} className="input w-full" value={v[r.key][form]} maxLength={VOCAB_WORD_MAX + 10}
-                    aria-label={`${r.label}: ${form === 'one' ? 'one' : 'more than one'}`}
-                    aria-invalid={!!err} aria-describedby={err ? `${id}-err` : undefined}
-                    onChange={e => setWord(r.key, form, e.target.value)} />
-                  {err && <span id={`${id}-err`} className="block text-sm text-red-700 dark:text-red-300 mt-1">{err}</span>}
-                </div>
-              )
-            })}
-          </li>
-        ))}
+        {rows.filter(r => !r.more).map(renderRow)}
       </ul>
+      {/* The other words open by themselves when they aren't one of the two word sets, or have an unsaved change (Q1c) */}
+      <MoreSettings label="More words" data-testid="more-words" changed={rows.some(r => r.more && (
+        !!errors[r.key]
+        || !sameTerm(draft[r.key], resolveVocab(saved)[r.key])
+        || (!sameTerm(draft[r.key], GENERIC_VOCAB[r.key]) && !sameTerm(draft[r.key], resolveVocab(HUMAN_SERVICES_VOCAB)[r.key]))
+      ))}>
+        <ul className="divide-y divide-slate-200 dark:divide-slate-700 border-y border-slate-300 dark:border-slate-600">
+          {rows.filter(r => r.more).map(renderRow)}
+        </ul>
+      </MoreSettings>
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn-primary" disabled={!dirty || hasErrors || saving} onClick={() => void save()}>

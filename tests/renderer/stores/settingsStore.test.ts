@@ -1,7 +1,7 @@
 /**
  * settingsStore.test.ts — Zustand settings store unit tests.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Mock window.api before importing the store
 const mockInvoke = vi.fn()
@@ -10,7 +10,7 @@ const mockInvoke = vi.fn()
 // Mock crypto.randomUUID (needed by undoStore)
 vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid' })
 
-import { useSettingsStore } from '../../../src/renderer/stores/settingsStore'
+import { useSettingsStore, localeClockFormat } from '../../../src/renderer/stores/settingsStore'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { withUnsavedEdits } from '../../../src/renderer/stores/gridCellEditSlice'
@@ -194,6 +194,45 @@ describe('settingsStore', () => {
       // An existing install keeps what it saved
       useSettingsStore.getState().hydrateFromSettings({ theme: 'dark' })
       expect(useSettingsStore.getState().theme).toBe('dark')
+    })
+
+    describe("clock format follows the computer until one is chosen (UX pass Q1c)", () => {
+      function mockHourCycle(cycle: string | undefined) {
+        const Real = Intl.DateTimeFormat
+        vi.spyOn(Intl, 'DateTimeFormat').mockImplementation((function (locale?: string | string[], opts?: Intl.DateTimeFormatOptions) {
+          const real = new Real(locale, opts)
+          return { ...real, resolvedOptions: () => ({ ...real.resolvedOptions(), hourCycle: cycle }) }
+        }) as unknown as typeof Intl.DateTimeFormat)
+      }
+      afterEach(() => vi.restoreAllMocks())
+
+      it.each([
+        ['h23', '24h'], ['h24', '24h'], ['h12', '12h'], ['h11', '12h'], [undefined, '12h'],
+      ] as const)('hour cycle %s with nothing stored gives %s, and nothing is written', (cycle, expected) => {
+        mockHourCycle(cycle)
+        mockInvoke.mockClear()
+        expect(localeClockFormat()).toBe(expected)
+        useSettingsStore.getState().hydrateFromSettings({})
+        expect(useSettingsStore.getState().clockFormat).toBe(expected)
+        expect(mockInvoke).not.toHaveBeenCalled()
+      })
+
+      it('a stored clock format always wins over the computer', () => {
+        mockHourCycle('h23')
+        useSettingsStore.getState().hydrateFromSettings({ clock_format: '12h' })
+        expect(useSettingsStore.getState().clockFormat).toBe('12h')
+        mockHourCycle('h12')
+        useSettingsStore.getState().hydrateFromSettings({ clock_format: '24h' })
+        expect(useSettingsStore.getState().clockFormat).toBe('24h')
+      })
+
+      it('week start stays Sunday until chosen (main reads the stored value for requirement weeks)', () => {
+        useSettingsStore.setState({ weekStart: 'sunday' })
+        useSettingsStore.getState().hydrateFromSettings({})
+        expect(useSettingsStore.getState().weekStart).toBe('sunday')
+        useSettingsStore.getState().hydrateFromSettings({ week_start: 'monday' })
+        expect(useSettingsStore.getState().weekStart).toBe('monday')
+      })
     })
 
     it('keeps a saved zoom anywhere from 50% to 200%, and drops one outside it (AUDIT-055)', () => {

@@ -8,6 +8,7 @@ import { FeaturesSection } from './FeaturesSection'
 import { ApplyStarterDialog } from '../starters/ApplyStarterDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { WordsEditor } from './WordsEditor'
+import { MoreSettings } from './MoreSettings'
 import { friendlyError } from '../../utils/friendlyError'
 
 /**
@@ -53,23 +54,28 @@ export function WorkspaceSection(): React.ReactElement {
           Browse examples…
         </button>
       </section>
-      <section className="space-y-2 pt-6 border-t border-slate-200 dark:border-slate-700" aria-labelledby="share-setup">
-        <h2 id="share-setup" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Share my whole setup</h2>
-        <p className="text-base text-slate-600 dark:text-slate-300">
-          Save your {t('list', { many: true })}, columns, deadline rules, checklists and words as one file a coworker can open.
-          It never includes {t('record', { many: true })}, {t('activity', { many: true })} or anything about you.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void exportSetup()}>
-            <Share2 className="w-4 h-4" aria-hidden="true" />
-            Save my whole setup…
-          </button>
-          <button type="button" className="btn-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void openFile()}>
-            <FolderOpen className="w-4 h-4" aria-hidden="true" />
-            Open a setup file…
-          </button>
-        </div>
-      </section>
+      {/* Team leads share a setup; most people never do (Q1c) */}
+      <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+        <MoreSettings changed={false} data-testid="workspace-more">
+          <section className="space-y-2" aria-labelledby="share-setup">
+            <h2 id="share-setup" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Share my whole setup</h2>
+            <p className="text-base text-slate-600 dark:text-slate-300">
+              Save your {t('list', { many: true })}, columns, deadline rules, checklists and words as one file a coworker can open.
+              It never includes {t('record', { many: true })}, {t('activity', { many: true })} or anything about you.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void exportSetup()}>
+                <Share2 className="w-4 h-4" aria-hidden="true" />
+                Save my whole setup…
+              </button>
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void openFile()}>
+                <FolderOpen className="w-4 h-4" aria-hidden="true" />
+                Open a setup file…
+              </button>
+            </div>
+          </section>
+        </MoreSettings>
+      </div>
       {adding && <ApplyStarterDialog mode="add" onClose={() => setAdding(false)} />}
       {opened && <ApplyStarterDialog mode="add" initial={opened} onClose={() => setOpened(null)} />}
     </div>

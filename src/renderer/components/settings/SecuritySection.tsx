@@ -345,18 +345,24 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 ? 'Your current recovery key will no longer unlock Pulse. Backups made before now still open with the old key, so keep them safe.'
                 : 'You will see the key once — print it or write it down and keep it somewhere safe.'}
           </p>
+          {/* For one situation only, like the password change's: under Advanced (UX pass Q1c) */}
           {pendingKeyAction === 'revoke' && (
-            <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
-              <input id="revoke-reencrypt" type="checkbox" className="mt-1 w-5 h-5 flex-shrink-0"
-                checked={revokeReencrypt} onChange={e => setRevokeReencrypt(e.target.checked)}
-                aria-describedby="revoke-reencrypt-help" />
-              <span>
-                <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also give my data a new key (slower, safer)</span>
-                <span id="revoke-reencrypt-help" className="block text-base text-slate-600 dark:text-slate-400">
-                  Gives your data a new key, so this recovery key can't open anything from now on, even together with an old backup. Old backups still open with it. Save a new backup afterwards.
+            <details open={revokeReencrypt} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
+              <summary className="hit-44 flex items-center text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
+                Advanced: if someone may have this recovery key…
+              </summary>
+              <label className="flex items-start gap-3 cursor-pointer select-none pb-3" style={{ minHeight: 44 }}>
+                <input id="revoke-reencrypt" type="checkbox" className="mt-1 w-5 h-5 flex-shrink-0"
+                  checked={revokeReencrypt} onChange={e => setRevokeReencrypt(e.target.checked)}
+                  aria-describedby="revoke-reencrypt-help" />
+                <span>
+                  <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also give my data a new key (slower, safer)</span>
+                  <span id="revoke-reencrypt-help" className="block text-base text-slate-600 dark:text-slate-400">
+                    Gives your data a new key, so this recovery key can't open anything from now on, even together with an old backup. Old backups still open with it. Save a new backup afterwards.
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            </details>
           )}
           <label htmlFor="key-action-password" className="block text-base text-slate-700 dark:text-slate-300">Enter your current password to continue</label>
           <input
