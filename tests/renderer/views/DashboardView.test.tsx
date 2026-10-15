@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 
 // ── Global mocks ─────────────────────────────────────────────────────────────
 
@@ -407,5 +407,92 @@ describe('DashboardView — interactions', () => {
     await flushEffects()
     const labels = screen.getAllByTestId('summary-card').map(c => c.getAttribute('data-label'))
     expect(labels).toContain('Active customers and jobs')
+  })
+})
+
+describe('DashboardView — next step (Q2)', () => {
+  beforeEach(() => { setWords(); vi.clearAllMocks(); setupDefaultMocks() })
+
+  function Where() { const l = useLocation(); return <div data-testid="where">{l.pathname + l.search}</div> }
+  function renderAt() {
+    return render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/dashboard" element={<DashboardView />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+  const onlyDeadlines = (deadlines: unknown[], tasks: unknown[] = []) => mockSafeInvoke.mockImplementation((channel: string) => {
+    if (channel === 'dashboard:get-all') return Promise.resolve({ ok: true, data: { stats: sampleStats, deadlines, followUps: [], archived: [] } })
+    if (channel === 'task:get-due') return Promise.resolve({ ok: true, data: tasks })
+    return Promise.resolve({ ok: true, data: [] })
+  })
+
+  it('says what is overdue and opens the most overdue record', async () => {
+    onlyDeadlines(sampleDeadlines.slice(0, 2))
+    renderAt()
+    await flushEffects()
+    const banner = screen.getByTestId('next-step')
+    expect(banner.textContent).toContain('Review Date is overdue for 2 clients.')
+    expect(banner.textContent).toContain('Review Date, 3 days overdue')
+    const start = screen.getByRole('button', { name: 'Start with Alice Smith →' })
+    expect(start.hasAttribute('data-primary-action')).toBe(true)
+    fireEvent.click(start)
+    expect(screen.getByTestId('where').textContent).toBe('/profile/1?gridId=1')
+  })
+
+  it('counts every kind, and the search does not change it', async () => {
+    renderAt()
+    await flushEffects()
+    // 3 deadlines (-3 days), the task (March) and the follow-up (March) are all late; the follow-up is the oldest
+    expect(screen.getByTestId('next-step').textContent).toContain('5 things are overdue: 3 deadlines, 1 task and 1 follow-up.')
+    fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: 'Bob' } })
+    await flushEffects()
+    expect(screen.getByTestId('next-step').textContent).toContain('5 things are overdue')
+
+  })
+
+  it('a late task alone opens Tasks', async () => {
+    onlyDeadlines([], sampleTasks)
+    renderAt()
+    await flushEffects()
+    expect(screen.getByTestId('next-step').textContent).toContain('1 task is overdue.')
+    fireEvent.click(screen.getByRole('button', { name: 'Start with Call insurance →' }))
+    expect(screen.getByTestId('where').textContent).toBe('/tasks')
+  })
+
+  it('says what the dashboard is for when nothing is due', async () => {
+    onlyDeadlines([])
+    renderAt()
+    await flushEffects()
+    const line = screen.getByTestId('next-step')
+    expect(line.hasAttribute('data-purpose')).toBe(true)
+    expect(line.textContent).toBe('Everything due across your caseloads, most urgent first.')
+    expect(screen.queryByRole('button', { name: /Start with/ })).toBeNull()
+  })
+
+  it('in other words too', async () => {
+    const w = (one: string, many: string) => ({ one, many, article: 'a' as const })
+    setWords({ record: w('customer', 'customers'), list: w('shop', 'shops') })
+    onlyDeadlines(sampleDeadlines.slice(0, 2))
+    renderAt()
+    await flushEffects()
+    expect(screen.getByTestId('next-step').textContent).toContain('Review Date is overdue for 2 customers.')
+  })
+
+  it('no banner while there are no records, or when loading failed', async () => {
+    mockSafeInvoke.mockImplementation((channel: string) => channel === 'dashboard:get-all'
+      ? Promise.resolve({ ok: true, data: { stats: { totalActive: 0, totalGrids: 1 }, deadlines: [], followUps: [], archived: [] } })
+      : Promise.resolve({ ok: true, data: [] }))
+    const { unmount } = renderAt()
+    await flushEffects()
+    expect(screen.queryByTestId('next-step')).toBeNull()
+    unmount()
+    mockSafeInvoke.mockImplementation(() => Promise.resolve({ ok: false, error: 'Database is locked' }))
+    renderAt()
+    await flushEffects()
+    expect(screen.queryByTestId('next-step')).toBeNull()
   })
 })

@@ -49,6 +49,9 @@ import { WeekViewTab } from './dashboard/WeekViewTab'
 import { MonthViewTab } from './dashboard/MonthViewTab'
 import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
+import { assertNever } from '../../shared/assertNever'
+import { nextStep } from './dashboard/nextStep'
+import { NextStepBanner } from './dashboard/NextStepBanner'
 
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
 
@@ -341,30 +344,30 @@ export default function DashboardView(): React.ReactElement {
     otherDueDays: [...tasksWithDays, ...checklistWithDays].map(x => x.daysUntil), server: stats,
   }), [deadlines, deadlinesCut, tasksWithDays, checklistWithDays, followUpsWithDays, followUpsCut, stats])
 
+  // Everything on "What's due", soonest first; the search filters this, the next-step banner doesn't
+  const priorityItems = useMemo((): PriorityItem[] => {
+    const items: PriorityItem[] = []
+    for (const d of deadlines) { if (d.threshold !== null) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil }) }
+    for (const { task, daysUntil } of tasksWithDays) items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil })
+    for (const { item: ci, daysUntil } of checklistWithDays) items.push({ kind: 'checklist', data: ci, daysUntil, sortKey: daysUntil })
+    for (const { followUp, daysUntil } of followUpsWithDays) items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil })
+    return items.sort((a, b) => a.sortKey - b.sortKey)
+  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
+
   const filteredItems = useMemo((): PriorityItem[] => {
     const q = debouncedSearch.toLowerCase()
-    const items: PriorityItem[] = []
-
-    for (const d of deadlines) {
-      if (d.threshold === null) continue
-      if (q && !d.clientName.toLowerCase().includes(q) && !d.columnName.toLowerCase().includes(q) && !d.gridName.toLowerCase().includes(q)) continue
-      items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil })
-    }
-    for (const { task, daysUntil } of tasksWithDays) {
-      if (q && !task.title.toLowerCase().includes(q) && !(task.category ?? '').toLowerCase().includes(q)) continue
-      items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil })
-    }
-    for (const { item: ci, daysUntil } of checklistWithDays) {
-      if (q && !ci.title.toLowerCase().includes(q) && !(ci.client_name ?? '').toLowerCase().includes(q) && !ci.grid_name.toLowerCase().includes(q)) continue
-      items.push({ kind: 'checklist', data: ci, daysUntil, sortKey: daysUntil })
-    }
-    for (const { followUp, daysUntil } of followUpsWithDays) {
-      if (q && !(followUp.client_name ?? '').toLowerCase().includes(q) && !followUp.content.toLowerCase().includes(q) && !followUp.grid_name.toLowerCase().includes(q)) continue
-      items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil })
-    }
-
-    return items.sort((a, b) => a.sortKey - b.sortKey)
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, debouncedSearch])
+    if (!q) return priorityItems
+    const has = (s: string | null | undefined) => (s ?? '').toLowerCase().includes(q)
+    return priorityItems.filter(it => {
+      switch (it.kind) {
+        case 'deadline': return has(it.data.clientName) || has(it.data.columnName) || has(it.data.gridName)
+        case 'task': return has(it.data.title) || has(it.data.category)
+        case 'checklist': return has(it.data.title) || has(it.data.client_name) || has(it.data.grid_name)
+        case 'followup': return has(it.data.client_name) || has(it.data.content) || has(it.data.grid_name)
+        default: return assertNever(it, 'dashboard item')
+      }
+    })
+  }, [priorityItems, debouncedSearch])
 
   const overdueItems = useMemo((): PriorityItem[] => {
     const items: PriorityItem[] = []
@@ -375,6 +378,10 @@ export default function DashboardView(): React.ReactElement {
     for (const { followUp, daysUntil } of followUpsWithDays) { if (daysUntil < 0) items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil }) }
     return items.sort((a, b) => a.sortKey - b.sortKey)
   }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
+
+  // The one thing to do next, over the whole workload (Q2); the empty and error states speak for themselves
+  const step = useMemo(() => nextStep({ overdueItems, priorityItems, t }), [overdueItems, priorityItems, t])
+  const showNextStep = !isLoading && (stats?.totalActive ?? 0) > 0
 
   const filteredArchived = useMemo(() => {
     if (!debouncedArchiveSearch) return archivedRows
@@ -764,6 +771,8 @@ export default function DashboardView(): React.ReactElement {
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
         </div>
+
+        {showNextStep && <NextStepBanner step={step} />}
 
         {/* The full card while a workspace is new; one line under the counts once most steps are done (UX D-02) */}
         {!gettingStarted.compact && <GettingStartedCard state={gettingStarted} />}
