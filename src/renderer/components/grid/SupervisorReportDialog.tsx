@@ -191,7 +191,8 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
         <PrimaryButton
           onClick={handleExport}
           icon={<FileText className="w-4 h-4" />}
-          disabled={exporting || selectedColumnIds.size === 0 || !startDate || !endDate}
+          busy={exporting}
+          disabled={selectedColumnIds.size === 0 || !startDate || !endDate}
           title={selectedColumnIds.size === 0 ? 'Select at least one column' : !startDate || !endDate ? 'Enter a date range' : ''}
         >
           {exporting ? 'Saving…' : format === 'pdf' ? 'Save as PDF…' : 'Save as spreadsheet (CSV)…'}

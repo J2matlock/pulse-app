@@ -152,7 +152,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
       icon={<FileStack className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
       footer={<>
         <SecondaryButton onClick={onClose}>{unknown.length ? 'Close' : 'Cancel'}</SecondaryButton>
-        <PrimaryButton disabled={busy || !ready} onClick={() => void make()}>Make PDF</PrimaryButton>
+        <PrimaryButton busy={busy} disabled={!ready} onClick={() => void make()}>Make PDF</PrimaryButton>
       </>}>
       <div className="space-y-4">
         <div role="group" aria-label="Make" className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden w-fit">

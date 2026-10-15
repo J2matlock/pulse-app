@@ -73,7 +73,13 @@ export interface SortableRowProps {
   frozenColumnCount: number
   /** A made-up sample entry (shows a "Sample" pill by its name) */
   isSample?: boolean
+  /** Just arrived (lit for a moment) or on its way out (dims and closes up); motion.css (Q6) */
+  motionState?: RowMotionState
 }
+
+export type RowMotionState = 'flash' | 'leave' | null
+
+const MOTION_CLASS: Record<Exclude<RowMotionState, null>, string> = { flash: 'motion-flash', leave: 'motion-row-leave' }
 
 const COMPUTED_NAV_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'])
 
@@ -123,6 +129,7 @@ export const SortableRow = React.memo(function SortableRow({
   frozenLeftOffsets,
   frozenColumnCount,
   isSample = false,
+  motionState = null,
 }: SortableRowProps): React.ReactElement {
   const { t } = useVocab()
   const rowId = propRowId
@@ -165,6 +172,7 @@ export const SortableRow = React.memo(function SortableRow({
       className={`flex border-b border-[var(--border-grid)] hover:bg-slate-50 dark:hover:bg-slate-800/50 group
         ${isArchived ? 'opacity-50' : ''}
         ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+        ${motionState ? MOTION_CLASS[motionState] : ''}
       `}
       style={rowStyle}
     >
@@ -554,6 +562,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.frozenLeftOffsets !== next.frozenLeftOffsets) return false
   if (prev.frozenColumnCount !== next.frozenColumnCount) return false
   if (prev.isSample !== next.isSample) return false
+  if ((prev.motionState ?? null) !== (next.motionState ?? null)) return false
   if (prev.rowHeight !== next.rowHeight) return false
   // A "cell of another record" rule reads rowMap: a change to that record redraws this one (AUDIT-038)
   if (prev.hasCrossRowRules !== next.hasCrossRowRules) return false

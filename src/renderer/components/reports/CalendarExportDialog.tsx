@@ -44,7 +44,7 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
       icon={<CalendarPlus className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
-        <PrimaryButton disabled={working} onClick={() => void save()}>{working ? 'Saving…' : 'Save calendar file…'}</PrimaryButton>
+        <PrimaryButton busy={working} onClick={() => void save()}>{working ? 'Saving…' : 'Save calendar file…'}</PrimaryButton>
       </>}>
       <div className="space-y-3 text-base text-slate-700 dark:text-slate-200">
         <p>Saves a calendar file with your {apptsOn ? `${t('appointment', { many: true })}, ` : ''}events, deadlines and follow-ups for the next six months, each with a reminder. Open it in Outlook, or import it in Google Calendar (Settings → Import).</p>

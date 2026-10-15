@@ -104,6 +104,20 @@ describe('ConfirmDialog', () => {
     expect(ev.defaultPrevented).toBe(true)
   })
 
+  it('a confirm that returns a promise keeps the button busy and runs once (Q6)', async () => {
+    let finish!: () => void
+    const onConfirm = vi.fn(() => new Promise<void>(res => { finish = res }))
+    render(<ConfirmDialog {...baseProps} onConfirm={onConfirm} />)
+    const btn = screen.getByText('Confirm').closest('button')!
+    fireEvent.click(btn)
+    expect(btn.getAttribute('aria-busy')).toBe('true')
+    fireEvent.click(btn)
+    fireEvent.keyDown(btn, { key: 'Enter' })
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    await act(async () => { finish() })
+    expect(btn.getAttribute('aria-busy')).toBeNull()
+  })
+
   describe('Enter key', () => {
     it('does not confirm when Enter is pressed on Cancel', () => {
       render(<ConfirmDialog {...baseProps} />)

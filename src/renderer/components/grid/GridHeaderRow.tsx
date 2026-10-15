@@ -50,7 +50,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
       aria-colindex={colIndex}
       aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
       className={`group/colhead relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
-                  ${flash ? 'bg-blue-100 dark:bg-blue-900/50 ring-3 ring-inset ring-blue-400' : 'bg-slate-50 dark:bg-slate-800'} transition-colors duration-700 select-none`}
+                  ${flash ? 'bg-blue-100 dark:bg-blue-900/50 ring-3 ring-inset ring-blue-400 motion-col-enter' : 'bg-slate-50 dark:bg-slate-800'} transition-colors duration-700 select-none`}
       data-flash={flash || undefined}
       style={{
         width: `var(--cw-${col.id})`,

@@ -326,6 +326,8 @@ pulseEvents.on('app:locked', () => {
     sampleRows: {},
     sampleKeepPrompt: null,
     lastAddedRowId: null,
+    flashRowId: null,
+    leavingRowIds: new Set<number>(),
     pinnedRowId: null,
     deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
     loadedGridId: null,

@@ -241,6 +241,21 @@ describe('SortableRow', () => {
     expect(compare(plain, { ...plain, rowMap: new Map([[2, makeRow(2)]]) })).toBe(true)
   })
 
+  it('a record arriving lights up and one leaving dims and closes up, redrawing only that row (Q6)', () => {
+    const compare = (SortableRow as unknown as { compare: (a: SortableRowProps, b: SortableRowProps) => boolean }).compare
+    const props = makeProps()
+    expect(compare(props, { ...props, motionState: null })).toBe(true)
+    expect(compare(props, { ...props, motionState: 'leave' })).toBe(false)
+    const { container, rerender } = render(<SortableRow {...makeProps({ motionState: 'flash' })} />)
+    const rowEl = container.querySelector('[role="row"]')!
+    expect(rowEl.classList.contains('motion-flash')).toBe(true)
+    rerender(<SortableRow {...makeProps({ motionState: 'leave' })} />)
+    expect(rowEl.classList.contains('motion-row-leave')).toBe(true)
+    expect(rowEl.classList.contains('motion-flash')).toBe(false)
+    rerender(<SortableRow {...makeProps()} />)
+    expect(rowEl.className).not.toMatch(/motion-/)
+  })
+
   it('redraws when the row height or a handler changes (AUDIT-133)', () => {
     const compare = (SortableRow as unknown as { compare: (a: SortableRowProps, b: SortableRowProps) => boolean }).compare
     const props = makeProps()

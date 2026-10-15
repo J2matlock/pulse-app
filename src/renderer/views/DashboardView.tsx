@@ -54,6 +54,7 @@ import { useFeature } from '../hooks/useFeature'
 import { assertNever } from '../../shared/assertNever'
 import { nextStep } from './dashboard/nextStep'
 import { NextStepBanner } from './dashboard/NextStepBanner'
+import { useLeavingItems } from './dashboard/useLeavingItems'
 import { EmptyState } from '../components/shared/EmptyState'
 
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
@@ -93,6 +94,7 @@ export default function DashboardView(): React.ReactElement {
   const [selecting, setSelecting] = useState(false)
   const [selectedDeadlines, setSelectedDeadlines] = useState<Set<string>>(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
+  const { leaving, leaveThen } = useLeavingItems()
   const deadlineKey = (d: ExtendedDeadlineInfo) => `${d.rowId}:${d.columnId}`
   const toggleDeadline = useCallback((d: ExtendedDeadlineInfo) => {
     setSelectedDeadlines(prev => {
@@ -479,6 +481,91 @@ export default function DashboardView(): React.ReactElement {
     )
   }
 
+  // Stable keys, so a row leaving doesn't remount every row after it (Q6)
+  function itemKey(item: PriorityItem): string {
+    switch (item.kind) {
+      case 'deadline': return `dl-${item.data.rowId}-${item.data.columnId}`
+      case 'task': return `task-${item.data.id}`
+      case 'checklist': return `cl-${item.data.id}`
+      case 'followup': return `fu-${item.data.id}`
+      default: return assertNever(item)
+    }
+  }
+
+  function renderItem(item: PriorityItem, key: string): React.ReactNode {
+    switch (item.kind) {
+      case 'deadline': {
+        const done = item.data
+        return (
+          <DeadlineRow
+            deadline={done}
+            selected={selectedDeadlines.has(deadlineKey(done))}
+            onToggleSelect={selecting ? () => toggleDeadline(done) : undefined}
+            // It slides out, then the list reloads (a repeating one comes back with its next date)
+            onMarkDone={(rowId, columnId) => leaveThen(key, () => {
+              setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
+              void deadlinesChanged()
+            })}
+            onUndoneMarkDone={deadlinesChanged}
+          />
+        )
+      }
+      case 'task':
+        return (
+          <TaskRow
+            task={item.data}
+            daysUntil={item.daysUntil}
+            onComplete={(id) => leaveThen(key, () => setTasksDue(prev => prev.filter(t => t.id !== id)))}
+            onRestore={(t) => {
+              setTasksDue(prev => prev.some(x => x.id === t.id) ? prev : [...prev, t])
+            }}
+          />
+        )
+      case 'checklist':
+        return (
+          <ChecklistDueRow
+            item={item.data}
+            daysUntil={item.daysUntil}
+            onComplete={(id) => leaveThen(key, () => setChecklistDue(prev => prev.filter(ci => ci.id !== id)))}
+            onRestore={(ci) => {
+              setChecklistDue(prev => prev.some(x => x.id === ci.id) ? prev : [...prev, ci])
+            }}
+          />
+        )
+      case 'followup':
+        return (
+          <FollowUpDashRow
+            followUp={item.data}
+            daysUntil={item.daysUntil}
+            onComplete={(id) => leaveThen(key, () => setFollowUps(prev => prev.filter(f => f.id !== id)))}
+            onReloadFollowUps={async () => { await reloadFollowUps() }}
+          />
+        )
+      default:
+        return assertNever(item)
+    }
+  }
+
+  function renderList(items: PriorityItem[]): React.ReactElement {
+    const seen = new Set<string>()
+    return (
+      <div role="list">
+        {renderBulkBar(items)}
+        {items.map((item, i) => {
+          // The same record and column twice would share a key; the index only then
+          let key = itemKey(item)
+          if (seen.has(key)) key = `${key}-${i}`
+          seen.add(key)
+          return (
+            <div key={key} className={leaving.has(key) ? 'motion-list-item motion-item-leave' : 'motion-list-item'}>
+              {renderItem(item, key)}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   function renderBulkBar(visible: PriorityItem[]) {
     if (!selecting) return null
     const selectable = visible.filter((it): it is Extract<PriorityItem, { kind: 'deadline' }> => it.kind === 'deadline')
@@ -491,7 +578,7 @@ export default function DashboardView(): React.ReactElement {
           Select all shown
         </label>
         <span className="text-base font-medium text-blue-900 dark:text-blue-100 flex-1">{selectedDeadlines.size} selected</span>
-        <PrimaryButton size="compact" icon={<Check className="w-4 h-4" />} disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
+        <PrimaryButton size="compact" icon={<Check className="w-4 h-4" />} busy={bulkBusy} disabled={selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
           {bulkBusy ? 'Marking…' : 'Mark done'}
         </PrimaryButton>
         <SecondaryButton size="compact" onClick={() => setSelectedDeadlines(new Set())}>Clear</SecondaryButton>
@@ -578,58 +665,7 @@ export default function DashboardView(): React.ReactElement {
                     description="No deadlines, tasks, or follow-ups need attention right now." />
                 )
               ) : (
-                <div role="list">
-                  {renderBulkBar(filteredItems)}
-                  {filteredItems.map((item, i) =>
-                    item.kind === 'deadline' ? (
-                      <DeadlineRow
-                        key={`dl-${item.data.rowId}-${item.data.columnId}-${i}`}
-                        deadline={item.data}
-                        selected={selectedDeadlines.has(deadlineKey(item.data))}
-                        onToggleSelect={selecting ? () => toggleDeadline(item.data) : undefined}
-                        onMarkDone={(rowId, columnId) => {
-                          setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-                          void deadlinesChanged()
-                        }}
-                        onUndoneMarkDone={deadlinesChanged}
-                      />
-                    ) : item.kind === 'task' ? (
-                      <TaskRow
-                        key={`task-${item.data.id}`}
-                        task={item.data}
-                        daysUntil={item.daysUntil}
-                        onComplete={(id) => {
-                          setTasksDue(prev => prev.filter(t => t.id !== id))
-                        }}
-                        onRestore={(t) => {
-                          setTasksDue(prev => prev.some(x => x.id === t.id) ? prev : [...prev, t])
-                        }}
-                      />
-                    ) : item.kind === 'checklist' ? (
-                      <ChecklistDueRow
-                        key={`cl-${item.data.id}`}
-                        item={item.data}
-                        daysUntil={item.daysUntil}
-                        onComplete={(id) => {
-                          setChecklistDue(prev => prev.filter(ci => ci.id !== id))
-                        }}
-                        onRestore={(ci) => {
-                          setChecklistDue(prev => prev.some(x => x.id === ci.id) ? prev : [...prev, ci])
-                        }}
-                      />
-                    ) : (
-                      <FollowUpDashRow
-                        key={`fu-${item.data.id}`}
-                        followUp={item.data}
-                        daysUntil={item.daysUntil}
-                        onComplete={(id) => {
-                          setFollowUps(prev => prev.filter(f => f.id !== id))
-                        }}
-                        onReloadFollowUps={async () => { await reloadFollowUps() }}
-                      />
-                    )
-                  )}
-                </div>
+                renderList(filteredItems)
               )}
             </>
           )}
@@ -640,58 +676,7 @@ export default function DashboardView(): React.ReactElement {
               <EmptyState size="panel" icon={<CheckCircle />} title="Nothing overdue"
                 description="Great work — you're all caught up!" />
             ) : (
-              <div role="list">
-                {renderBulkBar(overdueItems)}
-                {overdueItems.map((item, i) =>
-                  item.kind === 'deadline' ? (
-                    <DeadlineRow
-                      key={`dl-${item.data.rowId}-${item.data.columnId}-${i}`}
-                      deadline={item.data}
-                      selected={selectedDeadlines.has(deadlineKey(item.data))}
-                      onToggleSelect={selecting ? () => toggleDeadline(item.data) : undefined}
-                      onMarkDone={(rowId, columnId) => {
-                          setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-                          void deadlinesChanged()
-                        }}
-                        onUndoneMarkDone={deadlinesChanged}
-                    />
-                  ) : item.kind === 'task' ? (
-                    <TaskRow
-                      key={`task-${item.data.id}`}
-                      task={item.data}
-                      daysUntil={item.daysUntil}
-                      onComplete={(id) => {
-                        setTasksDue(prev => prev.filter(t => t.id !== id))
-                      }}
-                      onRestore={(t) => {
-                        setTasksDue(prev => prev.some(x => x.id === t.id) ? prev : [...prev, t])
-                      }}
-                    />
-                  ) : item.kind === 'checklist' ? (
-                    <ChecklistDueRow
-                      key={`cl-${item.data.id}`}
-                      item={item.data}
-                      daysUntil={item.daysUntil}
-                      onComplete={(id) => {
-                        setChecklistDue(prev => prev.filter(ci => ci.id !== id))
-                      }}
-                      onRestore={(ci) => {
-                        setChecklistDue(prev => prev.some(x => x.id === ci.id) ? prev : [...prev, ci])
-                      }}
-                    />
-                  ) : (
-                    <FollowUpDashRow
-                      key={`fu-${item.data.id}`}
-                      followUp={item.data}
-                      daysUntil={item.daysUntil}
-                      onComplete={(id) => {
-                        setFollowUps(prev => prev.filter(f => f.id !== id))
-                      }}
-                      onReloadFollowUps={async () => { await reloadFollowUps() }}
-                    />
-                  )
-                )}
-              </div>
+              renderList(overdueItems)
             )
           )}
 

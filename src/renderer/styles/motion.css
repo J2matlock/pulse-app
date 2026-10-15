@@ -1,0 +1,116 @@
+/*
+ * Motion (Q6): what changed and where it went, in 120–200 ms.
+ * The same numbers as MOTION in utils/animations.ts. Every animated class here
+ * has a reduced-motion rule twice: the computer's setting (@media) and
+ * Settings → Reduce motion (.reduce-motion on <html>, set by useThemeEffect).
+ * tests/renderer/motionTokens.test.ts keeps it that way.
+ */
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-enter: 200ms;
+}
+
+/* ── A record that just arrived (added, or back from Undo) lights up ──────────
+   A colour that fades, not movement. The tint sits on top of the cells (they
+   paint their own backgrounds) and lets clicks through. The store takes the
+   class off after 1.2 s, so under reduced motion the tint is static for that
+   long and then goes. */
+.motion-flash { position: relative; }
+.motion-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 11;  /* over the frozen cells (10), under the header (12) */
+  pointer-events: none;
+  background-color: rgba(59, 130, 246, 0.22);
+  animation: motion-flash 1200ms ease-out forwards;
+}
+:is(.dark .motion-flash)::after { background-color: rgba(59, 130, 246, 0.16); }
+@keyframes motion-flash {
+  0%, 30% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+
+/* ── A record leaving the list (archived, moved to the Trash) ─────────────────
+   Dims at once (the click landed), then closes up so the rows below slide into
+   its place. The store removes it once the save is done and this has run. */
+.motion-row-leave {
+  overflow: hidden;
+  pointer-events: none;
+  animation: motion-row-leave var(--motion-base) ease-in forwards;
+}
+@keyframes motion-row-leave {
+  0%   { opacity: 0.4; }
+  100% { opacity: 0; height: 0; border-bottom-width: 0; }
+}
+/* Reduced motion: dim, no closing up */
+@keyframes motion-row-dim {
+  0%, 100% { opacity: 0.4; }
+}
+
+/* ── A column just added: its header opens from the left ──────────────────── */
+.motion-col-enter {
+  animation: motion-col-enter var(--motion-enter) ease-out;
+}
+@keyframes motion-col-enter {
+  from { opacity: 0; clip-path: inset(0 100% 0 0); }
+  to   { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+/* ── A ticked checkbox pops (checklists, tasks) ───────────────────────────── */
+.animate-check-pop {
+  animation: check-pop var(--motion-enter) cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes check-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* ── A starred contact's star bounces ─────────────────────────────────────── */
+.animate-star-bounce {
+  animation: star-bounce var(--motion-enter) ease-out;
+}
+@keyframes star-bounce {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.3); }
+  60%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+/* ── Done on the dashboard: the item slides right, fades and closes up, and the
+   items below move into its place (useLeavingItems takes it out after 180 ms;
+   under reduced motion it goes at once). interpolate-size lets height run from
+   auto to 0. */
+.motion-item-leave {
+  interpolate-size: allow-keywords;
+  overflow: hidden;
+  pointer-events: none;
+  animation: motion-item-leave var(--motion-base) ease-in forwards;
+}
+@keyframes motion-item-leave {
+  from { height: auto; }
+  to   { opacity: 0; height: 0; transform: translateX(24px); }
+}
+
+/* ── Dashboard list items sit in a wrapper that animates them out. The rows'
+   own last:border-0 then hits every row, so the wrapper puts the line back on
+   all but the last. */
+.motion-list-item:not(:last-child) > [role="listitem"] { border-bottom-width: 1px; }
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .motion-flash::after { animation: none; }
+  .motion-row-leave { animation-name: motion-row-dim; }
+  .motion-col-enter { animation: none; }
+  .motion-item-leave { animation: none; }
+  .animate-check-pop { animation: none; }
+  .animate-star-bounce { animation: none; }
+}
+.reduce-motion .motion-flash::after { animation: none; }
+.reduce-motion .motion-row-leave { animation-name: motion-row-dim; }
+.reduce-motion .motion-col-enter { animation: none; }
+.reduce-motion .motion-item-leave { animation: none; }
+.reduce-motion .animate-check-pop { animation: none; }
+.reduce-motion .animate-star-bounce { animation: none; }

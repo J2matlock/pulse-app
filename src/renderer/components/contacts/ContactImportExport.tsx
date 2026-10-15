@@ -368,7 +368,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
         </p>
         <PrimaryButton
           onClick={handleExport}
-          disabled={exporting}
+          busy={exporting}
           aria-label={`Export all ${t('contact', { many: true })} as vCard`}
         >
           {exporting ? (

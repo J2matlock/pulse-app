@@ -59,7 +59,7 @@ vi.mock('../../../../src/renderer/hooks/useFocusTrap', () => ({
 }))
 
 vi.mock('../../../../src/renderer/utils/animations', () => ({
-  dropdownVariants: {}, backdropVariants: {}, modalPanelVariants: {},
+  dropdownVariants: {}, backdropVariants: {}, modalPanelVariants: {}, MOTION: { fast: 0.12, base: 0.18, enter: 0.2 },
 }))
 
 let mockGrids = [

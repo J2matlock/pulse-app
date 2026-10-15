@@ -67,7 +67,7 @@ export function AuditReportDialog({ rowId, gridId, label, onClose }: {
       icon={<History className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
-        <PrimaryButton disabled={working} onClick={() => void save()}>{working ? 'Creating…' : 'Save PDF…'}</PrimaryButton>
+        <PrimaryButton busy={working} onClick={() => void save()}>{working ? 'Creating…' : 'Save PDF…'}</PrimaryButton>
       </>}>
       <div className="space-y-4">
         <p className="text-base text-slate-700 dark:text-slate-200">

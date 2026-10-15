@@ -15,6 +15,7 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 import { AppMotionConfig } from '../../../src/renderer/components/layout/AppMotionConfig'
+import { TickingNumber } from '../../../src/renderer/components/shared/TickingNumber'
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore'
 
 function Probe(): React.ReactElement {
@@ -30,5 +31,16 @@ describe('reduce motion setting', () => {
     expect(getByTestId('reduced').textContent).toBe('false')
     act(() => useSettingsStore.setState({ reducedMotion: true }))
     expect(getByTestId('reduced').textContent).toBe('true')
+  })
+
+  it('a ticking count is a plain swap with the switch on, and ticks with it off (Q6)', () => {
+    useSettingsStore.setState({ reducedMotion: true })
+    const { container, rerender } = render(<AppMotionConfig><TickingNumber value={3} /></AppMotionConfig>)
+    expect(container.querySelector('[data-testid="ticking-number"]')).toBeNull()
+    rerender(<AppMotionConfig><TickingNumber value={2} /></AppMotionConfig>)
+    expect(container.textContent).toBe('2')
+    act(() => useSettingsStore.setState({ reducedMotion: false }))
+    expect(container.querySelector('[data-testid="ticking-number"]')!.textContent).toBe('2')
+    expect(container.querySelector('.tabular-nums')).toBeTruthy()
   })
 })

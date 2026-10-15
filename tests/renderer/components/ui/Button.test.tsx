@@ -51,6 +51,32 @@ describe('PrimaryButton / SecondaryButton / DangerButton', () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 
+  it('busy shows a spinner only after 300 ms, in place of the icon (Q6)', () => {
+    vi.useFakeTimers()
+    const { rerender } = render(<PrimaryButton busy icon={<svg data-testid="ic" />}>Save</PrimaryButton>)
+    expect(screen.queryByTestId('button-spinner')).toBeNull()
+    act(() => { vi.advanceTimersByTime(299) })
+    expect(screen.queryByTestId('button-spinner')).toBeNull()
+    expect(screen.getByTestId('ic')).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(1) })
+    expect(screen.getByTestId('button-spinner')).toBeTruthy()
+    expect(screen.queryByTestId('ic')).toBeNull()
+    // Hidden from screen readers (aria-busy says it), and still at rest under reduced motion
+    expect(screen.getByTestId('button-spinner').closest('[aria-hidden="true"]')).toBeTruthy()
+    expect(screen.getByTestId('button-spinner').getAttribute('class')).toMatch(/motion-reduce:animate-none/)
+    rerender(<PrimaryButton icon={<svg data-testid="ic" />}>Save</PrimaryButton>)
+    expect(screen.queryByTestId('button-spinner')).toBeNull()
+    expect(screen.getByTestId('ic')).toBeTruthy()
+  })
+
+  it('a busy button without an icon puts the spinner before its words', () => {
+    vi.useFakeTimers()
+    render(<SecondaryButton busy>Saving…</SecondaryButton>)
+    act(() => { vi.advanceTimersByTime(300) })
+    const btn = screen.getByRole('button', { name: 'Saving…' })
+    expect(btn.firstElementChild!.contains(screen.getByTestId('button-spinner'))).toBe(true)
+  })
+
   it('hides the icon from screen readers', () => {
     render(<SecondaryButton icon={<svg data-testid="ic" />}>Print</SecondaryButton>)
     expect(screen.getByTestId('ic').parentElement!.getAttribute('aria-hidden')).toBe('true')

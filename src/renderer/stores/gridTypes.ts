@@ -85,6 +85,10 @@ export interface RowSliceState {
   /** Changes records in the open list on screen only (nothing is saved) */
   mapRows: (fn: (row: GridRow) => GridRow) => void
   lastAddedRowId: number | null
+  /** A record that just arrived (added, or back from Undo) lights up for a moment (Q6; .motion-flash) */
+  flashRowId: number | null
+  /** Records on their way out (archive, Trash): dimmed and closing up until the save is back (Q6) */
+  leavingRowIds: Set<number>
   /** A record just added stays on screen even if the filter or search would hide it (G-28) */
   pinnedRowId: number | null
 

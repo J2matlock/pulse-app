@@ -52,6 +52,8 @@ export const DEBOUNCE_ANNOUNCE = 300
 
 // UI animation timings (ms)
 export const SPINNER_DELAY = 200
+/** A busy button shows its spinner only after this long, so quick actions never flash one (Q6) */
+export const SPINNER_AFTER_MS = 300
 export const ANIM_STAR_BOUNCE = 400
 export const ANIM_CHECKED_FLASH = 1500
 

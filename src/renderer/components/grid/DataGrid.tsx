@@ -66,7 +66,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows, loadedGridId, loadError } = useGridStore(useShallow(s => ({
+          lastAddedRowId, flashRowId, leavingRowIds, pinnedRowId, frozenColumnCount, sampleRows, loadedGridId, loadError } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -79,6 +79,7 @@ export function DataGrid(): React.ReactElement {
     copiedFormatRules: s.copiedFormatRules,
     customGroups: s.customGroups, activeCustomGroupId: s.activeCustomGroupId,
     lastAddedRowId: s.lastAddedRowId,
+    flashRowId: s.flashRowId, leavingRowIds: s.leavingRowIds,
     pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
     sampleRows: s.sampleRows,
@@ -568,6 +569,7 @@ export function DataGrid(): React.ReactElement {
       frozenLeftOffsets={frozenLeftOffsets}
       frozenColumnCount={frozenFitCount}
       isSample={sampleRows[row.original.row_id] !== undefined}
+      motionState={leavingRowIds.has(row.original.row_id) ? 'leave' : flashRowId === row.original.row_id ? 'flash' : null}
     />
   )
 

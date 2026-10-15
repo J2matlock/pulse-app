@@ -78,7 +78,7 @@ export function MoveComputerWizard({ open, onClose, onGoToSecurity }: { open: bo
           ))}
           {step(2, !!savedPath && verified === true, 'Save your data to a USB drive or network folder', (
             <>
-              {!savedPath && <PrimaryButton disabled={working} onClick={() => void saveBackup()}>{working ? 'Saving…' : 'Save backup…'}</PrimaryButton>}
+              {!savedPath && <PrimaryButton busy={working} onClick={() => void saveBackup()}>{working ? 'Saving…' : 'Save backup…'}</PrimaryButton>}
               {savedPath && (
                 <p className="text-base text-slate-700 dark:text-slate-200 break-all">
                   Saved to <span className="font-mono text-sm">{savedPath}</span>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { TickingNumber } from '../../components/shared/TickingNumber'
 
 /**
  * A count tile. Every tile is a button that opens what it counts (UX D-06):
@@ -23,7 +24,7 @@ export function SummaryCard({
         <span className="flex-shrink-0" aria-hidden="true">{icon}</span>
         <span className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-tight">{label}</span>
       </div>
-      <div className={`text-2xl font-bold leading-none ${colorClass}`}>{value}</div>
+      <div className={`text-2xl font-bold leading-none ${colorClass}`}><TickingNumber value={value} /></div>
     </>
   )
   // A tint, not a border, sets a tile apart (Q8); a late count adds a red ring

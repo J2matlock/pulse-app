@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import type { GridRow, Column, AcuityLevel } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -15,6 +15,7 @@ import type { ArchiveReasonState } from '../../stores/archiveReasonStore'
 import { Trash2, X } from 'lucide-react'
 import { SecondaryButton, IconButton } from '../ui/Button'
 import { Tooltip } from '../shared/Tooltip'
+import { useLiftToastsAbove } from '../shared/toastLift'
 
 export interface BulkActionBarProps {
   selectedRowIds: Set<number>
@@ -41,6 +42,9 @@ export function BulkActionBar({
   setBulkMoveTarget,
   setBulkEditOpen,
 }: BulkActionBarProps): React.ReactElement {
+  const barRef = useRef<HTMLDivElement>(null)
+  // Toasts stay above the bar, 8 px clear of it, while it shows (Q6)
+  useLiftToastsAbove(barRef, 8)
   const lettersOn = useFeature('letters')
   const [batchDocs, setBatchDocs] = useState(false)
   const { t } = useVocab()
@@ -111,7 +115,7 @@ export function BulkActionBar({
 
   return (
     // Above the list's footer line, so its counts and "Saved" stay readable (UX-B-25)
-    <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] overflow-x-auto
+    <div ref={barRef} className="fixed bottom-12 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] overflow-x-auto
                     flex items-center gap-3 px-4 py-3 whitespace-nowrap
                     bg-slate-900 dark:bg-slate-700 text-white rounded-lg shadow-2xl
                     border border-slate-700 dark:border-slate-500">
