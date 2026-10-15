@@ -651,6 +651,95 @@ describe('DataGrid', () => {
       // Grid should still be intact
       expect(dataCells().length).toBe(20)
     })
+
+    describe('the place stays after Enter saves (persona study, Mark)', () => {
+      const cellAt = (rowId: number, colId: number) => document.querySelector<HTMLElement>(`[data-row-id="${rowId}"][data-col-id="${colId}"]`)!
+      const frames = () => act(async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))) })
+      /** A save that lands at once, as the optimistic update does */
+      function instantSave() {
+        const save = vi.fn((rowId: number, colId: number, value: string | null) => {
+          useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === rowId ? { ...r, [`col_${colId}`]: value } : r) }))
+          return Promise.resolve()
+        })
+        useGridStore.setState({ updateCell: save } as unknown as Parameters<typeof useGridStore.setState>[0])
+        return save
+      }
+      async function editAndEnter(rowId: number, colId: number, value: string) {
+        const cell = cellAt(rowId, colId)
+        act(() => { cell.focus() })
+        fireEvent.keyDown(cell, { key: 'Enter' })
+        await flushEffects()
+        const input = cell.querySelector('input')!
+        fireEvent.change(input, { target: { value } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+        await flushEffects()
+        await frames()
+      }
+
+      it('Enter on the last record keeps focus on the cell just saved, and the arrows still move', async () => {
+        const save = instantSave()
+        renderDataGrid()
+        await flushEffects()
+        await editAndEnter(5, 1, 'Rosa Delgado')
+        expect(save).toHaveBeenCalledWith(5, 1, 'Rosa Delgado')
+        expect(document.activeElement).toBe(cellAt(5, 1))
+        fireEvent.keyDown(cellAt(5, 1), { key: 'ArrowUp' })
+        await frames()
+        expect(document.activeElement).toBe(cellAt(4, 1))
+      })
+
+      it('Enter on a value that re-sorts the record follows it to its new place', async () => {
+        instantSave()
+        setupStores({ sortConfig: [{ columnId: 3, direction: 'asc', priority: 1 }] })
+        instantSave()
+        renderDataGrid()
+        await flushEffects()
+        // Record 5 is last (50); 1 puts it first
+        await editAndEnter(5, 3, '1')
+        const rowsOnScreen = screen.getAllByRole('row').slice(1)
+        expect(rowsOnScreen[0]!.contains(cellAt(5, 3))).toBe(true)
+        expect(document.activeElement).toBe(cellAt(5, 3))
+        fireEvent.keyDown(cellAt(5, 3), { key: 'ArrowDown' })
+        await frames()
+        expect(document.activeElement).toBe(cellAt(1, 3))
+      })
+
+      it('Enter that moves down after a re-sort lands on the record that was below, wherever it went', async () => {
+        instantSave()
+        setupStores({ sortConfig: [{ columnId: 3, direction: 'asc', priority: 1 }] })
+        instantSave()
+        renderDataGrid()
+        await flushEffects()
+        // Record 1 (10) goes to the bottom with 99; record 2 was below it
+        await editAndEnter(1, 3, '99')
+        expect(document.activeElement).toBe(cellAt(2, 3))
+      })
+
+      it('with focus on the page and a cell still lit, the arrow keys act on that cell', async () => {
+        renderDataGrid()
+        await flushEffects()
+        act(() => { cellAt(3, 2).focus() })
+        act(() => { (document.activeElement as HTMLElement).blur() })
+        expect(document.activeElement).toBe(document.body)
+        fireEvent.keyDown(document.body, { key: 'ArrowUp' })
+        await frames()
+        expect(document.activeElement).toBe(cellAt(2, 2))
+      })
+
+      it('the page-focus fallback leaves keys alone while a dialog is open', async () => {
+        renderDataGrid()
+        await flushEffects()
+        act(() => { cellAt(3, 2).focus() })
+        act(() => { (document.activeElement as HTMLElement).blur() })
+        const dialog = document.createElement('div')
+        dialog.setAttribute('role', 'dialog')
+        document.body.appendChild(dialog)
+        fireEvent.keyDown(document.body, { key: 'ArrowUp' })
+        await frames()
+        expect(document.activeElement).toBe(document.body)
+        dialog.remove()
+      })
+    })
   })
 
   // ── Selection ───────────────────────────────────────────────────────────

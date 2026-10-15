@@ -57,6 +57,8 @@ import { useFeature } from '../../hooks/useFeature'
 import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
 
 const COLUMN_DRAG_SENSOR = { activationConstraint: { distance: 5 } }
+/** A dialog or menu is open: keys belong to it, even when focus has fallen to the page */
+const OPEN_LAYER = ['dialog', 'alertdialog', 'menu'].map(role => `[role="${role}"]`).join(', ')
 
 // ── Main DataGrid ─────────────────────────────────────────────────────────────
 
@@ -145,11 +147,12 @@ export function DataGrid(): React.ReactElement {
     onCellUpdate: updateCell,
   })
 
-  // Cell navigation (extracted hook)
+  // Cell navigation (extracted hook). scrollToRowId is set further down, once the rows are known
+  const scrollToRowIdRef = useRef<((rowId: number) => void) | null>(null)
   const {
     selectedCell: focusedCell, selectCell, clearSelection: clearFocusedCell,
-    navigateCell,
-  } = useGridCellNavigation({ columns, visualRowIdsRef, containerRef })
+    navigateCell, focusCell,
+  } = useGridCellNavigation({ columns, visualRowIdsRef, containerRef, scrollToRowIdRef })
   // Wrapper matching SortableRow's setFocusedCell(coord | null) interface
   const setFocusedCell = useCallback(
     (c: { rowId: number; columnId: number } | null) => c ? selectCell(c.rowId, c.columnId) : clearFocusedCell(),
@@ -432,6 +435,7 @@ export function DataGrid(): React.ReactElement {
     const idx = isGroupedFromHook ? displayItems.findIndex(it => it.kind === 'row' && it.tableRowIndex === tableIdx) : tableIdx
     if (idx >= 0) scrollToRow(idx)
   }, [tableRows, displayItems, isGroupedFromHook, scrollToRow])
+  scrollToRowIdRef.current = scrollToRowId
 
   // Roving tab stop (audit G-32): the list is one Tab stop, and arrows move
   // inside it. The stop is the focused cell while it's on screen, otherwise
@@ -445,11 +449,13 @@ export function DataGrid(): React.ReactElement {
     if (row) renderedRowIds.push(row.original.row_id)
   }
   const firstCol = columns.find(c => c.is_visible !== 0)
+  const tabStopRef = useRef<{ rowId: number; columnId: number } | null>(null)
   const tabStop = focusedCell && renderedRowIds.includes(focusedCell.rowId)
     ? focusedCell
     : renderedRowIds[0] !== undefined && firstCol
       ? { rowId: renderedRowIds[0], columnId: firstCol.id }
       : null
+  tabStopRef.current = tabStop
 
   // Find & Replace: the active match comes into view (G-27)
   useEffect(() => {
@@ -483,10 +489,41 @@ export function DataGrid(): React.ReactElement {
     handleCellKeyDownImpl(e, rowId, columnId, keyNavDeps)
   }, [keyNavDeps])
 
-  // Navigate to adjacent row after Enter-commit in CellEditor
-  const handleNavigateAfterEdit = useCallback((rowId: number, colId: number, direction: NavDirection) => {
-    navigateCell(rowId, colId, direction)
-  }, [navigateCell])
+  // Navigate to adjacent row after Enter-commit in CellEditor. False at the list's edge:
+  // the row then keeps focus on the cell just saved (persona study, Mark)
+  const handleNavigateAfterEdit = useCallback(
+    (rowId: number, colId: number, direction: NavDirection): boolean => navigateCell(rowId, colId, direction),
+    [navigateCell],
+  )
+
+  // The drawn box never lies: when focus has fallen to the page (a record that moved, a
+  // menu that closed) and a cell is still lit, the keys that move or edit act on that cell
+  const focusedCellRef = useRef(focusedCell)
+  focusedCellRef.current = focusedCell
+  useEffect(() => {
+    const KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'F2', 'Tab'])
+    const onKeyDown = (e: KeyboardEvent) => {
+      const lit = focusedCellRef.current
+      if (!lit || !KEYS.has(e.key) || e.defaultPrevented || e.altKey) return
+      if (document.activeElement !== document.body && document.activeElement !== null) return
+      if (editingCellRef.current || document.querySelector(OPEN_LAYER)) return
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-row-id="${lit.rowId}"][data-col-id="${lit.columnId}"]`)
+      e.preventDefault()
+      if (!el) { focusCell(lit.rowId, lit.columnId); return }
+      el.focus({ preventScroll: true })
+      // The same key again, on the cell, so the grid's own handling runs (React hears it at the root)
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, code: e.code, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, bubbles: true, cancelable: true }))
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [editingCellRef, focusCell])
+
+  // "Skip to the list" (MainLayout): the lit cell, even scrolled away, or the first one on screen
+  useEffect(() => pulseEvents.on('grid:focus-cell', () => {
+    const lit = focusedCellRef.current
+    const target = lit && visualRowIdsRef.current.includes(lit.rowId) ? lit : tabStopRef.current
+    if (target) focusCell(target.rowId, target.columnId)
+  }), [focusCell])
 
   // Auto-edit first editable cell when a new row is added
   useEffect(() => {
@@ -574,6 +611,7 @@ export function DataGrid(): React.ReactElement {
       rowTags={rowTagsMap.get(row.original.row_id)}
       onToggleSelect={handleToggleRowSelect}
       onNavigateAfterEdit={handleNavigateAfterEdit}
+      focusCell={focusCell}
       rowId={row.original.row_id}
       searchQuery={findReplaceQuery || searchQuery || undefined}
       findReplaceActiveRowId={findReplaceActiveMatch?.rowId ?? null}

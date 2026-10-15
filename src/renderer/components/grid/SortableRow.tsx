@@ -65,7 +65,10 @@ export interface SortableRowProps {
   showTags?: boolean
   rowTags?: string[]
   onToggleSelect: (e: React.MouseEvent, rowId: number) => void
-  onNavigateAfterEdit: (rowId: number, colId: number, direction: NavDirection) => void
+  /** Move after an editor's Enter or Tab; false when there's nowhere to go (the list's edge) */
+  onNavigateAfterEdit: (rowId: number, colId: number, direction: NavDirection) => boolean
+  /** Light this cell and focus it once the list has drawn, found by record and column (a save can re-sort the list) */
+  focusCell: (rowId: number, colId: number) => void
   rowId: number
   searchQuery?: string
   findReplaceActiveRowId: number | null
@@ -123,6 +126,7 @@ export const SortableRow = React.memo(function SortableRow({
   rowTags,
   onToggleSelect,
   onNavigateAfterEdit,
+  focusCell,
   rowId: propRowId,
   searchQuery,
   findReplaceActiveRowId,
@@ -405,7 +409,9 @@ export const SortableRow = React.memo(function SortableRow({
               }
             }}
             onClick={e => {
-              // Single click = select only (checkbox toggles immediately)
+              // Single click = select only (checkbox toggles immediately). A double-click's
+              // second click is the same press, as everywhere else (useRepeatClickGuard, R3)
+              if (e.detail >= 2) return
               if (!isComputed && col.column_type === 'checkbox') {
                 const newVal = (value === 'true' || value === '1') ? 'false' : 'true'
                 void updateCell(rowId, colId, newVal)
@@ -453,9 +459,7 @@ export const SortableRow = React.memo(function SortableRow({
                   anchor={containerRef.current?.querySelector<HTMLElement>(`[data-row-id="${rowId}"][data-col-id="${colId}"]`) ?? null}
                   onClose={() => {
                     setEditingCell(null)
-                    setTimeout(() => {
-                      containerRef.current?.querySelector<HTMLElement>(`[data-row-id="${rowId}"][data-col-id="${colId}"]`)?.focus()
-                    }, 0)
+                    focusCell(rowId, colId)
                   }} />
               </>
             ) : isEditing && !isComputed ? (
@@ -474,25 +478,16 @@ export const SortableRow = React.memo(function SortableRow({
                     // Clear editing state and navigate synchronously to avoid flicker,
                     // then save in the background (optimistic update handles UI).
                     setEditingCell(null)
-                    if (navDirection) {
-                      onNavigateAfterEdit(rowId, colId, navDirection)
-                    } else {
-                      setTimeout(() => {
-                        containerRef.current?.querySelector<HTMLElement>(
-                          `[data-row-id="${rowId}"][data-col-id="${colId}"]`
-                        )?.focus()
-                      }, 0)
-                    }
+                    // Enter on the last record (or Tab on the last cell) has nowhere to go: the
+                    // place stays on this cell, not on the page (persona study, Mark)
+                    const moved = navDirection ? onNavigateAfterEdit(rowId, colId, navDirection) : false
+                    if (!moved) focusCell(rowId, colId)
                   }
                   void updateCell(rowId, colId, newValue)
                 }}
                 onCancel={() => {
                   setEditingCell(null)
-                  setTimeout(() => {
-                    containerRef.current?.querySelector<HTMLElement>(
-                      `[data-row-id="${rowId}"][data-col-id="${colId}"]`
-                    )?.focus()
-                  }, 0)
+                  focusCell(rowId, colId)
                 }}
                 // Escape threw typing away: an Undo step puts it back (persona study D5)
                 onDiscard={typed => pushDiscardedTyping({ rowId, columnId: colId, columnName: col.name, typed, previous: value })}
@@ -572,7 +567,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (next.hasCrossRowRules && prev.rowMap !== next.rowMap) return false
   // Stable today, but a new handler must reach the cells (AUDIT-133)
   if (prev.onCellKeyDown !== next.onCellKeyDown || prev.onCellContextMenu !== next.onCellContextMenu || prev.onOpenRowMenu !== next.onOpenRowMenu) return false
-  if (prev.onNavigateToProfile !== next.onNavigateToProfile || prev.onNavigateAfterEdit !== next.onNavigateAfterEdit) return false
+  if (prev.onNavigateToProfile !== next.onNavigateToProfile || prev.onNavigateAfterEdit !== next.onNavigateAfterEdit || prev.focusCell !== next.focusCell) return false
   if (prev.onToggleSelect !== next.onToggleSelect || prev.onToggleStar !== next.onToggleStar) return false
   if (prev.updateCell !== next.updateCell || prev.setEditingCell !== next.setEditingCell || prev.setFocusedCell !== next.setFocusedCell) return false
   if (prev.onSetAcuityLevel !== next.onSetAcuityLevel || prev.onBulkSetAcuityLevel !== next.onBulkSetAcuityLevel) return false

@@ -104,6 +104,12 @@ interface UndoState {
   clear: () => void
   /** Drop one step without running it: what it would undo is gone already (an untouched new record removed, R3) */
   discardTop: (itemId: string) => void
+  /**
+   * Drop every step about this record without running it: the record is gone for good
+   * (an untouched new record removed), so an Undo there would write to nothing. Esc in its
+   * name cell left a "Not saved in …" step (R1) that R3's removal made point at nothing.
+   */
+  discardForRecord: (rowId: number) => void
 }
 
 const MAX_STACK = 100
@@ -399,6 +405,13 @@ export const useUndoStore = create<UndoState>((set, get) => {
     discardTop(itemId: string) {
       if (get().toast?.itemId === itemId) clearToast()
       set(s => ({ undoStack: s.undoStack.filter(i => i.id !== itemId), redoStack: s.redoStack.filter(i => i.id !== itemId) }))
+    },
+
+    discardForRecord(rowId: number) {
+      const about = (i: UndoItem) => i.contextId === rowId
+      const { undoStack, redoStack, toast } = get()
+      if (toast?.itemId && [...undoStack, ...redoStack].some(i => i.id === toast.itemId && about(i))) clearToast()
+      set(s => ({ undoStack: s.undoStack.filter(i => !about(i)), redoStack: s.redoStack.filter(i => !about(i)) }))
     },
   }
 })

@@ -205,8 +205,10 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
           ...(s.lastAddedRowId === rowId ? { lastAddedRowId: null } : {}),
         }
       })
-      // Nothing to undo: "Added new …" would bring back an empty record
+      // Nothing to undo: "Added new …" would bring back an empty record, and any other step
+      // about it ("Not saved in Name: …" after Esc) would write to a record that's gone
       useUndoStore.getState().discardTop(fresh.undoId)
+      useUndoStore.getState().discardForRecord(rowId)
       return true
     } catch (err) {
       // Locked or closing: try again on the next load

@@ -36,8 +36,13 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
   evalCellFormat: () => null,
 }))
 
+// The open editor's props, so a test can press its Enter
+const editorProps: { current: { onSave: (v: string | null, nav?: string) => void; onCancel: () => void } | null } = { current: null }
 vi.mock('../../../../src/renderer/components/grid/CellEditor', () => ({
-  CellEditor: (p: { placeholder?: string }) => <div data-testid="cell-editor" data-placeholder={p.placeholder} />,
+  CellEditor: (p: { placeholder?: string; onSave: (v: string | null, nav?: string) => void; onCancel: () => void }) => {
+    editorProps.current = p
+    return <div data-testid="cell-editor" data-placeholder={p.placeholder} />
+  },
 }))
 
 vi.mock('../../../../src/renderer/components/grid/CellDisplay', () => ({
@@ -126,7 +131,8 @@ function makeProps(overrides: Partial<SortableRowProps> = {}): SortableRowProps 
     onCellContextMenu: vi.fn(),
     onNavigateToProfile: vi.fn(),
     onToggleSelect: vi.fn(),
-    onNavigateAfterEdit: vi.fn(),
+    onNavigateAfterEdit: vi.fn(() => true),
+    focusCell: vi.fn(),
     rowId: 1,
     searchQuery: undefined,
     findReplaceActiveRowId: null,
@@ -324,6 +330,51 @@ describe('SortableRow', () => {
     expect(cell.style.paddingLeft).toBe('0px')
     expect(cell.style.paddingRight).toBe('0px')
     expect(cell.className).not.toContain('ring-3')
+  })
+
+  describe('the place stays after Enter saves (persona study, Mark)', () => {
+    const editing = (over: Partial<SortableRowProps> = {}) => makeProps({
+      editingRowId: 1, editingColId: 1,
+      editingCellRef: { current: { rowId: 1, columnId: 1 } },
+      ...over,
+    })
+
+    it('Enter with a record below moves there and leaves focus to the move', () => {
+      const props = editing()
+      render(<SortableRow {...props} />)
+      editorProps.current!.onSave('Rosa Delgado', 'next-row')
+      expect(props.onNavigateAfterEdit).toHaveBeenCalledWith(1, 1, 'next-row')
+      expect(props.focusCell).not.toHaveBeenCalled()
+      expect(props.updateCell).toHaveBeenCalledWith(1, 1, 'Rosa Delgado')
+    })
+
+    it('Enter on the last record (nowhere to move) keeps focus on the cell just saved', () => {
+      const props = editing({ onNavigateAfterEdit: vi.fn(() => false) })
+      render(<SortableRow {...props} />)
+      editorProps.current!.onSave('Rosa Delgado', 'next-row')
+      expect(props.focusCell).toHaveBeenCalledWith(1, 1)
+    })
+
+    it('a save without a direction, and Esc, put focus back on the cell', () => {
+      const props = editing()
+      render(<SortableRow {...props} />)
+      editorProps.current!.onSave('x')
+      expect(props.focusCell).toHaveBeenCalledWith(1, 1)
+      editorProps.current!.onCancel()
+      expect(props.focusCell).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('a double-click on a checkbox cell ticks it once (the second click is the same press, R3)', () => {
+    const cols = [makeColumn(1, 'Done', 'checkbox')]
+    const updateCell = vi.fn().mockResolvedValue(undefined)
+    render(<SortableRow {...makeProps({ updateCell, columns: cols, columnMap: new Map(cols.map(c => [c.id, c])) })} />)
+    const cell = document.querySelector('[data-col-id="1"]')!
+    fireEvent.click(cell, { detail: 1 })
+    fireEvent.click(cell, { detail: 2 })
+    fireEvent.doubleClick(cell)
+    expect(updateCell).toHaveBeenCalledTimes(1)
+    expect(updateCell).toHaveBeenCalledWith(1, 1, 'true')
   })
 
   it('applies selected styling when isSelected is true', () => {
