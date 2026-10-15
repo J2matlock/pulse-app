@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { CalendarClock } from 'lucide-react'
+import { Tooltip } from '../../components/shared/Tooltip'
 import { useNavigate } from 'react-router-dom'
 import type { FollowUpRow } from './types'
 import { completeFollowUp } from './completeFollowUp'
@@ -38,26 +40,27 @@ export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollo
   return (
     <div
       role="listitem"
-      className="flex items-center gap-4 px-4 border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-amber-50/30 dark:hover:bg-amber-900/10 transition-colors"
+      className="flex items-center gap-4 px-4 border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
       style={{ minHeight: 52 }}
     >
       <div className={`w-1 self-stretch rounded-full ${barColor}`} />
-      <button
-        onClick={handleComplete}
-        disabled={completing}
-        title="Mark follow-up complete"
-        aria-label="Mark follow-up complete"
-        className="hit-44 w-5 h-5 rounded-full border-2 border-amber-400 dark:border-amber-500 flex items-center justify-center flex-shrink-0 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-amber-500"
-      >
-        {completing && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
-      </button>
+      <Tooltip content="Mark follow-up complete">
+        <button
+          onClick={handleComplete}
+          disabled={completing}
+          aria-label="Mark follow-up complete"
+          className="hit-44 w-5 h-5 rounded-full border-2 border-slate-400 dark:border-slate-500 flex items-center justify-center flex-shrink-0 hover:border-accent hover:bg-accent-soft focus-visible:border-accent transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent"
+        >
+          {completing && <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />}
+        </button>
+      </Tooltip>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(`/profile/${followUp.row_id}?gridId=${followUp.grid_id}`)}
             className="hit-44 font-medium text-slate-800 dark:text-slate-100 truncate hover:underline text-left focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
           >{followUp.client_name}</button>
-          <span className="text-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-sm flex-shrink-0">follow-up</span>
+          <span className="inline-flex items-center gap-1 text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-2 rounded-full flex-shrink-0"><CalendarClock className="w-3.5 h-3.5" aria-hidden="true" />follow-up</span>
         </div>
         <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
           {followUp.grid_name} · {followUp.content.slice(0, 80)}{followUp.content.length > 80 ? '…' : ''}

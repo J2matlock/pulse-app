@@ -21,19 +21,20 @@ export function SummaryCard({
     <>
       <div className={`flex items-center gap-2 mb-1 ${colorClass}`}>
         {icon}
-        <span className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-tight">{label}</span>
+        <span className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-tight">{label}</span>
       </div>
       <div className={`text-2xl font-bold leading-none ${colorClass}`}>{value}</div>
     </>
   )
-  const border = urgent ? 'border-red-300 dark:border-red-700' : 'border-slate-200 dark:border-slate-700'
+  // A tint, not a border, sets a tile apart (Q8); a late count adds a red ring
+  const ring = urgent ? 'ring-1 ring-inset ring-red-300 dark:ring-red-700' : ''
 
   if (href || onClick) {
     return (
       <button
         type="button"
         onClick={() => { if (onClick) onClick(); else if (href) navigate(href) }}
-        className={`rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 text-left w-full hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:border-slate-400 dark:hover:border-slate-500 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${border}`}
+        className={`rounded-lg px-4 py-3 bg-slate-50 dark:bg-slate-800/60 text-left w-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent ${ring}`}
         style={{ minHeight: 90 }}
       >
         {inner}
@@ -42,7 +43,7 @@ export function SummaryCard({
   }
 
   return (
-    <div className={`rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 ${border}`} style={{ minHeight: 90 }}>
+    <div className={`rounded-lg px-4 py-3 bg-slate-50 dark:bg-slate-800/60 ${ring}`} style={{ minHeight: 90 }}>
       {inner}
     </div>
   )

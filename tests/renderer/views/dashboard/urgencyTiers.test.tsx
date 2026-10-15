@@ -89,7 +89,7 @@ describe('dashboard urgency tiers', () => {
           "text": "text-sm text-yellow-700 dark:text-yellow-400 tabular-nums",
         },
         "31": {
-          "bar": "w-1 self-stretch rounded-full bg-purple-300",
+          "bar": "w-1 self-stretch rounded-full bg-slate-200 dark:bg-slate-600",
           "label": "31 days",
           "text": "text-sm text-slate-500 dark:text-slate-400 tabular-nums",
         },
@@ -136,7 +136,7 @@ describe('dashboard urgency tiers', () => {
           "text": "text-sm text-yellow-700 dark:text-yellow-400 tabular-nums",
         },
         "31": {
-          "bar": "w-1 self-stretch rounded-full bg-teal-300",
+          "bar": "w-1 self-stretch rounded-full bg-slate-200 dark:bg-slate-600",
           "label": "31 days",
           "text": "text-sm text-slate-500 dark:text-slate-400 tabular-nums",
         },

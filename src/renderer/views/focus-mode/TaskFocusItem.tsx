@@ -1,5 +1,6 @@
 import React from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { PrimaryButton } from '../../components/ui/Button'
 import type { FocusTask } from './types'
 import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
 import { shortYmd } from '../../../shared/dates'
@@ -44,16 +45,16 @@ export const TaskFocusItem = React.memo(function TaskFocusItem({ task, celebrati
           {urgencyLabel && <div className={`text-sm ${urgencyColor} tabular-nums`}>{urgencyLabel}</div>}
         </div>
       )}
-      <button
+      <PrimaryButton
+        size="compact"
+        icon={<Check className="w-4 h-4" />}
         onClick={onComplete}
         disabled={celebrating}
         aria-label={`Mark ${task.title} done`}
-        className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-600 text-white text-base font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-purple-400 disabled:opacity-50"
-        style={{ minHeight: 44 }}
+        className="flex-shrink-0"
       >
-        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
         Done
-      </button>
+      </PrimaryButton>
     </div>
   )
 })

@@ -5,7 +5,7 @@
  * Extend… and a Not now to put one aside). Follows the app theme (UX D-07).
  */
 import React, { useEffect, useState, useCallback, useRef, useId } from 'react'
-import { X, CheckCircle2, AlertTriangle, Pin, ListChecks, MessageSquare, CalendarClock } from 'lucide-react'
+import { X, Check, CheckCircle2, AlertTriangle, Pin, ListChecks, MessageSquare, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { IPC } from '../../shared/ipc-channels'
@@ -36,7 +36,7 @@ import { useVocab } from '../hooks/useVocab'
 import { wordNow } from '../utils/vocab'
 import { useFeature } from '../hooks/useFeature'
 import { shortYmd } from '../../shared/dates'
-import { PrimaryButton } from '../components/ui/Button'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
 
 interface Props {
   onClose: () => void
@@ -370,22 +370,17 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-8 py-5 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
             <CheckCircle2 className="w-5 h-5 text-white" aria-hidden="true" />
           </div>
           <div>
-            <h1 id={dialogTitleId} className="text-lg font-semibold text-slate-900 dark:text-white">Focus mode</h1>
+            <h1 id={dialogTitleId} className="text-xl font-semibold text-slate-900 dark:text-white">Focus mode</h1>
             <p className="text-sm text-slate-600 dark:text-slate-400">What needs your attention today</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 44 }}
-        >
-          <X className="w-4 h-4" aria-hidden="true" />
+        <SecondaryButton onClick={onClose} icon={<X className="w-4 h-4" />}>
           Exit focus mode
-        </button>
+        </SecondaryButton>
       </div>
 
       {/* Content */}
@@ -490,7 +485,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
                         className={`flex items-center gap-4 px-5 py-4 ${celebratingId === `cldue-${ci.id}` ? 'celebrating' : ''}`}
                         style={{ minHeight: 64 }}
                       >
-                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-teal-400" />
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-400 dark:bg-slate-500" />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-slate-900 dark:text-white truncate">{ci.title}</div>
                           <div className="text-sm text-slate-600 dark:text-slate-400 truncate">
@@ -507,16 +502,16 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
                           <div className="text-sm text-slate-600 dark:text-slate-400 tabular-nums">{dueDateFormatted}</div>
                           <div className={`text-sm ${urgencyColor} tabular-nums`}>{urgencyLabel}</div>
                         </div>
-                        <button
+                        <PrimaryButton
+                          size="compact"
+                          icon={<Check className="w-4 h-4" />}
                           onClick={() => void handleCompleteChecklistDue(ci.id)}
                           disabled={celebratingId === `cldue-${ci.id}`}
                           aria-label={`Mark ${ci.title} done`}
-                          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-700 hover:bg-teal-600 text-white text-base font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-teal-400 disabled:opacity-50"
-                          style={{ minHeight: 44 }}
+                          className="flex-shrink-0"
                         >
-                          <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                           Done
-                        </button>
+                        </PrimaryButton>
                       </div>
                     )
                   })}

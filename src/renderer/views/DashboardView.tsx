@@ -4,7 +4,9 @@
  */
 import { onTabListKeyDown } from '../utils/tabListKeys'
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { AlertTriangle, Calendar, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
+import { Tooltip } from '../components/shared/Tooltip'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
 import { ComplianceSummaryDialog } from '../components/reports/ComplianceSummaryDialog'
 import toast from 'react-hot-toast'
@@ -488,10 +490,10 @@ export default function DashboardView(): React.ReactElement {
           Select all shown
         </label>
         <span className="text-base font-medium text-blue-900 dark:text-blue-100 flex-1">{selectedDeadlines.size} selected</span>
-        <button type="button" className="btn-compact-primary" disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
+        <PrimaryButton size="compact" icon={<Check className="w-4 h-4" />} disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
           {bulkBusy ? 'Marking…' : 'Mark done'}
-        </button>
-        <button type="button" className="btn-compact-secondary" onClick={() => setSelectedDeadlines(new Set())}>Clear</button>
+        </PrimaryButton>
+        <SecondaryButton size="compact" onClick={() => setSelectedDeadlines(new Set())}>Clear</SecondaryButton>
       </div>
     )
   }
@@ -763,10 +765,11 @@ export default function DashboardView(): React.ReactElement {
                 }} />
             )}
             {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} title="Print reminder letters" preferTemplate="Reminder" onClose={() => setReminderLetters(false)} />}
-            <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
-              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-              Customize
-            </button>
+            <Tooltip content="Choose which cards show, and their order">
+              <SecondaryButton size="compact" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} icon={<LayoutGrid className="w-4 h-4" />}>
+                Customize
+              </SecondaryButton>
+            </Tooltip>
           </div>
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
@@ -780,20 +783,20 @@ export default function DashboardView(): React.ReactElement {
         {/* Cards, in the order people chose (W10 §4) */}
         <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} recentlyArchived={recentlyArchived} summary={
         <>
-        {/* One row of tiles; each opens what it counts (UX D-06) */}
+        {/* One row of tiles; each opens what it counts (UX D-06). Only the status counts are coloured, and only above 0 (Q8) */}
         <div className="flex flex-wrap gap-3 mb-6 [&>*]:flex-1 [&>*]:min-w-[150px]">
           <SummaryCard
             label={activeLabel}
             value={stats?.totalActive ?? '—'}
             icon={<Users className="w-5 h-5" />}
-            colorClass="text-blue-600 dark:text-blue-400"
+            colorClass="text-slate-800 dark:text-slate-100"
             href="/grid"
           />
           <SummaryCard
             label="Overdue deadlines"
             value={isLoading ? '—' : derivedCounts.overdue}
             icon={<AlertTriangle className="w-5 h-5" />}
-            colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500'}
+            colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300'}
             urgent={derivedCounts.overdue > 0}
             onClick={() => openTab('overdue')}
           />
@@ -801,14 +804,14 @@ export default function DashboardView(): React.ReactElement {
             label="Due in the next 7 days"
             value={isLoading ? '—' : derivedCounts.dueThisWeek}
             icon={<Clock className="w-5 h-5" />}
-            colorClass="text-orange-700 dark:text-orange-400"
+            colorClass={derivedCounts.dueThisWeek > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}
             onClick={() => openTab('week')}
           />
           <SummaryCard
             label="Due in the next 30 days"
             value={isLoading ? '—' : derivedCounts.dueThisMonth}
             icon={<Calendar className="w-5 h-5" />}
-            colorClass="text-yellow-700 dark:text-yellow-400"
+            colorClass={derivedCounts.dueThisMonth > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-600 dark:text-slate-300'}
             onClick={() => openTab('month')}
           />
           {(showTasks || showChecklists) && (<>
@@ -816,8 +819,7 @@ export default function DashboardView(): React.ReactElement {
               label="Tasks, checklist items and follow-ups due or late"
               value={isLoading ? '—' : derivedCounts.otherDue}
               icon={<ClipboardList className="w-5 h-5" />}
-              colorClass={derivedCounts.otherDue > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
-              urgent={derivedCounts.otherDue > 0}
+              colorClass="text-slate-800 dark:text-slate-100"
               href="/tasks"
             />
           </>)}
