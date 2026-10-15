@@ -41,7 +41,7 @@ export const createFormatSlice = (set: Set, get: Get) => ({
       const isAdding = rules.length > 0 && prevRules.length === 0
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
-        description: isClearing ? 'Cleared cell formatting' : isAdding ? 'Set cell formatting' : 'Changed cell formatting',
+        description: isClearing ? 'Removed color rules from a cell' : isAdding ? 'Added color rules to a cell' : 'Changed color rules on a cell',
         timestamp: Date.now(),
         category: 'silent',
         icon: 'palette',
@@ -51,7 +51,7 @@ export const createFormatSlice = (set: Set, get: Get) => ({
     } catch (err) {
       rethrowIfUndoing(err)
       rlog.error('GridFormatSlice', 'Failed to save cell format', err)
-      toast.error('Could not apply formatting — please try again')
+      toast.error('We couldn\'t save the color rules — try again')
     }
   },
 
@@ -85,8 +85,8 @@ export const createFormatSlice = (set: Set, get: Get) => ({
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: isClearing
-          ? `Cleared formatting from ${entries.length} cells`
-          : `Applied formatting to ${entries.length} cells`,
+          ? `Removed color rules from ${entries.length} cells`
+          : `Pasted color rules on ${entries.length} cells`,
         timestamp: Date.now(),
         category: 'silent',
         icon: 'palette',
@@ -105,7 +105,7 @@ export const createFormatSlice = (set: Set, get: Get) => ({
         return { cellFormats: rolled }
       })
       rethrowIfUndoing(err)
-      toast.error('Could not apply formatting — please try again')
+      toast.error('We couldn\'t save the color rules — try again')
     }
   },
 })

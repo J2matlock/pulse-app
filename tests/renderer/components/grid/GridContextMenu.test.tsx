@@ -142,7 +142,7 @@ describe('GridContextMenu', () => {
     render(<GridContextMenu {...makeProps({ cellFormats: new Map([['1_1', rules]]) })} />)
     expect(screen.getByRole('menuitem', { name: 'More…' }).getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText('Color rules for this cell…')).toBeTruthy()
-    expect(screen.getByText('Copy formatting')).toBeTruthy()
+    expect(screen.getByText('Copy color rules')).toBeTruthy()
   })
 
   it('renders row action items: Star client, Duplicate client, Move/Copy, Archive, Move to trash', () => {

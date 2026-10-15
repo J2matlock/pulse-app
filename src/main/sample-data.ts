@@ -15,7 +15,15 @@ import { trashList } from './list-trash'
 import { parseSampleMarks, sampleFingerprintMatches, sampleRowHasUserAdditions, trackSampleRows } from './sample-marks'
 import { LIVE_GRID, NOT_TRASHED_ROW, liveGrid } from '../shared/liveRecords'
 
-export const SAMPLE_GRID_NAME = 'Sample Caseload (not real clients)'
+/** The sample list's name in the workspace's words: "Sample caseload (not real clients)" */
+export function sampleGridName(): string {
+  return `Sample ${word('list')} (not real ${word('record', { many: true })})`
+}
+
+/** A name the sample list was given, now or by an older version, in whatever words were in use then */
+export function isSampleGridName(name: string): boolean {
+  return /^Sample .+ \(not real .+\)$/.test(name)
+}
 const META_KEY = 'sample_data'
 
 /** Ids of every sample entry still tracked (live or in the Trash) */
@@ -168,7 +176,7 @@ function removeSampleCaseload(wholeList: boolean): string | null {
     for (const id of rec.taskIds) delTask.run(id)
     trashList(rec.gridId)
   } else if (grid?.is_active) {
-    keptName = grid.name === SAMPLE_GRID_NAME ? `My ${word('record', { many: true, cap: true }, rec.gridId)}` : grid.name
+    keptName = isSampleGridName(grid.name) ? `My ${word('record', { many: true, cap: true }, rec.gridId)}` : grid.name
     db.prepare("UPDATE grids SET name = ?, updated_at = datetime('now') WHERE id = ?").run(keptName, rec.gridId)
     for (const id of rec.taskIds) delTask.run(id)
   }
@@ -200,7 +208,7 @@ export function createSampleCaseload(): number {
 
   const record = db.transaction((): SampleRecord => {
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) AS p FROM grids').get() as { p: number }).p
-    const gridId = Number(db.prepare("INSERT INTO grids (name, position, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'))").run(SAMPLE_GRID_NAME, maxPos + 1).lastInsertRowid)
+    const gridId = Number(db.prepare("INSERT INTO grids (name, position, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'))").run(sampleGridName(), maxPos + 1).lastInsertRowid)
 
     const rule = (name: string, interval: number, thresholds: unknown) =>
       Number(db.prepare("INSERT INTO alert_rules (name, description, is_system, thresholds, interval_days, created_at) VALUES (?, 'Sample rule', 0, ?, ?, datetime('now'))").run(name, JSON.stringify(thresholds), interval).lastInsertRowid)

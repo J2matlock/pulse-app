@@ -59,7 +59,7 @@ export function SampleKeepPrompt(): React.ReactElement | null {
     <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/40 p-4">
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="sample-keep-title" aria-describedby="sample-keep-text"
         className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <h2 id="sample-keep-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">Keep this as a real entry?</h2>
+        <h2 id="sample-keep-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">Keep this as a real {t('record')}?</h2>
         <p id="sample-keep-text" className="text-base text-slate-700 dark:text-slate-200">
           You changed a made-up sample {t('record')}. If it's real now, we'll take off its Sample mark and keep it when the samples are removed.
         </p>

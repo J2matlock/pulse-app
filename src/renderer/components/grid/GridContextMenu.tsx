@@ -245,7 +245,7 @@ export function GridContextMenu({
           Color rules for this cell…
         </button>
 
-        {/* Copy / paste formatting */}
+        {/* Copy / paste color rules */}
         {cmRules.length > 0 && (
           <button
             className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -256,12 +256,12 @@ export function GridContextMenu({
                 originRowId: r.originRowId ?? contextMenu.rowId,
               }))
               setCopiedFormatRules(portable)
-              toast.success('Formatting copied')
+              toast.success('Color rules copied')
               onClose()
             }}
           >
             <Copy className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            Copy formatting
+            Copy color rules
           </button>
         )}
         {copiedFormatRules && (
@@ -273,17 +273,17 @@ export function GridContextMenu({
                 : [contextMenu.rowId]
               if (targetRows.length === 1) {
                 await setCellFormat(targetRows[0]!, contextMenu.colId, copiedFormatRules)
-                toast.success('Formatting pasted')
+                toast.success('Color rules pasted')
               } else {
                 const entries = targetRows.map(rid => ({ rowId: rid, columnId: contextMenu.colId, rules: copiedFormatRules! }))
                 await batchSetCellFormat(entries)
-                toast.success(`Formatting applied to ${targetRows.length} ${t('record', { count: targetRows.length })}`)
+                toast.success(`Color rules pasted on ${targetRows.length} ${t('record', { count: targetRows.length })}`)
               }
               onClose()
             }}
           >
             <Clipboard className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            Paste formatting{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} ${t('record', { many: true })})` : ''}
+            Paste color rules{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} ${t('record', { many: true })})` : ''}
           </button>
         )}
         </>)}

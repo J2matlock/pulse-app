@@ -155,9 +155,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                       </p>
                     )}
 
-                    {/* Custom Fields */}
+                    {/* Extra details (custom fields) */}
                     <div className="border-t border-slate-200 dark:border-slate-600 pt-3">
-                      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Custom Fields (max 10)</div>
+                      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Extra details (up to 10)</div>
                       {customFields.length === 0 && (
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-2 italic">
                           Examples: Medical → NPI, Specialty · Legal → Bar Number · Housing → Unit Type, Voucher #
@@ -172,8 +172,8 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                               <button
                                 onClick={() => deleteCustomField(f.id, editingId!)}
                                 className="hit-44 p-1 rounded-sm hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
-                                title="Remove field"
-                                aria-label={`Remove field ${f.field_name}`}
+                                title={`Remove the detail "${f.field_name}"`}
+                                aria-label={`Remove the detail "${f.field_name}"`}
                               >
                                 <Trash2 size={16} className="text-red-600 dark:text-red-400" />
                               </button>
@@ -192,7 +192,8 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                                 setNewFieldName('')
                               }
                             }}
-                            placeholder="Field name"
+                            placeholder="Detail name"
+                            aria-label="Name of the new detail"
                             className="flex-1 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-base text-slate-900 dark:text-white focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                             style={{ fontSize: 15, minHeight: 32 }}
                           />
@@ -216,11 +217,11 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                               }
                             }}
                             disabled={!newFieldName.trim()}
-                            aria-label="Add field"
-                            className="hit-44 p-1.5 rounded-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
-                            style={{ minHeight: 32, minWidth: 32 }}
+                            className="hit-44 inline-flex items-center gap-1 px-2 py-1.5 rounded-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
+                            style={{ minHeight: 32, minWidth: 32, fontSize: 15 }}
                           >
-                            <Plus size={14} />
+                            <Plus size={14} aria-hidden="true" />
+                            Add detail
                           </button>
                         </div>
                       )}

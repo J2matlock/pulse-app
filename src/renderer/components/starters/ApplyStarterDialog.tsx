@@ -325,7 +325,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                     <input type="checkbox" className={box} checked={sample} onChange={e => setSample(e.target.checked)} />
                     <span>
                       <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Add sample data</span>
-                      <span className="block text-base text-slate-600 dark:text-slate-300">Made-up entries to try things out. You can remove them in one click.</span>
+                      <span className="block text-base text-slate-600 dark:text-slate-300">Made-up examples to try things out. You can remove them in one click.</span>
                     </span>
                   </label>
                 )}

@@ -92,8 +92,8 @@ describe('TrashView — data smoke tests', () => {
 
     expect(screen.getByText('Client')).toBeDefined()
     expect(screen.getByText('Caseload')).toBeDefined()
-    expect(screen.getByText('Deleted')).toBeDefined()
-    expect(screen.getByText('Days Remaining')).toBeDefined()
+    expect(screen.getByText('Moved to the Trash')).toBeDefined()
+    expect(screen.getByText('Days left')).toBeDefined()
     expect(screen.getByText('Actions')).toBeDefined()
   })
 

@@ -246,14 +246,13 @@ export default function LetterTemplateView(): React.ReactElement {
                   </button>
                 <button
                   onClick={() => setShowGenerate(true)}
-                  title="Generate a letter from this template"
-                  aria-label="Generate letter from template"
+                  title="Make a letter from this template"
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
                              text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
                              focus:ring-offset-3 min-h-[44px]"
                 >
                   <FileText className="w-4 h-4" />
-                  Generate Letter
+                  Make a letter…
                 </button>
                 {grids.length > 0 && (
                   <button

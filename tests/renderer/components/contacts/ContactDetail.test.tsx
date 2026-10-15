@@ -140,14 +140,14 @@ describe('ContactDetail', () => {
     const provider = makeProvider()
     await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByRole('tab', { name: /Info/ })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /Log/ })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /History/ })).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Clients/ })).toBeTruthy()
   })
 
   it('switches to Log tab and shows interaction log', async () => {
     const provider = makeProvider()
     await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
-    fireEvent.click(screen.getByRole('tab', { name: /Log/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /History/ }))
     expect(screen.getByTestId('interaction-log')).toBeTruthy()
   })
 

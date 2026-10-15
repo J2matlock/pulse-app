@@ -50,7 +50,7 @@ describe('remove sample data', () => {
   it('asks once whether an edited sample entry is real now (audit 2.6)', async () => {
     useGridStore.setState({ sampleRows: { 4: 0 }, sampleKeepPrompt: 4 })
     render(<SampleKeepPrompt />)
-    expect(screen.getByRole('dialog', { name: 'Keep this as a real entry?' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: /Keep this as a real \w+\?/ })).toBeTruthy()
     expect(screen.getByText(/You changed a made-up sample client/)).toBeTruthy()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Yes, keep it' })) })
     expect(invoke).toHaveBeenCalledWith('sample-data:answer', 4, 'keep')

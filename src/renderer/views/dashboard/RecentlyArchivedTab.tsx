@@ -100,8 +100,8 @@ export function RecentlyArchivedTab({
                 <button
                   onClick={() => navigate(`/profile/${row.id}?gridId=${row.grid_id}`)}
                   className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
-                  title="View profile"
-                  aria-label="View profile"
+                  title={`Open ${tFor(row.grid_id)('record')}'s page`}
+                  aria-label={`Open ${tFor(row.grid_id)('record')}'s page`}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>

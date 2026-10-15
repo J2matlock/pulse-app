@@ -23,7 +23,7 @@ export function DemoActivityTimeline() {
           90%, 100% { height: 0; }
         }
       `}</style>
-      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Activity timeline</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">{t('activityLog', { cap: true })}</div>
       <div className="relative pl-6 space-y-2">
         {/* Vertical line */}
         <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-slate-200 dark:bg-slate-700 overflow-hidden">

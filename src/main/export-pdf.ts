@@ -599,7 +599,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
     const valueMap = new Map(values.map(v => [v.custom_field_id, v.value]))
     const filledFields = fields.filter(f => valueMap.has(f.id))
     if (filledFields.length > 0) {
-      sectionTitle('Custom Fields')
+      sectionTitle('Extra details')
       for (const f of filledFields) {
         kv(f.field_name, valueMap.get(f.id) || '\u2014')
       }

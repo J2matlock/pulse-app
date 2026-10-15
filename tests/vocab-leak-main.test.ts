@@ -100,6 +100,16 @@ describe('the main process uses the workspace words', () => {
     expect(leaks).toEqual([])
   })
 
+  it('the sample list\'s name and the other sample-data constants (UX review F-13)', () => {
+    // The sample list's name is shown in the sidebar of every workspace, whatever its words
+    const src = readFileSync(join(MAIN, 'sample-data.ts'), 'utf8')
+    const lit = String.raw`(['"\x60])((?:\\.|(?!\1).)*)\1`
+    const constants = [...src.matchAll(new RegExp(String.raw`^(?:export )?const [A-Z_]+ = ` + lit, 'gm'))].map(m => m[2]!)
+    const returned = [...src.matchAll(new RegExp(String.raw`^\s*return ` + lit, 'gm'))].map(m => m[2]!)
+    expect(constants.length + returned.length).toBeGreaterThan(1)
+    expect([...constants, ...returned].filter(c => LEAK.test(sample(c)))).toEqual([])
+  })
+
   it('the macOS menu and the tray tooltip', () => {
     const labels: string[] = []
     const walk = (items: Array<{ label?: string; submenu?: unknown }>) => {

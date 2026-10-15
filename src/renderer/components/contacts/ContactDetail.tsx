@@ -226,7 +226,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
       <div className="flex border-b border-slate-200 dark:border-slate-700 px-4" role="tablist" onKeyDown={onTabListKeyDown}>
         {([
           { key: 'info' as DetailTab, label: 'Info' },
-          { key: 'interactions' as DetailTab, label: 'Log' },
+          { key: 'interactions' as DetailTab, label: 'History' },
           { key: 'clients' as DetailTab, label: t('record', { many: true, cap: true }) },
         ]).map(tb => (
           <button key={tb.key} role="tab" id={`tab-${tb.key}`} aria-selected={tab === tb.key} tabIndex={tab === tb.key ? 0 : -1}
@@ -238,7 +238,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
             }`}
             style={{ fontSize: 15 }}>
             {tb.key === 'interactions'
-              ? <><span>Log</span> <span aria-live="polite">({interactions.length})</span></>
+              ? <><span>History</span> <span aria-live="polite">({interactions.length})</span></>
               : tb.key === 'clients'
               ? <><span>{t('record', { many: true, cap: true })}</span> <span aria-live="polite">({clientLinks.length})</span></>
               : tb.label}
@@ -276,7 +276,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
             {/* Custom Fields */}
             {customFields.length > 0 && customFields.some(f => customValues[f.id]) && (
               <div className="py-2">
-                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Category Fields</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Extra details</div>
                 <div className="space-y-1">
                   {customFields.filter(f => customValues[f.id]).map(f => (
                     <div key={f.id} className="flex items-baseline gap-2">

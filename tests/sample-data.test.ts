@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 
 let testDb: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => testDb.db, cachedStmt: (_k: string, sql: string) => testDb.db.prepare(sql) }))
 
-import { createSampleCaseload, removeSampleData, planSampleRemoval, getSampleGridId, getSampleRowIds, countSampleRows, answerSampleRow, SAMPLE_GRID_NAME } from '../src/main/sample-data'
+import { createSampleCaseload, removeSampleData, planSampleRemoval, getSampleGridId, getSampleRowIds, countSampleRows, answerSampleRow, sampleGridName, isSampleGridName } from '../src/main/sample-data'
 
 const count = (sql: string, ...args: unknown[]) => (testDb.db.prepare(sql).get(...args) as { n: number }).n
 const live = (gridId: number) => count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ? AND deleted_at IS NULL', gridId)
@@ -16,7 +16,7 @@ describe('sample caseload', () => {
   it('creates a labelled caseload with clients, notes, tasks, and providers', () => {
     const gridId = createSampleCaseload()
     expect(getSampleGridId()).toBe(gridId)
-    expect(count('SELECT COUNT(*) AS n FROM grids WHERE id = ? AND name = ?', gridId, SAMPLE_GRID_NAME)).toBe(1)
+    expect(count('SELECT COUNT(*) AS n FROM grids WHERE id = ? AND name = ?', gridId, sampleGridName())).toBe(1)
     expect(count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?', gridId)).toBe(25)
     expect(count('SELECT COUNT(*) AS n FROM case_log cl JOIN rows r ON r.id = cl.row_id WHERE r.grid_id = ?', gridId)).toBeGreaterThan(25)
     expect(count('SELECT COUNT(*) AS n FROM caseload_tasks WHERE grid_id = ?', gridId)).toBe(3)
@@ -26,6 +26,16 @@ describe('sample caseload', () => {
     // Every entry is tracked as a sample
     expect(getSampleRowIds()).toHaveLength(25)
     expect(countSampleRows()).toBe(25)
+  })
+
+  it('names the sample list in the workspace words (UX review F-13)', () => {
+    setDbWords(testDb.db)
+    expect(sampleGridName()).toBe('Sample caseload (not real clients)')
+    setDbWords(testDb.db, { record: { one: 'vehicle', many: 'vehicles', article: 'a' }, list: { one: 'garage', many: 'garages', article: 'a' } })
+    expect(sampleGridName()).toBe('Sample garage (not real vehicles)')
+    // The name older versions gave it still counts, so keeping the list still renames it
+    expect(isSampleGridName('Sample Caseload (not real clients)')).toBe(true)
+    expect(isSampleGridName('My caseload')).toBe(false)
   })
 
   it('creating twice reuses the same caseload', () => {

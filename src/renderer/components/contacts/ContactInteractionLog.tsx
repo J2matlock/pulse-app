@@ -280,7 +280,7 @@ export function ContactInteractionLog({ providerId }: Props) {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search interactions..."
+            placeholder="Search this history…"
             className="w-full pl-9 pr-8 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             style={{ fontSize: 15, minHeight: 44 }}
           />
@@ -302,8 +302,8 @@ export function ContactInteractionLog({ providerId }: Props) {
           <MessageSquare size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-500" />
           <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>
             {debouncedSearch.trim()
-              ? 'No interactions match your search.'
-              : 'No interactions logged yet.'}
+              ? 'Nothing in this history matches your search.'
+              : 'No history yet. Note a call, meeting or email above to keep track of what was said.'}
           </p>
         </div>
       ) : (

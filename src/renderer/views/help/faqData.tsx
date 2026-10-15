@@ -126,7 +126,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-name-format',
     question: 'Can a name be built from several columns, like 2017 Honda Civic?',
-    answer: 'Yes. Open {List} settings and use "How to show each one\'s name." Click columns to add them in the order you want, for example Year, Make, Model and Plate. That name is used everywhere: the dashboard, profiles, reports and PDFs. Empty columns drop out on their own. Leave it empty to use the name column.',
+    answer: 'Yes. Open {List} settings and use "How to show each one\'s name." Click columns to add them in the order you want, for example Year, Make, Model and Plate. That name is used everywhere: the dashboard, each {record}\'s page, reports and PDFs. Empty columns drop out on their own. Leave it empty to use the name column.',
     category: 'caseload-grid',
   },
   {
@@ -420,7 +420,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tasks-priorities',
     question: 'What do the priority levels mean?',
-    answer: 'Tasks have four priority levels: Low, Normal, High and Urgent. Tasks stay in the order you put them in; to put the most urgent first, choose Sort: Priority at the top of the Tasks page, or Sort: Due date to put overdue ones first. Checklist items marked Urgent on a profile checklist also show up on the Tasks page.',
+    answer: 'Tasks have four priority levels: Low, Normal, High and Urgent. Tasks stay in the order you put them in; to put the most urgent first, choose Sort: Priority at the top of the Tasks page, or Sort: Due date to put overdue ones first. Checklist items marked Urgent on {a record}\'s checklist also show up on the Tasks page.',
     category: 'tasks',
     demo: <DemoTaskPriorities />,
   },

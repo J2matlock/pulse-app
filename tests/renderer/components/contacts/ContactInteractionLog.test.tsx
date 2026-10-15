@@ -47,7 +47,7 @@ describe('ContactInteractionLog', () => {
 
   it('shows empty state message when no interactions', () => {
     render(<ContactInteractionLog providerId={1} />)
-    expect(screen.getByText('No interactions logged yet.')).toBeTruthy()
+    expect(screen.getByText('No history yet. Note a call, meeting or email above to keep track of what was said.')).toBeTruthy()
   })
 
   it('renders the add interaction form with type buttons and textarea', () => {
@@ -91,13 +91,13 @@ describe('ContactInteractionLog', () => {
       { id: 1, provider_id: 1, created_at: new Date().toISOString(), contact_type: 'note', content: 'Test note' },
     ]
     render(<ContactInteractionLog providerId={1} />)
-    expect(screen.getByPlaceholderText('Search interactions...')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Search this history…')).toBeTruthy()
   })
 
   it('does not show search input when no interactions', () => {
     mockInteractions = []
     render(<ContactInteractionLog providerId={1} />)
-    expect(screen.queryByPlaceholderText('Search interactions...')).toBeNull()
+    expect(screen.queryByPlaceholderText('Search this history…')).toBeNull()
   })
 
   it('filters interactions only for the given providerId', () => {

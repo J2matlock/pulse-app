@@ -22,7 +22,7 @@ const VARIABLES = [
   { label: '{today+30}', desc: '30 days from now' },
   { label: '{today-1}',  desc: 'Yesterday' },
   { label: '{now}',      desc: 'Current time' },
-  { label: '{client_name}', desc: 'Name of the {record} (in a profile)' },
+  { label: '{client_name}', desc: 'Name of the {record} (on {a record}\'s page)' },
 ]
 
 // ── Snippet editor dialog ─────────────────────────────────────────────────────

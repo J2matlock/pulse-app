@@ -302,7 +302,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
                                focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px]"
                   >
                     <FileDown className="w-4 h-4" />
-                    Export PDF
+                    Save as PDF…
                   </button>
                 </div>
               </div>

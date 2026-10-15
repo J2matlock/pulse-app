@@ -72,7 +72,7 @@ export function UrgentChecklistSection({ items, onToggle, onNavigate }: {
                         className="hit-44 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base
                                    bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
                                    hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                        title={`Open ${item.client_name}'s profile`}
+                        title={`Open ${item.client_name}'s page`}
                       >
                         {item.client_name}
                         <ExternalLink className="w-3 h-3" />
@@ -101,8 +101,8 @@ export function UrgentChecklistSection({ items, onToggle, onNavigate }: {
                 {/* Navigate to profile */}
                 <button
                   onClick={() => onNavigate(item.grid_id, item.row_id)}
-                  title={`Open the profile for ${item.client_name ?? tFor(item.grid_id)('record', { article: true })}`}
-                  aria-label={`Open the profile for ${item.client_name ?? tFor(item.grid_id)('record', { article: true })}`}
+                  title={item.client_name ? `Open ${item.client_name}'s page` : `Open the ${tFor(item.grid_id)('record')}'s page`}
+                  aria-label={item.client_name ? `Open ${item.client_name}'s page` : `Open the ${tFor(item.grid_id)('record')}'s page`}
                   className="hit-44 flex-shrink-0 p-1.5 rounded-sm text-slate-500 hover:text-blue-500
                              hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
                              opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100

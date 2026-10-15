@@ -207,9 +207,9 @@ export default function TrashView() {
               <tr className="text-left text-sm font-medium text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                 <th className="py-3 pr-4" style={{ fontSize: 15 }}>{t('record', { cap: true })}</th>
                 <th className="py-3 pr-4" style={{ fontSize: 15 }}>{t('list', { cap: true })}</th>
-                <th className="py-3 pr-4" style={{ fontSize: 15 }}>Deleted</th>
-                <th className="py-3 pr-4" style={{ fontSize: 15 }}>Days Remaining</th>
-                <th className="py-3 text-right" style={{ fontSize: 15 }}>Actions</th>
+                <th className="py-3 pr-4" style={{ fontSize: 15 }}>Moved to the Trash</th>
+                <th className="py-3 pr-4" style={{ fontSize: 15 }}>Days left</th>
+                <th className="py-3 text-right" style={{ fontSize: 15 }}><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>

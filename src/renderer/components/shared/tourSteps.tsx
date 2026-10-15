@@ -108,7 +108,7 @@ export const STEPS: TourStep[] = [
     title: 'Your {record} list',
     subtitle: 'Like a spreadsheet, but smarter',
     description:
-      'Each line is one {record}. Each column tracks a piece of information — names, dates, phone numbers, status, and more. Click any cell to edit it. Click the profile icon at the left edge of any {record} to open the full profile.',
+      'Each line is one {record}. Each column tracks a piece of information — names, dates, phone numbers, status, and more. Click any cell to edit it. Click the small person icon at the left edge of any {record} to open that {record}\'s page.',
     tip: 'Use arrow keys to move between cells. Press Enter or F2 to start editing. Press Escape to cancel.',
     icon: <Table2 className="w-6 h-6" />,
     position: 'bottom',
@@ -218,7 +218,7 @@ export const STEPS: TourStep[] = [
     title: 'Filter your {list}',
     subtitle: 'See only what matters right now',
     description:
-      'Use filters to narrow your view — show only {record:many} with a specific status, program, or date range. You can save filter combinations as presets to reuse them quickly.',
+      'Use filters to narrow your view — show only {record:many} with a specific status, program, or date range. You can keep a filter you use often as a saved filter.',
     icon: <Filter className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -318,7 +318,7 @@ export const STEPS: TourStep[] = [
     title: 'Your daily overview',
     subtitle: 'Start each day here',
     description:
-      'The Dashboard shows what needs your attention right now — overdue deadlines in red, upcoming due dates this week, and completed tasks. Click any {record} name to jump straight to the profile.',
+      'The Dashboard shows what needs your attention right now — overdue deadlines in red, upcoming due dates this week, and completed tasks. Click any {record} name to open that {record}\'s page.',
     icon: <LayoutDashboard className="w-6 h-6" />,
     position: 'right',
     route: '#/dashboard',

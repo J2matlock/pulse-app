@@ -298,10 +298,10 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           </div>
         </div>
 
-        {/* Custom Fields (category-specific) */}
+        {/* Extra details (category-specific custom fields) */}
         {categoryFields.length > 0 && (
           <>
-            <h3 className={sectionHeaderClasses}>Category Fields</h3>
+            <h3 className={sectionHeaderClasses}>Extra details for this category</h3>
             <div className="space-y-4">
               {categoryFields.map(f => (
                 <div key={f.id}>

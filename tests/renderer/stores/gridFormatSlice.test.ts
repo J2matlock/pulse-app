@@ -76,7 +76,7 @@ describe('gridFormatSlice', () => {
 
       await useGridStore.getState().setCellFormat(1, 5, [sampleRule])
       expect(useUndoStore.getState().undoStack).toHaveLength(1)
-      expect(useUndoStore.getState().undoStack[0]!.description).toBe('Set cell formatting')
+      expect(useUndoStore.getState().undoStack[0]!.description).toBe('Added color rules to a cell')
     })
 
     it('describes clearing when rules are empty', async () => {
@@ -87,7 +87,7 @@ describe('gridFormatSlice', () => {
 
       await useGridStore.getState().setCellFormat(1, 5, [])
       expect(useGridStore.getState().cellFormats.has('1_5')).toBe(false)
-      expect(useUndoStore.getState().undoStack[0]!.description).toBe('Cleared cell formatting')
+      expect(useUndoStore.getState().undoStack[0]!.description).toBe('Removed color rules from a cell')
     })
   })
 
