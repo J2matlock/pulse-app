@@ -152,7 +152,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
       footer={<>
         <SecondaryButton onClick={onClose}>{result ? 'Close' : 'Cancel'}</SecondaryButton>
         {!result && (
-          <PrimaryButton onClick={handleGenerate} disabled={generating || !selectedGridId}>
+          <PrimaryButton onClick={handleGenerate} busy={generating} disabled={!selectedGridId}>
             {generating ? 'Generating…' : 'Generate'}
           </PrimaryButton>
         )}

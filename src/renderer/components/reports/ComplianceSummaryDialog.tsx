@@ -71,7 +71,7 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
       description={<>How the month is going: {t('requirement', { many: true })}, deadlines on time, missing information</>}
       footer={<>
         <SecondaryButton onClick={onClose}>Close</SecondaryButton>
-        <PrimaryButton disabled={working || summary === null} onClick={() => void save()}>{working ? 'Creating…' : 'Save as PDF…'}</PrimaryButton>
+        <PrimaryButton busy={working} disabled={summary === null} onClick={() => void save()}>{working ? 'Creating…' : 'Save as PDF…'}</PrimaryButton>
       </>}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-4">

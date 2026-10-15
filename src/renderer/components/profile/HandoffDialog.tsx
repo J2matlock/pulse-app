@@ -65,7 +65,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
       title={<>{Packet}: {clientName}</>}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
-        <PrimaryButton disabled={working} onClick={() => void save()}>{working ? 'Creating…' : 'Save PDF…'}</PrimaryButton>
+        <PrimaryButton busy={working} onClick={() => void save()}>{working ? 'Creating…' : 'Save PDF…'}</PrimaryButton>
       </>}>
       <div className="space-y-4">
         <p className="text-base text-slate-700 dark:text-slate-200">

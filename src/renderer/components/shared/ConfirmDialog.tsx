@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Dialog } from '../ui/Dialog'
 import { PrimaryButton, SecondaryButton, DangerButton } from '../ui/Button'
+import { useBusyAction } from '../../hooks/useBusyAction'
 
 interface BaseProps {
   open: boolean
@@ -9,7 +10,8 @@ interface BaseProps {
   message?: string
   /** The button says the title's verb ("Delete", "Restore"), never "OK" or "Confirm" (UX review F-06) */
   confirmLabel: string
-  onConfirm: () => void
+  /** May return a promise: the button is busy (one run, a spinner after 300 ms) until it settles */
+  onConfirm: () => void | Promise<unknown>
   onCancel: () => void
   destructive?: boolean
   children?: React.ReactNode
@@ -39,6 +41,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
   const [typed, setTyped] = useState('')
   const primaryRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [confirm, { busy }] = useBusyAction(onConfirm)
 
   // A fresh start each time it opens. Focus goes to the typed field if there is one, otherwise the confirm button (D-020)
   useEffect(() => {
@@ -55,7 +58,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
       e.stopPropagation()
       // The confirm button would also fire its own click on Enter; confirm once.
       e.preventDefault()
-      onConfirm()
+      void confirm()
     }
   }
 
@@ -101,7 +104,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
       ) : undefined}
       footer={<>
         <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
-        <ConfirmButton ref={primaryRef} onClick={onConfirm} disabled={!canConfirm}>
+        <ConfirmButton ref={primaryRef} onClick={() => void confirm()} disabled={!canConfirm} busy={busy}>
           {confirmLabel}
         </ConfirmButton>
       </>}

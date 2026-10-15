@@ -13,14 +13,18 @@
  * - are type="button" unless you pass type="submit";
  * - pass every other prop (data-tour, data-testid, id, aria-*, className for margins)
  *   to the real <button>, and take a React 19 `ref`;
- * - busy: disabled and aria-busy while something runs (a spinner comes later, Q6);
+ * - busy: disabled and aria-busy at once, and a spinner in place of the icon (or before the
+ *   words) once it has run SPINNER_AFTER_MS, so a quick action never flashes one (Q6;
+ *   useBusyAction gives a busy flag for an async handler). Under reduced motion it doesn't spin;
  * - tone="inverse" on a dark bar (bulk-action bar, Undo toast).
  *
  * The look stays in globals.css (.btn-primary, .btn-compact-secondary, …) so
  * existing selectors and the high-contrast and forced-colours rules keep working.
  */
 import React from 'react'
+import { Loader2 } from 'lucide-react'
 import { Tooltip } from '../shared/Tooltip'
+import { useDelayedFlag } from '../../hooks/useBusyAction'
 
 export type ButtonSize = 'normal' | 'compact'
 export type ButtonTone = 'default' | 'inverse'
@@ -48,13 +52,21 @@ const INVERSE_CLASS: Record<Kind, string> = {
 }
 
 const DISABLED = 'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:transform-none'
+/** A busy button is disabled against a second click, but it is working, not unavailable: a lighter fade */
+const BUSY = 'aria-busy:disabled:opacity-75 aria-busy:disabled:cursor-progress'
+
+function Spinner(): React.ReactElement {
+  return <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" data-testid="button-spinner" />
+}
 
 function classes(kind: Kind, size: ButtonSize, tone: ButtonTone, extra?: string): string {
-  return [KIND_CLASS[kind][size], tone === 'inverse' ? INVERSE_CLASS[kind] : '', DISABLED, extra ?? ''].filter(Boolean).join(' ')
+  return [KIND_CLASS[kind][size], tone === 'inverse' ? INVERSE_CLASS[kind] : '', DISABLED, BUSY, extra ?? ''].filter(Boolean).join(' ')
 }
 
 function makeButton(kind: Kind, displayName: string) {
   function KindButton({ ref, size = 'normal', icon, busy = false, tone = 'default', type = 'button', className, disabled, children, ...rest }: ButtonProps): React.ReactElement {
+    const spinning = useDelayedFlag(busy)
+    const lead = spinning ? <Spinner /> : icon
     return (
       <button
         ref={ref}
@@ -64,7 +76,7 @@ function makeButton(kind: Kind, displayName: string) {
         aria-busy={busy || undefined}
         {...rest}
       >
-        {icon && <span aria-hidden="true" className="inline-flex flex-shrink-0">{icon}</span>}
+        {lead && <span aria-hidden="true" className="inline-flex flex-shrink-0">{lead}</span>}
         {children}
       </button>
     )
@@ -114,10 +126,11 @@ export function IconButton({
   ref, label, icon, shortcut, size = 'normal', tone = 'default', variant = 'ghost', tooltipPlacement = 'top',
   busy = false, type = 'button', className, disabled, ...rest
 }: IconButtonProps): React.ReactElement {
+  const spinning = useDelayedFlag(busy)
   const cls = [
     'inline-flex items-center justify-center flex-shrink-0 rounded-lg transition-colors cursor-pointer',
     'focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent',
-    ICON_SIZE[size], ICON_VARIANT[variant][tone], DISABLED, className ?? '',
+    ICON_SIZE[size], ICON_VARIANT[variant][tone], DISABLED, BUSY, className ?? '',
   ].filter(Boolean).join(' ')
   return (
     <Tooltip content={shortcut ? `${label} (${shortcut})` : label} placement={tooltipPlacement}>
@@ -130,7 +143,7 @@ export function IconButton({
         aria-busy={busy || undefined}
         {...rest}
       >
-        <span aria-hidden="true" className="inline-flex">{icon}</span>
+        <span aria-hidden="true" className="inline-flex">{spinning ? <Spinner /> : icon}</span>
       </button>
     </Tooltip>
   )

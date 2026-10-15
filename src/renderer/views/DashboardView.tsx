@@ -491,7 +491,7 @@ export default function DashboardView(): React.ReactElement {
           Select all shown
         </label>
         <span className="text-base font-medium text-blue-900 dark:text-blue-100 flex-1">{selectedDeadlines.size} selected</span>
-        <PrimaryButton size="compact" icon={<Check className="w-4 h-4" />} disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
+        <PrimaryButton size="compact" icon={<Check className="w-4 h-4" />} busy={bulkBusy} disabled={selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
           {bulkBusy ? 'Marking…' : 'Mark done'}
         </PrimaryButton>
         <SecondaryButton size="compact" onClick={() => setSelectedDeadlines(new Set())}>Clear</SecondaryButton>
