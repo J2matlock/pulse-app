@@ -50,7 +50,10 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set) => ({
   isLocked: true,
   isPasswordSetup: false,
-  theme: 'dark',
+  // Follows the computer's light/dark choice until a theme is saved; a new install used to open
+  // dark whatever the computer was set to, which looked broken next to Excel and Outlook (UX-A-02).
+  // Installs with a saved theme keep it: hydrateFromSettings only overrides when one is stored.
+  theme: 'system',
   autoLockMinutes: AUTO_LOCK_DEFAULT_MINUTES,
   focusModeOpen: false,
   recoverySession: false,

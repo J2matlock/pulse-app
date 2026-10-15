@@ -63,7 +63,8 @@ export default function SettingsView(): React.ReactElement {
   const rawTab = new URLSearchParams(hashSearch).get('tab')
   const tabParam = isSection(rawTab) ? rawTab : null
 
-  const [activeSection, setActiveSection] = useState<Section>(tabParam || 'appearance')
+  // Opens on the first tab: a list whose first item isn't the open one reads as a mistake (UX-E-19)
+  const [activeSection, setActiveSection] = useState<Section>(tabParam || SECTIONS[0]!)
 
   useEffect(() => {
     if (tabParam && tabParam !== activeSection) {
@@ -106,9 +107,11 @@ export default function SettingsView(): React.ReactElement {
     await saveSetting('theme', newTheme)
   }
 
-  // Shortcuts (the ? sheet) and Snippets (the Snippets page) were read-only copies, so they're not tabs here
+  // Shortcuts (the ? sheet) and Snippets (the Snippets page) were read-only copies, so they're not tabs here.
+  // The description is the open panel's subtitle, not a second line in the tab list: nine one-line
+  // tabs fit a 720 px screen without scrolling (UX-E-03)
   const navItems: Array<{ id: Section; label: string; desc: string; icon: React.ElementType }> = [
-    { id: 'workspace', label: 'Workspace', desc: 'Words, features and ready-made examples', icon: ToggleLeft },
+    { id: 'workspace', label: 'Words & features', desc: 'Words, features and ready-made examples', icon: ToggleLeft },
     { id: 'profile', label: 'Profile', desc: 'Your name, title, and contact info', icon: User },
     { id: 'appearance', label: 'Appearance', desc: 'Theme, font size, and display options', icon: Monitor },
     { id: 'security', label: 'Security', desc: 'Password and encryption settings', icon: Shield },
@@ -132,8 +135,8 @@ export default function SettingsView(): React.ReactElement {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar nav */}
-        {/* Scrolls on short screens (1366×768, zoomed in) so every tab can be reached */}
-        <nav aria-label="Settings tabs" className="w-56 flex-shrink-0 overflow-y-auto border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-4" role="tablist" aria-orientation="vertical" onKeyDown={onTabListKeyDown}>
+        {/* Still scrolls when zoomed in, so every tab can be reached */}
+        <nav aria-label="Settings tabs" className="w-56 flex-shrink-0 overflow-y-auto border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-2" role="tablist" aria-orientation="vertical" onKeyDown={onTabListKeyDown}>
           {navItems.map(item => (
             <button
               key={item.id}
@@ -143,8 +146,9 @@ export default function SettingsView(): React.ReactElement {
               tabIndex={activeSection === item.id ? 0 : -1}
               aria-controls={`settings-panel-${item.id}`}
               onClick={() => setActiveSection(item.id)}
+              title={item.desc}
               // No color fade, and a bar down the left edge: the open tab shows at once, in dark mode too
-              className={`flex items-start gap-3 w-full pl-3 pr-4 py-2 text-left border-l-4
+              className={`flex items-center gap-3 w-full pl-3 pr-4 py-2 text-left border-l-4
                 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                 ${activeSection === item.id
                   ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 font-medium'
@@ -152,11 +156,8 @@ export default function SettingsView(): React.ReactElement {
               style={{ minHeight: 44 }}
               {...(item.id === 'security' ? { 'data-tour': 'settings-security-tab' } : item.id === 'backup' ? { 'data-tour': 'settings-backup-tab' } : {})}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <div>
-                <span className="text-base">{item.label}</span>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-normal">{item.desc}</p>
-              </div>
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+              <span className="text-base">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -169,7 +170,11 @@ export default function SettingsView(): React.ReactElement {
           tabIndex={0}
           className="flex-1 overflow-y-auto focus:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500"
         >
-          <div className="max-w-xl mx-auto px-8 py-8 space-y-8">
+          {/* What the open tab covers, in one line (it used to sit under every tab's name) */}
+          <p className="max-w-xl mx-auto px-8 pt-5 text-base text-slate-500 dark:text-slate-400">
+            {navItems.find(i => i.id === activeSection)?.desc}
+          </p>
+          <div className="max-w-xl mx-auto px-8 pt-2 pb-8 space-y-8">
 
             {activeSection === 'profile' && (
               <ProfileSection

@@ -79,6 +79,9 @@ vi.mock('../../../src/renderer/components/settings/AlertsSection', () => ({
 vi.mock('../../../src/renderer/components/settings/AboutSection', () => ({
   AboutSection: () => <div data-testid="section-about">About Section</div>,
 }))
+vi.mock('../../../src/renderer/components/settings/WorkspaceSection', () => ({
+  WorkspaceSection: () => <div data-testid="section-workspace">Workspace Section</div>,
+}))
 
 import SettingsView from '../../../src/renderer/views/SettingsView'
 
@@ -88,12 +91,22 @@ describe('SettingsView', () => {
     mockInvoke.mockResolvedValue({ ok: true, data: {} })
   })
 
-  it('renders with Appearance tab active by default', () => {
+  it('opens on the first tab, "Words & features" (UX-E-19)', () => {
     render(<SettingsView />)
-    expect(screen.getByTestId('section-appearance')).toBeDefined()
-    // Verify the Appearance tab has aria-selected=true
-    const appearanceTab = screen.getByRole('tab', { name: /Appearance/i })
-    expect(appearanceTab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByTestId('section-workspace')).toBeDefined()
+    const first = screen.getAllByRole('tab')[0]!
+    expect(first.textContent).toBe('Words & features')
+    expect(first.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: /Appearance/i }).getAttribute('aria-selected')).toBe('false')
+  })
+
+  it('tabs are one line each; the description is the open panel\'s subtitle (UX-E-03)', () => {
+    render(<SettingsView />)
+    for (const tab of screen.getAllByRole('tab')) expect(tab.querySelector('p')).toBeNull()
+    expect(screen.getByText('Words, features and ready-made examples').closest('[role="tabpanel"]')).not.toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/i }))
+    expect(screen.getByText('Theme, font size, and display options').closest('[role="tabpanel"]')).not.toBeNull()
+    expect(screen.queryByText('Words, features and ready-made examples')).toBeNull()
   })
 
   it('moves between tabs with the arrow keys', () => {
@@ -113,7 +126,7 @@ describe('SettingsView', () => {
 
   it('renders all tab labels in the sidebar nav', () => {
     render(<SettingsView />)
-    const tabs = ['Profile', 'Appearance', 'Security', 'Backup', 'Data', 'Deadlines & reminders', 'About']
+    const tabs = ['Words & features', 'Profile', 'Appearance', 'Security', 'Backup', 'Data', 'Deadlines & reminders', 'About']
     for (const label of tabs) {
       expect(screen.getByRole('tab', { name: new RegExp(`^${label}\\b`, 'i') })).toBeDefined()
     }
@@ -123,14 +136,14 @@ describe('SettingsView', () => {
     render(<SettingsView />)
     fireEvent.click(screen.getByRole('tab', { name: /Security/i }))
     expect(screen.getByTestId('section-security')).toBeDefined()
-    expect(screen.queryByTestId('section-appearance')).toBeNull()
+    expect(screen.queryByTestId('section-workspace')).toBeNull()
   })
 
   it('switches to About section when About tab is clicked', () => {
     render(<SettingsView />)
     fireEvent.click(screen.getByRole('tab', { name: /About/i }))
     expect(screen.getByTestId('section-about')).toBeDefined()
-    expect(screen.queryByTestId('section-appearance')).toBeNull()
+    expect(screen.queryByTestId('section-workspace')).toBeNull()
   })
 
   it('the breadcrumb leads to the Dashboard, the first page in the sidebar (audit N-14)', () => {

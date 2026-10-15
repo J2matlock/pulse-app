@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }))
@@ -16,17 +17,21 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
 })
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
-import { SampleDataBanner, SampleKeepPrompt } from '../../../../src/renderer/components/shared/SampleDataBanner'
+import { SampleDataBanner, SampleKeepPrompt, samplePlacement } from '../../../../src/renderer/components/shared/SampleDataBanner'
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { DataSection } from '../../../../src/renderer/components/settings/DataSection'
 import { setWords } from '../../vocabFixture'
 
+const bannerAt = (path: string) => <MemoryRouter initialEntries={[path]}><SampleDataBanner /></MemoryRouter>
 const tick = () => act(async () => { await new Promise(r => setTimeout(r, 0)) })
-beforeEach(() => { setWords(); invoke.mockClear(); toast.success.mockClear() })
+beforeEach(() => {
+  setWords(); invoke.mockClear(); toast.success.mockClear()
+  useGridStore.setState({ activeGridId: null, sampleRows: {} })
+})
 
 describe('remove sample data', () => {
   it('the banner confirms with counts, then reports what was kept', async () => {
-    render(<SampleDataBanner />)
+    render(bannerAt('/dashboard'))
     await tick()
     // Short enough for one line on a laptop screen; the rest is on hover (V1)
     const text = screen.getByText(/are made-up samples\. Remove them when you're done\./)
@@ -89,7 +94,7 @@ describe('remove sample data', () => {
 
   it('the banner checks again when a list goes to the Trash', async () => {
     useGridStore.setState({ grids: [{ id: 3, name: 'Real' }, { id: 4, name: 'Sample' }] as never })
-    render(<SampleDataBanner />)
+    render(bannerAt('/dashboard'))
     await tick()
     const before = invoke.mock.calls.filter(c => c[0] === 'sample-data:status').length
     await act(async () => { useGridStore.setState({ grids: [{ id: 3, name: 'Real' }] as never }) })
@@ -104,5 +109,44 @@ describe('remove sample data', () => {
     await tick()
     expect(invoke).not.toHaveBeenCalledWith('sample-data:remove')
     expect(screen.getByText(/will move to the Trash/)).toBeTruthy()
+  })
+})
+
+describe('where the sample banner shows (UX-D-38, UX-B-32)', () => {
+  const entries = { gridId: null, sampleRows: 12 }
+  it('the dashboard and a list holding samples get the banner; other pages the status-bar chip', () => {
+    expect(samplePlacement('/dashboard', entries, null, 0)).toBe('banner')
+    expect(samplePlacement('/grid/5', entries, 5, 3)).toBe('banner')
+    // The sample list itself, even with every entry kept as real
+    expect(samplePlacement('/grid/7', { gridId: 7, sampleRows: 0 }, 7, 0)).toBe('banner')
+    // A brand-new list of the user's own has no samples to warn about
+    expect(samplePlacement('/grid/6', entries, 6, 0)).toBe('chip')
+    expect(samplePlacement('/settings', entries, 5, 3)).toBe('chip')
+    expect(samplePlacement('/calendar', entries, 5, 3)).toBe('chip')
+    expect(samplePlacement('/profile/4', entries, 5, 3)).toBe('chip')
+    // No samples anywhere: nothing at all
+    expect(samplePlacement('/dashboard', { gridId: null, sampleRows: 0 }, null, 0)).toBeNull()
+    expect(samplePlacement('/dashboard', null, null, 0)).toBeNull()
+  })
+
+  it("a list without samples shows no banner; a list with them says it in that list's word", async () => {
+    setWords(undefined, { 5: { record: { one: 'volunteer', many: 'volunteers', article: 'a' } } })
+    useGridStore.setState({ activeGridId: 6, sampleRows: {} })
+    const view = render(bannerAt('/grid/6'))
+    await tick()
+    expect(screen.queryByRole('button', { name: 'Remove sample data' })).toBeNull()
+    view.unmount()
+    useGridStore.setState({ activeGridId: 5, sampleRows: { 11: 0, 12: 0 } })
+    render(bannerAt('/grid/5'))
+    await tick()
+    expect(screen.getByText(/Volunteers with a/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Remove sample data' })).toBeTruthy()
+  })
+
+  it('Settings and Calendar get no banner', async () => {
+    useGridStore.setState({ activeGridId: 5, sampleRows: { 11: 0 } })
+    render(bannerAt('/settings'))
+    await tick()
+    expect(screen.queryByRole('button', { name: 'Remove sample data' })).toBeNull()
   })
 })

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { Grid3X3, ChevronLeft, Lock, LayoutDashboard, Trash2, MoreHorizontal, ClipboardList, Zap, LayoutTemplate, FileText, Settings, Settings2, Pencil, GripVertical, ArrowUp, ArrowDown, Focus, BookUser, Plus, HelpCircle, CalendarCheck, CalendarDays, ClipboardPen, BarChart3 } from 'lucide-react'
@@ -33,6 +34,9 @@ import { FormsDialog } from '../forms/FormsDialog'
 
 /** What the Tasks count means, for screen readers and the collapsed tooltip */
 const TASKS_DUE_WORDS = 'due today or overdue'
+
+/** Every sidebar row is this tall: enough for 15 px text, and the whole sidebar fits a 720 px screen */
+const NAV_ROW = 40
 
 interface Props {
   collapsed: boolean
@@ -87,6 +91,8 @@ function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteCo
 interface SortableGridItemProps {
   grid: { id: number; name: string }
   collapsed: boolean
+  /** There's another list to swap places with; with one list the handle only puzzles (UX-D-16) */
+  canDrag: boolean
   isActive: boolean
   isRenaming: boolean
   renameValue: string
@@ -119,7 +125,7 @@ export function listInitials(name: string): string {
 }
 
 function SortableGridItem({
-  grid, collapsed, isActive, isRenaming, renameValue, renameInputRef,
+  grid, collapsed, canDrag, isActive, isRenaming, renameValue, renameInputRef,
   menuOpen, onRenameChange, onRenameCommit, onRenameCancel,
   onMenuToggle, onMenuClose, onRenameStart, onSettingsStart, onFormsStart, onContactReqStart, onDeleteStart, onNavigate, onMoveUp, onMoveDown,
 }: SortableGridItemProps): React.ReactElement {
@@ -148,8 +154,8 @@ function SortableGridItem({
   }
   return (
     <div ref={setNodeRef} style={style} className="relative group/griditem">
-      {/* Drag handle (hidden when collapsed) — always visible at low opacity */}
-      {!collapsed && (
+      {/* Drag handle (hidden when collapsed) — visible at low opacity once there are two lists */}
+      {!collapsed && canDrag && (
         <button
           {...attributes}
           {...listeners}
@@ -166,7 +172,7 @@ function SortableGridItem({
 
       {isRenaming && !collapsed ? (
         /* Inline rename input */
-        <div className="flex items-center gap-2 px-3" style={{ minHeight: 44 }}>
+        <div className="flex items-center gap-2 px-3" style={{ minHeight: NAV_ROW }}>
           <Grid3X3 className="w-5 h-5 flex-shrink-0 text-slate-500 dark:text-slate-400" />
           <input
             ref={renameInputRef}
@@ -191,7 +197,8 @@ function SortableGridItem({
               ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium'
               : 'text-slate-700 dark:text-slate-300'}
           `}
-          style={{ minHeight: 44, paddingLeft: collapsed ? undefined : '1.5rem' }}
+          // Room on the right for the "…" button, so a long name truncates before it instead of under it
+          style={{ minHeight: NAV_ROW, paddingLeft: !collapsed && canDrag ? '1.5rem' : undefined, paddingRight: collapsed ? undefined : '2.25rem' }}
           title={collapsed ? grid.name : undefined}
           aria-current={isActive ? 'page' : undefined}
         >
@@ -209,11 +216,11 @@ function SortableGridItem({
       {!collapsed && !isRenaming && (
         <button
           ref={menuBtnRef}
-          className="hit-44 absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-sm
+          className={`hit-44 absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-sm
                      text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                      hover:bg-slate-200 dark:hover:bg-slate-700
-                     opacity-40 group-hover/griditem:opacity-100 focus:opacity-100
-                     transition-opacity"
+                     ${isActive ? '' : 'opacity-40 group-hover/griditem:opacity-100 focus:opacity-100'}
+                     transition-opacity`}
           onClick={onMenuToggle}
           title={`${t('list', { cap: true })} options`}
           aria-label={`${t('list', { cap: true })} options`}
@@ -224,7 +231,10 @@ function SortableGridItem({
         </button>
       )}
 
-      {/* Dropdown — fixed position to escape overflow-y-auto clipping */}
+      {/* Dropdown — rendered on document.body: the nav's mask-image (shown when there's more below)
+          makes the nav the containing block for position: fixed, so inside it the menu was clipped
+          and masked away on laptop screens (UX-D-01) */}
+      {createPortal(
       <AnimatePresence>
       {menuOpen && menuPos && (
         <>
@@ -309,9 +319,76 @@ function SortableGridItem({
           </motion.div>
         </>
       )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body)}
     </div>
   )
+}
+
+interface NavButtonProps {
+  icon: React.ElementType
+  label: string
+  onClick: () => void
+  collapsed: boolean
+  /** The page this row goes to is open */
+  active?: boolean
+  /** Grey instead of slate: the bottom block (Focus Mode, Settings, Help, Lock) */
+  muted?: boolean
+  /** Shown as the tooltip; by default the label, and only when collapsed */
+  title?: string
+  /** The tour's spotlight target; written out as the attribute so the tour's source scan finds it */
+  'data-tour'?: string
+  /** After the label when expanded (the Tasks count) */
+  badge?: React.ReactNode
+  /** Instead of the label when collapsed (a dot, and the name for screen readers) */
+  collapsedBadge?: React.ReactNode
+}
+
+function NavButton({ icon: Icon, label, onClick, collapsed, active = false, muted = false, title, 'data-tour': tour, badge, collapsedBadge }: NavButtonProps): React.ReactElement {
+  return (
+    <button
+      data-tour={tour}
+      onClick={onClick}
+      className={`
+        relative flex items-center gap-3 w-full px-3 text-left transition-colors
+        hover:bg-slate-200 dark:hover:bg-slate-700
+        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+        ${active
+          ? 'text-blue-700 dark:text-blue-300 font-medium'
+          : muted ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-300'}
+      `}
+      style={{ minHeight: NAV_ROW }}
+      title={title ?? (collapsed ? label : undefined)}
+      aria-current={active ? 'page' : undefined}
+    >
+      {active && (
+        <motion.div
+          layoutId="sidebar-active"
+          className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
+          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+        />
+      )}
+      <Icon className="relative z-10 w-5 h-5 flex-shrink-0" />
+      {collapsed
+        ? collapsedBadge
+        : <span className="relative z-10 text-base flex-1 flex items-center justify-between">{label}{badge}</span>}
+    </button>
+  )
+}
+
+/** A group's name, in small capitals above its rows (hidden from screen readers: the group is labelled) */
+function GroupHeading({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="px-3 pt-1.5 pb-0.5 border-t border-slate-200 dark:border-slate-700 text-sm leading-tight uppercase tracking-wide font-semibold text-slate-500 dark:text-slate-400"
+         aria-hidden="true">
+      {children}
+    </div>
+  )
+}
+
+/** The collapsed rail's line between groups */
+function CollapsedDivider(): React.ReactElement {
+  return <div className="mx-1 my-1 border-t border-slate-200 dark:border-slate-700" />
 }
 
 /** Whether a scroll box has more below what it shows (kept up to date as it scrolls or resizes) */
@@ -494,197 +571,50 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
       </div>
 
       {/* Navigation. On a short screen the last item fades out rather than being cut in half, so it
-          reads as "more below"; the collapsed rail hides its scrollbar, which covered the list badges */}
-      <nav ref={navRef} className="flex-1 overflow-y-auto py-2" aria-label="Main navigation" data-more-below={moreBelow || undefined}
+          reads as "more below"; the collapsed rail hides its scrollbar, which covered the list badges.
+          Rows are 40 px and the single-item WORKSPACE / SYSTEM headers are gone, so with the usual
+          features on everything fits at 1280×720 without scrolling (UX-D-03, D-14, E-04, A-28, C-41) */}
+      <nav ref={navRef} className="flex-1 overflow-y-auto" aria-label="Main navigation" data-more-below={moreBelow || undefined}
         style={{
           ...(collapsed ? { scrollbarWidth: 'none' as const } : {}),
           ...(moreBelow ? { maskImage: 'linear-gradient(to bottom, black calc(100% - 40px), transparent)' } : {}),
         }}>
-        {/* Workspace group */}
-        <div role="group" aria-label="Workspace">
-          {!collapsed && (
-            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mb-1"
-                 aria-hidden="true">
-              Workspace
-            </div>
-          )}
-
-          {/* Dashboard link */}
-          <button
+        <div role="group" aria-label="Overview">
+          <NavButton
             data-tour="dashboard"
             onClick={() => navigate('/dashboard')}
-            className={`
-              relative flex items-center gap-3 w-full px-3 text-left transition-colors
-              hover:bg-slate-200 dark:hover:bg-slate-700
-              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-              ${isDashboard
-                ? 'text-blue-700 dark:text-blue-300 font-medium'
-                : 'text-slate-700 dark:text-slate-300'}
-            `}
-            style={{ minHeight: 44 }}
+            active={isDashboard}
+            collapsed={collapsed}
+            icon={LayoutDashboard}
+            label="Dashboard"
             title={modHelp('Dashboard (Ctrl+Shift+D)')}
-            aria-current={isDashboard ? 'page' : undefined}
-          >
-            {isDashboard && (
-              <motion.div
-                layoutId="sidebar-active"
-                className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              />
-            )}
-            <LayoutDashboard className="relative z-10 w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="relative z-10 text-base">Dashboard</span>}
-          </button>
-
-          {/* Caseloads sub-section */}
-          {!collapsed ? (
-            <div className="flex items-center gap-2 mx-3 mt-2 mb-1 pt-2 border-t border-slate-200 dark:border-slate-700">
-              <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex-1">
-                {t('list', { many: true, cap: true })}
-              </span>
-              <button
-                onClick={() => setCreatingGrid(true)}
-                className="hit-44 p-1 rounded-sm text-slate-500 hover:text-blue-600 hover:bg-slate-200
-                           dark:hover:text-blue-400 dark:hover:bg-slate-700 transition-colors
-                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                title={`New ${t('list')}`}
-                aria-label={`New ${t('list')}`}
-                data-tour="new-caseload"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="mx-1 my-1 border-t border-slate-200 dark:border-slate-700" />
-          )}
-
-        {/* Collapsed: + button only */}
-        {collapsed && (
-          <button
-            onClick={() => setCreatingGrid(true)}
-            className="flex items-center justify-center w-full text-slate-500 hover:text-blue-600
-                       hover:bg-slate-200 dark:hover:text-blue-400 dark:hover:bg-slate-700
-                       transition-colors focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-            style={{ minHeight: 44 }}
-            title={`New ${t('list')}`}
-            aria-label={`New ${t('list')}`}
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        )}
-
-        {/* Grid list — drag-to-reorder */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}
-          accessibility={dndAccessibility(id => grids.find(g => g.id === id)?.name)}>
-          <SortableContext items={grids.map(g => g.id)} strategy={verticalListSortingStrategy}>
-            {grids.map((grid, index) => (
-              <SortableGridItem
-                key={grid.id}
-                grid={grid}
-                collapsed={collapsed}
-                isActive={activeGridId === grid.id && onListPage}
-                isRenaming={renamingGridId === grid.id}
-                renameValue={renameValue}
-                renameInputRef={renamingGridId === grid.id ? renameInputRef : undefined}
-                menuOpen={menuGridId === grid.id}
-                onRenameChange={setRenameValue}
-                onRenameCommit={commitRename}
-                onRenameCancel={() => setRenamingGridId(null)}
-                onMenuToggle={e => { e.stopPropagation(); setMenuGridId(menuGridId === grid.id ? null : grid.id) }}
-                onMenuClose={() => setMenuGridId(null)}
-                onRenameStart={() => startRename(grid.id, grid.name)}
-                onSettingsStart={() => { setMenuGridId(null); setSettingsGridId(grid.id) }}
-                onFormsStart={formsOn ? () => { setMenuGridId(null); setFormsGrid({ gridId: grid.id, gridName: grid.name }) } : undefined}
-                onContactReqStart={showRequirements ? () => { setMenuGridId(null); setContactReqGrid({ gridId: grid.id, gridName: grid.name }) } : undefined}
-                onDeleteStart={() => { setMenuGridId(null); setDeleteTarget({ id: grid.id, name: grid.name }) }}
-                onNavigate={() => { loadGrid(grid.id); navigate('/grid') }}
-                onMoveUp={index > 0 ? () => moveGrid(index, -1) : undefined}
-                onMoveDown={index < grids.length - 1 ? () => moveGrid(index, 1) : undefined}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
-        </div>{/* end Workspace group */}
-
-        {/* Tools group */}
-        <div role="group" aria-label="Tools">
-          {!collapsed && (
-            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
-                 aria-hidden="true">
-              Tools
-            </div>
-          )}
-          {collapsed && <div className="mx-1 my-1 border-t border-slate-200 dark:border-slate-700" />}
-
-          {/* Calendar link (W07): always, since it shows deadlines too */}
-          <button
+          />
+          {/* Calendar (W07): always, since it shows deadlines too */}
+          <NavButton
             data-tour="calendar"
             onClick={() => navigate('/calendar')}
-            className={`
-              relative flex items-center gap-3 w-full px-3 text-left transition-colors
-              hover:bg-slate-200 dark:hover:bg-slate-700
-              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-              ${isCalendar ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-700 dark:text-slate-300'}
-            `}
-            style={{ minHeight: 44 }}
-            title={collapsed ? 'Calendar' : undefined}
-            aria-current={isCalendar ? 'page' : undefined}
-          >
-            {isCalendar && (
-              <motion.div layoutId="sidebar-active" className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }} />
-            )}
-            <CalendarDays className="relative z-10 w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="relative z-10 text-base flex-1">Calendar</span>}
-          </button>
-
-          {/* Reports link (W10 §6): build and keep your own reports */}
-          <button
-            onClick={() => navigate('/reports')}
-            className={`
-              relative flex items-center gap-3 w-full px-3 text-left transition-colors
-              hover:bg-slate-200 dark:hover:bg-slate-700
-              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-              ${isReports ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-slate-700 dark:text-slate-300'}
-            `}
-            style={{ minHeight: 44 }}
-            title={collapsed ? 'Reports' : undefined}
-            aria-current={isReports ? 'page' : undefined}
-          >
-            {isReports && (
-              <motion.div layoutId="sidebar-active" className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }} />
-            )}
-            <BarChart3 className="relative z-10 w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="relative z-10 text-base flex-1">Reports</span>}
-          </button>
-
-          {showTasks && (<>
-            {/* Tasks link */}
-            <button
+            active={isCalendar}
+            collapsed={collapsed}
+            icon={CalendarDays}
+            label="Calendar"
+          />
+          {showTasks && (
+            <NavButton
               data-tour="tasks"
               onClick={() => navigate('/tasks')}
-              className={`
-                relative flex items-center gap-3 w-full px-3 text-left transition-colors
-                hover:bg-slate-200 dark:hover:bg-slate-700
-                focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                ${isTasks
-                  ? 'text-blue-700 dark:text-blue-300 font-medium'
-                  : 'text-slate-700 dark:text-slate-300'}
-              `}
-              style={{ minHeight: 44 }}
+              active={isTasks}
+              collapsed={collapsed}
+              icon={ClipboardList}
+              label="Tasks"
               title={collapsed ? modHelp(`Tasks${todayDueCount > 0 ? ` (${todayDueCount} ${TASKS_DUE_WORDS})` : ''} (Ctrl+Shift+T)`) : undefined}
-              aria-current={isTasks ? 'page' : undefined}
-            >
-              {isTasks && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                />
+              badge={todayDueCount > 0 && (
+                <span className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                  <span aria-hidden="true">{todayDueCount}</span>
+                  {/* Say what the number means; "Tasks 3" alone doesn't */}
+                  <span className="sr-only">, {todayDueCount} {TASKS_DUE_WORDS}</span>
+                </span>
               )}
-              <ClipboardList className="relative z-10 w-5 h-5 flex-shrink-0" />
-              {collapsed && (
+              collapsedBadge={(
                 <>
                   <span className="sr-only">Tasks{todayDueCount > 0 ? `, ${todayDueCount} ${TASKS_DUE_WORDS}` : ''}</span>
                   {todayDueCount > 0 && (
@@ -692,243 +622,163 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                   )}
                 </>
               )}
-              {!collapsed && (
-                <span className="relative z-10 text-base flex-1 flex items-center justify-between">
-                  Tasks
-                  {todayDueCount > 0 && (
-                    <span className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                      <span aria-hidden="true">{todayDueCount}</span>
-                      {/* Say what the number means; "Tasks 3" alone doesn't */}
-                      <span className="sr-only">, {todayDueCount} {TASKS_DUE_WORDS}</span>
-                    </span>
-                  )}
-                </span>
-              )}
-            </button>
-          </>)}
+            />
+          )}
+        </div>
 
-          {showContacts && (<>
-            {/* Contacts / Provider Directory link */}
-            <button
+        {/* Lists */}
+        <div role="group" aria-label={t('list', { many: true, cap: true })}>
+          {collapsed ? <CollapsedDivider /> : <GroupHeading>{t('list', { many: true, cap: true })}</GroupHeading>}
+
+          {/* Drag-to-reorder; the handle only shows once there's something to reorder (UX-D-16) */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}
+            accessibility={dndAccessibility(id => grids.find(g => g.id === id)?.name)}>
+            <SortableContext items={grids.map(g => g.id)} strategy={verticalListSortingStrategy}>
+              {grids.map((grid, index) => (
+                <SortableGridItem
+                  key={grid.id}
+                  grid={grid}
+                  collapsed={collapsed}
+                  canDrag={grids.length > 1}
+                  isActive={activeGridId === grid.id && onListPage}
+                  isRenaming={renamingGridId === grid.id}
+                  renameValue={renameValue}
+                  renameInputRef={renamingGridId === grid.id ? renameInputRef : undefined}
+                  menuOpen={menuGridId === grid.id}
+                  onRenameChange={setRenameValue}
+                  onRenameCommit={commitRename}
+                  onRenameCancel={() => setRenamingGridId(null)}
+                  onMenuToggle={e => { e.stopPropagation(); setMenuGridId(menuGridId === grid.id ? null : grid.id) }}
+                  onMenuClose={() => setMenuGridId(null)}
+                  onRenameStart={() => startRename(grid.id, grid.name)}
+                  onSettingsStart={() => { setMenuGridId(null); setSettingsGridId(grid.id) }}
+                  onFormsStart={formsOn ? () => { setMenuGridId(null); setFormsGrid({ gridId: grid.id, gridName: grid.name }) } : undefined}
+                  onContactReqStart={showRequirements ? () => { setMenuGridId(null); setContactReqGrid({ gridId: grid.id, gridName: grid.name }) } : undefined}
+                  onDeleteStart={() => { setMenuGridId(null); setDeleteTarget({ id: grid.id, name: grid.name }) }}
+                  onNavigate={() => { loadGrid(grid.id); navigate('/grid') }}
+                  onMoveUp={index > 0 ? () => moveGrid(index, -1) : undefined}
+                  onMoveDown={index < grids.length - 1 ? () => moveGrid(index, 1) : undefined}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+
+          {/* A plain row in words, not a faint "+" beside the heading (UX-D-15) */}
+          <button
+            onClick={() => setCreatingGrid(true)}
+            className={`flex items-center gap-3 w-full px-3 text-left transition-colors
+                       text-slate-600 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-300
+                       hover:bg-slate-200 dark:hover:bg-slate-700
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                       ${collapsed ? 'justify-center' : ''}`}
+            style={{ minHeight: NAV_ROW }}
+            title={collapsed ? `New ${t('list')}` : undefined}
+            aria-label={`New ${t('list')}`}
+            data-tour="new-caseload"
+          >
+            <Plus className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && <span className="text-base">New {t('list')}</span>}
+          </button>
+        </div>
+
+        {/* Tools */}
+        <div role="group" aria-label="Tools">
+          {collapsed ? <CollapsedDivider /> : <GroupHeading>Tools</GroupHeading>}
+
+          {/* Reports (W10 §6): build and keep your own reports */}
+          <NavButton
+            onClick={() => navigate('/reports')}
+            active={isReports}
+            collapsed={collapsed}
+            icon={BarChart3}
+            label="Reports"
+          />
+          {showContacts && (
+            <NavButton
               data-tour="contacts"
               onClick={() => navigate('/contacts')}
-              className={`
-                relative flex items-center gap-3 w-full px-3 text-left transition-colors
-                hover:bg-slate-200 dark:hover:bg-slate-700
-                focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                ${isContacts
-                  ? 'text-blue-700 dark:text-blue-300 font-medium'
-                  : 'text-slate-700 dark:text-slate-300'}
-              `}
-              style={{ minHeight: 44 }}
+              active={isContacts}
+              collapsed={collapsed}
+              icon={BookUser}
+              label={t('contactDirectory', { cap: true })}
               title={collapsed ? modHelp(`${t('contactDirectory', { cap: true })} (Ctrl+Shift+P)`) : undefined}
-              aria-current={isContacts ? 'page' : undefined}
-            >
-              {isContacts && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                />
-              )}
-              <BookUser className="relative z-10 w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="relative z-10 text-base">{t('contactDirectory', { cap: true })}</span>}
-            </button>
-          </>)}
-
-          {showSnippets && (<>
-            {/* Snippets link */}
-            <button
-              onClick={() => navigate('/snippets')}
-              className={`
-                relative flex items-center gap-3 w-full px-3 text-left transition-colors
-                hover:bg-slate-200 dark:hover:bg-slate-700
-                focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                ${isSnippets
-                  ? 'text-blue-700 dark:text-blue-300 font-medium'
-                  : 'text-slate-700 dark:text-slate-300'}
-              `}
-              style={{ minHeight: 44 }}
-              title={collapsed ? 'Snippets' : undefined}
-              aria-current={isSnippets ? 'page' : undefined}
-            >
-              {isSnippets && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                />
-              )}
-              <Zap className="relative z-10 w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="relative z-10 text-base">Snippets</span>}
-            </button>
-          </>)}
-
-          {/* Templates link */}
-          <button
-            onClick={() => navigate('/templates')}
-            className={`
-              relative flex items-center gap-3 w-full px-3 text-left transition-colors
-              hover:bg-slate-200 dark:hover:bg-slate-700
-              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-              ${isTemplates
-                ? 'text-blue-700 dark:text-blue-300 font-medium'
-                : 'text-slate-700 dark:text-slate-300'}
-            `}
-            style={{ minHeight: 44 }}
-            title={collapsed ? 'Templates' : undefined}
-            aria-current={isTemplates ? 'page' : undefined}
-          >
-            {isTemplates && (
-              <motion.div
-                layoutId="sidebar-active"
-                className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              />
-            )}
-            <LayoutTemplate className="relative z-10 w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="relative z-10 text-base">Templates</span>}
-          </button>
-
-          {showLetters && (<>
-            {/* Letter Templates link */}
-            <button
-              onClick={() => navigate('/letter-templates')}
-              className={`
-                relative flex items-center gap-3 w-full px-3 text-left transition-colors
-                hover:bg-slate-200 dark:hover:bg-slate-700
-                focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                ${isLetterTemplates
-                  ? 'text-blue-700 dark:text-blue-300 font-medium'
-                  : 'text-slate-700 dark:text-slate-300'}
-              `}
-              style={{ minHeight: 44 }}
-              title={collapsed ? 'Letters' : undefined}
-              aria-current={isLetterTemplates ? 'page' : undefined}
-            >
-              {isLetterTemplates && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                />
-              )}
-              <FileText className="relative z-10 w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="relative z-10 text-base">Letters</span>}
-            </button>
-          </>)}
-        </div>{/* end Tools group */}
-
-        {/* System group */}
-        <div role="group" aria-label="System">
-          {!collapsed && (
-            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
-                 aria-hidden="true">
-              System
-            </div>
+            />
           )}
-          {collapsed && <div className="mx-1 my-1 border-t border-slate-200 dark:border-slate-700" />}
-
-          {/* Trash link */}
-          <button
+          {showSnippets && (
+            <NavButton
+              onClick={() => navigate('/snippets')}
+              active={isSnippets}
+              collapsed={collapsed}
+              icon={Zap}
+              label="Snippets"
+            />
+          )}
+          <NavButton
+            onClick={() => navigate('/templates')}
+            active={isTemplates}
+            collapsed={collapsed}
+            icon={LayoutTemplate}
+            label="Templates"
+          />
+          {showLetters && (
+            <NavButton
+              onClick={() => navigate('/letter-templates')}
+              active={isLetterTemplates}
+              collapsed={collapsed}
+              icon={FileText}
+              label="Letters"
+            />
+          )}
+          <NavButton
             onClick={() => navigate('/trash')}
-            className={`
-              relative flex items-center gap-3 w-full px-3 text-left transition-colors
-              hover:bg-slate-200 dark:hover:bg-slate-700
-              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-              ${isTrash
-                ? 'text-blue-700 dark:text-blue-300 font-medium'
-                : 'text-slate-700 dark:text-slate-300'}
-            `}
-            style={{ minHeight: 44 }}
-            title={collapsed ? 'Trash' : undefined}
-            aria-current={isTrash ? 'page' : undefined}
-          >
-            {isTrash && (
-              <motion.div
-                layoutId="sidebar-active"
-                className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              />
-            )}
-            <Trash2 className="relative z-10 w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="relative z-10 text-base">Trash</span>}
-          </button>
-        </div>{/* end System group */}
+            active={isTrash}
+            collapsed={collapsed}
+            icon={Trash2}
+            label="Trash"
+          />
+        </div>
       </nav>
 
       {/* Bottom actions */}
-      <div className="border-t border-slate-200 dark:border-slate-700 py-2">
-        {showFocus && (<>
-          <button
+      <div className="border-t border-slate-200 dark:border-slate-700 py-1">
+        {showFocus && (
+          <NavButton
             onClick={() => setFocusModeOpen(true)}
-            className="flex items-center gap-3 w-full px-3 text-left text-slate-500 dark:text-slate-400
-                       hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-            style={{ minHeight: 44 }}
+            collapsed={collapsed}
+            icon={Focus}
+            label="Focus Mode"
             title={modHelp('Focus Mode (Ctrl+Shift+F)')}
-          >
-            <Focus className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="text-base">Focus Mode</span>}
-          </button>
-        </>)}
-        <button
+            muted
+          />
+        )}
+        <NavButton
           data-tour="settings"
           onClick={() => navigate('/settings')}
-          className={`relative flex items-center gap-3 w-full px-3 text-left transition-colors
-                     hover:bg-slate-200 dark:hover:bg-slate-700
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                     ${isSettings
-                       ? 'text-blue-700 dark:text-blue-300 font-medium'
-                       : 'text-slate-500 dark:text-slate-400'}`}
-          style={{ minHeight: 44 }}
+          active={isSettings}
+          collapsed={collapsed}
+          icon={Settings}
+          label="Settings"
           title="Settings"
-          aria-current={isSettings ? 'page' : undefined}
-        >
-          {isSettings && (
-            <motion.div
-              layoutId="sidebar-active"
-              className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            />
-          )}
-          <Settings className="relative z-10 w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="relative z-10 text-base">Settings</span>}
-        </button>
-        <button
+          muted
+        />
+        <NavButton
           data-tour="help"
           onClick={() => navigate('/help')}
-          className={`relative flex items-center gap-3 w-full px-3 text-left transition-colors
-                     hover:bg-slate-200 dark:hover:bg-slate-700
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                     ${isHelp
-                       ? 'text-blue-700 dark:text-blue-300 font-medium'
-                       : 'text-slate-500 dark:text-slate-400'}`}
-          style={{ minHeight: 44 }}
+          active={isHelp}
+          collapsed={collapsed}
+          icon={HelpCircle}
+          label="Help"
           title="Help & keyboard shortcuts (?)"
-          aria-current={isHelp ? 'page' : undefined}
-        >
-          {isHelp && (
-            <motion.div
-              layoutId="sidebar-active"
-              className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            />
-          )}
-          <HelpCircle className="relative z-10 w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="relative z-10 text-base">Help</span>}
-        </button>
-        <button
+          muted
+        />
+        <NavButton
           onClick={lock}
-          className="flex items-center gap-3 w-full px-3 text-left text-slate-500 dark:text-slate-400
-                     hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 44 }}
+          collapsed={collapsed}
+          icon={Lock}
+          label="Lock"
           title={modHelp('Lock app (Ctrl+L)')}
-        >
-          <Lock className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="text-base">Lock</span>}
-        </button>
+          muted
+        />
       </div>
 
       {/* Delete caseload confirmation modal */}

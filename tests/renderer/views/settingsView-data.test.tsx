@@ -62,6 +62,9 @@ vi.mock('../../../src/renderer/components/settings/AlertsSection', () => ({
 vi.mock('../../../src/renderer/components/settings/AboutSection', () => ({
   AboutSection: () => <div data-testid="section-about">About Section</div>,
 }))
+vi.mock('../../../src/renderer/components/settings/WorkspaceSection', () => ({
+  WorkspaceSection: () => <div data-testid="section-workspace">Workspace Section</div>,
+}))
 
 import SettingsView from '../../../src/renderer/views/SettingsView'
 import { setWords } from '../vocabFixture'
@@ -84,7 +87,7 @@ describe('SettingsView — data smoke tests', () => {
   it('opens the default tab for an unknown or removed ?tab= link (audit X-02)', () => {
     window.location.hash = '#/settings?tab=shortcuts'
     render(<SettingsView />)
-    expect(screen.getByTestId('section-appearance')).toBeDefined()
+    expect(screen.getByTestId('section-workspace')).toBeDefined()
     window.location.hash = '#/settings?tab=backup'
     render(<SettingsView />)
     expect(screen.getByTestId('section-backup')).toBeDefined()
@@ -96,10 +99,10 @@ describe('SettingsView — data smoke tests', () => {
     expect(screen.getByRole('tablist').className).toContain('overflow-y-auto')
   })
 
-  it('defaults to Appearance tab active', () => {
+  it('defaults to the first tab, Words & features', () => {
     render(<SettingsView />)
-    expect(screen.getByTestId('section-appearance')).toBeDefined()
-    const tab = screen.getByRole('tab', { name: /Appearance/i })
+    expect(screen.getByTestId('section-workspace')).toBeDefined()
+    const tab = screen.getByRole('tab', { name: /Words & features/i })
     expect(tab.getAttribute('aria-selected')).toBe('true')
   })
 
@@ -128,8 +131,8 @@ describe('SettingsView — data smoke tests', () => {
   it('has correct ARIA tabpanel attributes', () => {
     render(<SettingsView />)
     const panel = screen.getByRole('tabpanel')
-    expect(panel.getAttribute('id')).toBe('settings-panel-appearance')
-    expect(panel.getAttribute('aria-labelledby')).toBe('settings-tab-appearance')
+    expect(panel.getAttribute('id')).toBe('settings-panel-workspace')
+    expect(panel.getAttribute('aria-labelledby')).toBe('settings-tab-workspace')
   })
 
   it('nav has correct aria orientation', () => {
@@ -138,10 +141,13 @@ describe('SettingsView — data smoke tests', () => {
     expect(tablist.getAttribute('aria-orientation')).toBe('vertical')
   })
 
-  it('tab descriptions render for each nav item', () => {
+  it('the open tab\'s description shows as the panel subtitle, and as each tab\'s tooltip', () => {
     render(<SettingsView />)
-    expect(screen.getByText('Theme, font size, and display options')).toBeDefined()
+    expect(screen.getByRole('tab', { name: /Appearance/i }).getAttribute('title')).toBe('Theme, font size, and display options')
+    fireEvent.click(screen.getByRole('tab', { name: /Security/i }))
     expect(screen.getByText('Password and encryption settings')).toBeDefined()
+    fireEvent.click(screen.getByRole('tab', { name: /About/i }))
     expect(screen.getByText('Version info and credits')).toBeDefined()
+    expect(screen.queryByText('Password and encryption settings')).toBeNull()
   })
 })
