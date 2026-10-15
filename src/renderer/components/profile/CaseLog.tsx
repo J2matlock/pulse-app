@@ -20,7 +20,9 @@ import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
-import { useFeature } from '../../hooks/useFeature'
+import { featureNow, useFeature } from '../../hooks/useFeature'
+import type { FeatureKey } from '../../../shared/features'
+import { suggestFeature, suggestionMessage } from '../../../shared/featureSuggestions'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { MenuButton } from '../ui/RowMenu'
 import { NoteFiles } from './NoteFiles'
@@ -95,19 +97,12 @@ const VISIBLE_TYPES = 6
 
 const NO_SNIPPETS: Snippet[] = []
 
-/** "Spent 45 min", "1.5 hours", "drove 12 miles": the note mentions time or mileage */
-export function offerFor(text: string, tracking: { trackTime: boolean; trackMileage: boolean }): 'timeTracking' | 'mileage' | null {
-  if (!tracking.trackTime && /\b\d[\d.]*\s?(min|mins|minutes|hr|hrs|hour|hours)\b/i.test(text)) return 'timeTracking'
-  if (!tracking.trackMileage && /\b\d[\d.]*\s?(mi|miles|mile)\b/i.test(text)) return 'mileage'
-  return null
-}
-
 const NO_FILES: Attachment[] = []
 
 export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRef, between, suggestion }: Props) {
-  const [offer, setOffer] = useState<'timeTracking' | 'mileage' | null>(null)
+  const [offer, setOffer] = useState<FeatureKey | null>(null)
   const snippetsOn = useFeature('snippets')
-  const { t } = useVocab()
+  const { t, f } = useVocab()
   // {today} and {now} follow Settings → Date format and Clock (A21a-09)
   const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const [entries, setEntries] = useState<CaseLogEntryType[]>([])
@@ -394,8 +389,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       newDay && newDay !== localDateString() ? newDay : null
     )
     if (res.ok) {
-      // Time or miles written into the text, while those boxes are off: offer them
-      setOffer(offerFor(composedContent, tracking))
+      // Time, miles or an appointment written into the text, while that feature is off: offer it
+      setOffer(suggestFeature({ trigger: 'noteText', text: composedContent }, k => !featureNow(k)))
       const { updated_dates: updatedDates = [], ...created } = res.data
       setEntries(prev => [created, ...prev].sort(byHappened))
       if (updatedDates.length > 0) {
@@ -824,10 +819,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         </div>
         {offer && (
           <div className="mt-2">
-            <FeatureOffer feature={offer} onDone={() => setOffer(null)}
-              message={offer === 'timeTracking'
-                ? `This ${t('activity')} mentions time. Record minutes on ${t('activity', { many: true })} and total them each month?`
-                : `This ${t('activity')} mentions miles. Record mileage on ${t('activity', { many: true })} for your monthly claim? (This one won't have them — add miles when you edit it.)`} />
+            <FeatureOffer feature={offer} onDone={() => setOffer(null)} message={f(suggestionMessage(offer, 'noteText'))} />
           </div>
         )}
       </div>

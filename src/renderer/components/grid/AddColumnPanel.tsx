@@ -9,6 +9,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { useVocab } from '../../hooks/useVocab'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { FeatureOffer } from '../shared/FeatureOffer'
+import { FEATURE_SUGGESTIONS } from '../../../shared/featureSuggestions'
 import { DeadlineQuestion } from './DeadlineQuestion'
 import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
 
@@ -136,7 +137,7 @@ export function sameNamedColumn(name: string, allColumns: Column[]): Column | un
  * type needs. A name a column already has is caught before it's added (B-14).
  */
 export function AddColumnForm({ draft, allColumns, rowCount, gridCount, linksOn, filesOn, onLinkColumn, onCancel }: AddColumnFormProps): React.ReactElement {
-  const { t } = useVocab()
+  const { t, f } = useVocab()
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, true, { onEscape: onCancel })
@@ -221,7 +222,7 @@ export function AddColumnForm({ draft, allColumns, rowCount, gridCount, linksOn,
             )}
           </div>
           {!linksOn && gridCount > 1 && (
-            <FeatureOffer feature="links" message={`Connect your ${t('list', { many: true })}, like customers and their vehicles?`} />
+            <FeatureOffer feature="links" message={f(FEATURE_SUGGESTIONS.links.message)} />
           )}
 
           {(draft.newColType === 'date' || draft.newColType === 'deadline') && (

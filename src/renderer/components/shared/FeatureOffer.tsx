@@ -7,10 +7,13 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { FEATURE_PLACES } from '../../../shared/featurePlaces'
+import { SecondaryButton } from '../ui/Button'
 
 const DISMISSED_KEY = 'feature_offers_dismissed'
 
-async function readDismissed(): Promise<string[]> {
+/** Every offer turned down with "Not now" (feature keys, and `profileSections`) */
+export async function readDismissedOffers(): Promise<string[]> {
   const r = await safeInvoke(IPC.SETTINGS_GET, DISMISSED_KEY)
   if (!r.ok || !r.data) return []
   try { const v = JSON.parse(r.data) as unknown; return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [] } catch { return [] }
@@ -27,13 +30,13 @@ export function useOfferDismissed(key: FeatureKey | 'profileSections', skip = fa
   useEffect(() => {
     if (skip) return
     let alive = true
-    void readDismissed().then(list => { if (alive) setDismissed(list.includes(key)) })
+    void readDismissedOffers().then(list => { if (alive) setDismissed(list.includes(key)) })
     return () => { alive = false }
   }, [key, skip])
 
   async function dismiss() {
     setDismissed(true)
-    const list = await readDismissed()
+    const list = await readDismissedOffers()
     if (!list.includes(key)) await safeInvoke(IPC.SETTINGS_UPDATE, DISMISSED_KEY, JSON.stringify([...list, key]))
   }
 
@@ -41,11 +44,20 @@ export function useOfferDismissed(key: FeatureKey | 'profileSections', skip = fa
 }
 
 /**
+ * The toast after a feature is turned on: says where it showed up, so the
+ * first moment after "Turn on" leads somewhere (Q1b).
+ */
+export function featureOnMessage(key: FeatureKey, f: (text: string) => string): string {
+  const label = FEATURES.find(x => x.key === key)?.label ?? 'That feature'
+  return `${f(label)} is on. Find it in: ${f(FEATURE_PLACES[key])}. You can turn it off in Settings → Words & features.`
+}
+
+/**
  * A one-line "Turn on …?" suggestion shown where a switched-off feature
  * would help (W01 §3.4). "Not now" is remembered per feature, so each offer
  * is made at most until someone says no.
  */
-export function FeatureOffer({ feature, message, onDone, always = false }: {
+export function FeatureOffer({ feature, message, onDone, always = false, notDismissed = false, plain = false }: {
   feature: FeatureKey
   message: string
   onDone?: () => void
@@ -55,19 +67,25 @@ export function FeatureOffer({ feature, message, onDone, always = false }: {
    * always leaves a trace there (UX review E-02).
    */
   always?: boolean
+  /** The caller already checked it wasn't turned down: show at once, with "Not now" */
+  notDismissed?: boolean
+  /** No card of its own, for inside a toast */
+  plain?: boolean
 }): React.ReactElement | null {
   const { f } = useVocab()
   const on = useFeature(feature)
   const update = useWorkspaceStore(s => s.update)
-  const { dismissed, dismiss } = useOfferDismissed(feature, always)
+  const { dismissed, dismiss } = useOfferDismissed(feature, always || notDismissed)
   const def = FEATURES.find(x => x.key === feature)
 
-  if (on || (!always && dismissed !== false) || !def?.available) return null
+  // notDismissed: shown at once, and gone as soon as "Not now" is clicked
+  const turnedDown = always ? false : notDismissed ? dismissed === true : dismissed !== false
+  if (on || turnedDown || !def?.available) return null
 
   async function turnOn() {
     try {
       await update({ features: { [feature]: true } })
-      toast.success(`${f(def!.label)} is on. You can turn it off in Settings → Words & features.`)
+      toast.success(featureOnMessage(feature, f))
       onDone?.()
     } catch {
       toast.error("We couldn't turn that on. Try Settings → Words & features.")
@@ -79,12 +97,27 @@ export function FeatureOffer({ feature, message, onDone, always = false }: {
     onDone?.()
   }
 
+  const icon = <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />
+  const buttons = <>
+    <SecondaryButton size="compact" onClick={() => void turnOn()}>Turn on</SecondaryButton>
+    {!always && <SecondaryButton size="compact" onClick={() => void notNow()}>Not now</SecondaryButton>}
+  </>
+
+  // In a toast the text gets the full width and the buttons go underneath
+  if (plain) {
+    return (
+      <div role="status" className="flex flex-col gap-2 text-base">
+        <div className="flex items-start gap-2"><span className="mt-1">{icon}</span><span>{message}</span></div>
+        <div className="flex justify-end gap-2">{buttons}</div>
+      </div>
+    )
+  }
+
   return (
     <div role="status" className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-base text-slate-800 dark:text-slate-100">
-      <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />
+      {icon}
       <span className="flex-1 min-w-0">{message}</span>
-      <button type="button" className="btn-compact-secondary" onClick={() => void turnOn()}>Turn on</button>
-      {!always && <button type="button" className="btn-compact-secondary" onClick={() => void notNow()}>Not now</button>}
+      {buttons}
     </div>
   )
 }

@@ -14,6 +14,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
 import { FeatureOffer } from '../shared/FeatureOffer'
+import { FEATURE_SUGGESTIONS } from '../../../shared/featureSuggestions'
 import { DaysOffSection } from './DaysOffSection'
 import { RemindersSection } from './RemindersSection'
 import { BackgroundSection } from './BackgroundSection'
@@ -142,7 +143,7 @@ export function AlertsSection(): React.ReactElement {
       {showRequirements ? <ContactRequirementsSettings /> : (
         <section className="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-700" aria-labelledby="requirements-heading">
           <h2 id="requirements-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">{t('requirement', { many: true, cap: true })}</h2>
-          <FeatureOffer feature="requirements" always message={f('Need a minimum number of visits or calls per month? Turn on {Requirement:many} to set how many {activity:many} each {record} needs, and see who is behind.')} />
+          <FeatureOffer feature="requirements" always message={f(FEATURE_SUGGESTIONS.requirements.message)} />
         </section>
       )}
 
@@ -151,7 +152,7 @@ export function AlertsSection(): React.ReactElement {
           <h2 id="reminders-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Reminders</h2>
           <DailySummaryToggle />
           {/* An off feature leaves a trace where its controls would be (E-20) */}
-          <FeatureOffer feature="notifications" always message="Want a desktop notification each morning? Turn on Reminders." />
+          <FeatureOffer feature="notifications" always message={FEATURE_SUGGESTIONS.notifications.message} />
         </section>
       )}
       {showReminders && <BackgroundSection />}

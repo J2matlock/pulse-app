@@ -10,8 +10,8 @@ Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => ()
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 
+import toast from 'react-hot-toast'
 import { FeatureOffer } from '../../../../src/renderer/components/shared/FeatureOffer'
-import { offerFor } from '../../../../src/renderer/components/profile/CaseLog'
 import { IPC } from '../../../../src/shared/ipc-channels'
 import { setWords, EXISTING_FEATURES } from '../../vocabFixture'
 
@@ -35,6 +35,21 @@ describe('FeatureOffer', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Turn on' }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { features: { timeTracking: true } }))
     expect(onDone).toHaveBeenCalled()
+  })
+
+  it('after "Turn on", says where the feature showed up (Q1b)', async () => {
+    render(<FeatureOffer feature="timeTracking" message="Record minutes?" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Turn on' }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(
+      'Time on case notes is on. Find it in: The case note box, and the summary report. You can turn it off in Settings → Words & features.'))
+  })
+
+  it('with `notDismissed`, shows at once and goes as soon as "Not now" is clicked', async () => {
+    dismissed = '["timeTracking"]'
+    render(<FeatureOffer feature="timeTracking" message="Record minutes?" notDismissed plain />)
+    expect(screen.getByText('Record minutes?')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    await waitFor(() => expect(screen.queryByText('Record minutes?')).toBeNull())
   })
 
   it('remembers "Not now" and stays away after that', async () => {
@@ -61,17 +76,5 @@ describe('FeatureOffer', () => {
     render(<FeatureOffer feature="timeTracking" message="Record minutes?" />)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalled())
     expect(screen.queryByText('Record minutes?')).toBeNull()
-  })
-})
-
-describe('offerFor', () => {
-  it('spots time or miles in a note only while those boxes are off', () => {
-    const off = { trackTime: false, trackMileage: false }
-    expect(offerFor('Phone call, 45 min', off)).toBe('timeTracking')
-    expect(offerFor('Spent 1.5 hours on paperwork', off)).toBe('timeTracking')
-    expect(offerFor('Drove 12 miles to the visit', off)).toBe('mileage')
-    expect(offerFor('Drove 12 miles, 30 minutes', { trackTime: true, trackMileage: false })).toBe('mileage')
-    expect(offerFor('Met at 3pm, all good', off)).toBeNull()
-    expect(offerFor('45 min', { trackTime: true, trackMileage: true })).toBeNull()
   })
 })
