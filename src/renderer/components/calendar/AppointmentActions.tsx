@@ -4,13 +4,13 @@
  * optional note), No-show, Mark cancelled, Edit and Delete, or Back to
  * scheduled once it has an outcome. Marking a future one done asks first.
  */
-import React, { useEffect, useRef, useState } from 'react'
-import { Check, UserX, Ban, Pencil, Trash2, RotateCcw, CalendarX, MoreHorizontal } from 'lucide-react'
+import React, { useState } from 'react'
+import { Check, UserX, Ban, Pencil, Trash2, RotateCcw, CalendarX } from 'lucide-react'
 import type { Appointment } from '../../../shared/appointments'
 import { localDateString } from '../../../shared/dates'
 import { setAppointmentStatus, deleteAppointment, endSeries } from '../../utils/appointmentActions'
 import { useVocab } from '../../hooks/useVocab'
-import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { RowMenu } from '../ui/RowMenu'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { AppointmentDialog } from './AppointmentDialog'
 import { ScopeDialog } from './ScopeDialog'
@@ -32,16 +32,6 @@ export function AppointmentActions({ appointment: a, onChanged, showEndSeries = 
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [endOn, setEndOn] = useState<string | null>(null)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const moreWrapRef = useRef<HTMLDivElement>(null)
-  const moreMenuRef = useRef<HTMLDivElement>(null)
-  const onMoreKey = useMenuKeys(moreMenuRef, moreOpen, () => setMoreOpen(false))
-  useEffect(() => {
-    if (!moreOpen) return
-    const onDown = (e: MouseEvent) => { if (!moreWrapRef.current?.contains(e.target as Node)) setMoreOpen(false) }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [moreOpen])
   const after = (ok: boolean) => { if (ok) onChanged?.() }
   const future = a.start_at.slice(0, 10) > localDateString()
   // Buttons name the appointment too, since a list can show several
@@ -92,20 +82,10 @@ export function AppointmentActions({ appointment: a, onChanged, showEndSeries = 
         <button type="button" className="btn-compact-secondary" aria-label={named('Back to scheduled')} onClick={() => void setAppointmentStatus(a, 'scheduled').then(after)}><RotateCcw className="w-4 h-4" />Back to scheduled</button>
       )}
       {compact ? (
-        <div ref={moreWrapRef} className="relative">
-          <button type="button" className="btn-compact-secondary" aria-haspopup="menu" aria-expanded={moreOpen} aria-label={named('More')} title="Edit or delete" onClick={() => setMoreOpen(o => !o)}>
-            <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
-          </button>
-          {moreOpen && (
-            <div ref={moreMenuRef} role="menu" aria-label={named('More')} onKeyDown={onMoreKey}
-              className="absolute right-0 top-full mt-1 z-50 w-36 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
-              <button type="button" role="menuitem" className="w-full text-left px-3 text-base text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" style={{ minHeight: 44 }}
-                onClick={() => { setMoreOpen(false); setEditing(true) }}>Edit</button>
-              <button type="button" role="menuitem" className="w-full text-left px-3 text-base text-red-700 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" style={{ minHeight: 44 }}
-                onClick={() => { setMoreOpen(false); if (a.series_id !== null) setDeleting(true); else void remove('one') }}>Delete</button>
-            </div>
-          )}
-        </div>
+        <RowMenu label={named('More')} variant="secondary" items={[
+          { label: 'Edit', onSelect: () => setEditing(true) },
+          { label: 'Delete', danger: true, onSelect: () => { if (a.series_id !== null) setDeleting(true); else void remove('one') } },
+        ]} />
       ) : (
         <>
           <button type="button" className="btn-compact-secondary" aria-label={named('Edit')} onClick={() => setEditing(true)}><Pencil className="w-4 h-4" />Edit</button>
