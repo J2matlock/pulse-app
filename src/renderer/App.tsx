@@ -318,7 +318,8 @@ export default function App(): React.ReactElement {
           <GlobalTaskDialog open={globalTaskOpen} onClose={() => setGlobalTaskOpen(false)} />
           <ScreenHint blocked={showTour || !!miniTourSteps || firstLook || focusModeOpen} />
           {showTour && (
-            <TourOverlay onComplete={() => {
+            // Only Help starts the tour, so it ends back there
+            <TourOverlay returnRoute="#/help" onComplete={() => {
               setShowTour(false)
             }} />
           )}

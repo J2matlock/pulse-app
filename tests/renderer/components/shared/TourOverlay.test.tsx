@@ -84,6 +84,14 @@ describe('TourOverlay', () => {
     expect(screen.getByText(/^Step 2 of/)).toBeTruthy()
     vi.useRealTimers()
   })
+
+  it('skipping goes back where it was started (Help), so starting it needs no question', () => {
+    const onComplete = vi.fn()
+    render(<TourOverlay onComplete={onComplete} returnRoute="#/help" />)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Skip tour' })[0]!)
+    expect(onComplete).toHaveBeenCalledTimes(1)
+    expect(window.location.hash).toBe('#/help')
+  })
 })
 
 describe('deadline colours step (UX-A-03, UX-A-10)', () => {

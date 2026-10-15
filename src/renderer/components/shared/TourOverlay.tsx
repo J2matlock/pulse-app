@@ -27,6 +27,8 @@ export { STEPS, tourSteps, type TourStep } from './tourSteps'
 
 interface Props {
   onComplete: () => void
+  /** Where skipping or finishing goes: back to where it started, so starting it needs no "Are you sure?" */
+  returnRoute?: string
 }
 
 /**
@@ -41,7 +43,7 @@ function columnRect(header: Element): TourRect {
   return { top: h.top, left: h.left, right: h.right, bottom, width: h.width, height: Math.max(h.height, bottom - h.top) }
 }
 
-export function TourOverlay({ onComplete }: Props): React.ReactElement {
+export function TourOverlay({ onComplete, returnRoute = '#/grid' }: Props): React.ReactElement {
   const { f } = useVocab(null)
   const [stepIndex, setStepIndex] = useState(0)
   const nextRef = useRef<HTMLButtonElement>(null)
@@ -115,8 +117,8 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
     if (stepIndex < activeSteps.length - 1) {
       goTo(stepIndex + 1)
     } else {
-      // Navigate back to grid before completing
-      window.location.hash = '#/grid'
+      // Back where the tour was started
+      window.location.hash = returnRoute
       onComplete()
     }
   }
@@ -128,7 +130,7 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
   }
 
   // Tab stays in the card, Escape skips the tour, and focus goes back where it was
-  useFocusTrap(tooltipRef, true, { onEscape: () => { window.location.hash = '#/grid'; onComplete() } })
+  useFocusTrap(tooltipRef, true, { onEscape: () => { window.location.hash = returnRoute; onComplete() } })
 
   // Handle keyboard nav
   useEffect(() => {
@@ -234,7 +236,7 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
               </h2>
             </div>
             <button
-              onClick={() => { window.location.hash = '#/grid'; onComplete() }}
+              onClick={() => { window.location.hash = returnRoute; onComplete() }}
               className="hit-44 w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
               title="Skip tour (Esc)"
               aria-label="Skip tour"
@@ -281,7 +283,7 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { window.location.hash = '#/grid'; onComplete() }}
+                  onClick={() => { window.location.hash = returnRoute; onComplete() }}
                   className="hit-44 px-3 py-2 text-base text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                 >
                   Skip tour

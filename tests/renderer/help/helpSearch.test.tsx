@@ -91,14 +91,12 @@ describe('Help search', () => {
     expect(screen.getByRole('button', { name: /How do I record my miles for a mileage claim\?/ })).toBeTruthy()
   })
 
-  it('the tour asks before it starts', async () => {
+  it('the tour starts at once: no "Are you sure?", since skipping it comes straight back here (UX pass Q4/Q7)', async () => {
     const onStartTour = vi.fn()
     render(<HelpView onStartTour={onStartTour} onStartMiniTour={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /Retake the full tour/ }))
-    expect(onStartTour).not.toHaveBeenCalled()
-    expect(screen.getByText(/^Start the \d+-step tour\?$/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Start the tour' }))
+    fireEvent.click(screen.getByRole('button', { name: /tour/i }))
     expect(onStartTour).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('every FAQ question is phrased without braces left over and has a category', () => {
