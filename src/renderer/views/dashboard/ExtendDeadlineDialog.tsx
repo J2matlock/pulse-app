@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
+import { DateField } from '../../components/ui/DateField'
 import { formatDue } from '../../../shared/deadlineEngine'
 import { addDays } from '../../../shared/ymd'
 import { useVocab } from '../../hooks/useVocab'
@@ -17,10 +18,13 @@ export function ExtendDeadlineDialog({ title, currentDue, gridId = null, onSave,
   const { t } = useVocab(gridId)
   const [date, setDate] = useState('')
   const [reason, setReason] = useState('')
+  // A half-typed date keeps Extend off; the box says why (persona study D1)
+  const [partial, setPartial] = useState(false)
+  const id = useId()
   // An extension moves the date later; an earlier one isn't an extension (D-36)
   const minDate = currentDue ? addDays(currentDue, 1) : undefined
   const tooEarly = !!minDate && /^\d{4}-\d{2}-\d{2}$/.test(date) && date < minDate
-  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && reason.trim().length > 0 && !tooEarly
+  const valid = !partial && /^\d{4}-\d{2}-\d{2}$/.test(date) && reason.trim().length > 0 && !tooEarly
 
   return (
     <Dialog open onClose={onClose} title={`Extend: ${title}`} size="md"
@@ -30,11 +34,12 @@ export function ExtendDeadlineDialog({ title, currentDue, gridId = null, onSave,
       </>}>
       <div className="space-y-4">
         {currentDue && <p className="text-base text-slate-600 dark:text-slate-300">Due now: {formatDue(currentDue)}</p>}
-        <label className="block text-base text-slate-700 dark:text-slate-200">
-          New due date
-          <input type="date" className="input w-full mt-1" autoFocus value={date} min={minDate} onChange={e => setDate(e.target.value)}
+        <div>
+          <label htmlFor={id} className="block text-base text-slate-700 dark:text-slate-200">New due date</label>
+          <DateField id={id} className="input w-full mt-1" autoFocus value={date} min={minDate}
+            onChange={(v, p) => { setDate(v ?? ''); setPartial(p) }}
             aria-invalid={tooEarly || undefined} aria-describedby={tooEarly ? 'extend-too-early' : undefined} />
-        </label>
+        </div>
         {tooEarly && <p id="extend-too-early" role="alert" className="text-base text-red-700 dark:text-red-300">Choose a date after {formatDue(currentDue!)}.</p>}
         <label className="block text-base text-slate-700 dark:text-slate-200">
           Reason <span className="text-slate-500 dark:text-slate-400">(kept with the {t('record')}'s history)</span>

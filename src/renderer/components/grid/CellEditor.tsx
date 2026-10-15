@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import type { Column } from '../../../shared/types'
 import type { ColumnType } from '../../../shared/columnTraits'
 import type { NavDirection } from '../../hooks/useGridCellNavigation'
-import { DateField } from '../ui/DateField'
+import { DateField, DATE_FIELD_TEXT } from '../ui/DateField'
 
 export type { NavDirection }
 
@@ -20,9 +20,6 @@ interface Props {
   /** Shown in an empty text editor, e.g. on a record just added (UX-B-39) */
   placeholder?: string
 }
-
-/** Clicking away from a half-typed date can't keep the editor open, so a toast says what happened */
-export const DATE_NOT_SAVED = "That date wasn't saved. It isn't a whole date."
 
 /** The kinds whose typing Escape can put back. A date's old value is never lost, so it has nothing to put back */
 const DISCARDABLE: ReadonlySet<ColumnType> = new Set<ColumnType>(['text', 'notes', 'address', 'phone', 'email', 'url', 'number', 'currency'])
@@ -41,6 +38,8 @@ const BASE_STYLE: React.CSSProperties = {
 
 // Colors come from classes so an open editor follows dark mode, native date and select pickers included
 const EDITOR_CLASS = 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100'
+// A date needs its room for the digits and the calendar button in a narrow cell
+const DATE_STYLE: React.CSSProperties = { ...BASE_STYLE, padding: '0 4px 0 8px' }
 const CHECKBOX_STYLE: React.CSSProperties = { ...BASE_STYLE, display: 'flex', alignItems: 'center', padding: '0 12px' }
 const SELECT_STYLE: React.CSSProperties = { ...BASE_STYLE, cursor: 'pointer' }
 const TEXTAREA_NOTES_STYLE: React.CSSProperties = { ...BASE_STYLE, resize: 'none', padding: '8px 12px', height: 88 }
@@ -158,13 +157,14 @@ export function CellEditor({ column, value, onSave, onCancel, onDiscard, placeho
             size="cell"
             autoFocus
             className={EDITOR_CLASS}
+            style={DATE_STYLE}
             value={value}
             onCommit={(v, how) => guardedSave(v, how === 'enter' ? 'next-row' : how === 'tab' ? 'next-col' : how === 'shift-tab' ? 'prev-col' : undefined)}
             onInvalid={(_message, how) => {
               // Enter and Tab keep the editor open with the message; clicking away can't, so it says so
               if (how !== 'blur' || savedRef.current) return
               savedRef.current = true
-              toast.error(DATE_NOT_SAVED)
+              toast.error(DATE_FIELD_TEXT.notSaved)
               onCancel()
             }}
             onCancel={onCancel}

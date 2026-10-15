@@ -36,6 +36,8 @@ export const DATE_FIELD_TEXT = {
   partial: "That isn't a whole date. Check the month, day and year.",
   year: `Use a year from ${MIN_YEAR} to ${MAX_YEAR}.`,
   required: 'Choose a date.',
+  /** Clicking away from a half-typed date can't keep the box open, so a toast says what happened */
+  notSaved: "That date wasn't saved. It isn't a whole date.",
 } as const
 
 /** "Read as 2026": what a two-digit year was taken to mean */
@@ -247,7 +249,8 @@ export function DateField({
       min={min}
       max={max}
       className={className ?? (size === 'cell' ? CELL_CLASS : 'input w-full')}
-      style={style ?? (size === 'cell' ? CELL_STYLE : undefined)}
+      // A caller's own class draws its own box (the checklist's inline date)
+      style={style ?? (size === 'cell' && className === undefined ? CELL_STYLE : undefined)}
       aria-invalid={invalid || undefined}
       aria-describedby={describedByIds}
       onChange={() => evaluate(true)}

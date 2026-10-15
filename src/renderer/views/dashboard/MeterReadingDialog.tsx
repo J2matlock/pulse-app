@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
+import { DateField } from '../../components/ui/DateField'
 import { localDateString } from '../../../shared/dates'
 import { implausibleReading, type MeterInfo } from '../../../shared/deadlineEngine'
 import { isPastOrToday } from './DoneOnDayDialog'
@@ -22,9 +23,12 @@ export function MeterReadingDialog({ title, info, onSave, onClose }: {
   const [text, setText] = useState(info?.current != null ? String(info.current) : '')
   const [otherDay, setOtherDay] = useState(false)
   const [day, setDay] = useState(localDateString())
+  // A half-typed date keeps Mark done off; the box says why (persona study D1)
+  const [dayPartial, setDayPartial] = useState(false)
+  const dayId = useId()
   const value = Number(text.replace(/,/g, ''))
   const readingOk = text.trim() !== '' && Number.isFinite(value) && value >= 0
-  const valid = readingOk && (!otherDay || isPastOrToday(day))
+  const valid = readingOk && (!otherDay || (!dayPartial && isPastOrToday(day)))
   const warning = readingOk && info ? implausibleReading(value, info) : null
   // A reading that looks wrong needs a second click
   const [confirmed, setConfirmed] = useState<number | null>(null)
@@ -62,10 +66,11 @@ export function MeterReadingDialog({ title, info, onSave, onClose }: {
         )}
         {warning && <p id="meter-warning" role="alert" className="text-base text-amber-800 dark:text-amber-200">{warning}</p>}
         {otherDay ? (
-          <label className="block text-base text-slate-700 dark:text-slate-200">
-            Day it was done
-            <input type="date" className="input w-full mt-1" max={localDateString()} value={day} onChange={e => setDay(e.target.value)} />
-          </label>
+          <div>
+            <label htmlFor={dayId} className="block text-base text-slate-700 dark:text-slate-200">Day it was done</label>
+            <DateField id={dayId} className="input w-full mt-1" max={localDateString()} value={day}
+              onChange={(v, p) => { setDay(v ?? ''); setDayPartial(p) }} />
+          </div>
         ) : (
           <button type="button" onClick={() => setOtherDay(true)}
             className="min-h-[44px] text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">

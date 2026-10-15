@@ -5,7 +5,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import type { Column } from '../../../../src/shared/types'
 
 // ── Component import ────────────────────────────────────────────────────────
-import { CellEditor, DATE_NOT_SAVED } from '../../../../src/renderer/components/grid/CellEditor'
+import { CellEditor } from '../../../../src/renderer/components/grid/CellEditor'
+import { DATE_FIELD_TEXT } from '../../../../src/renderer/components/ui/DateField'
 import { setWords } from '../../vocabFixture'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ describe('CellEditor', () => {
       fireEvent.blur(input)
       expect(onSave).not.toHaveBeenCalled()
       expect(onCancel).toHaveBeenCalledOnce()
-      expect(spy).toHaveBeenCalledWith(DATE_NOT_SAVED)
+      expect(spy).toHaveBeenCalledWith(DATE_FIELD_TEXT.notSaved)
       spy.mockRestore()
     })
 
