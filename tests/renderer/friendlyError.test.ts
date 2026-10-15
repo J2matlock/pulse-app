@@ -87,6 +87,7 @@ const PLAIN = new Set<string>([
   'Enter your password to confirm.',
   'Keep at least one working day in the week.',
   "Link columns can't be changed to another type, or made from one.",
+  'There\'s already a column called "${taken.name}". Give the new one a different name.',
   'Maximum of 20 saved views reached',
   'Not supported on this platform',
   'Nothing to undo',

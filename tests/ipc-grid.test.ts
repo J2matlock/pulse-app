@@ -387,6 +387,18 @@ describe('COLUMN_CREATE', () => {
     expect(result.ok).toBe(false)
   })
 
+  it('refuses a name another column of the list already has, whatever the case or spaces (B-14)', async () => {
+    const { gridId } = seedGrid(testDb.db, { columnCount: 1 })
+    const first = await invoke(IPC.COLUMN_CREATE, gridId, 'Phone', 'text') as { ok: true; data: number }
+    expect(first.ok).toBe(true)
+    const again = await invoke(IPC.COLUMN_CREATE, gridId, ' phone ', 'phone') as { ok: false; error: string }
+    expect(again.ok).toBe(false)
+    expect(again.error).toBe('There\'s already a column called "Phone". Give the new one a different name.')
+    // Another list can have its own "Phone"
+    const { gridId: otherGrid } = seedGrid(testDb.db, { columnCount: 1 })
+    expect((await invoke(IPC.COLUMN_CREATE, otherGrid, 'Phone', 'text') as { ok: boolean }).ok).toBe(true)
+  })
+
   it('accepts all valid column types', async () => {
     const { gridId } = seedGrid(testDb.db)
     for (const type of ['text', 'date', 'number', 'checkbox', 'dropdown', 'phone', 'email']) {

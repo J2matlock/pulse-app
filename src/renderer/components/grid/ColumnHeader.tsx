@@ -174,6 +174,13 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     e.preventDefault()
     const name = renameName.trim()
     if (name && name !== column.name) {
+      // Another column already called this (hidden ones too): keep editing (B-14)
+      const taken = [...allColumns, ...hiddenColumns].find(c => c.id !== column.id && c.name.trim().toLowerCase() === name.toLowerCase())
+      if (taken) {
+        toast.error(`There's already a column called "${taken.name}". Give this one a different name.`)
+        renameRef.current?.focus()
+        return
+      }
       await updateColumn(column.id, { name })
     }
     setIsRenaming(false)
