@@ -9,7 +9,8 @@ import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
 import { KEYRING_UNAVAILABLE } from '../../shared/authErrors'
-import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
+import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock, getBackupMadeInfo } from '../backup'
+import { recordRestore } from '../restore-history'
 import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
 import { ensureMaterialized } from '../appointments'
@@ -172,6 +173,9 @@ export function registerAuthHandlers(): void {
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
       if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
       assertSafePath(backupPath)
+      // For the restore history (persona study #19); never a reason to fail
+      let madeAt: string | null = null
+      try { madeAt = (await getBackupMadeInfo(backupPath)).madeAt } catch (err) { logger.warn('ipc-auth', `[${corrId}] could not read when the backup was made: ${String(err)}`) }
 
       try {
         await restoreBackupOnNewInstall({ backupPath, secret, newPassword, hint })
@@ -184,6 +188,7 @@ export function registerAuthHandlers(): void {
       // three plain messages, and the key isn't kept, as after an unlock (F-031)
       const openFailure = openAfterUnlock()
       if (openFailure) return openFailure
+      recordRestore(madeAt)
       startScheduledBackup()
       logger.info('ipc-auth', `[${corrId}] restored from backup on new install`)
       return ok({ cloudWarning: checkCloudSyncPath(resolveDatabasePath()) })

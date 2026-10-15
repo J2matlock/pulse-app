@@ -12,9 +12,10 @@ import { getDb } from './database'
 import { activityLabel } from './activity-types'
 import { isSystemActivityType, type SystemActivityType } from '../shared/activityTypes'
 import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync, stripHtml } from './export-shared'
-import { parseDbTimestamp, shortDate } from '../shared/dates'
+import { parseDbTimestamp, shortDate, localDateString } from '../shared/dates'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../shared/constants'
 import { word } from './vocab'
+import { readRestoreHistory, type RestoreEntry } from './restore-history'
 
 export interface AuditScope {
   rowId?: number
@@ -217,6 +218,37 @@ export function auditFootnote(gridId?: number | null): string {
   return `Times are local. Edited ${notes} keep every earlier version, and undone ${notes} are voided rather than erased. ${Notes} deleted within ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes of being written (to fix a mistake) are not kept.`
 }
 
+/** Restores in the range (persona study #19): a restore replaces all the data, so they head any report */
+export function restoresInRange(scope: AuditScope): RestoreEntry[] {
+  return readRestoreHistory().filter(e => {
+    const day = localDateString(new Date(e.restoredAt))
+    return (!scope.from || day >= scope.from) && (!scope.to || day <= scope.to)
+  })
+}
+
+/** "Data restored" table at `y`; returns the y after it (unchanged when there were none) */
+export function drawRestores(doc: InstanceType<typeof jsPDF>, restores: RestoreEntry[], y: number, marginL: number): number {
+  if (restores.length === 0) return y
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Data restored from a backup', marginL, y)
+  doc.setFont('helvetica', 'normal')
+  autoTable(doc, {
+    startY: y + 3,
+    head: [['When', 'What', 'Details']],
+    body: restores.map(e => [
+      fmtWhen(e.restoredAt),
+      'Data restored',
+      `${e.backupMadeAt ? `From a backup made ${fmtWhen(e.backupMadeAt)}` : 'From a backup'} · Pulse ${e.appVersion}`,
+    ]),
+    styles: { fontSize: 9, cellPadding: 1.8, overflow: 'linebreak' },
+    headStyles: { fillColor: [51, 65, 85] },
+    columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 34 } },
+    margin: { left: marginL, right: marginL },
+  })
+  return lastTableY(doc) + 10
+}
+
 function fmtWhen(ts: string): string {
   return parseDbTimestamp(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
@@ -240,7 +272,7 @@ export async function exportAuditReport(scope: AuditScope, destPath: string, sco
   const note = `${auditFootnote(scope.gridId)} Contains ${word('record')} information: keep secure.`
   doc.text(doc.splitTextToSize(note, pageW - marginL * 2), marginL, 31)
 
-  const total = drawAuditClients(doc, shown, 42, marginL)
+  const total = drawAuditClients(doc, shown, drawRestores(doc, restoresInRange(scope), 42, marginL), marginL)
   // Page numbers, so a printed copy can be checked for missing pages
   const pages = doc.getNumberOfPages()
   for (let i = 1; i <= pages; i++) {

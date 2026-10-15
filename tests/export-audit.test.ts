@@ -6,9 +6,10 @@ import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from '
 
 let testDb: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => testDb.db }))
-vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), isPackaged: false } }))
+vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), isPackaged: false, getVersion: () => '2.7.0' } }))
 
-import { loadAuditTrail, exportAuditReport } from '../src/main/export-audit'
+import { loadAuditTrail, exportAuditReport, restoresInRange } from '../src/main/export-audit'
+import { recordRestore } from '../src/main/restore-history'
 
 let gridId: number
 let rowA: number
@@ -127,6 +128,25 @@ describe('audit trail', () => {
     await exportAuditReport({ gridId, from: '2027-03-01' }, dest, 'Test Caseload')
     const pdf = readFileSync(dest).toString('latin1')
     expect(pdf).toContain('In the Trash since Feb 15, 2027')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('lists restores as "Data restored", in the range, in the PDF (persona study #19)', async () => {
+    recordRestore('2026-10-09T08:00:00.000Z')
+    const today = new Date()
+    const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    expect(restoresInRange({})).toHaveLength(1)
+    expect(restoresInRange({ from: ymd, to: ymd })).toHaveLength(1)
+    expect(restoresInRange({ to: '2020-01-01' })).toHaveLength(0)
+    const dir = mkdtempSync(join(tmpdir(), 'audit-'))
+    const dest = join(dir, 'audit.pdf')
+    // The record totals don't count the restore
+    expect(await exportAuditReport({ gridId }, dest, 'Test Caseload')).toEqual({ clients: 2, events: expect.any(Number) })
+    const pdf = readFileSync(dest).toString('latin1')
+    expect(pdf).toContain('Data restored from a backup')
+    expect(pdf).toContain('Data restored')
+    expect(pdf).toContain('Pulse 2.7.0')
+    expect(pdf).toMatch(/From a backup made Oct 9, 2026/)
     rmSync(dir, { recursive: true, force: true })
   })
 
