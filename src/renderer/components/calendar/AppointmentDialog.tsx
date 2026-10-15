@@ -2,14 +2,15 @@
  * New or edit appointment (W07 §6): who it's with, when, where, what kind
  * of note it becomes when done, and (for new ones) how it repeats.
  */
-import React, { useEffect, useRef, useState } from 'react'
-import { CalendarClock, Trash2, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { CalendarClock, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
 import { apptInputSchema, addMinutes, minutesBetween, seriesRuleSchema, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { createAppointment, deleteAppointment, updateAppointment } from '../../utils/appointmentActions'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useFeature } from '../../hooks/useFeature'
@@ -50,8 +51,6 @@ export interface AppointmentDialogProps {
 }
 
 export function AppointmentDialog({ appointment, start, record, event = false, onClose }: AppointmentDialogProps): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const { t } = useVocab(null)
   const { active: noteTypes } = useActivityTypes()
   const a = appointment
@@ -93,12 +92,6 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
     if (!who?.gridId) { setDateColumns([]); return }
     void safeInvoke<{ columns: Column[] } | null>(IPC.GRID_GET, who.gridId, false).then(r => setDateColumns(r.ok && r.data ? (r.data.columns ?? []).filter(c => c.column_type === 'date') : []))
   }, [who?.gridId])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !askScope && !askDelete) { e.preventDefault(); onClose() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, askScope, askDelete])
 
   const whenErrorProps = whenError && error ? { 'aria-invalid': true, 'aria-describedby': 'appt-dialog-error' } as const : {}
 
@@ -150,19 +143,20 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="appt-dialog-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 id="appt-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <CalendarClock className="w-5 h-5" aria-hidden="true" />{a ? `Edit ${noun}` : `New ${noun}`}
-          </h2>
-          <button type="button" aria-label="Close" onClick={onClose}
-            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
+    <>
+    <Dialog open onClose={onClose} size="lg" title={a ? `Edit ${noun}` : `New ${noun}`}
+      icon={<CalendarClock className="w-5 h-5 mt-1.5 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      footer={<>
+        {/* Events open straight into this dialog, so it's where they're deleted */}
+        {a && isEvent && (
+          <SecondaryButton className="mr-auto" icon={<Trash2 className="w-4 h-4" />} onClick={() => (a.series_id !== null ? setAskDelete(true) : void remove('one'))}>
+            Delete
+          </SecondaryButton>
+        )}
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={saving || !title.trim() || !date} onClick={() => void save()}>{a ? 'Save' : asEvent ? 'Add event' : 'Schedule'}</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         <label className="block">
           <span className={label}>What</span>
           <input className="input w-full" autoFocus maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder={isEvent ? 'e.g. Staff meeting, Training, Day off' : 'e.g. Session, Drop-off, Home visit'} />
@@ -267,21 +261,12 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
         </label>
 
         {error && <p id="appt-dialog-error" role="alert" className="text-base text-red-700 dark:text-red-400">{error}</p>}
-
-        <div className="flex justify-end gap-2">
-          {/* Events open straight into this dialog, so it's where they're deleted */}
-          {a && isEvent && (
-            <button type="button" className="btn-secondary mr-auto" onClick={() => (a.series_id !== null ? setAskDelete(true) : void remove('one'))}>
-              <Trash2 className="w-4 h-4" aria-hidden="true" />Delete
-            </button>
-          )}
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={saving || !title.trim() || !date} onClick={() => void save()}>{a ? 'Save' : asEvent ? 'Add event' : 'Schedule'}</button>
-        </div>
       </div>
+    </Dialog>
+      {/* Beside the dialog, not inside it, so they cover the whole window on top of it */}
       {askDelete && <ScopeDialog verb="Delete" onChoose={scope => void remove(scope)} onCancel={() => setAskDelete(false)} />}
       {askScope && <ScopeDialog verb="Change" onChoose={scope => void save(scope, askScope)} onCancel={() => setAskScope(null)}
         dateChanged={!!a && askScope.start_at.slice(0, 10) !== a.start_at.slice(0, 10)} />}
-    </div>
+    </>
   )
 }

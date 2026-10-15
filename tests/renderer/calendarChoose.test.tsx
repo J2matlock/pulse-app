@@ -141,7 +141,7 @@ describe('adding from the Calendar', () => {
   it('clicking an empty part of a day offers an event, an appointment, a deadline or a task', async () => {
     const chooser = await openChooserByClickingToday()
     expect(within(chooser).getAllByRole('button').map(b => b.getAttribute('aria-label') ?? b.querySelector('.font-medium')?.textContent)).toEqual(
-      ['Close', 'Event', 'Appointment', 'Deadline for a client', 'Task'])
+      ['Event', 'Appointment', 'Deadline for a client', 'Task', 'Close'])
     // Each option says what it is to screen readers too
     expect(within(chooser).getByRole('button', { name: 'Event' }).getAttribute('aria-describedby')).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })

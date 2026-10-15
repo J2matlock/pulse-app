@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React from 'react'
+import { Dialog } from '../ui/Dialog'
+import { SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 
 /**
@@ -10,14 +11,7 @@ import { useVocab } from '../../hooks/useVocab'
 export function ScopeDialog({ verb, onChoose, onCancel, dateChanged = false }: {
   verb: 'Change' | 'Delete'; onChoose: (scope: 'one' | 'following' | 'all') => void; onCancel: () => void; dateChanged?: boolean
 }): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const { t } = useVocab(null)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onCancel])
   const choice = (scope: 'one' | 'following' | 'all', text: string, hint: string) => (
     <button type="button" onClick={() => onChoose(scope)}
       className="w-full text-left rounded-lg border-2 border-slate-200 dark:border-slate-600 px-3 py-2 hover:border-blue-400 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" style={{ minHeight: 44 }}>
@@ -26,15 +20,13 @@ export function ScopeDialog({ verb, onChoose, onCancel, dateChanged = false }: {
     </button>
   )
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4" onClick={e => { e.stopPropagation(); onCancel() }}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="scope-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-5 space-y-2">
-        <h2 id="scope-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">{verb} a repeating {t('appointment')}</h2>
+    <Dialog open onClose={onCancel} size="sm" title={<>{verb} a repeating {t('appointment')}</>}
+      footer={<SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>}>
+      <div className="space-y-2">
         {choice('one', 'Only this one', 'The others stay as they are.')}
         {choice('following', 'This and following', verb === 'Delete' ? 'The series ends before this one.' : 'From this one on, as a new series.')}
         {!dateChanged && choice('all', 'All', verb === 'Delete' ? 'Upcoming ones go; done ones stay.' : 'Upcoming ones change; past and done ones stay.')}
-        <div className="flex justify-end"><button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button></div>
       </div>
-    </div>
+    </Dialog>
   )
 }
