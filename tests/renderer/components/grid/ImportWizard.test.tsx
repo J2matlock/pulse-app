@@ -38,6 +38,8 @@ vi.mock('../../../../src/renderer/hooks/useFocusTrap', () => ({
 // ── Component import ────────────────────────────────────────────────────────
 
 import { ImportWizard } from '../../../../src/renderer/components/grid/ImportWizard'
+import { splitWarning } from '../../../../src/renderer/components/grid/importWizardShared'
+import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { setWords } from '../../vocabFixture'
 
 beforeEach(() => { setWords() })
@@ -78,6 +80,11 @@ describe('ImportWizard', () => {
   it('renders step indicator with Choose a file active', () => {
     render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
     expect(screen.getByText('Choose a file')).toBeTruthy()
+  })
+
+  it('puts focus on the drop zone, not the ✕ (UX-A-33)', () => {
+    render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+    expect(document.activeElement).toBe(screen.getByLabelText('Click to browse for a file, or drop a file here'))
   })
 
   it('close button calls onClose', () => {
@@ -154,7 +161,7 @@ describe('ImportWizard', () => {
       render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
       fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
       fireEvent.click(await screen.findByRole('button', { name: /Next/ }))
-      await screen.findByText(/Map each column/)
+      await screen.findByText(/Choose where each column in your file goes/)
     }
 
     it('keeps a Notes column as text, and says why', async () => {
@@ -206,7 +213,7 @@ describe('ImportWizard', () => {
       fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
       expect(await screen.findByText('Import failed')).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: /Back/ }))
-      expect(await screen.findByText('Duplicate detection')).toBeTruthy()
+      expect(await screen.findByText(/If a name is already in this/)).toBeTruthy()
     })
 
     it.each([
@@ -251,7 +258,7 @@ describe('ImportWizard', () => {
       }
       async function runImport() {
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
-        await screen.findByText(/Map each column/)
+        await screen.findByText(/Choose where each column in your file goes/)
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
         fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
         await screen.findByText(/3 .* imported/)
@@ -283,11 +290,166 @@ describe('ImportWizard', () => {
       })
     })
 
+    it('numbers the steps a CSV shows 1 to 5, with no gap for the sheet step (UX-B-33)', async () => {
+      await goToMapping()
+      const current = document.querySelector('[aria-current="step"]')!
+      expect(current.textContent).toContain('3')
+      expect(current.textContent).toContain('Match columns')
+      expect(screen.queryByText('Sheet')).toBeNull()
+    })
+
+    it('says where each column goes in plain words (UX-B-07)', async () => {
+      await goToMapping()
+      expect(screen.getByText('Column in your file')).toBeTruthy()
+      expect(screen.getByText('Goes into')).toBeTruthy()
+      expect(screen.getAllByRole('option', { name: 'A new column' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('option', { name: 'Leave it out' }).length).toBeGreaterThan(0)
+      expect(screen.queryByText('Map To')).toBeNull()
+    })
+
     it('lists who was skipped as already here', async () => {
       await goToMapping()
       fireEvent.click(screen.getByRole('button', { name: /Next/ }))
       fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
       expect(await screen.findByText(/2 skipped because they were already here: Maria Garcia, Bob Lee/)).toBeTruthy()
+    })
+  })
+
+  describe('first and last name in separate columns (UX-A-07)', () => {
+    const preview = {
+      sheets: ['Sheet1'], activeSheet: 0, headers: ['First Name', 'Last Name', 'Phone'],
+      rows: [['Alice', 'Johnson', '555-0100']],
+      detectedColumns: [
+        { index: 0, originalName: 'First Name', detectedType: 'text', samples: ['Alice'] },
+        { index: 1, originalName: 'Last Name', detectedType: 'text', samples: ['Johnson'] },
+        { index: 2, originalName: 'Phone', detectedType: 'phone', samples: ['555-0100'] },
+      ],
+      detectedHeaderRow: 0, headerDetectionConfidence: 'high', rawRowCount: 2,
+    }
+    beforeEach(() => {
+      mockInvoke.mockImplementation((channel: string) => {
+        switch (channel) {
+          case 'app:show-file-dialog': return Promise.resolve({ ok: true, data: { canceled: false, filePaths: ['/home/me/list.csv'] } })
+          case 'import:file-preview': return Promise.resolve({ ok: true, data: preview })
+          case 'import:detect-columns': return Promise.resolve({ ok: true, data: [
+            { sourceIndex: 0, action: 7 }, { sourceIndex: 1, action: 'create', newName: 'Last Name', newType: 'text' }, { sourceIndex: 2, action: 'create', newName: 'Phone', newType: 'phone' },
+          ] })
+          case 'grid:get': return Promise.resolve({ ok: true, data: { columns: [{ id: 7, name: 'Name', column_type: 'text', is_name_column: 1 }] } })
+          case 'import:file': return Promise.resolve({ ok: true, data: { imported: 1, skipped: 0, warnings: [] } })
+          default: return Promise.resolve({ ok: true, data: null })
+        }
+      })
+    })
+
+    async function toMapping() {
+      render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+      fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
+      fireEvent.click(await screen.findByRole('button', { name: /Next/ }))
+      await screen.findByText(/Choose where each column in your file goes/)
+    }
+    const importCall = () => mockInvoke.mock.calls.find(c => c[0] === 'import:file')?.[1] as { combineNames?: unknown; columnMappings: Array<{ sourceIndex: number; action: unknown }> }
+
+    it('offers to combine them into Name, ticked, with an example, and leaves Last Name out', async () => {
+      await toMapping()
+      const box = screen.getByRole('checkbox', { name: /Combine "First Name" \+ "Last Name" into Name/ }) as HTMLInputElement
+      expect(box.checked).toBe(true)
+      expect(screen.getByText(/\(Alice Johnson\)/)).toBeTruthy()
+      expect((screen.getByLabelText('Where "Last Name" goes') as HTMLSelectElement).value).toBe('skip')
+      expect(screen.getByText(/Already part of Name/)).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      await screen.findByText(/1 .* imported/)
+      expect(importCall().combineNames).toEqual({ firstIndex: 0, lastIndex: 1 })
+    })
+
+    it('unticked, the last name comes back as its own column and nothing is combined', async () => {
+      await toMapping()
+      fireEvent.click(screen.getByRole('checkbox', { name: /Combine/ }))
+      expect((screen.getByLabelText('Where "Last Name" goes') as HTMLSelectElement).value).toBe('create')
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      await screen.findByText(/1 .* imported/)
+      expect(importCall().combineNames).toBeUndefined()
+      expect(importCall().columnMappings[1]!.action).toBe('create')
+    })
+  })
+
+  describe('setting up deadlines after the import (UX-B-06)', () => {
+    const preview = {
+      sheets: ['Sheet1'], activeSheet: 0, headers: ['Name', 'Review Due'],
+      rows: [['Al', '3/1/2027']],
+      detectedColumns: [
+        { index: 0, originalName: 'Name', detectedType: 'text', samples: ['Al'] },
+        { index: 1, originalName: 'Review Due', detectedType: 'date', samples: ['3/1/2027'] },
+      ],
+      detectedHeaderRow: 0, headerDetectionConfidence: 'high', rawRowCount: 2,
+    }
+    let gridGets = 0
+    beforeEach(() => {
+      gridGets = 0
+      useAlertStore.setState({ rules: [], isLoaded: true })
+      mockInvoke.mockImplementation((channel: string) => {
+        switch (channel) {
+          case 'app:show-file-dialog': return Promise.resolve({ ok: true, data: { canceled: false, filePaths: ['/home/me/list.csv'] } })
+          case 'import:file-preview': return Promise.resolve({ ok: true, data: preview })
+          case 'import:detect-columns': return Promise.resolve({ ok: true, data: [{ sourceIndex: 0, action: 7 }, { sourceIndex: 1, action: 'create', newName: 'Review Due', newType: 'date' }] })
+          case 'grid:get': {
+            gridGets++
+            const columns = [{ id: 7, name: 'Name', column_type: 'text', is_name_column: 1, config: null }]
+            if (gridGets > 1) columns.push({ id: 9, name: 'Review Due', column_type: 'date', is_name_column: 0, config: null })
+            return Promise.resolve({ ok: true, data: { columns } })
+          }
+          case 'import:file': return Promise.resolve({ ok: true, data: { imported: 1, skipped: 0, warnings: [], newRowIds: [41] } })
+          case 'alert-rule:create': return Promise.resolve({ ok: true, data: 55 })
+          case 'alert-rule:get-all': return Promise.resolve({ ok: true, data: [] })
+          default: return Promise.resolve({ ok: true, data: null })
+        }
+      })
+    })
+
+    async function importIt(props: Partial<React.ComponentProps<typeof ImportWizard>> = {}) {
+      render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} {...props} />)
+      fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
+      fireEvent.click(await screen.findByRole('button', { name: /Next/ }))
+      await screen.findByText(/Choose where each column in your file goes/)
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      await screen.findByText(/1 .* imported/)
+    }
+
+    it('asks whether each new date column comes due, and gives it the rule', async () => {
+      await importIt()
+      expect(await screen.findByText('Set up deadlines')).toBeTruthy()
+      expect(screen.getByText('"Review Due": does this date come due again?')).toBeTruthy()
+      expect(screen.queryByText(/More options/)).toBeNull()
+      fireEvent.click(screen.getByLabelText(/Yes, every/))
+      fireEvent.click(screen.getByRole('button', { name: 'Save deadlines' }))
+      expect(await screen.findByText(/That date column now colors as it comes due/)).toBeTruthy()
+      expect(mockInvoke).toHaveBeenCalledWith('alert-rule:create', expect.objectContaining({ interval_months: 12 }))
+      expect(mockInvoke).toHaveBeenCalledWith('column:update', 9, { config: JSON.stringify({ alert_rule_id: 55 }) })
+    })
+
+    it('an answer left unsaved is still saved on Done, before the list reloads', async () => {
+      await importIt()
+      await screen.findByText('Set up deadlines')
+      fireEvent.click(screen.getByLabelText(/one-off due date/))
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+      await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
+      expect(mockInvoke).toHaveBeenCalledWith('column:update', 9, expect.anything())
+      expect(onImported).toHaveBeenCalled()
+    })
+
+    it('setup asks about dates on its own page, so it can leave the question out', async () => {
+      await importIt({ askDeadlines: false })
+      expect(screen.queryByText('Set up deadlines')).toBeNull()
+    })
+  })
+
+  describe('warnings (UX-B-35)', () => {
+    it('splits a warning into a short line and the reason', () => {
+      expect(splitWarning('"DOB": 2 dates read as month/day, like 1/2/1960. They could be read either way.'))
+        .toEqual({ line: '"DOB": 2 dates read as month/day, like 1/2/1960.', why: 'They could be read either way.' })
+      expect(splitWarning('1 value in "Consent" wasn\'t clearly yes or no, so it was left unticked; check it in the list.').why).toBeNull()
     })
   })
 })

@@ -1,6 +1,7 @@
 /**
  * ImportWizard — Multi-step overlay modal for importing CSV/Excel files into a grid.
- * Steps: 1=Choose a file, 2=Sheet, 3=Preview, 4=Match columns, 5=Options, 6=Results
+ * Steps: 1=Choose a file, 2=Sheet, 3=Preview, 4=Match columns, 5=Options, 6=Results.
+ * The circles number the steps shown, so a CSV (no Sheet step) reads 1–5 (UX-B-33).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -20,8 +21,10 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { useAlertStore } from '../../stores/alertStore'
+import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
 import {
-  STEP_LABELS, OLD_SPREADSHEET, OLD_SPREADSHEET_MESSAGE, isNotesColumn,
+  STEP_LABELS, OLD_SPREADSHEET, OLD_SPREADSHEET_MESSAGE, isNotesColumn, findNameParts,
   type ImportPreview, type ColumnMapping, type ImportOptions, type ImportResult, type Step,
 } from './importWizardShared'
 import { ImportPreviewStep } from './ImportPreviewStep'
@@ -34,12 +37,25 @@ interface Props {
   gridId: number
   onClose: () => void
   onImported: (result: ImportResult) => void
+  /**
+   * Ask "does this date come due again?" for new date columns on the results (UX-B-06).
+   * Setup asks it on a page of its own afterwards, so it turns this off.
+   */
+  askDeadlines?: boolean
 }
 
 
+/** A column's settings, or none when they can't be read */
+function configOf(col: Column): Record<string, unknown> & { alert_rule_id?: number | null } {
+  try {
+    const v: unknown = JSON.parse(col.config || '{}')
+    return v && typeof v === 'object' ? v as Record<string, unknown> : {}
+  } catch { return {} }
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ImportWizard({ open, gridId, onClose, onImported }: Props): React.ReactElement | null {
+export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines = true }: Props): React.ReactElement | null {
   const { t } = useVocab(gridId)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, open)
@@ -61,6 +77,12 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   const [undo, setUndo] = useState<'idle' | 'busy' | 'done'>('idle')
   const [importProgress, setImportProgress] = useState<{ imported: number; total: number } | null>(null)
   const [headerRowIndex, setHeaderRowIndex] = useState<number>(0)
+  const [combineNames, setCombineNamesState] = useState(false)
+  // New date columns the import made, and the answer for each (UX-B-06)
+  const [newDateColumns, setNewDateColumns] = useState<Column[]>([])
+  const [deadlineChoices, setDeadlineChoices] = useState<Record<number, DeadlineChoice>>({})
+  const [deadlineState, setDeadlineState] = useState<'idle' | 'busy' | 'done'>('idle')
+  const [deadlinesSaved, setDeadlinesSaved] = useState(0)
 
   // Drag state
   const [dragOver, setDragOver] = useState(false)
@@ -84,18 +106,29 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       setWarningsExpanded(false)
       setHeaderRowIndex(0)
       setUndo('idle')
+      setCombineNamesState(false)
+      setNewDateColumns([])
+      setDeadlineChoices({})
+      setDeadlineState('idle')
+      setDeadlinesSaved(0)
+      // The drop zone is what she came for, not the dialog's ✕ (UX-A-33)
+      dropRef.current?.focus()
     }
   }, [open])
 
   // Every way out (Done, ✕, Escape, a click outside) reports a finished import, so the
   // caller reloads the list, and setup doesn't throw away a list that was just filled
-  const closeRef = useRef<() => void>(() => {})
-  closeRef.current = () => {
+  const closeRef = useRef<() => Promise<void>>(async () => {})
+  closeRef.current = async () => {
     if (step === 6 && loading) return // the import is still running
+    if (deadlineState === 'busy') return
+    // Answers given but not saved yet are kept, before the list reloads
+    if (importResult && undo !== 'done' && deadlineState === 'idle'
+      && newDateColumns.some(c => (deadlineChoices[c.id]?.mode ?? 'none') !== 'none')) await saveDeadlines()
     if (importResult) onImported(undo === 'done' ? { ...importResult, undone: true } : importResult)
     onClose()
   }
-  const close = useCallback(() => closeRef.current(), [])
+  const close = useCallback(() => { void closeRef.current() }, [])
 
   // Escape to close
   useEffect(() => {
@@ -248,8 +281,39 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         newType: d.action === 'create' ? (d.newType ?? col.detectedType) : undefined,
       }
     })
+    // First and last name in separate columns: offer them as one name (UX-A-07). The
+    // first name goes into the list's name column, and the last name is left out unless
+    // she keeps it too
+    const parts = findNameParts(preview)
+    if (parts) {
+      const nameCol = existingColumns.find(c => c.is_name_column === 1)
+      const fi = filled.findIndex(m => m.sourceIndex === parts.firstIndex)
+      const li = filled.findIndex(m => m.sourceIndex === parts.lastIndex)
+      if (fi >= 0 && li >= 0) {
+        if (nameCol && filled[li]!.action === nameCol.id && filled[fi]!.action === 'create') {
+          filled[fi] = { sourceIndex: parts.firstIndex, action: nameCol.id }
+        }
+        if (filled[li]!.action === 'create' || (nameCol && filled[li]!.action === nameCol.id)) {
+          filled[li] = { sourceIndex: parts.lastIndex, action: 'skip' }
+        }
+      }
+    }
+    setCombineNamesState(!!parts)
     setMappings(filled)
     setStep(4)
+  }
+
+  const nameParts = preview ? findNameParts(preview) : null
+
+  // Turning it off brings the last name back as a column of its own
+  function setCombineNames(combine: boolean) {
+    setCombineNamesState(combine)
+    if (!nameParts || !preview) return
+    const li = mappings.findIndex(m => m.sourceIndex === nameParts.lastIndex)
+    const col = preview.detectedColumns.find(c => c.index === nameParts.lastIndex)
+    if (li < 0 || !col) return
+    if (!combine && mappings[li]!.action === 'skip') updateMapping(li, { action: 'create', newName: col.originalName, newType: col.detectedType })
+    if (combine && mappings[li]!.action === 'create') updateMapping(li, { action: 'skip', newName: undefined, newType: undefined })
   }
 
   // The header row moved: read the file again with its headers there
@@ -296,12 +360,16 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         flipLastFirst: flipNames,
         createMissingLinks,
         skipHiddenRows: skipHiddenRows && (preview.hiddenRowCount ?? 0) > 0,
+        combineNames: combineNames && nameParts
+          && mappings.find(m => m.sourceIndex === nameParts.firstIndex)?.action !== 'skip'
+          ? { firstIndex: nameParts.firstIndex, lastIndex: nameParts.lastIndex } : undefined,
       }
       const res = await safeInvoke<ImportResult>(IPC.IMPORT_FILE, options)
       if (!res.ok) {
         setError(friendlyError(res.error, 'The import failed. Please check your file and try again.'))
       } else {
         setImportResult(res.data)
+        if (askDeadlines && res.data.imported > 0) await findNewDateColumns()
       }
     } catch {
       setError('Something went wrong during the import. Please try again.')
@@ -310,6 +378,49 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       setImportProgress(null)
       removeListener()
     }
+  }
+
+  // The date columns this import added, with no rule yet: the ones to ask about
+  async function findNewDateColumns() {
+    const before = new Set(existingColumns.map(c => c.id))
+    const created = new Set(mappings.filter(m => m.action === 'create' && m.newType === 'date').map(m => (m.newName ?? '').trim().toLowerCase()))
+    if (created.size === 0) return
+    try {
+      const res = await safeInvoke<{ columns: Column[] }>(IPC.GRID_GET, gridId)
+      if (!res.ok) return
+      const found = res.data.columns.filter(c => c.column_type === 'date' && !before.has(c.id)
+        && created.has(c.name.trim().toLowerCase()) && configOf(c).alert_rule_id == null)
+      setNewDateColumns(found)
+      if (found.length && !useAlertStore.getState().isLoaded) await useAlertStore.getState().loadRules()
+    } catch { /* the question is a help, not a step: leave it out */ }
+  }
+
+  /** Gives each date column the rule its answer stands for; false when one couldn't be saved */
+  async function saveDeadlines(): Promise<boolean> {
+    setDeadlineState('busy')
+    let saved = 0
+    let failed = false
+    for (const col of newDateColumns) {
+      const choice = deadlineChoices[col.id]
+      if (!choice || choice.mode === 'none') continue
+      try {
+        // Read the rules again each time, so two columns with the same answer share one rule
+        const store = useAlertStore.getState()
+        const ruleId = await ensurePlainRule(choice, store.rules, rule => useAlertStore.getState().createRule(rule))
+        if (ruleId === null) { failed = true; continue }
+        const res = await safeInvoke(IPC.COLUMN_UPDATE, col.id, { config: JSON.stringify({ ...configOf(col), alert_rule_id: ruleId }) })
+        if (res.ok) saved++
+        else failed = true
+      } catch { failed = true }
+    }
+    if (failed) {
+      toast.error('We couldn\'t set up every deadline. Try again, or use the column\'s ⋯ menu → Deadline rule.')
+      setDeadlineState('idle')
+      return false
+    }
+    setDeadlinesSaved(saved)
+    setDeadlineState('done')
+    return true
   }
 
   async function undoImport() {
@@ -326,6 +437,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   const visibleSteps: Step[] = preview && preview.sheets.length > 1
     ? [1, 2, 3, 4, 5, 6]
     : [1, 3, 4, 5, 6]
+  const stepNumber = (s: Step) => visibleSteps.indexOf(s) + 1
   // Always show all 6 for the stepper dots
   const allSteps: Step[] = [1, 2, 3, 4, 5, 6]
 
@@ -391,7 +503,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                         : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                       }`}
                   >
-                    {isPast ? <Check className="w-3.5 h-3.5" /> : s}
+                    {isPast ? <Check className="w-3.5 h-3.5" /> : stepNumber(s)}
                   </div>
                   <span
                     className={`text-sm hidden sm:inline
@@ -498,7 +610,8 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
 
           {/* Step 4: Column Mapping */}
           {step === 4 && preview && (
-            <ImportMappingStep gridId={gridId} preview={preview} mappings={mappings} existingColumns={existingColumns} updateMapping={updateMapping} />
+            <ImportMappingStep gridId={gridId} preview={preview} mappings={mappings} existingColumns={existingColumns} updateMapping={updateMapping}
+              nameParts={nameParts} combineNames={combineNames} setCombineNames={setCombineNames} />
           )}
 
           {/* Step 5: Options */}
@@ -531,6 +644,14 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
               onUndo={undoImport}
               warningsExpanded={warningsExpanded}
               setWarningsExpanded={setWarningsExpanded}
+              deadlines={{
+                columns: newDateColumns,
+                choices: deadlineChoices,
+                setChoice: (id, c) => setDeadlineChoices(prev => ({ ...prev, [id]: c })),
+                state: deadlineState,
+                savedCount: deadlinesSaved,
+                onSave: async () => { await saveDeadlines() },
+              }}
             />
           )}
         </div>
@@ -589,6 +710,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
             {step === 6 && !loading && (
               <button
                 onClick={close}
+                disabled={deadlineState === 'busy'}
                 className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
                            text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
                            focus:ring-offset-3 min-h-[44px]"

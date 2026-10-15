@@ -155,19 +155,20 @@ describe('date order that the file doesn\'t settle (F-026)', () => {
   it('says what it assumed when every date could be read either way', async () => {
     const r = await importDates('Name,Review\nAna,03/04/2026\nBen,05/06/2026\n')
     expect(r.values).toEqual(['2026-03-04', '2026-05-06'])
-    expect(r.warnings).toContain('2 dates in "Review" (like 03/04/2026) could be read either way and were read month first, as Settings → Appearance → Date Format says. If your dates are written day first, change Date Format and import again.')
+    // A short line first; the reason after it shows behind "Why?" (UX-B-35)
+    expect(r.warnings).toContain('"Review": 2 dates read as month/day, like 03/04/2026. They could be read either way, so Pulse followed Settings → Appearance → Date format. If yours are written day first, change Date format and import again.')
   })
 
   it('reads them day first under Date Format DD/MM/YYYY, and says so', async () => {
     const r = await importDates('Name,Review\nAna,03/04/2026\nBen,05/06/2026\n', 'eu')
     expect(r.values).toEqual(['2026-04-03', '2026-06-05'])
-    expect(r.warnings.some(w => w.includes('were read day first') && w.includes('written month first'))).toBe(true)
+    expect(r.warnings.some(w => w.includes('read as day/month') && w.includes('written month first'))).toBe(true)
   })
 
   it('says when a column mixes both orders, and how the either-way dates were read', async () => {
     const r = await importDates('Name,Review\nAna,25/03/2026\nBen,26/03/2026\nCy,03/27/2026\nDee,04/05/2026\n')
     expect(r.values).toEqual(['2026-03-25', '2026-03-26', '2026-03-27', '2026-05-04'])
-    expect(r.warnings).toContain('"Review" has dates written both day first (like 25/03/2026) and month first (like 03/27/2026). 1 date that could be read either way (like 04/05/2026) was read day first. Check it in the list.')
+    expect(r.warnings).toContain('"Review" has dates written both ways. Some are day first (like 25/03/2026) and some month first (like 03/27/2026), so 1 date that could be read either way (like 04/05/2026) was read day first. Check it in the list.')
   })
 
   it('says nothing when the file settles it', async () => {

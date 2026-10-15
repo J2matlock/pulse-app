@@ -50,7 +50,7 @@ export function ImportPreviewStep({
           })()}
           {(preview.hiddenColumns?.length ?? 0) > 0 && (
             <p className="text-base text-slate-700 dark:text-slate-200">
-              Hidden {(preview.hiddenColumns?.length ?? 0) === 1 ? 'column' : 'columns'} in the spreadsheet: {preview.hiddenColumns?.join(', ')}. To leave {(preview.hiddenColumns?.length ?? 0) === 1 ? 'it' : 'them'} out, choose Skip on the next step.
+              Hidden {(preview.hiddenColumns?.length ?? 0) === 1 ? 'column' : 'columns'} in the spreadsheet: {preview.hiddenColumns?.join(', ')}. To leave {(preview.hiddenColumns?.length ?? 0) === 1 ? 'it' : 'them'} out, choose "Leave it out" on the next step.
             </p>
           )}
         </div>
@@ -61,22 +61,22 @@ export function ImportPreviewStep({
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="text-base font-medium text-slate-700 dark:text-slate-200">
-                Header row: Row {headerRowIndex + 1}
+                Column names are on row {headerRowIndex + 1}
               </span>
               {preview.headerDetectionConfidence === 'high' ? (
-                <span className="inline-flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
-                  <Check className="w-3.5 h-3.5" /> Confident
+                <span className="inline-flex items-center gap-1 text-sm text-green-700 dark:text-green-400">
+                  <Check className="w-3.5 h-3.5" /> Looks right
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Verify
+                  <AlertTriangle className="w-3.5 h-3.5" /> Check this
                 </span>
               )}
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               {preview.headerDetectionConfidence === 'high'
-                ? 'We found your column headers on this row.'
-                : "We're not sure where the headers are. Please verify or adjust."}
+                ? 'The names of your columns were found on this row.'
+                : "We're not sure which row has your column names. Look at the table below, and use the arrows to move it if it's wrong."}
             </p>
           </div>
           <div className="flex flex-col gap-1">
@@ -90,7 +90,7 @@ export function ImportPreviewStep({
                          text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500
                          disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px]"
-              aria-label="Move header row up"
+              aria-label="Use the row above as column names"
             >
               <ChevronUp className="w-4 h-4" />
             </button>
@@ -104,7 +104,7 @@ export function ImportPreviewStep({
                          text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500
                          disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px]"
-              aria-label="Move header row down"
+              aria-label="Use the row below as column names"
             >
               <ChevronDown className="w-4 h-4" />
             </button>
@@ -113,7 +113,7 @@ export function ImportPreviewStep({
       )}
 
       <p className="text-base text-slate-600 dark:text-slate-400">
-        Showing first {Math.min(preview.rows.length, 20)} rows. Detected {preview.headers.length} column{preview.headers.length !== 1 ? 's' : ''}.
+        The first {Math.min(preview.rows.length, 20)} rows of your file, with {preview.headers.length} column{preview.headers.length !== 1 ? 's' : ''}.
       </p>
 
       <div className="overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg max-h-[380px]">
