@@ -28,6 +28,7 @@ import { MainLayout, resetMainLayoutSession, windowTitle } from '../../../src/re
 import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { PRODUCT_NAME } from '../../../src/shared/constants'
 import { setWords } from '../vocabFixture'
+import { pulseEvents } from '../../../src/renderer/events'
 
 async function flush() { await act(async () => { await new Promise(r => setTimeout(r, 0)) }) }
 
@@ -80,6 +81,24 @@ describe('skip to main content (A06-2)', () => {
     fireEvent.click(skip)
     expect(document.activeElement).toBe(document.getElementById('main-content'))
     expect(screen.getByTestId('where').textContent).toBe('/settings')
+  })
+
+  it('on the list page it says "Skip to the list" and asks the list to focus its cell (persona study, Mark)', async () => {
+    const asked = vi.fn()
+    const off = pulseEvents.on('grid:focus-cell', asked)
+    render(app('/grid'))
+    await flush()
+    // No list drawn yet (still loading): the page itself takes focus
+    fireEvent.click(screen.getByRole('button', { name: /^Skip to the \w+$/ }))
+    expect(asked).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(document.getElementById('main-content'))
+    const grid = document.createElement('div')
+    grid.setAttribute('role', 'grid')
+    grid.innerHTML = '<div role="gridcell" tabindex="0" data-row-id="1" data-col-id="1"></div>'
+    document.getElementById('main-content')!.appendChild(grid)
+    fireEvent.click(screen.getByRole('button', { name: /^Skip to the \w+$/ }))
+    expect(asked).toHaveBeenCalledTimes(1)
+    off()
   })
 })
 

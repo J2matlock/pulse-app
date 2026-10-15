@@ -22,7 +22,7 @@ describe('shortcut list', () => {
       const src = readFileSync(join(root, r.handledIn), 'utf8')
       const last = r.keys[r.keys.length - 1]!
       // How the handler spells the key: e.key === 'k', 'ArrowLeft', '\\'…
-      const plain = last === '\\' ? "'\\\\'" : last === '←' ? "'ArrowLeft'" : last === '→' ? "'ArrowRight'" : `'${last}'`
+      const plain = last === '\\' ? "'\\\\'" : last === '←' ? "'ArrowLeft'" : last === '→' ? "'ArrowRight'" : last === '↓' ? "'ArrowDown'" : `'${last}'`
       const found = src.includes(plain) || src.includes(plain.toLowerCase())
       if (!found) missing.push(`${r.keys.join('+')} in ${r.handledIn}`)
     }

@@ -652,6 +652,61 @@ describe('DataGrid', () => {
       expect(dataCells().length).toBe(20)
     })
 
+    describe('the header row is one Tab stop (persona study, Mark: 66 Tabs to the first cell)', () => {
+      const MANY = Array.from({ length: 14 }, (_, i) => makeColumn(i + 1, `Column ${i + 1}`, i === 3 ? 'date' : 'text', i === 3 ? { config: JSON.stringify({ alert_rule_id: 9 }) } : {}))
+      const tabOrder = () => Array.from(document.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]'))
+        .filter(el => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled)
+
+      it('Tab from the toolbar reaches the first cell in 3 Tabs or fewer, with 14 columns and a deadline rule', async () => {
+        setupStores({ columns: MANY })
+        useAlertStore.setState({ rules: [{ id: 9, name: 'Every year', description: null, is_system: 0, interval_days: 365, created_at: '', thresholds: [] }] } as never)
+        render(<MemoryRouter><button type="button">Toolbar</button><DataGrid /></MemoryRouter>)
+        await flushEffects()
+        const order = tabOrder()
+        const from = order.findIndex(el => el.textContent === 'Toolbar')
+        const firstCell = order.findIndex(el => el.hasAttribute('data-col-id') && el.getAttribute('role') === 'gridcell')
+        expect(firstCell - from).toBeLessThanOrEqual(3)
+        // The one header stop is the first column's name
+        expect(order[from + 1]!.textContent).toBe('Column 1')
+      })
+
+      it('Left and Right move along the headers, and the last one used keeps the Tab stop', async () => {
+        setupStores({ columns: MANY.slice(0, 3) })
+        renderDataGrid()
+        await flushEffects()
+        const name = (n: number) => screen.getByRole('button', { name: `Column ${n}` })
+        act(() => { name(1).focus() })
+        fireEvent.keyDown(name(1), { key: 'ArrowRight' })
+        expect(document.activeElement).toBe(name(2))
+        fireEvent.keyDown(name(2), { key: 'ArrowRight' })
+        fireEvent.keyDown(name(3), { key: 'ArrowRight' })
+        expect(document.activeElement).toBe(screen.getByTestId('add-column-header'))
+        fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' })
+        expect(document.activeElement).toBe(name(3))
+        // At the first one, Left stays there
+        act(() => { name(1).focus() })
+        fireEvent.keyDown(name(1), { key: 'ArrowLeft' })
+        expect(document.activeElement).toBe(name(1))
+        act(() => { name(2).focus() })
+        expect([name(1), name(2), name(3)].map(b => b.tabIndex)).toEqual([-1, 0, -1])
+        expect(screen.getByTestId('add-column-header').tabIndex).toBe(-1)
+      })
+
+      it('"Skip to the list" (grid:focus-cell) puts focus on the lit cell, or the first one', async () => {
+        renderDataGrid()
+        await flushEffects()
+        const frames = () => act(async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))) })
+        act(() => { pulseEvents.emit('grid:focus-cell') })
+        await frames()
+        expect(document.activeElement).toBe(dataCells()[0])
+        act(() => { dataCells()[6]!.focus() })
+        act(() => { (document.activeElement as HTMLElement).blur() })
+        act(() => { pulseEvents.emit('grid:focus-cell') })
+        await frames()
+        expect(document.activeElement).toBe(dataCells()[6])
+      })
+    })
+
     describe('the place stays after Enter saves (persona study, Mark)', () => {
       const cellAt = (rowId: number, colId: number) => document.querySelector<HTMLElement>(`[data-row-id="${rowId}"][data-col-id="${colId}"]`)!
       const frames = () => act(async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))) })
