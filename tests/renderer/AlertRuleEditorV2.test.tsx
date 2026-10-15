@@ -60,6 +60,38 @@ describe('the rule editor', () => {
     expect(onClose).toHaveBeenCalledWith(11)
   })
 
+  describe('"More settings" and the colors (Q1c)', () => {
+    const more = () => screen.getByTestId('rule-more') as HTMLDetailsElement
+
+    it('a new rule: interval and a color key in view; end of month, days off and conditions under a closed "More settings"', () => {
+      render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+      expect(more().open).toBe(false)
+      expect(screen.getByLabelText('Due by the end of that month').closest('details')).toBe(more())
+      expect(screen.getByRole('radio', { name: 'Move it to the next working day' }).closest('details')).toBe(more())
+      expect(screen.getByLabelText('Only when…').closest('details')).toBe(more())
+      // Colors: the usual set as a key, and the editor one click away
+      expect(screen.getByRole('list', { name: /^Colors for/ })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /^Change color for / })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Add a color' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Change colors…' }))
+      expect(screen.getAllByRole('button', { name: /^Change color for / }).length).toBe(5)
+      expect(screen.getByRole('button', { name: 'Add a color' })).toBeTruthy()
+    })
+
+    it.each([
+      ['end of month', { interval_months: 1, end_of_month: 1 }],
+      ['moves off days off', { interval_days: 30, business_days: 2 }],
+      ['a condition', { interval_days: 30, rule_condition: JSON.stringify({ columnId: 4, op: 'is', values: ['Active'], whenFalse: 'pause' }) }],
+    ])('editing a rule with %s opens it, and shows its colors to edit', (_name, extra) => {
+      const rule = { id: 5, name: 'Monthly', description: null, is_system: 0 as const, created_at: '', kind: 'interval' as const,
+        thresholds: [{ daysBefore: 0, bgClass: '#dc2626', label: 'Due today' }], interval_days: null, ...extra }
+      render(<AlertRuleEditor rule={rule} columnId={3} onClose={vi.fn()} />)
+      expect(more().open).toBe(true)
+      expect(screen.queryByRole('button', { name: 'Change colors…' })).toBeNull()
+      expect(screen.getAllByRole('button', { name: /^Change color for / }).length).toBe(1)
+    })
+  })
+
   // E-30: a kind the list's columns can't support is greyed out with the reason, not a dead end
   it('greys out "By usage" and the visit limit when the list lacks the columns they need, with the reason', () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
@@ -82,6 +114,7 @@ describe('the rule editor', () => {
 
   it('color steps can be changed and removed from the keyboard (D-27)', () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Change colors…' }))
     const swatches = screen.getAllByRole('button', { name: /^Change color for / })
     expect(swatches.length).toBeGreaterThan(0)
     expect(swatches[0]!.getAttribute('aria-expanded')).toBe('false')
@@ -92,6 +125,7 @@ describe('the rule editor', () => {
 
   it('each color step has a days box wide enough for three digits and a named, fitting name box', () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Change colors…' }))
     const days = screen.getAllByRole('spinbutton', { name: /^Number of days for / })
     expect(days.length).toBeGreaterThan(0)
     // "60" showed as "6(": the box needs room for three digits beside the arrows

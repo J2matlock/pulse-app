@@ -635,13 +635,13 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-kinds',
     question: 'What kinds of deadlines can Pulse work out?',
-    answer: 'Click the ⋯ on a date column\'s header, choose "Deadline rule" and pick a rule, or make a new one. Under "How is this deadline worked out?" pick one of six: after the date in this column (every 30 days, 6 months, a year); from another date (45 days after the referral date, 60 days before a lease ends); on fixed dates (every March 31, or quarterly on the 15th); by usage (every 5,000 miles or 6 months, whichever comes first); a limited number of visits (12 sessions until an authorization ends); or a series of steps (a 30-day review, a 90-day review, then every year). The preview at the bottom shows what the rule says for one of your {record:many} before you save. "Only when…" makes a deadline apply only while, say, Status is Active.',
+    answer: 'Click the ⋯ on a date column\'s header, choose "Deadline rule" and pick a rule, or make a new one. Under "How is this deadline worked out?" pick one of six: after the date in this column (every 30 days, 6 months, a year); from another date (45 days after the referral date, 60 days before a lease ends); on fixed dates (every March 31, or quarterly on the 15th); by usage (every 5,000 miles or 6 months, whichever comes first); a limited number of visits (12 sessions until an authorization ends); or a series of steps (a 30-day review, a 90-day review, then every year). The preview at the bottom shows what the rule says for one of your {record:many} before you save. "Only when…" (under "More settings") makes a deadline apply only while, say, Status is Active.',
     category: 'dashboard-deadlines',
   },
   {
     id: 'dl-days-off',
     question: 'Can a deadline count working days only, or skip holidays?',
-    answer: 'Yes. In a deadline rule, under "If it lands on a weekend or day off", choose whether the due date stays, moves to the working day before, or moves to the next one. A rule counted in "working days" (like 10 school days before) skips weekends and days off as it counts. Set your weekend and days off in Settings > Deadlines & reminders > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
+    answer: 'Yes. In a deadline rule, open "More settings", then under "If it lands on a weekend or day off" choose whether the due date stays, moves to the working day before, or moves to the next one. A rule counted in "working days" (like 10 school days before) skips weekends and days off as it counts. Set your weekend and days off in Settings > Deadlines & reminders > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
     category: 'dashboard-deadlines',
     keywords: ['business days', 'holidays', 'weekend', 'school days'],
   },
