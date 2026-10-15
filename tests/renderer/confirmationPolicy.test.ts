@@ -31,7 +31,6 @@ const ALLOWED: Record<string, { kind: Kind; why: string; count?: number }> = {
   'components/settings/DataSection.tsx': { kind: 'C', why: 'Delete all cell history' },
   'components/shared/UndoHistoryPanel.tsx': { kind: 'D', count: 2, why: 'Forget the undo history (C); undo several steps at once (Redo reverses it)' },
   'components/links/LinkSetupDialog.tsx': { kind: 'C', why: 'Remove a link type: its links and their columns have no undo yet' },
-  'views/HelpView.tsx': { kind: 'D', why: 'Start the tour (harmless; the first-five-minutes plan, Q7, owns it)' },
   'views/PasswordSetupView.tsx': { kind: 'D', why: 'Skip the recovery key (a security warning)' },
   'views/ReportsView.tsx': { kind: 'D', why: 'Discard unsaved changes' },
   'views/letter-template/EditTemplateModal.tsx': { kind: 'D', why: 'Discard unsaved changes' },
