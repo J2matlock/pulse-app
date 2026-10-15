@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import { FileDown, Pin, PinOff, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import {
-  DATE_BUCKETS, DATE_PRESETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, SOURCE_LABELS_ONE, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
+  DATE_BUCKETS, DATE_PRESETS, FN_LABELS, FORWARD_PRESETS, forwardPresetFits, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, SOURCE_LABELS_ONE, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
   explainReport, filterNeedsValue, operatorsFor, suggestReportName,
   type DateBucket, type DatePreset, type ReportConfig, type ReportField, type ReportResult, type ReportSource, type SavedReport, type ValueFn,
 } from '../../../shared/reports'
@@ -26,8 +26,14 @@ export const EMPTY_CONFIG: ReportConfig = { source: 'records', filters: [], grou
 
 const PRESET_LABELS = {
   this_month: 'This month', last_month: 'Last month', this_quarter: 'This quarter', this_year: 'This year', last_year: 'Last year',
+  next_7_days: 'Next 7 days', next_30_days: 'Next 30 days', next_90_days: 'Next 90 days',
 } satisfies Record<DatePreset, string>
 const PRESETS: Array<{ value: DatePreset; label: string }> = DATE_PRESETS.map(value => ({ value, label: PRESET_LABELS[value] }))
+const isForward = (p: DatePreset | undefined): boolean => (FORWARD_PRESETS as readonly string[]).includes(p ?? '')
+/** The ranges a date field can take: looking ahead only on a due date (persona study R7) */
+function presetsFor(fieldId: string, current: DatePreset | undefined): Array<{ value: DatePreset; label: string }> {
+  return forwardPresetFits(fieldId) ? PRESETS : PRESETS.filter(p => !isForward(p.value) || p.value === current)
+}
 const BUCKET_LABELS: Record<DateBucket, string> = { day: 'by day', week: 'by week', month: 'by month', quarter: 'by quarter', year: 'by year' }
 
 function FieldSelect({ fields, value, onChange, label, allow, placeholder, className = '' }: {
@@ -96,6 +102,8 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   const grids = useGridStore(s => s.grids)
   const activeGridId = useGridStore(s => s.activeGridId)
   const apptsOn = useFeature('appointments')
+  const mileageOn = useFeature('mileage')
+  const timeOn = useFeature('timeTracking')
   const draftKey = reportDraftKey(initial)
   const [restored] = useState(() => drafts.get(draftKey) ?? null)
   const [showRestored, setShowRestored] = useState(restored !== null)
@@ -186,7 +194,20 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   const byId = useMemo(() => new Map(fields.map(x => [x.id, x])), [fields])
   const dateFields = (x: ReportField) => x.kind === 'date'
   const numberFields = (x: ReportField) => x.kind === 'number' || x.kind === 'currency'
-  const patch = (p: Partial<ReportConfig>) => setConfig(c => ({ ...c, ...p }))
+  // A ready-made report's one-line description fits only its own settings: any change
+  // drops it, and the description is worked out from the settings instead (persona study R7)
+  const patch = (p: Partial<ReportConfig>) => setConfig(c => {
+    const { about: _about, ...rest } = c
+    return { ...rest, ...p }
+  })
+  // "Add a filter" / "Add a value" put focus in the new row's first control
+  const stepsRef = useRef<HTMLDivElement>(null)
+  const [focusLabel, setFocusLabel] = useState<string | null>(null)
+  useEffect(() => {
+    if (!focusLabel) return
+    const el = stepsRef.current?.querySelector<HTMLElement>(`[aria-label="${focusLabel}"]`)
+    if (el) { el.focus(); setFocusLabel(null) }
+  }, [focusLabel, config])
   const words = (s: ReportSource) => f(SOURCE_LABELS[s]).replace(/^./, c => c.toUpperCase())
   const suggested = fields.length ? suggestReportName(config, fields, words(config.source)) : ''
   const nameField = fields.find(x => x.hint === 'name')
@@ -210,17 +231,27 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     const money = fields.find(x => x.kind === 'currency')
     const rec = words('records'), act = words('activities'), appt = words('appointments')
     const out: Preset[] = []
+    // A month's mileage and time in one click (persona study R7): per record, with the total under it
+    if (mileageOn || timeOn) {
+      const what = mileageOn && timeOn ? 'Miles and minutes' : mileageOn ? 'Miles' : 'Minutes'
+      out.push({ key: 'miles-minutes', label: `${what} this month`, config: {
+        source: 'activities', filters: [], groupBy: nameField ? [{ field: nameField.id }] : [{ field: 'act:date', bucket: 'month' }],
+        values: [{ fn: 'count', label: act.slice(0, 60) }, ...(timeOn ? [{ fn: 'sum' as const, field: 'act:minutes', label: 'Minutes' }] : []), ...(mileageOn ? [{ fn: 'sum' as const, field: 'act:miles', label: 'Miles' }] : [])],
+        dateRange: { field: 'act:date', preset: 'this_month' },
+      } })
+    }
     if (stage) out.push({ key: 'by-stage', label: `How many ${rec.toLowerCase()} by ${stage.label}`, config: { source: 'records', filters: [], groupBy: [{ field: stage.id }], values: [{ fn: 'count' }], about: `How many ${rec.toLowerCase()} are at each ${stage.label.toLowerCase()}.` } })
     if (stage && money) out.push({ key: 'money', label: `Total ${money.label} by ${stage.label}`, config: { source: 'records', filters: [], groupBy: [{ field: stage.id }], values: [{ fn: 'count' }, { fn: 'sum', field: money.id }], about: `What the ${rec.toLowerCase()} at each ${stage.label.toLowerCase()} are worth.` } })
     out.push({ key: 'added', label: `${rec} added per month`, config: { source: 'records', filters: [], groupBy: [{ field: 'rec:created', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'rec:created', preset: 'this_year' }, about: `How many new ${rec.toLowerCase()} came in each month this year.` } })
     out.push({ key: 'notes', label: `${act} per month`, config: { source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' }, about: `How busy each month was, by the ${act.toLowerCase()} written.` } })
     out.push({ key: 'notes-by-type', label: `${act} by kind`, config: { source: 'activities', filters: [], groupBy: [{ field: 'act:type' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' }, about: `What kinds of ${act.toLowerCase()} you write most this year.` } })
     out.push({ key: 'overdue', label: 'Overdue deadlines', config: { source: 'deadlines', filters: [{ field: 'dl:state', operator: 'equals', value: 'Overdue' }], groupBy: [], values: [{ fn: 'count' }], columns: [...(nameField ? [nameField.id] : []), 'dl:rule', 'dl:due', 'dl:overdue'], sort: { field: 'dl:overdue', dir: 'desc' }, about: 'Everything past due, the longest overdue first.' } })
-    out.push({ key: 'deadlines-by', label: 'Deadlines by kind and state', config: { source: 'deadlines', filters: [], groupBy: [{ field: 'dl:rule' }, { field: 'dl:state' }], values: [{ fn: 'count' }], about: 'For each kind of deadline, how many are overdue, coming up or on track.' } })
+    out.push({ key: 'deadlines-by', label: 'Deadlines by kind and state', config: { source: 'deadlines', filters: [], groupBy: [{ field: 'dl:rule' }, { field: 'dl:state' }], values: [{ fn: 'count' }], about: 'For each kind of deadline, how many are in each state, the most urgent first.' } })
+    if (apptsOn) out.push({ key: 'appts-ahead', label: `${appt} in the next 30 days`, config: { source: 'appointments', filters: [{ field: 'appt:status', operator: 'equals', value: 'Scheduled' }], groupBy: [], values: [{ fn: 'count' }], columns: ['appt:date', 'appt:title', ...(nameField ? [nameField.id] : [])], dateRange: { field: 'appt:date', preset: 'next_30_days' }, sort: { field: 'appt:date', dir: 'asc' } } })
     if (apptsOn) out.push({ key: 'appts', label: `${appt} this month by status`, config: { source: 'appointments', filters: [], groupBy: [{ field: 'appt:status' }], values: [{ fn: 'count' }], dateRange: { field: 'appt:date', preset: 'this_month' }, about: `How many ${appt.toLowerCase()} this month were kept, missed or cancelled.` } })
     return out
   // eslint-disable-next-line react-hooks/exhaustive-deps -- words() reads the same vocabulary as f
-  }, [fields, config.source, apptsOn, nameField, f])
+  }, [fields, config.source, apptsOn, mileageOn, timeOn, nameField, f])
   const untouched = !initial && JSON.stringify(config) === JSON.stringify(EMPTY_CONFIG)
 
   async function save(notify = true): Promise<SavedReport | null> {
@@ -266,7 +297,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   return (
     <div className="h-full min-h-0 flex flex-col lg:flex-row overflow-auto lg:overflow-hidden">
       {/* ── Steps ── */}
-      <div className="lg:w-[430px] flex-shrink-0 lg:overflow-y-auto p-4 space-y-4 lg:border-r border-slate-200 dark:border-slate-700">
+      <div ref={stepsRef} className="lg:w-[430px] flex-shrink-0 lg:overflow-y-auto p-4 space-y-4 lg:border-r border-slate-200 dark:border-slate-700">
         {showRestored && dirty && (
           <div role="status" className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 p-3 space-y-2">
             <p className="text-base text-amber-900 dark:text-amber-100">Your unsaved changes to this report are back. Save them, or throw them away.</p>
@@ -346,6 +377,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
             <button type="button" className="btn-compact-secondary" onClick={() => {
               const fld = defaultFilterField(fields)!
               patch({ filters: [...config.filters, { field: fld.id, operator: operatorsFor(fld.kind, !!fld.options?.length)[0]!, value: '' }] })
+              setFocusLabel(`Filter ${config.filters.length + 1} field`)
             }}><Plus className="w-4 h-4" />Add a filter</button>
           )}
           {fields.some(dateFields) && (
@@ -353,11 +385,18 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
               <p className="text-base text-slate-700 dark:text-slate-200">Dates</p>
               <div className="flex flex-wrap gap-1 [&>*]:flex-1 [&>*]:min-w-[8rem]">
                 <FieldSelect fields={fields} label="Date range field" allow={dateFields} placeholder="Any time" value={config.dateRange?.field}
-                  onChange={id => patch({ dateRange: id ? { ...(config.dateRange ?? { preset: 'this_month' as const }), field: id } : undefined })} />
+                  onChange={id => {
+                    if (!id) { patch({ dateRange: undefined }); return }
+                    // A due date starts on the next 30 days; a range that looks ahead doesn't fit a date that's past
+                    const prev = config.dateRange
+                    const preset: DatePreset | undefined = !prev ? (forwardPresetFits(id) ? 'next_30_days' : 'this_month')
+                      : isForward(prev.preset) && !forwardPresetFits(id) ? 'this_month' : prev.preset
+                    patch({ dateRange: { ...prev, field: id, ...(preset ? { preset } : {}) } })
+                  }} />
                 {config.dateRange && (
                   <select className="input" aria-label="Date range" value={config.dateRange.preset ?? 'custom'}
                     onChange={e => patch({ dateRange: e.target.value === 'custom' ? { field: config.dateRange!.field } : { field: config.dateRange!.field, preset: e.target.value as DatePreset } })}>
-                    {PRESETS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                    {presetsFor(config.dateRange.field, config.dateRange.preset).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                     <option value="custom">Between dates…</option>
                   </select>
                 )}
@@ -436,6 +475,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
               <button type="button" className="btn-compact-secondary" onClick={() => {
                 const num = defaultValueField(fields)
                 patch({ values: [...config.values, num ? { fn: 'sum', field: num.id } : { fn: 'count' }] })
+                setFocusLabel(`Value ${config.values.length + 1}`)
               }}><Plus className="w-4 h-4" />Add a value</button>
             )}
           </Step>

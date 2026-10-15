@@ -28,8 +28,14 @@ export interface ReportField {
 
 export const DATE_BUCKETS = ['day', 'week', 'month', 'quarter', 'year'] as const
 export type DateBucket = typeof DATE_BUCKETS[number]
-export const DATE_PRESETS = ['this_month', 'last_month', 'this_quarter', 'this_year', 'last_year'] as const
+export const DATE_PRESETS = ['this_month', 'last_month', 'this_quarter', 'this_year', 'last_year', 'next_7_days', 'next_30_days', 'next_90_days'] as const
 export type DatePreset = typeof DATE_PRESETS[number]
+/** Ranges that look ahead from today: only for dates something is due on (persona study R7) */
+export const FORWARD_PRESETS = ['next_7_days', 'next_30_days', 'next_90_days'] as const satisfies readonly DatePreset[]
+/** The date fields that say when something is due or will happen: a deadline's due date, an appointment's day */
+export const DUE_DATE_FIELDS: readonly string[] = ['dl:due', 'appt:date']
+/** Whether a range can look ahead on this field */
+export function forwardPresetFits(fieldId: string): boolean { return DUE_DATE_FIELDS.includes(fieldId) }
 export const VALUE_FNS = ['count', 'sum', 'avg', 'min', 'max'] as const
 export type ValueFn = typeof VALUE_FNS[number]
 
@@ -151,6 +157,10 @@ export function presetRange(preset: DatePreset, today: Date = new Date()): { fro
     case 'this_year': return { from: `${y}-01-01`, to: `${y}-12-31` }
     case 'last_year': return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` }
     case 'this_month': return { from: day(new Date(y, m, 1)), to: day(new Date(y, m + 1, 0)) }
+    // From today through the Nth day after it, like the dashboard's Next 7 / 30 days
+    case 'next_7_days': return { from: day(today), to: day(new Date(y, m, today.getDate() + 7)) }
+    case 'next_30_days': return { from: day(today), to: day(new Date(y, m, today.getDate() + 30)) }
+    case 'next_90_days': return { from: day(today), to: day(new Date(y, m, today.getDate() + 90)) }
     default:
       // A preset added without a case fails typecheck; saved reports are checked against DATE_PRESETS
       unhandledCase(preset)
@@ -252,6 +262,47 @@ export const OPERATOR_LABELS: Record<ReportOperator, string> = {
   is_empty: 'is empty', is_not_empty: 'is filled in', gt: 'is more than', lt: 'is less than', before: 'is before', after: 'is after',
 }
 
+// ── Deadline states in the screen's words (persona study R7) ─────────────
+
+/**
+ * Most urgent first: the labels Pulse's rules and the engine use. A report grouped
+ * by state reads top-down; labels a rule made up follow, alphabetically.
+ */
+export const DEADLINE_STATE_ORDER: readonly string[] = [
+  'Overdue', 'Due today', 'Due', 'Urgent', 'Due soon', 'Approaching', 'Coming up', 'Upcoming', 'On track', 'Paused', 'Done', 'Nothing due',
+]
+
+/** Labels in DEADLINE_STATE_ORDER's order, the rest after them alphabetically, each once */
+export function orderStateLabels(labels: Iterable<string>): string[] {
+  const set = [...new Set([...labels].map(l => l.trim()).filter(Boolean))]
+  const known = DEADLINE_STATE_ORDER.filter(l => set.includes(l))
+  const rest = set.filter(l => !DEADLINE_STATE_ORDER.includes(l)).sort((a, b) => a.localeCompare(b, 'en-US'))
+  return [...known, ...rest]
+}
+
+/** A rule's colour thresholds as stored (JSON), the readable ones only */
+export function parseThresholds(raw: string | null | undefined): Array<{ daysBefore: number; label: string }> {
+  if (!raw) return []
+  try {
+    const list = JSON.parse(raw) as unknown
+    if (!Array.isArray(list)) return []
+    return list.flatMap((t: unknown) => {
+      const o = t as { daysBefore?: unknown; label?: unknown }
+      return typeof o?.daysBefore === 'number' && typeof o.label === 'string' && o.label.trim() ? [{ daysBefore: o.daysBefore, label: o.label.trim() }] : []
+    })
+  } catch { return [] }
+}
+
+/**
+ * The label a deadline's colour carries on the grid and the dashboard: the
+ * tightest threshold it's inside (the same match as getMatchingThreshold), or
+ * null when the rule has none that applies.
+ */
+export function thresholdLabel(daysUntil: number, thresholds: Array<{ daysBefore: number; label: string }>): string | null {
+  const sorted = [...thresholds].sort((a, b) => a.daysBefore - b.daysBefore)
+  return sorted.find(t => daysUntil <= t.daysBefore)?.label ?? null
+}
+
 // ── Sensible defaults for the builder ─────────────────────────────────────
 
 /** What a new filter starts on: the stage, then a field with choices, then the name, never a date */
@@ -274,7 +325,10 @@ export function defaultValueField(fields: ReportField[]): ReportField | undefine
   return real.find(f => f.kind === 'currency') ?? real.find(f => f.kind === 'number')
 }
 
-const PRESET_WORDS: Record<DatePreset, string> = { this_month: 'this month', last_month: 'last month', this_quarter: 'this quarter', this_year: 'this year', last_year: 'last year' }
+const PRESET_WORDS: Record<DatePreset, string> = {
+  this_month: 'this month', last_month: 'last month', this_quarter: 'this quarter', this_year: 'this year', last_year: 'last year',
+  next_7_days: 'in the next 7 days', next_30_days: 'in the next 30 days', next_90_days: 'in the next 90 days',
+}
 const BUCKET_WORDS: Record<DateBucket, string> = { day: 'per day', week: 'per week', month: 'per month', quarter: 'per quarter', year: 'per year' }
 
 /** A name for a report from its settings: "Jobs by Stage", "Notes per month", "Total Estimate by Stage" */

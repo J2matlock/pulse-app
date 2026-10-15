@@ -6,7 +6,7 @@
  * ever goes into SQL.
  */
 import { getDb, buildGridQuery } from './database'
-import { loadDeadlines } from './deadlines'
+import { loadDeadlines, type DeadlineItem } from './deadlines'
 import { listActivityTypes } from './activity-types'
 import { listMeasures } from './measures'
 import { stageDurations } from './stages'
@@ -19,10 +19,10 @@ import { localDateString } from '../shared/dates'
 import { minutesBetween } from '../shared/appointments'
 import type { Column, GridRow } from '../shared/types'
 import type { ApptStatus } from '../shared/appointments'
-import type { DeadlineState } from '../shared/deadlineEngine'
+import { isUsedUp, type DeadlineState } from '../shared/deadlineEngine'
 import { unhandledCase } from '../shared/assertNever'
 import {
-  REPORT_LIMITS, bucketDate, isFilterActive, isNoValue, noValueLabel, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
+  DEADLINE_STATE_ORDER, REPORT_LIMITS, bucketDate, orderStateLabels, parseThresholds, thresholdLabel, isFilterActive, isNoValue, noValueLabel, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
   type ReportCell, type ReportColumn, type ReportConfig, type ReportField, type ReportFieldKind, type ReportResult, type ReportSource, type SavedReport,
 } from '../shared/reports'
 import { LIVE_GRID, liveGrid } from '../shared/liveRecords'
@@ -31,11 +31,49 @@ import { LIVE_GRID, liveGrid } from '../shared/liveRecords'
 export class ReportError extends Error {}
 
 const APPT_STATUS_LABELS = { scheduled: 'Scheduled', done: 'Done', cancelled: 'Cancelled', no_show: 'No-show' } satisfies Record<ApptStatus, string>
+/** The engine's own words for a state: used when a rule has no colour label for it */
 const DEADLINE_STATE_LABELS = { none: 'Nothing due', ok: 'On track', soon: 'Coming up', due: 'Due', overdue: 'Overdue', paused: 'Paused', done: 'Done' } satisfies Record<DeadlineState, string>
 /** A stored value's label; one this version doesn't know shows as stored */
 const labelOf = (labels: Record<string, string | undefined>, key: string): string => labels[key] ?? key
-/** Most urgent first, so a report grouped by state reads top-down */
-const DEADLINE_STATE_ORDER = ['Overdue', 'Due', 'Coming up', 'On track', 'Paused', 'Done', 'Nothing due']
+/** The hidden field a saved filter on the engine's old words ("On track") is matched against */
+const ENGINE_STATE_FIELD = 'dl:engine_state'
+
+/**
+ * A deadline's state as the grid and the dashboard show it (persona study R7):
+ * the label of the rule's colour it's in ("Urgent", "Due soon"), else the
+ * engine's word. Late is "Overdue" unless the rule has its own label for late,
+ * and a used-up quota is "Overdue" whatever its end date, like the dashboard.
+ */
+function deadlineStateLabel(d: Pick<DeadlineItem, 'state' | 'daysUntil'>, thresholds: Array<{ daysBefore: number; label: string }>): string {
+  switch (d.state) {
+    case 'ok': case 'soon': case 'due': case 'overdue': {
+      if (isUsedUp(d) || d.daysUntil === null) return DEADLINE_STATE_LABELS.overdue
+      const late = d.daysUntil < 0
+      const own = thresholdLabel(d.daysUntil, late ? thresholds.filter(t => t.daysBefore < 0) : thresholds)
+      return own ?? (late ? DEADLINE_STATE_LABELS.overdue : DEADLINE_STATE_LABELS[d.state])
+    }
+    case 'none': case 'paused': case 'done': return DEADLINE_STATE_LABELS[d.state]
+    default:
+      // A state from a newer version shows as stored
+      unhandledCase(d.state)
+      return labelOf(DEADLINE_STATE_LABELS, String(d.state))
+  }
+}
+
+/** The colour labels of the rules on this list's deadline columns */
+function ruleStateLabels(cols: Column[]): string[] {
+  const ids = cols.filter(isDeadlineColumn).flatMap(c => {
+    try { const id = (JSON.parse(c.config || '{}') as { alert_rule_id?: unknown }).alert_rule_id; return Number.isInteger(id) ? [id as number] : [] } catch { return [] }
+  })
+  if (ids.length === 0) return []
+  const rows = getDb().prepare(`SELECT thresholds FROM alert_rules WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids) as Array<{ thresholds: string | null }>
+  return rows.flatMap(r => parseThresholds(r.thresholds).map(t => t.label))
+}
+
+/** Every state a deadline on this list can be in, most urgent first */
+function stateOptions(cols: Column[]): string[] {
+  return orderStateLabels([...DEADLINE_STATE_ORDER.filter(l => Object.values(DEADLINE_STATE_LABELS).includes(l)), ...ruleStateLabels(cols)])
+}
 
 /** Columns a report can read; read-only types Pulse works out in the window aren't stored, except age */
 const SKIP_TYPES = new Set(['calculated_days'])
@@ -90,7 +128,7 @@ export function reportFields(gridId: number, source: ReportSource): ReportField[
   } else if (source === 'deadlines') {
     fields.push(
       { id: 'dl:rule', label: 'Deadline', kind: 'text', group: 'Deadline', options: cols.filter(isDeadlineColumn).map(c => c.name) },
-      { id: 'dl:state', label: 'State', kind: 'text', group: 'Deadline', options: DEADLINE_STATE_ORDER },
+      { id: 'dl:state', label: 'State', kind: 'text', group: 'Deadline', options: stateOptions(cols) },
       { id: 'dl:due', label: 'Due date', kind: 'date', group: 'Deadline' },
       { id: 'dl:overdue', label: 'Days overdue', kind: 'number', group: 'Deadline', hint: 'derived' },
     )
@@ -293,8 +331,16 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   } else if (config.source === 'deadlines') {
     const deadlines = loadDeadlines({ gridId, today, includeDone: true, includePaused: true }).filter(d => recordById.has(d.row_id))
     if (deadlines.length > cap) { deadlines.length = cap; truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
+    // Each rule's thresholds read once, not once per record
+    const thresholdsOf = new Map<string, ReturnType<typeof parseThresholds>>()
+    const thresholds = (raw: string | null) => {
+      const k = raw ?? ''
+      let t = thresholdsOf.get(k)
+      if (!t) { t = parseThresholds(raw); thresholdsOf.set(k, t) }
+      return t
+    }
     items = deadlines.map(d => ({ rowId: d.row_id, own: {
-      'dl:rule': d.column_name, 'dl:state': labelOf(DEADLINE_STATE_LABELS, d.state), 'dl:due': d.due,
+      'dl:rule': d.column_name, 'dl:state': deadlineStateLabel(d, thresholds(d.alert_thresholds)), [ENGINE_STATE_FIELD]: labelOf(DEADLINE_STATE_LABELS, d.state), 'dl:due': d.due,
       // A used-up quota is overdue with its end still ahead: 0 days late, not negative (F-022)
       'dl:overdue': d.state === 'overdue' && d.daysUntil !== null ? Math.max(0, -d.daysUntil) : 0,
     } }))
@@ -308,9 +354,15 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
 
   // A filter still waiting for its value doesn't narrow anything yet
   const activeFilters = config.filters.filter(isFilterActive)
+  // A report saved before states used the rules' labels may filter on the engine's words
+  // ("On track"): a word no rule on this list uses is matched against the engine's state
+  const ownLabels = config.source === 'deadlines' ? new Set(ruleStateLabels(cols)) : new Set<string>()
+  const engineWords = new Set<string>(Object.values(DEADLINE_STATE_LABELS))
+  const filterField = (f: ReportConfig['filters'][number]) =>
+    f.field === 'dl:state' && engineWords.has(f.value.trim()) && !ownLabels.has(f.value.trim()) ? ENGINE_STATE_FIELD : f.field
   const matched = items.filter((item, i) => {
     if (i % 2000 === 0) tick()
-    for (const f of activeFilters) if (!matchReportFilter(get(item, f.field), byId.get(f.field)!.kind, f.operator, f.value)) return false
+    for (const f of activeFilters) if (!matchReportFilter(get(item, filterField(f)), byId.get(f.field)!.kind, f.operator, f.value)) return false
     if (range && config.dateRange) {
       const d = get(item, config.dateRange.field)
       if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(d)) return false
