@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
-/** "Here's your caseload": one late deadline lit up, and a Done that does the job (UX pass Q7). */
+/**
+ * "Here's your caseload": one late deadline lit up (UX pass Q7). Its "Mark it
+ * done" does the job, but only on a made-up sample record; on the person's own
+ * it explains and writes nothing (persona study D2: Linda's Last Contact).
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
@@ -16,6 +20,7 @@ import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { useHintStore } from '../../../../src/renderer/stores/hintStore'
 import { useSettingsStore } from '../../../../src/renderer/stores/settingsStore'
+import { useUndoStore } from '../../../../src/renderer/stores/undoStore'
 import type { Column, GridRow, ParsedAlertRule } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
@@ -68,18 +73,30 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+/** Every record a made-up sample */
+const samples = (...ids: number[]) => ({ sampleRows: Object.fromEntries(ids.map(id => [id, 0])) })
+
 describe('which deadline the first look shows', () => {
   it('the top-most late cell', () => {
-    setup([rowOf(9, 'Robert', NOT_LATE, null), rowOf(10, 'Maria', LATE_YEARLY, null), rowOf(11, 'Ann', LATE_YEARLY, null)])
+    setup([rowOf(9, 'Robert', NOT_LATE, null), rowOf(10, 'Maria', LATE_YEARLY, null), rowOf(11, 'Ann', LATE_YEARLY, null)], samples(9, 10, 11))
     const pick = pickLateCell()!
     expect(pick.row.row_id).toBe(10)
     expect(pick.column.id).toBe(3)
     expect(pick.doneable).toBe(true)
+    expect(pick.real).toBe(false)
   })
 
   it('prefers one whose Done is a single click over a date that doesn\'t repeat', () => {
-    setup([rowOf(9, 'Robert', NOT_LATE, LATE_DATE), rowOf(10, 'Maria', LATE_YEARLY, null)])
+    setup([rowOf(9, 'Robert', NOT_LATE, LATE_DATE), rowOf(10, 'Maria', LATE_YEARLY, null)], samples(9, 10))
     expect(pickLateCell()!.row.row_id).toBe(10)
+  })
+
+  it('the person\'s own records (an imported list): still picked for the colour, never doneable', () => {
+    setup([rowOf(9, 'Melissa Ortiz', LATE_YEARLY, null), rowOf(10, 'Maria', LATE_YEARLY, null)])
+    const pick = pickLateCell()!
+    expect(pick.row.row_id).toBe(9)
+    expect(pick.doneable).toBe(false)
+    expect(pick.real).toBe(true)
   })
 
   it('prefers a sample record over the person\'s own', () => {
@@ -130,30 +147,52 @@ describe('FirstLook', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('is a labelled modal dialog naming the record and column, with focus on Done', async () => {
-    setup([rowOf(9, 'Robert', LATE_YEARLY, null)])
+  it('a sample: a labelled modal dialog naming the record and column, with focus on "Mark it done"', async () => {
+    setup([rowOf(9, 'Robert', LATE_YEARLY, null)], samples(9))
     render(<FirstLook onClose={vi.fn()} />)
     await wait()
     const dialog = screen.getByRole('dialog', { name: "Here's your caseload" })
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(dialog.textContent).toContain("Robert's Annual review is red.")
-    expect(dialog.textContent).toContain('Red means overdue. Click "Done" when you\'ve seen them.')
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Done' }))
+    expect(dialog.textContent).toContain('Red means overdue. This one is made up, so try "Mark it done".')
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Mark it done' }))
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
     expect(useHintStore.getState().isSeen('caseload')).toBe(true)
   })
 
-  it('Done marks the deadline done, the normal way, and closes', async () => {
-    setup([rowOf(9, 'Robert', LATE_YEARLY, null)])
+  it('a sample: "Mark it done" marks the deadline done, the normal way, with an Undo, and closes', async () => {
+    useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+    setup([rowOf(9, 'Robert', LATE_YEARLY, null)], samples(9))
     const onClose = vi.fn()
     render(<FirstLook onClose={onClose} />)
     await wait()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Done' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mark it done' })) })
     expect(invoke).toHaveBeenCalledWith('deadlines:mark-done', 9, 3, { kind: 'repeat' }, null, null)
+    expect(useUndoStore.getState().undoStack.length).toBe(1)
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('Linda: an imported list (no samples) with a late repeating deadline gets Got it only, and nothing is written', async () => {
+    setup([rowOf(9, 'Melissa Ortiz', LATE_YEARLY, null)])
+    const onClose = vi.fn()
+    render(<FirstLook onClose={onClose} />)
+    await wait()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.textContent).toContain("Melissa Ortiz's Annual review is red.")
+    expect(dialog.textContent).toContain('Red means overdue.')
+    expect(dialog.textContent).toContain('When it\'s really done, right-click its date and choose "Mark done or extend…".')
+    expect(dialog.textContent).not.toContain('made up')
+    expect(screen.queryByRole('button', { name: 'Mark it done' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
+    const gotIt = screen.getByRole('button', { name: 'Got it' })
+    expect(document.activeElement).toBe(gotIt)
+    await act(async () => { fireEvent.click(gotIt) })
+    expect(onClose).toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalledWith('deadlines:mark-done', expect.anything(), expect.anything(), expect.anything(), expect.anything(), expect.anything())
+  })
+
   it('Close and Escape close it without marking anything done', async () => {
-    setup([rowOf(9, 'Robert', LATE_YEARLY, null)])
+    setup([rowOf(9, 'Robert', LATE_YEARLY, null)], samples(9))
     const onClose = vi.fn()
     const a = render(<FirstLook onClose={onClose} />)
     await wait()
@@ -170,14 +209,15 @@ describe('FirstLook', () => {
   })
 
   it('a late date that needs a dialog to be done: "Got it" only, no Done', async () => {
-    setup([rowOf(9, 'Robert', NOT_LATE, LATE_DATE)])
+    setup([rowOf(9, 'Robert', NOT_LATE, LATE_DATE)], samples(9))
     render(<FirstLook onClose={vi.fn()} />)
     await wait()
     const dialog = screen.getByRole('dialog')
     expect(dialog.textContent).toContain("Robert's License expires is red.")
     expect(dialog.textContent).toContain('Red means overdue.')
-    expect(dialog.textContent).not.toContain('Click Done')
-    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
+    expect(dialog.textContent).not.toContain('Mark it done')
+    expect(dialog.textContent).not.toContain('right-click')
+    expect(screen.queryByRole('button', { name: 'Mark it done' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Got it' })).toBeTruthy()
   })
 

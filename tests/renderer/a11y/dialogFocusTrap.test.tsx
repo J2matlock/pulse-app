@@ -89,14 +89,14 @@ describe('tour', () => {
 })
 
 describe('first look (UX pass Q7)', () => {
-  it('keeps Tab in the card, starts on Done, and Escape closes it', async () => {
+  it('keeps Tab in the card, starts on "Mark it done" (a sample), and Escape closes it', async () => {
     const yearly = { id: 7, name: 'Every year', description: null, is_system: 0, thresholds: [], interval_days: null, interval_months: 12, created_at: '', kind: 'interval' } as ParsedAlertRule
     const columns = [
       { id: 1, name: 'Name', column_type: 'text', config: '{}', is_name_column: 1 },
       { id: 3, name: 'Annual review', column_type: 'date', config: '{"alert_rule_id":7}', is_name_column: 0 },
     ] as unknown as Column[]
     const row = { row_id: 9, col_1: 'Robert', col_3: '2020-01-01' } as unknown as GridRow
-    useGridStore.setState({ activeGridId: 1, loadedGridId: 1, isLoading: false, rows: [row], columns, sampleRows: {} } as never)
+    useGridStore.setState({ activeGridId: 1, loadedGridId: 1, isLoading: false, rows: [row], columns, sampleRows: { 9: 0 } } as never)
     useAlertStore.setState({ rules: [yearly], isLoaded: true })
     useHintStore.setState({ seen: new Set() })
     const list = document.createElement('div')
@@ -107,7 +107,7 @@ describe('first look (UX pass Q7)', () => {
     await act(async () => { vi.advanceTimersByTime(300) })
     await act(async () => { vi.advanceTimersByTime(100) })
     const dialog = screen.getByRole('dialog', { name: /^Here's your / })
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Done' }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Mark it done' }))
     const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled])'))
     controls.at(-1)!.focus()
     tab()
