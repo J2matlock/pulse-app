@@ -285,6 +285,17 @@ describe('SortableRow', () => {
     expect(onNavigateToProfile).toHaveBeenCalledWith(1)
   })
 
+  it('an archived record says "Archived" after its name, not only by fading (UX-B-27)', () => {
+    const archived = { ...makeRow(1), is_active: 0 } as unknown as GridRow
+    render(<SortableRow {...makeProps({ row: makeTanstackRow(archived) })} />)
+    expect(screen.getByTestId('archived-pill').textContent).toBe('Archived')
+  })
+
+  it('an active record has no Archived pill', () => {
+    render(<SortableRow {...makeProps()} />)
+    expect(screen.queryByTestId('archived-pill')).toBeNull()
+  })
+
   it('an open editor fills its cell, with one border, not two (V1)', () => {
     render(<SortableRow {...makeProps({ editingRowId: 1, editingColId: 1, focusedRowId: 1, focusedColId: 1 })} />)
     const cell = document.querySelector('[data-col-id="1"]') as HTMLElement

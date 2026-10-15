@@ -30,7 +30,7 @@ import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH, ADD_COL_WIDTH } from './gridConstants'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH, ADD_COL_WIDTH, BULK_BAR_ROOM } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
 import { useGridAnnouncer } from '../../hooks/useGridAnnouncer'
@@ -554,8 +554,8 @@ export function DataGrid(): React.ReactElement {
       {/* ── Hint banner for new users ─── */}
       {!hintDismissed && tableRows.length > 0 && <GridHintBanner onDismiss={dismissHint} />}
 
-      {/* Collapse/Expand All toolbar (grouped mode only) */}
-      {isGrouped && (
+      {/* Collapse/Expand All toolbar (grouped mode only, and only with something to fold, UX-B-41) */}
+      {isGrouped && tableRows.length > 0 && (
         <div className="flex-shrink-0">
           <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
         </div>
@@ -652,6 +652,8 @@ export function DataGrid(): React.ReactElement {
             })}
 
             {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
+            {/* Room under the last row while the bulk bar floats over it (UX-B-25) */}
+            {selectedRowIds.size > 0 && <div style={{ height: BULK_BAR_ROOM }} aria-hidden="true" data-testid="bulk-bar-room" />}
           </div>
         </div>
 

@@ -669,6 +669,15 @@ describe('DataGrid', () => {
       expect(screen.getByLabelText('Deselect client')).toBeTruthy()
     })
 
+    it('leaves room under the last row while the bulk bar shows (UX-B-25)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.queryByTestId('bulk-bar-room')).toBeNull()
+      fireEvent.click(screen.getAllByLabelText('Select client')[0]!)
+      await flushEffects()
+      expect(screen.getByTestId('bulk-bar-room')).toBeTruthy()
+    })
+
     it('"Select all" selects only the records the search shows (G-05)', async () => {
       setupStores({ searchQuery: 'Client 3' })
       renderDataGrid()

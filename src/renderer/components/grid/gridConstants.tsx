@@ -13,6 +13,8 @@ export const PROFILE_BTN_WIDTH = OPEN_COL_WIDTH + STAR_COL_WIDTH + MENU_COL_WIDT
 export const TAGS_COL_WIDTH = 160
 /** The "+" after the last column header that adds a column, as a spreadsheet would (UX-B-03) */
 export const ADD_COL_WIDTH = 44
+/** Room under the last row while the bulk bar floats over the list: its height plus its gap (UX-B-25) */
+export const BULK_BAR_ROOM = 112
 
 // Auto-fit column sizing constants
 export const CHAR_WIDTH_HEADER = 9

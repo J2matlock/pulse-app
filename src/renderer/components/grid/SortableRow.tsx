@@ -495,6 +495,10 @@ export const SortableRow = React.memo(function SortableRow({
                 )}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill compact />}
+                {/* Faded alone doesn't say why (UX-B-27) */}
+                {isArchived && col.is_name_column === 1 && (
+                  <span className="ml-1.5 flex-shrink-0 px-2 rounded-full text-sm leading-6 font-medium bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100" data-testid="archived-pill">Archived</span>
+                )}
                 {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}
                 {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
               </>
