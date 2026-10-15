@@ -179,12 +179,19 @@ describe('ColumnHeader', () => {
   it('keeps the menu short, with the rest under Column settings (G-21, G-42)', () => {
     render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
     fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
-    expect(screen.queryByText('Log changes in timeline')).toBeNull()
-    expect(screen.getByText('Keep columns up to here in view')).toBeTruthy()
+    expect(screen.queryByText('Keep a history of changes')).toBeNull()
+    expect(screen.getByText('Freeze columns up to here')).toBeTruthy()
+    expect(screen.getByText('Change what it holds (Text, Date…)')).toBeTruthy()
     fireEvent.click(screen.getByText('Column settings…'))
     expect(screen.getByRole('dialog', { name: /Phone.*settings/ })).toBeTruthy()
-    expect(screen.getByText('Log changes in timeline')).toBeTruthy()
     expect(screen.getByText('Color rules for this column…')).toBeTruthy()
+    // The on/off settings are real switches, each with a line on what it does (B-10)
+    const history = screen.getByRole('switch', { name: 'Keep a history of changes' })
+    expect(history.getAttribute('aria-checked')).toBe('false')
+    expect(history.getAttribute('aria-describedby')).toBeTruthy()
+    expect(screen.getByText("Write every change to this column into the client's notes.")).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Required column' })).toBeTruthy()
+    expect(screen.queryByText('Log changes in timeline')).toBeNull()
   })
 
   describe('"Show only the date" for a date with a deadline rule', () => {
@@ -360,17 +367,46 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Form "Intake"')).toBeTruthy()
   })
 
-  it('offers "Use as name" on other columns, not the name column (1.8)', () => {
+  it('offers "Use this as each client\'s name" on other columns, not the name column (1.8, B-28)', () => {
     const setNameColumn = vi.fn()
     setupStores({ setNameColumn })
     const { unmount } = render(<ColumnHeader column={makeColumn(3, 'Nickname')} />)
     fireEvent.contextMenu(screen.getByText('Nickname').closest('div')!)
-    fireEvent.click(screen.getByText('Use as name'))
+    fireEvent.click(screen.getByRole('button', { name: "Use this as each client's name" }))
     expect(setNameColumn).toHaveBeenCalledWith(3)
     unmount()
     render(<ColumnHeader column={{ ...makeColumn(1, 'Name'), is_name_column: 1 }} />)
     fireEvent.contextMenu(screen.getByText('Name').closest('div')!)
-    expect(screen.queryByText('Use as name')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Use this as each/ })).toBeNull()
+  })
+
+  it('"Keep a history of changes" and "Required column" flip from their switches', () => {
+    const updateColumn = vi.fn().mockResolvedValue(true)
+    setupStores({ updateColumn })
+    render(<ColumnHeader column={makeColumn(4, 'Phone', 'text', JSON.stringify({ log_changes: true }))} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+    fireEvent.click(screen.getByText('Column settings…'))
+    const history = screen.getByRole('switch', { name: 'Keep a history of changes' })
+    expect(history.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(history)
+    expect(updateColumn).toHaveBeenCalledWith(4, { config: JSON.stringify({ log_changes: false }) })
+    fireEvent.click(screen.getByRole('switch', { name: 'Required column' }))
+    expect(updateColumn).toHaveBeenLastCalledWith(4, { config: JSON.stringify({ log_changes: true, required: true }) })
+  })
+
+  it('names the frozen state plainly: Freeze columns up to here / Unfreeze these columns (B-13)', () => {
+    const setFrozenColumnCount = vi.fn()
+    setupStores({ setFrozenColumnCount, columns: [makeColumn(1, 'Name'), makeColumn(2, 'Phone')], frozenColumnCount: 0 })
+    const { unmount } = render(<ColumnHeader column={makeColumn(2, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByText('Freeze columns up to here'))
+    expect(setFrozenColumnCount).toHaveBeenCalledWith(2)
+    unmount()
+    setupStores({ setFrozenColumnCount, columns: [makeColumn(1, 'Name'), makeColumn(2, 'Phone')], frozenColumnCount: 2 })
+    render(<ColumnHeader column={makeColumn(2, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByText('Unfreeze these columns'))
+    expect(setFrozenColumnCount).toHaveBeenLastCalledWith(1)
   })
 
   it('shows column name as clickable sort button', () => {

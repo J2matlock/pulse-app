@@ -282,9 +282,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         </Tooltip>
       )}
 
-      {/* Log changes indicator */}
+      {/* "Keep a history of changes" is on */}
       {colConfig.log_changes && (
-        <span title="Log changes in timeline"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
+        <span title="Keeps a history of changes"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
       )}
 
       {/* Deadline rule badge: a clock that opens the rule's color key, with what the rule does in the tooltip (D-15, B-04) */}
@@ -387,7 +387,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   onClick={() => { setShowMenu(false); setShowChangeType(true) }}
                 >
                   <Shapes className="w-4 h-4" />
-                  Change type…
+                  Change what it holds (Text, Date…)
                 </button>
               )}
               <button
@@ -409,21 +409,26 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   Move right
                 </button>
               )}
-              {/* Width without dragging (AUDIT-150): the menu stays open, so it can be pressed again */}
-              <div className="flex items-center gap-1 px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width">
-                <span className="flex-1" aria-hidden="true">Width</span>
-                <button type="button" className="hit-44 min-w-11 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
-                  aria-label="Narrower" title="Narrower"
-                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'narrower' })}>−</button>
-                <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                  aria-label="Fit to content" title="Fit to content"
-                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })}>Fit</button>
-                <button type="button" className="hit-44 min-w-11 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
-                  aria-label="Wider" title="Wider"
-                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'wider' })}>+</button>
+              {/* Width without dragging (AUDIT-150): the menu stays open, so it can be pressed again. Worded, not −/+ (B-28) */}
+              <div className="px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width">
+                <span className="block text-sm text-slate-600 dark:text-slate-300" aria-hidden="true">Column width</span>
+                <div className="flex items-center gap-1">
+                  <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Narrower" title="Make the column narrower"
+                    onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'narrower' })}>Narrower</button>
+                  <span aria-hidden="true" className="text-slate-400">·</span>
+                  <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Fit to content" title="Fit the column to what it holds"
+                    onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })}>Fit</button>
+                  <span aria-hidden="true" className="text-slate-400">·</span>
+                  <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Wider" title="Make the column wider"
+                    onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'wider' })}>Wider</button>
+                </div>
               </div>
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+                title={isColumnFrozen ? 'Let these columns scroll with the rest again' : 'Keep this column and the ones before it in view while the rest scroll sideways'}
                 onClick={() => {
                   if (isColumnFrozen) {
                     // Unpin: set frozen count to this column's index (exclude it)
@@ -436,16 +441,16 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 }}
               >
                 {isColumnFrozen ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-                {isColumnFrozen ? 'Stop keeping these columns in view' : 'Keep columns up to here in view'}
+                {isColumnFrozen ? 'Unfreeze these columns' : 'Freeze columns up to here'}
               </button>
               {column.is_name_column !== 1 && canNameRecords(column.column_type) && (
                 <button
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
                   onClick={() => { setShowMenu(false); void setNameColumn(column.id) }}
                   title={`Show this column as each ${t('record')}'s name everywhere`}
                 >
                   <IdCard className="w-4 h-4" />
-                  Use as name
+                  Use this as each {t('record')}'s name
                 </button>
               )}
               {/* Everything else lives in one dialog, so the menu stays short (G-21) */}

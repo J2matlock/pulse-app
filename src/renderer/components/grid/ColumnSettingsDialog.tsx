@@ -11,6 +11,7 @@ import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CalendarColumnSwitch } from './CalendarColumnSwitch'
 import { dateOnlyOn } from './dateOnly'
+import { SettingSwitchRow } from './SettingSwitchRow'
 
 export interface ColumnSettingsDialogProps {
   column: Column
@@ -48,51 +49,40 @@ export function ColumnSettingsDialog({
       <div ref={settingsRef} className="relative w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
         <h2 id={`col-settings-${column.id}`} className="text-lg font-semibold text-slate-800 dark:text-slate-100 px-3 mb-2">“{column.name}” settings</h2>
         <div onClick={e => { if ((e.target as HTMLElement).closest('button[data-opens]')) onClose() }}>
-        <button
-          className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-          onClick={onToggleLogChanges}
-        >
-          <Activity className="w-4 h-4" />
-          <span className="flex-1 text-left">Log changes in timeline</span>
-          <span className={`text-sm font-medium ${colConfig.log_changes ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-            {colConfig.log_changes ? 'On' : 'Off'}
-          </span>
-        </button>
+        {/* The on/off settings are real switches with a line each on what they do (B-10) */}
+        <SettingSwitchRow
+          icon={<Activity className="w-4 h-4" />}
+          label="Keep a history of changes"
+          description={`Write every change to this column into the ${t('record')}'s notes.`}
+          checked={!!colConfig.log_changes}
+          onChange={onToggleLogChanges}
+        />
 
         {canBeRequired(column.column_type) && (
-            <button
-                            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-            onClick={onToggleRequired}
-            title="Empty cells show 'Missing' and appear in the Missing information list"
-          >
-            <Asterisk className="w-4 h-4" />
-            <span className="flex-1 text-left">Required column</span>
-            <span className={`text-sm font-medium ${colConfig.required ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-              {colConfig.required ? 'On' : 'Off'}
-            </span>
-          </button>
+          <SettingSwitchRow
+            icon={<Asterisk className="w-4 h-4" />}
+            label="Required column"
+            description="Empty cells show “Missing” and are listed in the Missing information report."
+            checked={!!colConfig.required}
+            onChange={onToggleRequired}
+          />
         )}
 
         {/* A date with a rule says how it stands beside the date; some lists only want the date */}
         {column.column_type === 'date' && currentAlertRule && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={dateOnlyOn(colConfig)}
-            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-            onClick={onToggleDateOnly}
-            title="Hide the words beside the date, like “in 5 days”. The color stays, and the words show when you point at the cell."
-          >
-            <CalendarDays className="w-4 h-4" />
-            <span className="flex-1 text-left">Show only the date</span>
-            <span aria-hidden="true" className={`text-sm font-medium ${dateOnlyOn(colConfig) ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-              {dateOnlyOn(colConfig) ? 'On' : 'Off'}
-            </span>
-          </button>
+          <SettingSwitchRow
+            icon={<CalendarDays className="w-4 h-4" />}
+            label="Show only the date"
+            description="Hide words like “in 5 days”; the color stays, and the words show when you point at the cell."
+            checked={dateOnlyOn(colConfig)}
+            onChange={onToggleDateOnly}
+          />
         )}
 
         {/* Its deadlines on the Calendar, or not (the Calendar's "Which deadlines…" menu writes the same setting) */}
         {takesDeadlineRule(column.column_type) && currentAlertRule && <CalendarColumnSwitch columnId={column.id} />}
+
+        <hr className="my-2 border-slate-200 dark:border-slate-700" />
 
         <button
           data-opens
@@ -103,7 +93,7 @@ export function ColumnSettingsDialog({
           Color rules for this column…
         </button>
 
-        {/* Edit options — only for dropdown/status columns */}
+        {/* The choices of a dropdown or status column (B-46) */}
         {(column.column_type === 'dropdown' || column.column_type === 'status') && (
           <button
           data-opens
@@ -111,7 +101,7 @@ export function ColumnSettingsDialog({
             onClick={onOpenEditOptions}
           >
             <List className="w-4 h-4" />
-            Edit options…
+            Edit the choices…
           </button>
         )}
 
