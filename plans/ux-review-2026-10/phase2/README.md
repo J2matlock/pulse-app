@@ -43,3 +43,12 @@ Approved by the owner on 2026-10-14 (see `../ORCHESTRATION.md`). Each plan names
 - The review harness `e2e/ux-review/` is git-excluded, so it's not in a worktree: `cp -r /home/jmatlock/projects/pulse/e2e/ux-review e2e/` when a plan's acceptance needs screenshots.
 - Under parallel load, auth-lockout and perf-timing tests time out; rerun those files alone before treating a failure as real. The orchestrator runs the gate on a quiet machine at merge.
 - Never edit `e2e/ui-tour.spec.ts` (the owner's uncommitted change).
+
+## Shared components available after Wave A (Q5 part 1, merged 2026-10-15)
+`src/renderer/components/ui/`: `PrimaryButton` / `SecondaryButton` / `DangerButton` (`size` normal|compact, `icon`, `busy`, `tone="inverse"`); `IconButton` (required `label` → aria-label + tooltip, `shortcut`, `variant` ghost|secondary|primary); `Dialog` (`open`, `onClose`, `title`, `description`, `size`, `role`, `initialFocus`, `icon`, `footer`, `dismissible={false}`); `Toggle` / `ToggleRow`; `MenuButton` / `RowMenu` (items `{label, onSelect, description?, icon?, danger?, disabled?}`); `PageHeader`, `Section`; `LAYER` in `ui/layers.ts`. `EmptyState` gained `size`, `secondaryAction`. `ColorKeyPopover` gained `intro`, `triggerVariant`. **One toast stack:** `ToastHost` (rendered once, `withUndo`), `ToastIcon` for warning/key icons — don't add another Toaster. Use these in new or touched UI; `tests/renderer/designSystem.test.ts` is a ratchet (off-system counts may only go down). Tests that mock `motion/react` need `AnimatePresence` in the mock where an `IconButton` renders.
+
+## Wave C staging (orchestrator, 2026-10-15) — the four plans overlap heavily, so they run in stages
+- **C1 (parallel):** Q5 part 2 (dialogs + grid/sidebar ⋯ buttons) · Q9b **part 1** — only the fixes outside `DataGrid.tsx`, `SortableRow.tsx`, `DashboardView.tsx` and dashboard rows: profile prefetch (with its guards), `safeInvoke`, `gridFilterSlice` search, `useCommandSearch`/`CommandPalette`, the `CASE_LOG_COUNTS` channel, dialog animation length.
+- **C2:** Q8 visual polish (after C1 merges).
+- **C3:** Q6 motion (after Q8 merges).
+- **C4:** Q9b **part 2** — the DataGrid / SortableRow / DashboardView render fixes (after Q6 merges), then rerun `npm run perf` and `npm run perf:e2e` and compare with the Q9a baseline in `../ORCHESTRATION.md`.
