@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup, waitFor, act } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
@@ -18,7 +18,13 @@ vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
 import { AppearanceSection } from '../../../../src/renderer/components/settings/AppearanceSection'
 import { localeClockFormat } from '../../../../src/renderer/stores/settingsStore'
 import { FilesStorageSection } from '../../../../src/renderer/components/settings/FilesStorageSection'
+import { DaysOffSection, rulesUseDaysOff } from '../../../../src/renderer/components/settings/DaysOffSection'
+import { RemindersSection } from '../../../../src/renderer/components/settings/RemindersSection'
+import { BackgroundSection } from '../../../../src/renderer/components/settings/BackgroundSection'
+import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
+import { useWorkspaceStore } from '../../../../src/renderer/stores/workspaceStore'
 import { setWords } from '../../vocabFixture'
+import type { ParsedAlertRule } from '../../../../src/shared/types'
 
 beforeEach(() => { setWords(); mockInvoke.mockReset() })
 afterEach(() => cleanup())
@@ -127,5 +133,80 @@ describe('Data → Files', () => {
     usage(950 * MB, 1000)
     render(<FilesStorageSection />)
     await waitFor(() => expect((screen.getByLabelText('Room for files (MB)').closest('details') as HTMLDetailsElement).open).toBe(true))
+  })
+})
+
+describe('Deadlines & reminders', () => {
+  const rule = (over: Partial<ParsedAlertRule>): ParsedAlertRule => ({
+    id: 1, name: 'r', description: null, is_system: 0, thresholds: [], interval_days: 30, kind: 'interval', created_at: '', ...over,
+  })
+  const daysOff = () => screen.getByTestId('days-off-more') as HTMLDetailsElement
+
+  it('Days off is a closed one-liner while no rule skips days off and none are set', () => {
+    useAlertStore.setState({ rules: [rule({})] } as never)
+    useWorkspaceStore.setState({ calendar: { holidays: [], weekend: [0, 6] } } as never)
+    render(<DaysOffSection />)
+    expect(daysOff().open).toBe(false)
+    expect(within(daysOff()).getByText('Days off (used by rules that skip weekends and holidays)').tagName).toBe('SUMMARY')
+    expect(screen.getByRole('checkbox', { name: 'Saturday' }).closest('details')).toBe(daysOff())
+  })
+
+  it('opens when a rule moves off a day off, then stays as the person leaves it', () => {
+    useAlertStore.setState({ rules: [rule({})] } as never)
+    useWorkspaceStore.setState({ calendar: { holidays: [], weekend: [0, 6] } } as never)
+    render(<DaysOffSection />)
+    expect(daysOff().open).toBe(false)
+    act(() => useAlertStore.setState({ rules: [rule({ business_days: 2 })] } as never))
+    expect(daysOff().open).toBe(true)
+  })
+
+  it('counts a rule that counts working days, set holidays and a different weekend', () => {
+    expect(rulesUseDaysOff([rule({ kind: 'before', rule_config: '{"offset":{"businessDays":10}}' })])).toBe(true)
+    expect(rulesUseDaysOff([rule({ rule_config: '{"offset":{"businessDays":0,"days":5}}' })])).toBe(false)
+    useAlertStore.setState({ rules: [] } as never)
+    useWorkspaceStore.setState({ calendar: { holidays: ['2026-12-25'], weekend: [0, 6] } } as never)
+    render(<DaysOffSection />)
+    expect(daysOff().open).toBe(true)
+    cleanup()
+    useWorkspaceStore.setState({ calendar: { holidays: [], weekend: [5, 6] } } as never)
+    render(<DaysOffSection />)
+    expect(daysOff().open).toBe(true)
+  })
+
+  function reminders(showNames: boolean) {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'reminders:get'
+      ? { ok: true, data: { dailyEnabled: false, dailyTime: '08:30', apptLeadMinutes: 15, showNames } }
+      : { ok: false, error: 'not in this test' }))
+  }
+
+  it("folds \"Show who it's with\" away while it's off, and opens when it's on", async () => {
+    reminders(false)
+    render(<RemindersSection />)
+    const box = await screen.findByRole('checkbox', { name: /Show who it's with|Show event titles/ })
+    await waitFor(() => expect((box as HTMLInputElement).disabled).toBe(false))
+    expect((box.closest('details') as HTMLDetailsElement).open).toBe(false)
+    expect(screen.getByRole('checkbox', { name: /Desktop notification at a set time/ }).closest('details')).toBeNull()
+    cleanup()
+    reminders(true)
+    render(<RemindersSection />)
+    const on = await screen.findByRole('checkbox', { name: /Show who it's with|Show event titles/ })
+    await waitFor(() => expect((on.closest('details') as HTMLDetailsElement).open).toBe(true))
+  })
+
+  function background(trayMode: boolean) {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'background:get'
+      ? { ok: true, data: { trayMode, openAtLogin: false, loginSupported: true, portable: false } }
+      : { ok: false, error: 'not in this test' }))
+  }
+
+  it('Running in the background is folded away while both are off, and open while one is on', async () => {
+    background(false)
+    render(<BackgroundSection />)
+    await screen.findByRole('checkbox', { name: /Open Pulse when I sign in/ })
+    expect((screen.getByTestId('background-more') as HTMLDetailsElement).open).toBe(false)
+    cleanup()
+    background(true)
+    render(<BackgroundSection />)
+    await waitFor(() => expect((screen.getByTestId('background-more') as HTMLDetailsElement).open).toBe(true))
   })
 })

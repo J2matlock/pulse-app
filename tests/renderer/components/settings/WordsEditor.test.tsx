@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
@@ -13,7 +13,7 @@ vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.
 import { WordsEditor } from '../../../../src/renderer/components/settings/WordsEditor'
 import { IPC } from '../../../../src/shared/ipc-channels'
 import { HUMAN_SERVICES_VOCAB } from '../../../../src/shared/vocab'
-import { setWords } from '../../vocabFixture'
+import { setWords, setFeatures, EXISTING_FEATURES } from '../../vocabFixture'
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 
 const preview = () => screen.getByText(/due this week/).textContent?.replace(/^Preview: /, '')
@@ -105,5 +105,52 @@ describe('WordsEditor', () => {
     const { unmount } = render(<WordsEditor />)
     unmount()
     expect(mockInvoke).not.toHaveBeenCalled()
+  })
+
+  describe('"More words" (Q1c)', () => {
+    const more = () => screen.getByTestId('more-words') as HTMLDetailsElement
+
+    it('keeps what you track and lists in view; the rest is under a closed "More words" with either word set', () => {
+      for (const words of [{}, HUMAN_SERVICES_VOCAB]) {
+        setWords(words)
+        const { unmount } = render(<WordsEditor />)
+        expect(screen.getByLabelText('What you track: one').closest('details')).toBeNull()
+        expect(screen.getByLabelText('Lists: one').closest('details')).toBeNull()
+        for (const label of ['Notes: one', 'Notes history: one', 'Your role: one', 'Outside contacts: one', 'Requirements: one', 'Priority: one']) {
+          expect(screen.getByLabelText(label).closest('details')).toBe(more())
+        }
+        expect(more().open).toBe(false)
+        unmount()
+      }
+    })
+
+    it('opens by itself when one of those words is your own', () => {
+      setWords({ ...HUMAN_SERVICES_VOCAB, worker: { one: 'advocate', many: 'advocates', article: 'an' } })
+      render(<WordsEditor />)
+      expect(more().open).toBe(true)
+    })
+
+    it('shows no word rows for features that are off, and saves those words unchanged', async () => {
+      setWords(HUMAN_SERVICES_VOCAB, {}, { ...EXISTING_FEATURES, contactsDirectory: false, requirements: false, priority: false })
+      render(<WordsEditor />)
+      expect(screen.queryByLabelText('Outside contacts: one')).toBeNull()
+      expect(screen.queryByLabelText('Contacts page: one')).toBeNull()
+      expect(screen.queryByLabelText('Requirements: one')).toBeNull()
+      expect(screen.queryByLabelText('Priority: one')).toBeNull()
+      fireEvent.change(screen.getByLabelText('What you track: one'), { target: { value: 'youth' } })
+      save()
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.objectContaining({
+        vocab: expect.objectContaining({ contact: HUMAN_SERVICES_VOCAB.contact, priority: HUMAN_SERVICES_VOCAB.priority }),
+      })))
+    })
+
+    it('turning the Contacts page on brings its words back under "More words"', () => {
+      setWords(HUMAN_SERVICES_VOCAB, {}, { ...EXISTING_FEATURES, contactsDirectory: false })
+      render(<WordsEditor />)
+      expect(screen.queryByLabelText('Outside contacts: one')).toBeNull()
+      act(() => setFeatures({ ...EXISTING_FEATURES, contactsDirectory: true }))
+      expect(screen.getByLabelText('Outside contacts: one').closest('details')).toBe(more())
+      expect(screen.getByLabelText('Contacts page: one').closest('details')).toBe(more())
+    })
   })
 })
