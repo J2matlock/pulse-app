@@ -260,6 +260,7 @@ export interface IPCContract {
   'row:delete':              { args: [rowId: number];                                                                      return: true }
   'row:archive':             { args: [rowId: number, reason?: string];                                                     return: true }
   'row:unarchive':           { args: [rowId: number];                                                                      return: true }
+  'row:archive-reason':      { args: [rowIds: number[], reason: string];                                                  return: { noteIds: number[] } }
   'row:locate':              { args: [rowId: number];                                                                      return: RowLocation | null }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }

@@ -10,8 +10,14 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUndoStore, UNDO_TOAST_MS } from '../../stores/undoStore'
 import { PrimaryButton, SecondaryButton, IconButton } from '../ui/Button'
 import { modHelp } from '../../utils/keys'
+import { ArchiveReasonDialog } from './ArchiveReasonDialog'
 
-export function UndoToast(): React.ReactElement | null {
+export function UndoToast(): React.ReactElement {
+  // The dialog a toast's "Add a reason…" opens outlives the toast, so it's mounted here, not inside it
+  return <><UndoToastBody /><ArchiveReasonDialog /></>
+}
+
+function UndoToastBody(): React.ReactElement | null {
   const { toast, undoFromToast, dismissToast, holdToast, topId } = useUndoStore(useShallow(s => ({
     toast: s.toast, undoFromToast: s.undoFromToast, dismissToast: s.dismissToast, holdToast: s.holdToast,
     topId: s.undoStack[s.undoStack.length - 1]?.id,

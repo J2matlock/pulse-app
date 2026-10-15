@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { GridRow, Column, AcuityLevel } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -10,7 +9,9 @@ import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { BatchDocumentsDialog } from '../documents/BatchDocumentsDialog'
-import { ArchiveDialog } from './GridDialogs'
+import { trashRows } from './GridDialogs'
+import { archiveReasonAction, voidReasonNotes } from '../../stores/archiveReasonStore'
+import type { ArchiveReasonState } from '../../stores/archiveReasonStore'
 import { PrimaryButton, DangerButton } from '../ui/Button'
 
 export interface BulkActionBarProps {
@@ -22,7 +23,6 @@ export interface BulkActionBarProps {
   acuityLevels: AcuityLevel[]
   bulkSetRowAcuityLevel: (rowIds: number[], levelId: number | null) => Promise<void>
   setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
-  setBulkDeleteTarget: React.Dispatch<React.SetStateAction<boolean>>
   setBulkMoveTarget: React.Dispatch<React.SetStateAction<boolean>>
   setBulkEditOpen: React.Dispatch<React.SetStateAction<boolean>>
 }
@@ -36,7 +36,6 @@ export function BulkActionBar({
   acuityLevels,
   bulkSetRowAcuityLevel,
   setSelectedRowIds,
-  setBulkDeleteTarget,
   setBulkMoveTarget,
   setBulkEditOpen,
 }: BulkActionBarProps): React.ReactElement {
@@ -44,35 +43,33 @@ export function BulkActionBar({
   const [batchDocs, setBatchDocs] = useState(false)
   const { t } = useVocab()
   const [bulkAcuityOpen, setBulkAcuityOpen] = useState(false)
-  // The same Archive dialog as for one record, reason and upcoming appointments included (audit 1.13, UX-B-26)
-  const [archiveIds, setArchiveIds] = useState<number[] | null>(null)
-  const [archiveReason, setArchiveReason] = useState('')
-
-  /** With a reason each record keeps it (and its notes say it); without one, one bulk step */
-  async function archiveIdsWith(ids: number[], reason: string): Promise<boolean> {
-    if (!reason) return (await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)).ok
-    let any = false
-    for (const id of ids) if ((await safeInvoke(IPC.ROW_ARCHIVE, id, reason)).ok) any = true
-    return any
-  }
-
-  async function archive(ids: number[], cancelAppointments: boolean, reason: string) {
+  /**
+   * Archive at once, no dialog (Q4): upcoming appointments are cancelled with
+   * them, as the dialog did by default, and the toast offers "Add a reason…".
+   * One undo step brings back both.
+   */
+  async function archive(ids: number[]) {
     const names = ids.map(id => {
       const r = rowById.get(id)
       return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
     })
-    if (!await archiveIdsWith(ids, reason)) return
+    if (!(await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)).ok) return
     pulseEvents.emit('records:archive-changed')
     let apptSnapshot: unknown = null
-    if (cancelAppointments) {
-      const res = await safeInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
-      if (res.ok) apptSnapshot = res.data.snapshot
+    let cancelled = 0
+    const upcoming = await safeInvoke<number>(IPC.APPT_UPCOMING_COUNT, ids)
+    if (upcoming.ok && upcoming.data > 0) {
+      const res = await safeInvoke<{ snapshot: unknown; ids?: number[] }>(IPC.APPT_CANCEL_UPCOMING, ids)
+      if (res.ok) { apptSnapshot = res.data.snapshot; cancelled = res.data.ids?.length ?? 0 }
     }
     setSelectedRowIds(new Set())
     if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
+    const reasonStep: ArchiveReasonState = { noteIds: [] }
+    const label = `${ids.length} ${t('record', { count: ids.length })}`
+    const apptText = cancelled > 0 ? `; ${cancelled} upcoming ${t('appointment', { count: cancelled })} cancelled` : ''
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
-      description: `Archived ${ids.length} ${t('record', { count: ids.length })} (${names.slice(0, 3).join(', ')}${ids.length > 3 ? '…' : ''})`,
+      description: `Archived ${label} (${names.slice(0, 3).join(', ')}${ids.length > 3 ? '…' : ''})${apptText}`,
       timestamp: Date.now(),
       category: 'structural',
       icon: 'archive',
@@ -80,18 +77,25 @@ export function BulkActionBar({
         await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
         pulseEvents.emit('records:archive-changed')
         if (apptSnapshot) await mustInvoke(IPC.APPT_RESTORE, apptSnapshot)
+        await voidReasonNotes(reasonStep)
         if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
       },
       redo: async () => {
+        const reason = reasonStep.reason
         if (reason) { for (const id of ids) await mustInvoke(IPC.ROW_ARCHIVE, id, reason) } else await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
         pulseEvents.emit('records:archive-changed')
-        if (cancelAppointments) {
+        if (apptSnapshot) {
           const res = await mustInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
           if (res.ok) apptSnapshot = res.data.snapshot
         }
         if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
       },
-    })
+    }, { action: archiveReasonAction(ids, ids.length === 1 ? `"${names[0]}"` : label, reasonStep) })
+  }
+
+  async function trash() {
+    const ids = Array.from(selectedRowIds)
+    if (await trashRows(ids)) setSelectedRowIds(new Set())
   }
 
   const allArchived = Array.from(selectedRowIds).every(id => {
@@ -149,9 +153,9 @@ export function BulkActionBar({
       {noneArchived && (
         <button
           className="hit-44 text-base px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 transition-colors font-medium"
-          onClick={() => { setArchiveReason(''); setArchiveIds(Array.from(selectedRowIds)) }}
+          onClick={() => void archive(Array.from(selectedRowIds))}
         >
-          Archive…
+          Archive
         </button>
       )}
       <button
@@ -215,22 +219,10 @@ export function BulkActionBar({
           )}
         </div>
       )}
-      {/* The bar is transformed, which would pin a fixed dialog to it */}
-      {createPortal(<ArchiveDialog
-        archiveTarget={archiveIds}
-        archiveReason={archiveReason}
-        setArchiveReason={setArchiveReason}
-        onConfirm={({ cancelAppointments }) => {
-          const ids = archiveIds
-          setArchiveIds(null)
-          if (ids) void archive(ids, cancelAppointments, archiveReason.trim())
-        }}
-        onCancel={() => setArchiveIds(null)}
-      />, document.body)}
       {/* Away from Archive, at the far end after a divider (UX-B-25) */}
       <div className="w-px h-6 bg-slate-600 flex-shrink-0" aria-hidden="true" />
-      <DangerButton size="compact" tone="inverse" onClick={() => setBulkDeleteTarget(true)}>
-        Move to the Trash…
+      <DangerButton size="compact" tone="inverse" onClick={() => void trash()}>
+        Move {selectedRowIds.size} to the Trash
       </DangerButton>
       <button
         className="hit-44 text-base px-2 py-1.5 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors text-slate-300"

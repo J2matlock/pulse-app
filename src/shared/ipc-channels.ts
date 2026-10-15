@@ -36,6 +36,7 @@ export const IPC = {
   ROW_DELETE: 'row:delete',
   ROW_ARCHIVE: 'row:archive',
   ROW_UNARCHIVE: 'row:unarchive',
+  ROW_ARCHIVE_REASON: 'row:archive-reason',
   ROW_REORDER: 'row:reorder',
   ROW_DUPLICATE: 'row:duplicate',
   ROW_BULK_ACTION: 'row:bulk-action',

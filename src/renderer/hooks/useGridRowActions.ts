@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { useGridStore } from '../stores/gridStore'
 import type { GridState } from '../stores/gridStore'
 
@@ -9,19 +10,32 @@ interface UseGridRowActionsOptions {
   unarchiveRow: GridState['unarchiveRow']
   duplicateRow: GridState['duplicateRow']
   updateRow: GridState['updateRow']
+  deleteRow: GridState['deleteRow']
+  setSelectedRowIds: Dispatch<SetStateAction<Set<number>>>
 }
 
-/** A record's own actions from the grid (star, duplicate, archive, delete, move) and the dialogs they open */
-export function useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow }: UseGridRowActionsOptions) {
-  const [archiveTarget, setArchiveTarget] = useState<number | null>(null)
-  const [archiveReason, setArchiveReason] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+/**
+ * A record's own actions from the grid (star, duplicate, archive, delete, move).
+ * Trash and Archive happen at once with an Undo toast, no "Are you sure?" (Q4);
+ * a reason for archiving can be added from the toast.
+ */
+export function useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow, deleteRow, setSelectedRowIds }: UseGridRowActionsOptions) {
   const [moveToGridTarget, setMoveToGridTarget] = useState<number | null>(null)
 
-  const handleDeleteRow = useCallback((rowId: number) => {
+  const deselect = useCallback((rowId: number) => {
+    setSelectedRowIds(prev => {
+      if (!prev.has(rowId)) return prev
+      const next = new Set(prev)
+      next.delete(rowId)
+      return next
+    })
+  }, [setSelectedRowIds])
+
+  const handleDeleteRow = useCallback(async (rowId: number) => {
     setContextMenu(null)
-    setDeleteTarget(rowId)
-  }, [setContextMenu])
+    await deleteRow(rowId)
+    deselect(rowId)
+  }, [setContextMenu, deleteRow, deselect])
 
   const handleToggleStar = useCallback(async (rowId: number) => {
     const row = useGridStore.getState().rows.find(r => r.row_id === rowId)
@@ -36,12 +50,12 @@ export function useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, du
     await duplicateRow(rowId)
   }, [duplicateRow, setContextMenu])
 
-  const handleArchiveConfirm = useCallback(async (opts: { cancelAppointments: boolean }) => {
-    if (archiveTarget == null) return
-    await archiveRow(archiveTarget, archiveReason.trim() || undefined, opts)
-    setArchiveTarget(null)
-    setArchiveReason('')
-  }, [archiveTarget, archiveReason, archiveRow])
+  /** Its upcoming appointments are cancelled with it, as the old dialog did by default; Undo brings both back */
+  const handleArchiveRow = useCallback(async (rowId: number) => {
+    setContextMenu(null)
+    await archiveRow(rowId, undefined, { cancelAppointments: true })
+    deselect(rowId)
+  }, [archiveRow, setContextMenu, deselect])
 
   const handleUnarchiveRow = useCallback(async (rowId: number) => {
     setContextMenu(null)
@@ -49,8 +63,7 @@ export function useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, du
   }, [unarchiveRow, setContextMenu])
 
   return {
-    archiveTarget, setArchiveTarget, archiveReason, setArchiveReason,
-    deleteTarget, setDeleteTarget, moveToGridTarget, setMoveToGridTarget,
-    handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveConfirm, handleUnarchiveRow,
+    moveToGridTarget, setMoveToGridTarget,
+    handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveRow, handleUnarchiveRow,
   }
 }

@@ -1,6 +1,8 @@
 import type { Column, GridRow } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore, rethrowIfUndoing } from './undoStore'
+import { archiveReasonAction, voidReasonNotes } from './archiveReasonStore'
+import type { ArchiveReasonState } from './archiveReasonStore'
 import { getClientName } from '../utils/clientName'
 import { wordNow } from '../utils/vocab'
 import { rlog } from '../utils/rendererLogger'
@@ -146,9 +148,15 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
       pulseEvents.emit('records:archive-changed')
       // Its upcoming appointments end with it, in the same undo step (audit 1.13)
       let apptSnapshot: unknown = null
+      let cancelled = 0
       if (opts?.cancelAppointments) {
         try {
-          apptSnapshot = (await invoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, [rowId])).snapshot
+          // Only when it has some, as the Archive dialog's box was only there then
+          if (await invoke<number>(IPC.APPT_UPCOMING_COUNT, [rowId]) > 0) {
+            const res = await invoke<{ snapshot: unknown; ids?: number[] }>(IPC.APPT_CANCEL_UPCOMING, [rowId])
+            apptSnapshot = res.snapshot
+            cancelled = res.ids?.length ?? 0
+          }
         } catch (err) {
           rlog.error('GridStore', 'Failed to cancel appointments of archived row', err)
           toast.error(`We couldn't cancel the upcoming ${wordNow('appointment', { many: true })}. You can delete them on the calendar.`)
@@ -159,9 +167,12 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         ? { rows: s.rows.map(r => r.row_id === rowId ? { ...r, is_active: 0 as const } : r) }
         : { rows: s.rows.filter(r => r.row_id !== rowId) }
       )
+      // Archive doesn't ask first (Q4): a reason can be added from the toast, and the step learns it
+      const reasonStep: ArchiveReasonState = { reason, noteIds: [] }
+      const apptText = cancelled > 0 ? `; ${cancelled} upcoming ${wordNow('appointment', { count: cancelled })} cancelled` : ''
       useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(),
-        description: `"${clientName}" archived`,
+        description: `"${clientName}" archived${apptText}`,
         timestamp: Date.now(),
         category: 'structural',
         icon: 'archive',
@@ -170,9 +181,10 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         undo: async () => {
           await get().unarchiveRow(rowId)
           if (apptSnapshot) await invoke(IPC.APPT_RESTORE, apptSnapshot)
+          await voidReasonNotes(reasonStep)
         },
-        redo: async () => { await get().archiveRow(rowId, reason, opts) },
-      })
+        redo: async () => { await get().archiveRow(rowId, reasonStep.reason, opts) },
+      }, reason ? undefined : { action: archiveReasonAction([rowId], `"${clientName}"`, reasonStep) })
     } catch (err) {
       rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to archive row', err)

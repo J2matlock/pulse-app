@@ -47,7 +47,7 @@ import { useGridCellNavigation, type NavDirection } from '../../hooks/useGridCel
 // Extracted sub-components
 import { GridHeaderRow } from './GridHeaderRow'
 import { GroupHeaderItem, CollapseExpandBar, GroupContextMenuOverlay } from './GridGroupHeader'
-import { ArchiveDialog, DeleteRowDialog, MoveToGridDialog, BulkDeleteDialog, BulkMoveDialog } from './GridDialogs'
+import { MoveToGridDialog, BulkMoveDialog } from './GridDialogs'
 import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
 import { GridHintBanner, GridLoadError, GridEmptyRecords } from './GridNotices'
@@ -166,7 +166,6 @@ export function DataGrid(): React.ReactElement {
   rowsRef.current = rows
   const filteredRowsRef = useRef<GridRow[]>([])
   const [cellFormatTarget, setCellFormatTarget] = useState<{ rowId: number; colId: number } | null>(null)
-  const [bulkDeleteTarget, setBulkDeleteTarget] = useState(false)
   const [bulkMoveTarget, setBulkMoveTarget] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [cellHistoryTarget, setCellHistoryTarget] = useState<{ rowId: number; colId: number; colName: string; x: number; y: number } | null>(null)
@@ -305,10 +304,9 @@ export function DataGrid(): React.ReactElement {
   const { parsedColumnConfigs, hasAnyHighlightRules, hasCrossRowRules, highlightColumnIds } = useGridRuleInfo(columns, cellFormats)
 
   const {
-    archiveTarget, setArchiveTarget, archiveReason, setArchiveReason,
-    deleteTarget, setDeleteTarget, moveToGridTarget, setMoveToGridTarget,
-    handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveConfirm, handleUnarchiveRow,
-  } = useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow })
+    moveToGridTarget, setMoveToGridTarget,
+    handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveRow, handleUnarchiveRow,
+  } = useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow, deleteRow, setSelectedRowIds })
 
   // Sensors: 5px distance threshold so single clicks still work (column reorder only)
   const colSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -747,11 +745,11 @@ export function DataGrid(): React.ReactElement {
           selectedRowIds={selectedRowIds}
           copiedFormatRules={copiedFormatRules}
           onClose={closeContextMenu}
-          onDeleteRow={handleDeleteRow}
+          onDeleteRow={id => void handleDeleteRow(id)}
           onToggleStar={id => void handleToggleStar(id)}
           onOpenRecord={handleNavigateToProfile}
           onDuplicateRow={id => void handleDuplicateRow(id)}
-          onArchiveRow={id => { setArchiveTarget(id); setContextMenu(null) }}
+          onArchiveRow={id => void handleArchiveRow(id)}
           onUnarchiveRow={id => void handleUnarchiveRow(id)}
           onMoveToGrid={id => { setMoveToGridTarget(id); setContextMenu(null) }}
           onCellFormatTarget={setCellFormatTarget}
@@ -798,14 +796,6 @@ export function DataGrid(): React.ReactElement {
         onClose={() => setGroupContextMenu(null)}
       />
 
-      {/* Delete row confirmation */}
-      <DeleteRowDialog
-        deleteTarget={deleteTarget}
-        deleteRow={deleteRow}
-        setDeleteTarget={setDeleteTarget}
-        setSelectedRowIds={setSelectedRowIds}
-      />
-
       {/* Move / Copy to Grid modal */}
       <MoveToGridDialog
         moveToGridTarget={moveToGridTarget}
@@ -825,7 +815,6 @@ export function DataGrid(): React.ReactElement {
           acuityLevels={acuityLevels}
           bulkSetRowAcuityLevel={bulkSetRowAcuityLevel}
           setSelectedRowIds={setSelectedRowIds}
-          setBulkDeleteTarget={setBulkDeleteTarget}
           setBulkMoveTarget={setBulkMoveTarget}
           setBulkEditOpen={setBulkEditOpen}
         />
@@ -840,16 +829,6 @@ export function DataGrid(): React.ReactElement {
         rowById={rowById}
       />
 
-      {/* Bulk delete confirmation */}
-      <BulkDeleteDialog
-        open={bulkDeleteTarget}
-        selectedCount={selectedRowIds.size}
-        selectedRowIds={selectedRowIds}
-        activeGridId={activeGridId}
-        setSelectedRowIds={setSelectedRowIds}
-        setBulkDeleteTarget={setBulkDeleteTarget}
-      />
-
       {/* Bulk move to grid modal */}
       <BulkMoveDialog
         open={bulkMoveTarget}
@@ -858,15 +837,6 @@ export function DataGrid(): React.ReactElement {
         columns={allColumns}
         setSelectedRowIds={setSelectedRowIds}
         setBulkMoveTarget={setBulkMoveTarget}
-      />
-
-      {/* Archive dialog */}
-      <ArchiveDialog
-        archiveTarget={archiveTarget}
-        archiveReason={archiveReason}
-        setArchiveReason={setArchiveReason}
-        onConfirm={opts => void handleArchiveConfirm(opts)}
-        onCancel={() => { setArchiveTarget(null); setArchiveReason('') }}
       />
     </div>
   )

@@ -304,7 +304,7 @@ export function GridContextMenu({
             onClick={() => { onArchiveRow(contextMenu.rowId); onClose() }}
           >
             <Archive className="w-4 h-4" />
-            Archive {t('record')}…
+            Archive {t('record')}
           </button>
         )}
         <button

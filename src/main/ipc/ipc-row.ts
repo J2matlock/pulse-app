@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import type { RowLocation } from '../../shared/ipc-contract'
 import { logNonFatal, ok, fail, buildSafeSetClause, notifyCaseLogChanged } from './ipc-utils'
-import { handlersFor, idArg, idListArg } from './ipc-define'
+import { handlersFor, idArg, idListArg, textArg } from './ipc-define'
 import { getDb, getRow, cachedStmt } from '../database'
 import { word } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
@@ -651,4 +651,31 @@ export function registerRowHandlers(): void {
     `).all(...Array(3).fill(`%${search.replace(/[%_\\]/g, '\\$&')}%`), safeOffset)
     return ok(rows)
   })
+  // "Add a reason…" on the Undo toast after archiving (Q4): the reason is saved on the
+  // records that are still archived, and each gets its own note, because the "archived"
+  // note was already written and the case log isn't rewritten. The note ids go back so
+  // undoing the archive can void them.
+  define(IPC.ROW_ARCHIVE_REASON, [
+    idListArg('Invalid rowIds', 'Invalid IDs in rowIds', { min: 1, max: MAX_BULK_ROW_ACTION }),
+    textArg('Keep the reason under 1,000 characters.', { min: 1, max: 1000, notBlank: true }),
+  ], (rowIds, reason) => {
+    const text = reason.trim()
+    const db = getDb()
+    const noteIds = db.transaction(() => {
+      const update = cachedStmt('row_archive_reason', `
+        UPDATE rows SET archived_reason = ?, updated_at = datetime('now')
+        WHERE id = ? AND deleted_at IS NULL AND is_active = 0 AND archived_at IS NOT NULL
+      `)
+      const note = cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`)
+      const ids: number[] = []
+      for (const id of new Set(rowIds)) {
+        if (update.run(text, id).changes === 0) continue
+        ids.push(Number(note.run(id, `Reason for archiving: ${text}`).lastInsertRowid))
+      }
+      return ids
+    })()
+    if (noteIds.length === 0) return fail(`That ${word('record')} isn't archived any more, so the reason wasn't saved.`)
+    for (const id of new Set(rowIds)) notifyCaseLogChanged(id)
+    return ok({ noteIds })
+  }, { write: true })
 }

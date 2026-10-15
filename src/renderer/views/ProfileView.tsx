@@ -26,9 +26,7 @@ import toast from 'react-hot-toast'
 import { ProfilePrintLayout } from '../components/profile/ProfilePrintLayout'
 import { ProfileExportDialog, type ProfileSections } from '../components/profile/ProfileExportDialog'
 import { RecordLetterDialog } from '../components/profile/RecordLetterDialog'
-import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { MoveToGridModal } from '../components/grid/MoveToGridModal'
-import { CancelAppointmentsCheckbox, useUpcomingAppointments } from '../components/grid/GridDialogs'
 import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
 import { isPersonKind, type GridRow, type SaveDialogResult } from '../../shared/types'
 import type { RowLocation } from '../../shared/ipc-contract'
@@ -92,11 +90,6 @@ export default function ProfileView(): React.ReactElement {
   const showPrintLayout = printSections !== null
   const closePrintLayout = useCallback(() => setPrintSections(null), [])
   // "More ▾" actions (3.6)
-  const [askArchive, setAskArchive] = useState(false)
-  const [archiveReason, setArchiveReason] = useState('')
-  // Archiving here offers to cancel upcoming appointments, like the list's Archive (1.13)
-  const [cancelAppts, setCancelAppts] = useState(true)
-  const [askTrash, setAskTrash] = useState(false)
   const [showMove, setShowMove] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const closeExportDialog = useCallback(() => setShowExportDialog(false), [])
@@ -157,7 +150,6 @@ export default function ProfileView(): React.ReactElement {
   const hasLinkTypes = useLinkStore(s => s.types.some(lt => lt.from_grid_id === activeGridId || lt.to_grid_id === activeGridId))
   useEffect(() => { if (linksOn && !linkTypesLoaded) void useLinkStore.getState().load() }, [linksOn, linkTypesLoaded])
 
-  const upcomingAppts = useUpcomingAppointments(askArchive && rowId != null ? [rowId] : null)
   const activeGrid = grids.find(g => g.id === activeGridId)
   const nameCol = columns.find(c => c.is_name_column === 1)
 
@@ -320,17 +312,15 @@ export default function ProfileView(): React.ReactElement {
     else goBack()
   }
 
-  async function confirmArchive() {
-    setAskArchive(false)
+  // Archive and Trash don't ask first: the Undo toast is global, so Undo works from the list (Q4).
+  // Archiving cancels upcoming appointments too, like the list's Archive (1.13); the toast offers "Add a reason…"
+  async function archiveNow() {
     if (rowId == null) return
-    await archiveRow(rowId, archiveReason.trim() || undefined, { cancelAppointments: upcomingAppts > 0 && cancelAppts })
-    setArchiveReason('')
-    setCancelAppts(true)
+    await archiveRow(rowId, undefined, { cancelAppointments: true })
     leaveRecord()
   }
 
-  async function confirmTrash() {
-    setAskTrash(false)
+  async function trashNow() {
     if (rowId == null) return
     await deleteRow(rowId)
     leaveRecord()
@@ -360,11 +350,11 @@ export default function ProfileView(): React.ReactElement {
   ]
 
   const moreItems: MoreMenuItem[] = [
-    ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
+    ...(row && row.is_active !== 0 ? [{ label: 'Archive', onSelect: () => void archiveNow() }] : []),
     ...(rowInList ? [{ label: `Duplicate (copies details, not ${t('activity', { many: true })})`, onSelect: () => void duplicateHere() }] : []),
     ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
     ...(hiddenSections.length > 0 ? [{ label: 'Add more sections…', onSelect: () => navigate(settingsFeaturePath()) }] : []),
-    { label: 'Move to the Trash…', onSelect: () => setAskTrash(true), danger: true },
+    { label: 'Move to the Trash', onSelect: () => void trashNow(), danger: true },
   ]
 
   // Refs to avoid stale closures in keyboard handler
@@ -651,30 +641,6 @@ export default function ProfileView(): React.ReactElement {
       {printSections && rowId != null && activeGridId != null && (
         <ProfilePrintLayout rowId={rowId} gridId={activeGridId} clientName={clientName} row={row} sections={printSections} onClose={closePrintLayout} />
       )}
-
-      <ConfirmDialog
-        open={askArchive}
-        title={`Archive ${clientName}?`}
-        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time from the ${t('list')}: Show ▾ → Show archived ${t('record', { many: true })}, then Unarchive.`}
-        confirmLabel="Archive"
-        destructive={false}
-        onConfirm={() => void confirmArchive()}
-        onCancel={() => { setAskArchive(false); setArchiveReason(''); setCancelAppts(true) }}
-      >
-        <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-1">Reason (optional)</label>
-        <input id="archive-reason" className="input w-full" value={archiveReason} maxLength={1000}
-          onChange={e => setArchiveReason(e.target.value)} placeholder="e.g. Discharged, Moved away, Job finished" />
-        <div className="mt-3"><CancelAppointmentsCheckbox count={upcomingAppts} checked={cancelAppts} onChange={setCancelAppts} /></div>
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={askTrash}
-        title={`Move ${clientName} to the Trash?`}
-        message={`${clientName} stays in the Trash for 30 days, and you can restore ${holdsPeople ? 'them' : 'it'} from there or with Undo.`}
-        confirmLabel="Move to the Trash"
-        onConfirm={() => void confirmTrash()}
-        onCancel={() => setAskTrash(false)}
-      />
 
       {showMove && rowId != null && activeGridId != null && (
         <MoveToGridModal

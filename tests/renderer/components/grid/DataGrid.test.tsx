@@ -140,11 +140,9 @@ vi.mock('../../../../src/renderer/components/shared/ConfirmDialog', () => ({
   ConfirmDialog: () => null,
 }))
 vi.mock('../../../../src/renderer/components/grid/GridDialogs', () => ({
-  ArchiveDialog: () => null,
-  DeleteRowDialog: () => null,
   MoveToGridDialog: () => null,
-  BulkDeleteDialog: () => null,
   BulkMoveDialog: () => null,
+  trashRows: vi.fn(),
 }))
 vi.mock('../../../../src/renderer/components/grid/GridGroupHeader', () => ({
   GroupHeaderItem: () => null,

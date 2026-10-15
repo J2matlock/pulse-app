@@ -289,17 +289,15 @@ describe('A record opens from anywhere (1.24)', () => {
 })
 
 describe('Acting on a record from its own page (3.6)', () => {
-  it('archives with a reason and goes back to the list, where the row visibly goes (C-17)', async () => {
+  it('archives at once, no dialog, and goes back to the list, where the row visibly goes (C-17, Q4)', async () => {
     const archiveRow = vi.fn(async () => {})
     setGrid({ archiveRow })
     renderAt('/profile/1')
     await flush()
-    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
-    // Says where to find it again
-    expect(screen.getByText(/Show ▾ → Show archived clients, then Unarchive/)).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Moved away' } })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
-    expect(archiveRow).toHaveBeenCalledWith(1, 'Moved away', { cancelAppointments: false })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // Upcoming appointments go with it, as the dialog did by default; the Undo toast offers a reason
+    expect(archiveRow).toHaveBeenCalledWith(1, undefined, { cancelAppointments: true })
     expect(screen.getByText('LIST PAGE')).toBeTruthy()
   })
 
@@ -311,9 +309,8 @@ describe('Acting on a record from its own page (3.6)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Next client/ }))
     await flush()
     expect(screen.getByLabelText('note for 2')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
-    expect(archiveRow).toHaveBeenCalledWith(2, undefined, { cancelAppointments: false })
+    expect(archiveRow).toHaveBeenCalledWith(2, undefined, { cancelAppointments: true })
     expect(screen.getByLabelText('note for 3')).toBeTruthy()
   })
 
@@ -326,42 +323,31 @@ describe('Acting on a record from its own page (3.6)', () => {
     expect(screen.queryByText(/to navigate/)).toBeNull()
   })
 
-  it('asks about the full name the header shows, not just the name column', async () => {
+  it('no longer asks "Archive Maria Lopez?" or "Move Maria to the Trash?" (Q4)', async () => {
+    const archiveRow = vi.fn(async () => {})
     setGrid({
+      archiveRow,
       columns: [...columns, { ...columns[0], id: 2, name: 'Last name', is_name_column: 0, is_identifier: 0, position: 1 }],
       rows: [rowOf(1, 'Maria', { col_2: 'Lopez' })],
       sortedRowIds: [1],
     })
     renderAt('/profile/1')
     await flush()
-    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
-    expect(screen.getByText('Archive Maria Lopez?')).toBeTruthy()
-  })
-
-  it('offers to cancel upcoming appointments when archiving, like the list does', async () => {
-    const archiveRow = vi.fn(async () => {})
-    setGrid({ archiveRow })
-    invokeMock.fn = async (channel: string) => channel === 'appointments:upcoming-count'
-      ? { ok: true, data: 2 }
-      : { ok: true, data: [] }
-    renderAt('/profile/1')
-    await flush()
-    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
-    await flush()
-    const box = screen.getByRole('checkbox', { name: /Also cancel its 2 upcoming/ }) as HTMLInputElement
-    expect(box.checked).toBe(true)
+    // The menu items act, so they have no "…"
+    expect(screen.queryByRole('button', { name: 'Archive…' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Move to the Trash…' })).toBeNull()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
-    expect(archiveRow).toHaveBeenCalledWith(1, undefined, { cancelAppointments: true })
+    expect(screen.queryByText('Archive Maria Lopez?')).toBeNull()
+    expect(archiveRow).toHaveBeenCalledTimes(1)
   })
 
-  it('moves to the Trash after asking, then goes back to the list when it was the only one', async () => {
+  it('moves to the Trash at once, then goes back to the list when it was the only one (Q4)', async () => {
     const deleteRow = vi.fn(async () => {})
     setGrid({ deleteRow, rows: [rowOf(1, 'Maria')], sortedRowIds: [1] })
     renderAt('/profile/1')
     await flush()
-    fireEvent.click(screen.getByRole('button', { name: 'Move to the Trash…' }))
-    expect(screen.getByText(/Maria stays in the Trash for 30 days/)).toBeTruthy()
-    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Move to the Trash' }).at(-1)!) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Move to the Trash' })) })
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(deleteRow).toHaveBeenCalledWith(1)
     expect(screen.getByText('LIST PAGE')).toBeTruthy()
   })
