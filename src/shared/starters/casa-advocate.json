@@ -61,21 +61,9 @@
           "is_required": 1
         },
         {
-          "name": "Case number",
-          "column_type": "text",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Court",
-          "column_type": "text",
-          "position": 2,
-          "width": 150
-        },
-        {
           "name": "Next hearing",
           "column_type": "date",
-          "position": 3,
+          "position": 1,
           "width": 150,
           "is_required": 1,
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
@@ -83,7 +71,7 @@
         {
           "name": "Court report filed",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 150,
           "description": "Date you filed the court report for the next hearing",
           "config": "{\"alert_rule_name\":\"Court report due\",\"log_changes\":true}"
@@ -91,9 +79,21 @@
         {
           "name": "Last visit",
           "column_type": "date",
-          "position": 5,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Case number",
+          "column_type": "text",
+          "position": 4,
+          "width": 140
+        },
+        {
+          "name": "Court",
+          "column_type": "text",
+          "position": 5,
+          "width": 150
         },
         {
           "name": "Placement",

@@ -108,45 +108,45 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Preferred language",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 150,
-          "config": "{\"options\":[\"English\",\"Spanish\",\"Vietnamese\",\"Arabic\",\"Other\"]}"
-        },
-        {
-          "name": "Address",
-          "column_type": "address",
-          "position": 3,
-          "width": 160
-        },
-        {
-          "name": "Health concerns",
-          "column_type": "tag",
-          "position": 4,
-          "width": 140
-        },
-        {
           "name": "Last contact",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
         },
         {
           "name": "Screening due",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 150,
           "description": "The next screening (blood pressure, A1C, mammogram…)",
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Preferred language",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\":[\"English\",\"Spanish\",\"Vietnamese\",\"Arabic\",\"Other\"]}"
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 5,
+          "width": 160
+        },
+        {
+          "name": "Health concerns",
+          "column_type": "tag",
+          "position": 6,
+          "width": 140
         },
         {
           "name": "Primary care clinic",

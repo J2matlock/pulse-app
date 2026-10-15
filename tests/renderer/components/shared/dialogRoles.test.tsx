@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 vi.mock('motion/react', () => ({
@@ -34,5 +34,20 @@ describe('dialog semantics', () => {
     const dialog = screen.getByRole('dialog', { name: /Your Recovery Key/ })
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(screen.getByRole('checkbox').className).toContain('w-5 h-5')
+  })
+
+  it('the recovery key screen\'s Done explains itself when the box isn\'t ticked (UX-A-05)', () => {
+    const onClose = vi.fn()
+    render(<RecoveryKeyDisplayModal open recoveryKey="ABCD-EFGH-JKLM-NPQR-STUV-WXYZ-2345" onClose={onClose} />)
+    const done = screen.getByRole('button', { name: 'Done' })
+    expect(done.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(done)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toMatch(/Tick/)
+    expect(document.activeElement).toBe(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(done)
+    expect(onClose).toHaveBeenCalled()
   })
 })

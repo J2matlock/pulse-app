@@ -137,38 +137,9 @@
           "is_required": 1
         },
         {
-          "name": "Status",
-          "column_type": "status",
-          "position": 1,
-          "width": 170,
-          "config": "{\"options\": [{\"label\": \"Enrolled\", \"color\": \"#64748b\"}, {\"label\": \"Learning\", \"color\": \"#3b82f6\"}, {\"label\": \"Ready for road test\", \"color\": \"#f59e0b\"}, {\"label\": \"Passed\", \"color\": \"#22c55e\"}, {\"label\": \"Withdrawn\", \"color\": \"#ef4444\"}]}"
-        },
-        {
-          "name": "Parent / guardian",
-          "column_type": "text",
-          "position": 2,
-          "width": 170,
-          "is_required": 1
-        },
-        {
-          "name": "Parent phone",
-          "column_type": "phone",
-          "position": 3,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Permit issued",
-          "column_type": "date",
-          "position": 4,
-          "width": 150,
-          "is_required": 1,
-          "description": "Date on the learner's permit; the road test date is worked out from it"
-        },
-        {
           "name": "Permit expires",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
           "description": "When the learner's permit runs out"
@@ -176,7 +147,7 @@
         {
           "name": "Road test booked",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Road test eligible\", \"log_changes\": true}",
           "description": "Date you booked the road test. Due once the permit is 6 months old"
@@ -184,51 +155,80 @@
         {
           "name": "Road test date",
           "column_type": "date",
-          "position": 7,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Test day\", \"log_changes\": true}",
           "description": "The day of the road test"
         },
         {
-          "name": "Passed on",
+          "name": "Lessons left",
+          "column_type": "deadline",
+          "position": 4,
+          "width": 140,
+          "config": "{\"alert_rule_name\": \"Lessons left\"}"
+        },
+        {
+          "name": "Status",
+          "column_type": "status",
+          "position": 5,
+          "width": 170,
+          "config": "{\"options\": [{\"label\": \"Enrolled\", \"color\": \"#64748b\"}, {\"label\": \"Learning\", \"color\": \"#3b82f6\"}, {\"label\": \"Ready for road test\", \"color\": \"#f59e0b\"}, {\"label\": \"Passed\", \"color\": \"#22c55e\"}, {\"label\": \"Withdrawn\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Parent / guardian",
+          "column_type": "text",
+          "position": 6,
+          "width": 170,
+          "is_required": 1
+        },
+        {
+          "name": "Parent phone",
+          "column_type": "phone",
+          "position": 7,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Permit issued",
           "column_type": "date",
           "position": 8,
+          "width": 150,
+          "is_required": 1,
+          "description": "Date on the learner's permit; the road test date is worked out from it"
+        },
+        {
+          "name": "Passed on",
+          "column_type": "date",
+          "position": 9,
           "width": 140,
           "description": "Filled in when the student moves to Passed"
         },
         {
           "name": "Practice hours",
           "column_type": "number",
-          "position": 9,
+          "position": 10,
           "width": 130,
           "description": "Supervised driving hours so far, from the practice log (most states ask for 50)"
         },
         {
           "name": "Night hours",
           "column_type": "number",
-          "position": 10,
+          "position": 11,
           "width": 120,
           "description": "Of those, hours driven after dark (most states ask for 10)"
         },
         {
           "name": "Enrolled on",
           "column_type": "date",
-          "position": 11,
+          "position": 12,
           "width": 140,
           "description": "Lessons are counted from this date until the permit expires"
         },
         {
           "name": "Lessons paid for",
           "column_type": "number",
-          "position": 12,
-          "width": 140
-        },
-        {
-          "name": "Lessons left",
-          "column_type": "deadline",
           "position": 13,
-          "width": 140,
-          "config": "{\"alert_rule_name\": \"Lessons left\"}"
+          "width": 140
         }
       ],
       "alertRules": [
@@ -406,53 +406,53 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 2,
-          "width": 200
-        },
-        {
           "name": "Instructor license expires",
           "column_type": "date",
-          "position": 3,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
         },
         {
           "name": "Background check",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 2 years\", \"log_changes\": true}",
           "description": "Date of the last background check"
         },
         {
-          "name": "Training car",
-          "column_type": "text",
-          "position": 5,
-          "width": 200,
-          "description": "Make, model and plate of the dual-brake car"
-        },
-        {
           "name": "Car insurance renews",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
         },
         {
           "name": "Car safety inspection",
           "column_type": "date",
-          "position": 7,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Date of the last inspection of the training car"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 6,
+          "width": 200
+        },
+        {
+          "name": "Training car",
+          "column_type": "text",
+          "position": 7,
+          "width": 200,
+          "description": "Make, model and plate of the dual-brake car"
         }
       ],
       "alertRules": [

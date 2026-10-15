@@ -124,35 +124,9 @@
           "is_required": 1
         },
         {
-          "name": "Trade",
-          "column_type": "dropdown",
-          "position": 1,
-          "width": 140,
-          "config": "{\"options\": [\"Electrical\", \"Plumbing\", \"HVAC\", \"Roofing\", \"Concrete\", \"Framing\", \"Drywall\", \"Painting\", \"Excavation\", \"Flooring\", \"Other\"]}"
-        },
-        {
-          "name": "Contact person",
-          "column_type": "text",
-          "position": 2,
-          "width": 160
-        },
-        {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 3,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 4,
-          "width": 210
-        },
-        {
           "name": "General liability expires",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 170,
           "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
           "is_required": 1,
@@ -161,7 +135,7 @@
         {
           "name": "Workers' comp expires",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 170,
           "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
           "description": "Leave blank and add a note if they have an exemption certificate"
@@ -169,7 +143,7 @@
         {
           "name": "Auto liability expires",
           "column_type": "date",
-          "position": 7,
+          "position": 3,
           "width": 170,
           "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
           "description": "For subs who drive company vehicles to your sites"
@@ -177,10 +151,36 @@
         {
           "name": "Contractor license expires",
           "column_type": "date",
-          "position": 8,
+          "position": 4,
           "width": 170,
           "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
           "description": "State or local contractor license"
+        },
+        {
+          "name": "Trade",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 140,
+          "config": "{\"options\": [\"Electrical\", \"Plumbing\", \"HVAC\", \"Roofing\", \"Concrete\", \"Framing\", \"Drywall\", \"Painting\", \"Excavation\", \"Flooring\", \"Other\"]}"
+        },
+        {
+          "name": "Contact person",
+          "column_type": "text",
+          "position": 6,
+          "width": 160
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 7,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 8,
+          "width": 210
         },
         {
           "name": "W-9 received",
@@ -251,28 +251,9 @@
           "is_required": 1
         },
         {
-          "name": "Address",
-          "column_type": "address",
-          "position": 1,
-          "width": 190
-        },
-        {
-          "name": "Property owner",
-          "column_type": "text",
-          "position": 2,
-          "width": 170
-        },
-        {
-          "name": "Status",
-          "column_type": "dropdown",
-          "position": 3,
-          "width": 130,
-          "config": "{\"options\": [\"Bidding\", \"Signed\", \"Active\", \"Done\"]}"
-        },
-        {
           "name": "Start date",
           "column_type": "date",
-          "position": 4,
+          "position": 1,
           "width": 170,
           "config": "{\"alert_rule_name\": \"Start date\", \"log_changes\": true}",
           "description": "Check every sub on the job has current paperwork before this date"
@@ -280,9 +261,28 @@
         {
           "name": "Finish date",
           "column_type": "date",
-          "position": 5,
+          "position": 2,
           "width": 170,
           "config": "{\"alert_rule_name\": \"Finish date\", \"log_changes\": true}"
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 190
+        },
+        {
+          "name": "Property owner",
+          "column_type": "text",
+          "position": 4,
+          "width": 170
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 130,
+          "config": "{\"options\": [\"Bidding\", \"Signed\", \"Active\", \"Done\"]}"
         },
         {
           "name": "Notes",

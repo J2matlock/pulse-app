@@ -61,38 +61,38 @@
           "is_required": 1
         },
         {
+          "name": "Expires on",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true,\"done_checklist_name\":\"Renewal steps\"}"
+        },
+        {
           "name": "Issued by",
           "column_type": "text",
-          "position": 1,
+          "position": 2,
           "width": 200,
           "description": "The agency or office that issues it"
         },
         {
           "name": "Number",
           "column_type": "text",
-          "position": 2,
+          "position": 3,
           "width": 160
         },
         {
           "name": "Location",
           "column_type": "text",
-          "position": 3,
+          "position": 4,
           "width": 160,
           "description": "The site or location it covers"
         },
         {
           "name": "Issued on",
           "column_type": "date",
-          "position": 4,
-          "width": 150
-        },
-        {
-          "name": "Expires on",
-          "column_type": "date",
           "position": 5,
-          "width": 150,
-          "is_required": 1,
-          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true,\"done_checklist_name\":\"Renewal steps\"}"
+          "width": 150
         },
         {
           "name": "Renewal fee",

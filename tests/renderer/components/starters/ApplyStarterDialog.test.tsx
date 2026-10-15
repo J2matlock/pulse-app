@@ -100,6 +100,39 @@ describe('ApplyStarterDialog', () => {
     expect(screen.getByText('Student, Grade, Next check-in')).toBeTruthy()
   })
 
+  it('first run shows the first group open, the rest behind "More examples", and marks the usual layout (UX-A-27)', async () => {
+    const business = { ...summary, id: 'tax-preparer', name: 'Tax preparer', group: 'Business', variants: [] }
+    const health = { ...summary, id: 'school-nurse', name: 'School nurse', group: 'Health', variants: [] }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [summary, business, health] })
+      if (channel === IPC.STARTER_PREVIEW) return Promise.resolve({ ok: true, data: preview })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog('setup')
+    await screen.findByRole('button', { name: /Human services/ })
+    const more = screen.getByText(/More examples \(business, health\)/)
+    expect((more.closest('details') as HTMLDetailsElement).open).toBe(false)
+    // A search shows every match, whatever group it's in
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search examples' }), { target: { value: 'tax' } })
+    expect(screen.queryByText(/More examples/)).toBeNull()
+    expect(screen.getByRole('button', { name: /Tax preparer/ })).toBeTruthy()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search examples' }), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /Human services/ }))
+    expect(screen.getByRole('radio', { name: /OPWDD Caseload\s*\(most common\)/ })).toBeTruthy()
+    expect(screen.queryByRole('radio', { name: /School Counselor.*most common/ })).toBeNull()
+  })
+
+  it('on first run the words and features are one line each, with the detail behind a click (UX-A-06)', async () => {
+    renderDialog('setup')
+    fireEvent.click(await screen.findByRole('button', { name: /Human services/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('School Counselor 2')
+    expect(screen.getByText('clients', { selector: 'span' })).toBeTruthy()
+    expect(screen.getByText('1 feature you can switch off later')).toBeTruthy()
+    for (const name of ['Show the words', 'Show the features']) expect((screen.getByText(name).closest('details') as HTMLDetailsElement).open).toBe(false)
+    expect(screen.getByText('Letters and documents')).toBeTruthy()
+  })
+
   it('adding from the sidebar leaves sample data off unless asked', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [summary] })

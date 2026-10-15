@@ -108,23 +108,9 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Recovery start date",
-          "column_type": "date",
-          "position": 2,
-          "width": 150,
-          "description": "The milestones count from this date"
-        },
-        {
           "name": "Milestones",
           "column_type": "deadline",
-          "position": 3,
+          "position": 1,
           "width": 140,
           "description": "The next milestone to celebrate; mark it done to move to the next",
           "config": "{\"alert_rule_name\":\"Recovery milestones\"}"
@@ -132,7 +118,7 @@
         {
           "name": "Recovery plan review",
           "column_type": "date",
-          "position": 4,
+          "position": 2,
           "width": 150,
           "description": "Date of the last recovery plan review; due again in 90 days",
           "config": "{\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
@@ -140,9 +126,23 @@
         {
           "name": "Last contact",
           "column_type": "date",
-          "position": 5,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 4,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Recovery start date",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "The milestones count from this date"
         },
         {
           "name": "Supports",

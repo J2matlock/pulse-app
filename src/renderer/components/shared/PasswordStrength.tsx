@@ -13,7 +13,7 @@ const LEVELS: Record<Strength, { label: string; bars: number; color: string; tex
 export function PasswordStrength({ password, id }: { password: string; id?: string }): React.ReactElement | null {
   if (!password) {
     return (
-      <p id={id} className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+      <p id={id} className="text-base text-slate-600 dark:text-slate-300 mt-1">
         At least 12 characters. Tip: a short sentence like “blue tractor sings at noon” is strong and easy to remember.
       </p>
     )
@@ -27,7 +27,7 @@ export function PasswordStrength({ password, id }: { password: string; id?: stri
           <div key={i} className={`h-1.5 flex-1 rounded-full ${i < level.bars ? level.color : 'bg-slate-200 dark:bg-slate-700'}`} />
         ))}
       </div>
-      <p className={`text-sm mt-1 font-medium ${level.text}`}>
+      <p className={`text-base mt-1 font-medium ${level.text}`}>
         {level.label}{check.message ? ` — ${check.message}` : ''}
       </p>
     </div>

@@ -69,31 +69,31 @@
           "is_required": 1
         },
         {
+          "name": "Background check",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "description": "Date of the last background check; due again every 2 years",
+          "config": "{\"alert_rule_name\":\"Every 2 years\",\"log_changes\":true}"
+        },
+        {
           "name": "Phone",
           "column_type": "phone",
-          "position": 1,
+          "position": 2,
           "width": 140,
           "is_required": 1
         },
         {
           "name": "Email",
           "column_type": "email",
-          "position": 2,
+          "position": 3,
           "width": 200
         },
         {
           "name": "Interests",
           "column_type": "tag",
-          "position": 3,
-          "width": 140
-        },
-        {
-          "name": "Background check",
-          "column_type": "date",
           "position": 4,
-          "width": 150,
-          "description": "Date of the last background check; due again every 2 years",
-          "config": "{\"alert_rule_name\":\"Every 2 years\",\"log_changes\":true}"
+          "width": 140
         },
         {
           "name": "Training done",
@@ -142,62 +142,62 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
+          "name": "Last match check-in",
           "column_type": "date",
           "position": 1,
+          "width": 150,
+          "description": "Date of the last check-in with the match; due monthly",
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 2,
           "width": 150
         },
         {
           "name": "Guardian",
           "column_type": "text",
-          "position": 2,
+          "position": 3,
           "width": 160
         },
         {
           "name": "Guardian phone",
           "column_type": "phone",
-          "position": 3,
+          "position": 4,
           "width": 140,
           "is_required": 1
         },
         {
           "name": "School",
           "column_type": "text",
-          "position": 4,
+          "position": 5,
           "width": 170
         },
         {
           "name": "Interests",
           "column_type": "tag",
-          "position": 5,
+          "position": 6,
           "width": 140
         },
         {
           "name": "Referred on",
           "column_type": "date",
-          "position": 6,
+          "position": 7,
           "width": 150
         },
         {
           "name": "Stage",
           "column_type": "status",
-          "position": 7,
+          "position": 8,
           "width": 130,
           "config": "{\"options\":[{\"label\":\"Referred\",\"color\":\"#64748b\"},{\"label\":\"Matching\",\"color\":\"#f59e0b\"},{\"label\":\"Matched\",\"color\":\"#22c55e\"},{\"label\":\"Closed\",\"color\":\"#ef4444\"}]}"
         },
         {
           "name": "Match date",
           "column_type": "date",
-          "position": 8,
-          "width": 150
-        },
-        {
-          "name": "Last match check-in",
-          "column_type": "date",
           "position": 9,
-          "width": 150,
-          "description": "Date of the last check-in with the match; due monthly",
-          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+          "width": 150
         }
       ],
       "alertRules": [

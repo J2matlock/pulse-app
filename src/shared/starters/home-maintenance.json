@@ -113,35 +113,16 @@
           "is_required": 1
         },
         {
-          "name": "Where",
-          "column_type": "text",
-          "position": 1,
-          "width": 140,
-          "description": "Room or spot, e.g. Basement, Kitchen, North side of the house"
-        },
-        {
-          "name": "Brand and model",
-          "column_type": "text",
-          "position": 2,
-          "width": 170
-        },
-        {
-          "name": "Installed",
-          "column_type": "date",
-          "position": 3,
-          "width": 140
-        },
-        {
           "name": "Warranty ends",
           "column_type": "date",
-          "position": 4,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
         },
         {
           "name": "Air filter changed",
           "column_type": "date",
-          "position": 5,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 90 days\", \"log_changes\": true}",
           "description": "Furnace, AC or air purifier filter. Write the size in Notes"
@@ -149,7 +130,7 @@
         {
           "name": "Water filter changed",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}",
           "description": "Refrigerator or under-sink water filter"
@@ -157,7 +138,7 @@
         {
           "name": "Last serviced",
           "column_type": "date",
-          "position": 7,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Yearly tune-up, flush or cleaning: furnace, water heater, dryer vent, roof check"
@@ -165,26 +146,45 @@
         {
           "name": "Batteries changed",
           "column_type": "date",
-          "position": 8,
+          "position": 5,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
           "description": "Smoke and CO detectors. Press the test button once a month too"
         },
         {
-          "name": "Seasonal",
-          "column_type": "dropdown",
-          "position": 9,
-          "width": 140,
-          "description": "Choose \"Spring and fall\" for things that need care twice a year, like gutters",
-          "config": "{\"options\": [\"Spring and fall\"]}"
-        },
-        {
           "name": "Spring and fall upkeep",
           "column_type": "deadline",
-          "position": 10,
+          "position": 6,
           "width": 170,
           "description": "Due at the end of April and the end of October; mark it done when it is done",
           "config": "{\"alert_rule_name\": \"Spring and fall\"}"
+        },
+        {
+          "name": "Where",
+          "column_type": "text",
+          "position": 7,
+          "width": 140,
+          "description": "Room or spot, e.g. Basement, Kitchen, North side of the house"
+        },
+        {
+          "name": "Brand and model",
+          "column_type": "text",
+          "position": 8,
+          "width": 170
+        },
+        {
+          "name": "Installed",
+          "column_type": "date",
+          "position": 9,
+          "width": 140
+        },
+        {
+          "name": "Seasonal",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 140,
+          "description": "Choose \"Spring and fall\" for things that need care twice a year, like gutters",
+          "config": "{\"options\": [\"Spring and fall\"]}"
         },
         {
           "name": "Notes",
@@ -272,24 +272,24 @@
           "is_required": 1
         },
         {
+          "name": "Due",
+          "column_type": "date",
+          "position": 1,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
+          "description": "When it has to be paid or renewed. After paying, change it to the next due date"
+        },
+        {
           "name": "Company",
           "column_type": "text",
-          "position": 1,
+          "position": 2,
           "width": 170
         },
         {
           "name": "Amount",
           "column_type": "currency",
-          "position": 2,
-          "width": 120
-        },
-        {
-          "name": "Due",
-          "column_type": "date",
           "position": 3,
-          "width": 160,
-          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
-          "description": "When it has to be paid or renewed. After paying, change it to the next due date"
+          "width": 120
         },
         {
           "name": "How often",

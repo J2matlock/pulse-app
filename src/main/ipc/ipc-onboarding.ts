@@ -16,6 +16,24 @@ import { textLength } from '../../shared/textLength'
 import { applyDateRules, StarterError } from '../starters'
 import type { SetupProgress } from '../../shared/ipc-contract'
 import { LIVE_GRID, NOT_TRASHED_ROW, liveGrid } from '../../shared/liveRecords'
+import { loadDeadlines, type DeadlineItem } from '../deadlines'
+import { SOON_DAYS } from '../../shared/deadlineEngine'
+
+/**
+ * Whether the list shows this deadline in a colour: overdue, due, or within the rule's
+ * first threshold. "Put in a date and watch its colour" is only done once that has
+ * happened; a yearly date due in eleven months is filled in but still white (UX-A-26).
+ */
+export function inColouredTier(d: Pick<DeadlineItem, 'daysUntil' | 'alert_thresholds' | 'state'>): boolean {
+  if (d.state === 'done' || d.state === 'paused' || d.state === 'none' || d.daysUntil === null) return false
+  if (d.daysUntil <= 0) return true
+  let lead = SOON_DAYS
+  try {
+    const thresholds = JSON.parse(d.alert_thresholds ?? '[]') as Array<{ daysBefore?: unknown }>
+    for (const t of thresholds) if (typeof t.daysBefore === 'number' && t.daysBefore > lead) lead = t.daysBefore
+  } catch { /* a rule with unreadable thresholds colours like one without */ }
+  return d.daysUntil <= lead
+}
 
 const dateAnswersSchema = z.array(z.union([
   z.object({ columnId: z.number().int().positive(), repeat: z.literal('due') }).strict(),
@@ -76,13 +94,16 @@ export function registerOnboardingHandlers(): void {
     const setting = (key: string) => (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
     const any = (sql: string) => !!db.prepare(`${sql} LIMIT 1`).get()
     const real = 'NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)'
+    const show = setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1'
+    // The step is about seeing a colour, so it's done once one of the person's own dates shows one
+    const reminder = (): boolean => {
+      const sample = new Set(db.prepare('SELECT row_id FROM sample_rows').pluck().all() as number[])
+      return loadDeadlines().some(d => !sample.has(d.row_id) && inColouredTier(d))
+    }
     return ok({
-      show: setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1',
+      show,
       record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE ${NOT_TRASHED_ROW} AND ${real}`),
-      reminder: any(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id JOIN rows r ON r.id = c.row_id
-        JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
-        WHERE ${NOT_TRASHED_ROW} AND ${real} AND COALESCE(c.value, '') != ''
-        AND (col.column_type = 'deadline' OR (json_valid(col.config) AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL))`),
+      reminder: show && reminder(),
       // Not a note on a record in the Trash or in a list in the Trash (Q-084)
       note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
         WHERE cl.log_type != 'system' AND ${NOT_TRASHED_ROW} AND ${real}`),

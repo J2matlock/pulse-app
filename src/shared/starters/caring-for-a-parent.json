@@ -68,40 +68,9 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 1,
-          "width": 140
-        },
-        {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 2,
-          "width": 140
-        },
-        {
-          "name": "Address",
-          "column_type": "address",
-          "position": 3,
-          "width": 200
-        },
-        {
-          "name": "Allergies",
-          "column_type": "text",
-          "position": 4,
-          "width": 160
-        },
-        {
-          "name": "Insurance",
-          "column_type": "dropdown",
-          "position": 5,
-          "width": 170,
-          "config": "{\"options\":[\"Medicare\",\"Medicare Advantage\",\"Medicare + supplement\",\"Medicaid\",\"Other\"]}"
-        },
-        {
           "name": "Medication review",
           "column_type": "date",
-          "position": 6,
+          "position": 1,
           "width": 160,
           "description": "Last time a doctor or pharmacist went over all the medications; again every 3 months",
           "config": "{\"alert_rule_name\":\"Every 3 months\",\"log_changes\":true}"
@@ -109,7 +78,7 @@
         {
           "name": "Wellness visit",
           "column_type": "date",
-          "position": 7,
+          "position": 2,
           "width": 150,
           "description": "Last yearly check-up",
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
@@ -117,7 +86,7 @@
         {
           "name": "Insurance renews",
           "column_type": "date",
-          "position": 8,
+          "position": 3,
           "width": 150,
           "description": "When the plan renews or open enrollment ends",
           "config": "{\"alert_rule_name\":\"Renews (60-day warning)\",\"log_changes\":true}"
@@ -125,10 +94,41 @@
         {
           "name": "Benefits renewal",
           "column_type": "date",
-          "position": 9,
+          "position": 4,
           "width": 150,
           "description": "Medicaid, food or housing benefits paperwork due",
           "config": "{\"alert_rule_name\":\"Renews (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 6,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 7,
+          "width": 200
+        },
+        {
+          "name": "Allergies",
+          "column_type": "text",
+          "position": 8,
+          "width": 160
+        },
+        {
+          "name": "Insurance",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 170,
+          "config": "{\"options\":[\"Medicare\",\"Medicare Advantage\",\"Medicare + supplement\",\"Medicaid\",\"Other\"]}"
         },
         {
           "name": "Power of attorney",

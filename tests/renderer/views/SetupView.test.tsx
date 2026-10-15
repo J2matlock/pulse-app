@@ -8,7 +8,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
 vi.mock('lucide-react', async () => (await import('../lucideMock')).lucideMock)
-vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
+vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }) }))
 // The import wizard and example dialog have their own tests; here they just finish
 vi.mock('../../../src/renderer/components/grid/ImportWizard', () => ({
   ImportWizard: ({ onImported, onClose }: { onImported: (r: { imported: number; undone?: boolean }) => void; onClose: () => void }) => <>
@@ -51,21 +51,24 @@ function toStart() {
 }
 
 describe('SetupView', () => {
-  it('saves the name and offers three ways to start plus sample data', async () => {
+  it('saves the name and offers three ways to start, with no second "just looking" entry (UX-A-17)', async () => {
     toStart()
     await screen.findByText('How do you want to start?')
     expect(mockInvoke).toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, 'profile_name', 'Dana Lee')
     expect(mockInvoke).not.toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, 'profile_title', expect.anything())
-    for (const name of [/Start from an example/, /Bring in a spreadsheet/, /Start blank/, /Try it with sample data/]) {
+    for (const name of [/Start from an example/, /Bring in a spreadsheet/, /Start blank/]) {
       expect(screen.getByRole('button', { name })).toBeTruthy()
     }
+    // The example path adds sample data by itself; a second entry to the same gallery only confused
+    expect(screen.queryByText(/Just looking/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /sample data/ })).toBeNull()
   })
 
-  it('"Just looking?" opens the examples with sample data, instead of a social-work caseload (audit F-10)', async () => {
+  it('an example never applies the social-work words or sample caseload on its own (audit F-10)', async () => {
     toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Try it with sample data/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Start from an example/ }))
     fireEvent.click(screen.getByRole('button', { name: 'apply example' }))
-    await screen.findByText('Your workspace is ready')
+    await screen.findByText("You're all set")
     expect(mockInvoke).not.toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.objectContaining({ vocab: HUMAN_SERVICES_VOCAB }))
     expect(mockInvoke).not.toHaveBeenCalledWith(IPC.SAMPLE_DATA_CREATE)
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_COMPLETE)
@@ -92,7 +95,7 @@ describe('SetupView', () => {
     expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: term } })
     // Back to the rows question from the dates
     fireEvent.click(screen.getByRole('button', { name: /Back/ }))
-    expect(screen.getByRole('heading', { name: 'What are these rows?' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Each line of your spreadsheet is one…' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
     await screen.findByText('Which of these dates repeat?')
 
@@ -100,7 +103,7 @@ describe('SetupView', () => {
     fireEvent.change(screen.getByLabelText('How many'), { target: { value: '6' } })
     fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'months' } })
     fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
-    await screen.findByText('Your workspace is ready')
+    await screen.findByText("You're all set")
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_DATE_RULES, 7, [{ columnId: 71, repeat: 'every', n: 6, unit: 'months' }])
   })
 
@@ -121,7 +124,7 @@ describe('SetupView', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'undo and close' }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7))
     expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_PURGE, 7)
-    expect(screen.queryByRole('heading', { name: 'What are these rows?' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Each line of your spreadsheet is one…' })).toBeNull()
     expect(screen.getByLabelText('List name')).toBeTruthy()
   })
 
@@ -140,15 +143,47 @@ describe('SetupView', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, 7, { record_kind: 'thing', vocab: { record: { one: 'hive', many: 'hives', article: 'a' } } }))
   })
 
-  it('spreadsheet: the rows question starts from the list name, not "Clients" (audit F-23)', async () => {
+  it('spreadsheet: the rows question suggests the list name\'s word, not "Clients", without ticking anything (audit F-23, UX-A-01)', async () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
     fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Tenants' } })
     fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-    expect((await screen.findByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(true)
-    expect((screen.getByLabelText('One of them') as HTMLInputElement).value).toBe('tenant')
+    expect((await screen.findByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(false)
     expect((screen.getByRole('radio', { name: 'Clients' }) as HTMLInputElement).checked).toBe(false)
+    expect(screen.getByText(/these look like tenants/)).toBeTruthy()
+    // Taking the suggestion fills "Something else" with it
+    fireEvent.click(screen.getByRole('button', { name: "Yes, they're tenants" }))
+    expect((screen.getByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('One of them') as HTMLInputElement).value).toBe('tenant')
+    expect((screen.getByLabelText('More than one') as HTMLInputElement).value).toBe('tenants')
+  })
+
+  it('spreadsheet: "My caseload" as the list name asks instead of making every word "caseload" (UX-A-01)', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'My caseload' } })
+    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+    await screen.findByRole('heading', { name: 'Each line of your spreadsheet is one…' })
+    for (const radio of screen.getAllByRole('radio')) expect((radio as HTMLInputElement).checked).toBe(false)
+    expect(screen.queryByText(/these look like/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Pick what each row/)
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.anything())
+  })
+
+  it('spreadsheet: refuses the same word for one and many (UX-A-32)', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+    fireEvent.click(await screen.findByRole('radio', { name: 'Something else' }))
+    fireEvent.change(screen.getByLabelText('One of them'), { target: { value: 'caseload' } })
+    fireEvent.change(screen.getByLabelText('More than one'), { target: { value: 'caseload' } })
+    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/same/)
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, expect.anything(), expect.anything())
   })
 
   it('picks up an interrupted setup where it stopped (audit F-02)', async () => {
@@ -156,7 +191,7 @@ describe('SetupView', () => {
       ? Promise.resolve({ ok: true, data: { complete: false, progress: { step: 'sheet-rows', gridId: 7, listName: 'Customers' } } })
       : Promise.resolve({ ok: true, data: ws }))
     render(<SetupView onComplete={vi.fn()} onStartTour={vi.fn()} />)
-    await screen.findByRole('heading', { name: 'What are these rows?' })
+    await screen.findByRole('heading', { name: 'Each line of your spreadsheet is one…' })
     expect(screen.getByText('Picking up where you left off.')).toBeTruthy()
     expect((screen.getByRole('radio', { name: 'Customers' }) as HTMLInputElement).checked).toBe(true)
   })
@@ -173,7 +208,7 @@ describe('SetupView', () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Start from an example/ }))
     fireEvent.click(screen.getByRole('button', { name: 'apply example' }))
-    await screen.findByText('Your workspace is ready')
+    await screen.findByText("You're all set")
     expect(screen.getByText('The lists were added, but the sample data couldn\'t be loaded.')).toBeTruthy()
     example.warnings = []
   })
@@ -207,10 +242,13 @@ describe('SetupView', () => {
     it.each(paths)('%s: on by default, says what it sends, and saves a change to the Settings → About setting', async (_path, walk) => {
       toStart()
       await walk()
-      await screen.findByText('Your workspace is ready')
+      await screen.findByText("You're all set")
       const box = screen.getByRole('checkbox', { name: label }) as HTMLInputElement
       expect(box.checked).toBe(true)
       expect(screen.getByText(/reads a version number from GitHub and sends nothing about you or your data/)).toBeTruthy()
+      // Small print: after the tour choice, not the first thing under the headline (UX-A-18)
+      const tour = screen.getByRole('button', { name: /Show me around/ })
+      expect(tour.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       fireEvent.click(box)
       await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, 'auto_update_check', 'false'))
       expect(box.checked).toBe(false)
@@ -222,7 +260,7 @@ describe('SetupView', () => {
         channel === IPC.SETTINGS_GET && args[0] === 'auto_update_check' ? Promise.resolve({ ok: true, data: 'false' }) : base(channel, ...args))
       toStart()
       await paths[0]![1]()
-      await screen.findByText('Your workspace is ready')
+      await screen.findByText("You're all set")
       await waitFor(() => expect((screen.getByRole('checkbox', { name: label }) as HTMLInputElement).checked).toBe(false))
     })
   })
@@ -231,7 +269,7 @@ describe('SetupView', () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Start from an example/ }))
     fireEvent.click(screen.getByRole('button', { name: 'apply example' }))
-    await screen.findByText('Your workspace is ready')
+    await screen.findByText("You're all set")
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_COMPLETE)
   })
 })

@@ -41,7 +41,7 @@ export function UpdateCheckChoice(): React.ReactElement {
       />
       <span>
         <span className="block text-base text-slate-800 dark:text-slate-100">Check for new versions when Pulse opens</span>
-        <span className="block text-sm text-slate-600 dark:text-slate-300">This reads a version number from GitHub and sends nothing about you or your data. You can change this later in Settings → About.</span>
+        <span className="block text-base text-slate-600 dark:text-slate-300">This reads a version number from GitHub and sends nothing about you or your data. You can change this later in Settings → About.</span>
       </span>
     </label>
   )

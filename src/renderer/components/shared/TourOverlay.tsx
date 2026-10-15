@@ -20,7 +20,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { modHelp } from '../../utils/keys'
 import { STEPS, FIRST_RUN_TOUR, tourSteps } from './tourSteps'
-import { computeTooltipPosition } from './tourPosition'
+import { computeTooltipPosition, type TourRect } from './tourPosition'
 
 export { STEPS, FIRST_RUN_TOUR, tourSteps, type TourStep } from './tourSteps'
 
@@ -30,11 +30,23 @@ interface Props {
   full?: boolean
 }
 
+/**
+ * A column header scrolled into view, and the rect from it down to the bottom of its grid,
+ * so the spotlight covers the column's dates and their colours (UX-A-03)
+ */
+function columnRect(header: Element): TourRect {
+  header.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  const h = header.getBoundingClientRect()
+  const grid = header.closest('[role="grid"]')?.getBoundingClientRect()
+  const bottom = Math.min(grid ? grid.bottom : h.bottom, window.innerHeight)
+  return { top: h.top, left: h.left, right: h.right, bottom, width: h.width, height: Math.max(h.height, bottom - h.top) }
+}
+
 export function TourOverlay({ onComplete, full = false }: Props): React.ReactElement {
   const { f } = useVocab(null)
   const [stepIndex, setStepIndex] = useState(0)
   const nextRef = useRef<HTMLButtonElement>(null)
-  const [rect, setRect] = useState<DOMRect | null>(null)
+  const [rect, setRect] = useState<TourRect | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(350)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -62,10 +74,11 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
   const measureTarget = useCallback(() => {
     if (!step) return
     const el = document.querySelector(step.target)
-    if (el) {
-      setRect(el.getBoundingClientRect())
+    if (!el) { setRect(null); return }
+    if (step.spotlight === 'column' && el.getAttribute('role') === 'columnheader') {
+      setRect(columnRect(el))
     } else {
-      setRect(null)
+      setRect(el.getBoundingClientRect())
     }
   }, [step])
 
@@ -134,7 +147,8 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
   const vh = window.innerHeight
   const vw = window.innerWidth
 
-  const basePosition = computeTooltipPosition(rect, step.position, tooltipHeight, { width: vw, height: vh })
+  // 24 px clears the pulse ring (10 px out) so the card sits beside the target, not on it (UX-A-10)
+  const basePosition = computeTooltipPosition(rect, step.position, tooltipHeight, { width: vw, height: vh }, 420, 24)
   const tooltipStyle: React.CSSProperties = {
     ...basePosition,
     transition: 'all 0.3s ease-out',

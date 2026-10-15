@@ -27,12 +27,16 @@ interface SettingsState {
   weekStart: 'sunday' | 'monday'
   /** Settings → Date format: how exports write dates, and how a pasted 06/10/2026 is read */
   dateFormat: 'us' | 'iso' | 'eu'
+  /** The idle timer's minutes when that is what locked the app, so the lock screen can say why (UX-A-29) */
+  lockedAfterIdleMinutes: number | null
 
   setLocked: (locked: boolean) => void
   setPasswordSetup: (setup: boolean) => void
   setTheme: (theme: Theme) => void
   setAutoLockMinutes: (minutes: number) => void
   lock: () => Promise<void>
+  /** The inactivity timer's lock: the same, and the lock screen says why */
+  lockAfterIdle: () => Promise<void>
   setFocusModeOpen: (open: boolean) => void
   setRecoverySession: (flag: boolean) => void
   setUiScale: (value: number) => void
@@ -47,7 +51,7 @@ interface SettingsState {
   hydrateFromSettings: (settings: Record<string, string>) => void
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   isLocked: true,
   isPasswordSetup: false,
   // Follows the computer's light/dark choice until a theme is saved; a new install used to open
@@ -67,6 +71,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   clockFormat: '12h',
   weekStart: 'sunday',
   dateFormat: 'us',
+  lockedAfterIdleMinutes: null,
 
   setLocked: (locked) => set({ isLocked: locked }),
   setPasswordSetup: (setup) => set({ isPasswordSetup: setup }),
@@ -117,6 +122,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     })
   },
 
+  lockAfterIdle: async () => {
+    const minutes = get().autoLockMinutes
+    await get().lock()
+    set({ lockedAfterIdleMinutes: minutes })
+  },
+
   lock: async () => {
     // Pending saves (an open cell, the scratch pad) go out before the lock
     // closes the database; IPC keeps them ahead of AUTH_LOCK
@@ -128,7 +139,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       // Lock UI even if IPC fails
     }
     useUndoStore.getState().clear()
-    set({ isLocked: true, focusModeOpen: false, recoverySession: false })
+    set({ isLocked: true, focusModeOpen: false, recoverySession: false, lockedAfterIdleMinutes: null })
     // Locked means no record data left in the window's memory (A24-11)
     pulseEvents.emit('app:locked')
   }

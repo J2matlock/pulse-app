@@ -61,52 +61,52 @@
           "is_required": 1
         },
         {
+          "name": "Annual accounting",
+          "column_type": "deadline",
+          "position": 1,
+          "width": 140,
+          "description": "The yearly payee report; mark it done when sent",
+          "config": "{\"alert_rule_name\":\"Annual accounting\"}"
+        },
+        {
+          "name": "Benefit review",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "description": "Date of the next benefit review or redetermination",
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
           "name": "Phone",
           "column_type": "phone",
-          "position": 1,
+          "position": 3,
           "width": 140
         },
         {
           "name": "Benefit",
           "column_type": "dropdown",
-          "position": 2,
+          "position": 4,
           "width": 120,
           "config": "{\"options\":[\"SSI\",\"SSDI\",\"Retirement\",\"Survivor\",\"VA\"]}"
         },
         {
           "name": "Monthly benefit",
           "column_type": "currency",
-          "position": 3,
+          "position": 5,
           "width": 140
         },
         {
           "name": "Payee since",
           "column_type": "date",
-          "position": 4,
+          "position": 6,
           "width": 150,
           "is_required": 1
         },
         {
-          "name": "Annual accounting",
-          "column_type": "deadline",
-          "position": 5,
-          "width": 140,
-          "description": "The yearly payee report; mark it done when sent",
-          "config": "{\"alert_rule_name\":\"Annual accounting\"}"
-        },
-        {
           "name": "Rent",
           "column_type": "currency",
-          "position": 6,
-          "width": 110
-        },
-        {
-          "name": "Benefit review",
-          "column_type": "date",
           "position": 7,
-          "width": 150,
-          "description": "Date of the next benefit review or redetermination",
-          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+          "width": 110
         },
         {
           "name": "Living situation",

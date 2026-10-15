@@ -43,6 +43,8 @@ export interface TourStep {
   route?: string           // Hash route to navigate to before showing this step
   skipIf?: () => boolean   // Skip step if condition is true
   feature?: FeatureKey     // Shown only while this feature is switched on
+  /** The target is a column header: scroll it into view and light up the whole column (UX-A-03) */
+  spotlight?: 'column'
 }
 
 /** The first-run tour: about seven steps, the core of the app (audit F-05) */
@@ -59,15 +61,31 @@ function getFirstRowId(): number | null {
   return first ? first.row_id : null
 }
 
+/** The first column with a deadline rule in the open list, if any */
+export function firstRuleColumnId(): number | null {
+  for (const c of useGridStore.getState().columns) {
+    if (c.column_type === 'deadline') return c.id
+    if (c.column_type !== 'date') continue
+    try { if (JSON.parse(c.config || '{}').alert_rule_id) return c.id } catch { /* not a rule column */ }
+  }
+  return null
+}
+
+/** The header cell of that column (its width comes from a per-column CSS variable) */
+export function ruleColumnTarget(): string {
+  const id = firstRuleColumnId()
+  return id === null ? '[data-tour="grid"]' : `[role="columnheader"][style*="--cw-${id})"]`
+}
+
 export const STEPS: TourStep[] = [
   // ── Grid section (steps 1-12) ──
   {
     id: 'sidebar',
     target: '[data-tour="sidebar"]',
-    title: 'Your navigation panel',
-    subtitle: 'Everything starts here',
+    title: 'The sidebar',
+    subtitle: 'Your way around Pulse',
     description:
-      'This sidebar is home base. All your {list:many} are listed at the bottom — click one to open it. Use the + button to create new {list:many} for different programs or groups.',
+      'All your {list:many} are listed here — click one to open it. Use the + button to create new {list:many} for different programs or groups. The pages below them are tools you can use with any {list}.',
     tip: 'Press Ctrl+\\ to collapse or expand this panel if you need more screen space.',
     icon: <LayoutDashboard className="w-6 h-6" />,
     position: 'right',
@@ -125,29 +143,38 @@ export const STEPS: TourStep[] = [
     subtitle: 'Search as you type',
     description:
       'Looking for one {record}? Start typing its name here to filter your {list} as you type. No need to scroll through hundreds of {record:many} — just type a few letters.',
-    tip: 'Press Ctrl+K from anywhere to open the full search palette, which can also navigate to other views.',
+    tip: 'Press Ctrl+K from anywhere to open a search box that can also open any page.',
     icon: <Search className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
   },
   {
     id: 'deadline-colors',
-    target: '[data-tour="grid"]',
+    // The first column with a rule, scrolled into view and lit up, so the colours the step
+    // talks about are on screen (UX-A-03, UX-A-10); the whole list when there is none
+    get target() { return ruleColumnTarget() },
+    spotlight: 'column',
     title: 'Deadline colors',
     subtitle: 'Never miss a due date again',
-    description:
-      'Any date column can turn colors as it comes due — green when you have time, yellow as it approaches, orange when it\'s close, red when it\'s urgent, and pulsing red when overdue. Open the menu (⋯) on a date column\'s header and pick a rule under "Deadline rule". Your dashboard uses these colors to keep you on track.',
+    get description() {
+      const colors = 'A date column with a deadline rule changes color as each date comes due: green when there\'s time, yellow as it gets close, orange, then red, and pulsing red when it\'s overdue.'
+      const how = 'To give a date column a rule, open its menu (⋯) and pick one under "Deadline rule". The dashboard uses the same colors.'
+      return firstRuleColumnId() !== null
+        ? `${colors} This column has a rule — the colors you see are its dates coming due. ${how}`
+        : `${colors} None of your date columns has a rule yet. ${how}`
+    },
     icon: <Palette className="w-6 h-6" />,
-    position: 'bottom',
+    // Beside the lit-up column, which runs the height of the list
+    get position() { return firstRuleColumnId() !== null ? 'right' as const : 'bottom' as const },
     route: '#/grid',
   },
   {
     id: 'right-click-rows',
     target: '[data-tour="grid"]',
     title: 'Right-click for more options',
-    subtitle: 'Hidden power at your fingertips',
+    subtitle: 'Archive, duplicate, move',
     description:
-      'Right-click any {record} to see a menu with quick actions: archive it, duplicate it, or move it to another {list}. You can also copy and paste cell values.',
+      'Right-click any {record} for quick actions: archive it, duplicate it, or move it to another {list}. The same actions are on each {record}\'s page under More. You can also copy and paste cell values.',
     icon: <MousePointerClick className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -158,7 +185,7 @@ export const STEPS: TourStep[] = [
     title: 'Show archived {record:many}',
     subtitle: 'Hidden but not forgotten',
     description:
-      'Open "View" and choose "Show archived {record:many}" to see them. Archived {record:many} are hidden from your main view but not deleted — you can unarchive them at any time.',
+      'Open "Show" and choose "Show archived {record:many}" to see them. Archived {record:many} are hidden from your {list} but not deleted — you can unarchive them at any time.',
     icon: <Archive className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -224,10 +251,10 @@ export const STEPS: TourStep[] = [
   {
     id: 'open-profile',
     target: '[data-tour="profile-icon"]',
-    title: '{Record} profiles',
-    subtitle: 'Click the profile icon to see everything',
+    title: 'Each {record}\'s page',
+    subtitle: 'The small icon beside each name',
     description:
-      'Every {record} has a dedicated profile page. Click the small profile icon at the left edge of any {record} to open it — you\'ll see the full details, scratch notes, {activityLog}, deadlines, linked {contact:many}, and activity history all in one place. Let\'s take a look at what\'s inside a profile.',
+      'Every {record} has a page of its own: the full details, scratch notes, {activityLog}, deadlines and linked {contact:many}, all in one place. Click the small icon at the left edge of {a record} to open its page, any time you want to see everything about it.',
     tip: 'Use the back arrow or breadcrumb to return to the {list} after viewing {a record}.',
     icon: <UserCheck className="w-6 h-6" />,
     position: 'bottom',
@@ -302,7 +329,7 @@ export const STEPS: TourStep[] = [
     title: 'Dashboard views',
     subtitle: 'Multiple ways to see your workload',
     description:
-      'Switch between tabs to see different slices of your work: Priority List for what\'s most urgent, This Week and This Month for planning ahead, Completions to see your progress, and Recently Archived for {record:many} you\'ve closed.',
+      'Switch between tabs to see different slices of your work: What\'s due for the most urgent, Overdue, and This Week and This Month for planning ahead. Recently archived {record:many} are a link beside the tabs.',
     icon: <LayoutDashboard className="w-6 h-6" />,
     position: 'bottom',
     route: '#/dashboard',
@@ -376,10 +403,10 @@ export const STEPS: TourStep[] = [
   {
     id: 'settings',
     target: '[data-tour="settings"]',
-    title: 'Settings & help',
+    title: 'Settings',
     subtitle: 'Make it yours',
     description:
-      'Light or dark mode (under Appearance), backups, security, and your data. Visit the Help Center anytime to search for answers, browse FAQs, or retake the tour.',
+      'Light or dark mode (under Appearance), backups, security, the words and features Pulse uses, and your data.',
     tip: 'Press ? at any time to see all keyboard shortcuts.',
     icon: <Settings className="w-6 h-6" />,
     position: 'right',
@@ -403,7 +430,7 @@ export const STEPS: TourStep[] = [
     title: 'Security tab',
     subtitle: 'Password, auto-lock, and more',
     description:
-      'Click the Security tab to manage your password and auto-lock settings. This is where you change your password, set inactivity timeouts, and view your recovery key.',
+      'Click the Security tab to manage your password and auto-lock settings. This is where you change your password, choose how soon Pulse locks itself, and view your recovery key.',
     icon: <Shield className="w-6 h-6" />,
     position: 'right',
     route: '#/settings?tab=security',
@@ -427,7 +454,7 @@ export const STEPS: TourStep[] = [
     title: 'Backup tab',
     subtitle: 'Keep your data safe',
     description:
-      'Click the Backup tab to manage your backups. Create manual backups, restore from a previous backup, and configure backup reminders. Backups are encrypted with the same key as your database.',
+      'Click the Backup tab to manage your backups. Create manual backups, restore from a previous backup, and choose when to be reminded to back up. Backups are encrypted with the same key as your database.',
     icon: <Shield className="w-6 h-6" />,
     position: 'right',
     route: '#/settings?tab=backup',

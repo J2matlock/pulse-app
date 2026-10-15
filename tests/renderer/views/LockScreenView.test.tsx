@@ -26,9 +26,10 @@ vi.mock('react-hot-toast', () => {
 const mockSetLocked = vi.fn()
 const mockSetRecoverySession = vi.fn()
 const mockSetPasswordSetup = vi.fn()
+let lockedAfterIdleMinutes: number | null = null
 vi.mock('../../../src/renderer/stores/settingsStore', () => ({
   useSettingsStore: (selector?: (s: Record<string, unknown>) => unknown) => {
-    const state = { setLocked: mockSetLocked, setRecoverySession: mockSetRecoverySession, setPasswordSetup: mockSetPasswordSetup }
+    const state = { setLocked: mockSetLocked, setRecoverySession: mockSetRecoverySession, setPasswordSetup: mockSetPasswordSetup, lockedAfterIdleMinutes }
     return selector ? selector(state) : state
   },
 }))
@@ -39,12 +40,22 @@ import { LockScreenView } from '../../../src/renderer/views/LockScreenView'
 describe('LockScreenView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    lockedAfterIdleMinutes = null
     // Default: hint and recovery key checks return empty/false
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
       if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: false })
       return Promise.resolve({ ok: false, error: 'unknown' })
     })
+  })
+
+  it('says why it locked when the idle timer did it, and not otherwise (UX-A-29)', () => {
+    const { unmount } = render(<LockScreenView />)
+    expect(screen.queryByText(/without activity/)).toBeNull()
+    unmount()
+    lockedAfterIdleMinutes = 15
+    render(<LockScreenView />)
+    expect(screen.getByText('Locked after 15 minutes without activity. Change this in Settings → Security.')).toBeDefined()
   })
 
   it('renders password input and unlock button', () => {

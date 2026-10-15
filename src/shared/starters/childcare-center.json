@@ -69,49 +69,9 @@
           "is_required": 1
         },
         {
-          "name": "Date of birth",
-          "column_type": "date",
-          "position": 1,
-          "width": 150,
-          "is_required": 1
-        },
-        {
-          "name": "Classroom",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 130,
-          "config": "{\"options\":[\"Infants\",\"Toddlers\",\"Preschool\",\"Pre-K\",\"School-age\"]}"
-        },
-        {
-          "name": "Parent",
-          "column_type": "text",
-          "position": 3,
-          "width": 160,
-          "is_required": 1
-        },
-        {
-          "name": "Parent phone",
-          "column_type": "phone",
-          "position": 4,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Allergies",
-          "column_type": "text",
-          "position": 5,
-          "width": 160
-        },
-        {
-          "name": "Start date",
-          "column_type": "date",
-          "position": 6,
-          "width": 150
-        },
-        {
           "name": "Immunizations due",
           "column_type": "date",
-          "position": 7,
+          "position": 1,
           "width": 150,
           "description": "When the next immunization record is due",
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
@@ -119,7 +79,7 @@
         {
           "name": "Physical exam",
           "column_type": "date",
-          "position": 8,
+          "position": 2,
           "width": 150,
           "description": "Date of the last physical exam form",
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
@@ -127,9 +87,49 @@
         {
           "name": "Emergency card updated",
           "column_type": "date",
-          "position": 9,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Classroom",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 130,
+          "config": "{\"options\":[\"Infants\",\"Toddlers\",\"Preschool\",\"Pre-K\",\"School-age\"]}"
+        },
+        {
+          "name": "Parent",
+          "column_type": "text",
+          "position": 6,
+          "width": 160,
+          "is_required": 1
+        },
+        {
+          "name": "Parent phone",
+          "column_type": "phone",
+          "position": 7,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Allergies",
+          "column_type": "text",
+          "position": 8,
+          "width": 160
+        },
+        {
+          "name": "Start date",
+          "column_type": "date",
+          "position": 9,
+          "width": 150
         }
       ],
       "alertRules": [
@@ -170,35 +170,16 @@
           "is_required": 1
         },
         {
-          "name": "Role",
-          "column_type": "dropdown",
-          "position": 1,
-          "width": 150,
-          "config": "{\"options\":[\"Director\",\"Lead teacher\",\"Assistant teacher\",\"Cook\",\"Floater\"]}"
-        },
-        {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 2,
-          "width": 140
-        },
-        {
-          "name": "Hire date",
-          "column_type": "date",
-          "position": 3,
-          "width": 150
-        },
-        {
           "name": "CPR/First aid expires",
           "column_type": "date",
-          "position": 4,
+          "position": 1,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
         },
         {
           "name": "Background check",
           "column_type": "date",
-          "position": 5,
+          "position": 2,
           "width": 150,
           "description": "Date of the last background check; due again every 5 years",
           "config": "{\"alert_rule_name\":\"Every 5 years\",\"log_changes\":true}"
@@ -206,9 +187,28 @@
         {
           "name": "TB test",
           "column_type": "date",
-          "position": 6,
+          "position": 3,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Role",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\":[\"Director\",\"Lead teacher\",\"Assistant teacher\",\"Cook\",\"Floater\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Hire date",
+          "column_type": "date",
+          "position": 6,
+          "width": 150
         },
         {
           "name": "Training hours this year",

@@ -43,6 +43,16 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().isLocked).toBe(true)
     })
 
+    it('remembers the idle minutes only when the idle timer locked (UX-A-29)', async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      useSettingsStore.setState({ isLocked: false, autoLockMinutes: 20 })
+      await useSettingsStore.getState().lockAfterIdle()
+      expect(useSettingsStore.getState().lockedAfterIdleMinutes).toBe(20)
+      useSettingsStore.setState({ isLocked: false })
+      await useSettingsStore.getState().lock()
+      expect(useSettingsStore.getState().lockedAfterIdleMinutes).toBeNull()
+    })
+
     it('setLocked(false) unlocks', () => {
       useSettingsStore.getState().setLocked(false)
       expect(useSettingsStore.getState().isLocked).toBe(false)

@@ -144,11 +144,37 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
   const title = step === 'done' ? 'Added' : chosen && step !== 'gallery' ? chosen.name : 'Start from an example'
   const box = 'w-5 h-5 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 flex-shrink-0'
 
+  // First run shows the first group open and the rest behind "More examples": about 25 cards at
+  // once is the first "too many options" moment (UX-A-27). A search shows everything that matches.
+  const collapseRest = mode === 'setup' && !query.trim()
+
+  const renderGroup = ([group, items]: [string, StarterSummary[]]) => (
+    <section key={group} className="space-y-2" aria-label={group}>
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group}</h3>
+      {items.map(s => (
+        <button key={s.id} type="button" onClick={() => pick(s)}
+          className="w-full text-left flex gap-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+          style={{ minHeight: 44 }}>
+          <StarterIcon name={s.icon} className="w-6 h-6 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{s.name}</span>
+            <span className="block text-base text-slate-600 dark:text-slate-300">{s.description}</span>
+            <span className="block text-base text-slate-500 dark:text-slate-400 mt-1">
+              {s.variants.length > 0 ? `${s.variants.length} layouts to choose from` : s.listNames.join(' · ')}
+              {s.hasSampleData && someLackSamples && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
+            </span>
+          </span>
+        </button>
+      ))}
+    </section>
+  )
+
   return (
     // During setup a stray click outside doesn't throw away the choices (audit F-18); ✕ and Esc still close
     <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => { if (!working && mode !== 'setup') onClose() }}>
+      {/* The steps scroll inside the panel, so the buttons at the bottom never leave the screen (UX-A-06) */}
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="starter-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        className="w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           {(step === 'variant' || step === 'review') && !(initial && (step === 'variant' || initial.summary.variants.length === 0)) && (
             <button type="button" onClick={() => setStep(step === 'review' && chosen?.variants.length ? 'variant' : 'gallery')} aria-label="Back"
@@ -163,6 +189,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
           </button>
         </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto">
         {step === 'gallery' && (
           <div className="px-6 py-5 space-y-4">
             <p className="text-base text-slate-700 dark:text-slate-200">Pick something close to your work. You can change everything afterwards.</p>
@@ -182,26 +209,19 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                   )}
                 </div>
               )
-              : groups.map(([group, items]) => (
-                <section key={group} className="space-y-2" aria-label={group}>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group}</h3>
-                  {items.map(s => (
-                    <button key={s.id} type="button" onClick={() => pick(s)}
-                      className="w-full text-left flex gap-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                      style={{ minHeight: 44 }}>
-                      <StarterIcon name={s.icon} className="w-6 h-6 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{s.name}</span>
-                        <span className="block text-base text-slate-600 dark:text-slate-300">{s.description}</span>
-                        <span className="block text-sm text-slate-500 dark:text-slate-400 mt-1">
-                          {s.variants.length > 0 ? `${s.variants.length} layouts to choose from` : s.listNames.join(' · ')}
-                          {s.hasSampleData && someLackSamples && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </section>
-              ))}
+              : collapseRest
+                ? <>
+                    {renderGroup(groups[0]!)}
+                    {groups.length > 1 && (
+                      <details className="pt-1">
+                        <summary className="hit-44 cursor-pointer text-base font-medium text-blue-700 dark:text-blue-300 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                          More examples ({groups.slice(1).map(([g]) => g.toLowerCase()).join(', ')})
+                        </summary>
+                        <div className="space-y-4 pt-3">{groups.slice(1).map(renderGroup)}</div>
+                      </details>
+                    )}
+                  </>
+                : groups.map(renderGroup)}
           </div>
         )}
 
@@ -209,20 +229,20 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
           <div className="px-6 py-5 space-y-3">
             <fieldset className="space-y-2">
               <legend className="text-base font-medium text-slate-800 dark:text-slate-100 mb-2">{chosen.variantQuestion ?? 'Which describes your work best?'}</legend>
-              {chosen.variants.map(v => (
+              {chosen.variants.map((v, i) => (
                 <label key={v.key} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
                   <input type="radio" name="starter-variant" className="w-5 h-5 mt-0.5 flex-shrink-0" checked={variant === v.key} onChange={() => setVariant(v.key)} />
                   <span className="min-w-0">
-                    <span className="block text-base font-medium text-slate-900 dark:text-slate-100">{v.name}</span>
-                    <span className="block text-sm text-slate-600 dark:text-slate-300">{v.description}</span>
+                    <span className="block text-base font-medium text-slate-900 dark:text-slate-100">
+                      {v.name}
+                      {/* The first layout is the usual one; said so, the list is less to weigh up (UX-A-27) */}
+                      {mode === 'setup' && i === 0 && <span className="font-normal text-slate-600 dark:text-slate-300"> (most common)</span>}
+                    </span>
+                    <span className="block text-base text-slate-600 dark:text-slate-300">{v.description}</span>
                   </span>
                 </label>
               ))}
             </fieldset>
-            <div className="flex justify-end gap-2 pt-2">
-              {!initial && <button type="button" className="btn-secondary" onClick={() => setStep('gallery')}>Back</button>}
-              <button type="button" className="btn-primary" onClick={() => source && void loadPreview(source, variant)}>Next</button>
-            </div>
           </div>
         )}
 
@@ -255,31 +275,49 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                   ))}
                 </fieldset>
 
+                {/* Both lists are internal vocabulary and both boxes are ticked on first run, so each is
+                    one line with the detail a click away (UX-A-06) */}
                 {preview.words.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
                       <input type="checkbox" className={box} checked={useWords} onChange={e => setUseWords(e.target.checked)} />
-                      <span className="text-base font-medium text-slate-900 dark:text-slate-100">Use this example's words everywhere</span>
+                      <span>
+                        <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Use this example's words everywhere</span>
+                        <span className="block text-base text-slate-600 dark:text-slate-300">
+                          {preview.words.slice(0, 3).map(w => w.proposed).join(', ')}{preview.words.length > 3 ? ` and ${preview.words.length - 3} more` : ''}
+                        </span>
+                      </span>
                     </label>
-                    <table className="ml-8 text-base text-slate-700 dark:text-slate-200">
-                      <caption className="sr-only">Words that would change</caption>
-                      <tbody>
-                        {preview.words.map(w => (
-                          <tr key={w.key}><td className="pr-3 py-0.5">{w.current}</td><td className="pr-3" aria-label="becomes">→</td><td className="font-medium">{w.proposed}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <details className="ml-8">
+                      <summary className="hit-44 cursor-pointer text-base text-blue-700 dark:text-blue-300 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">Show the words</summary>
+                      <table className="text-base text-slate-700 dark:text-slate-200 pb-1">
+                        <caption className="sr-only">Words that would change</caption>
+                        <tbody>
+                          {preview.words.map(w => (
+                            <tr key={w.key}><td className="pr-3 py-0.5">{w.current}</td><td className="pr-3" aria-label="becomes">→</td><td className="font-medium">{w.proposed}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </details>
                   </div>
                 )}
 
                 {preview.features.length > 0 && (
-                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
-                    <input type="checkbox" className={box} checked={useFeatures} onChange={e => setUseFeatures(e.target.checked)} />
-                    <span>
-                      <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Turn on the features it uses</span>
-                      <span className="block text-sm text-slate-600 dark:text-slate-300">{preview.features.map(x => f(x.label)).join(', ')}</span>
-                    </span>
-                  </label>
+                  <div className="space-y-1">
+                    <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
+                      <input type="checkbox" className={box} checked={useFeatures} onChange={e => setUseFeatures(e.target.checked)} />
+                      <span>
+                        <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Turn on the features it uses</span>
+                        <span className="block text-base text-slate-600 dark:text-slate-300">
+                          {preview.features.length === 1 ? '1 feature' : `${preview.features.length} features`} you can switch off later
+                        </span>
+                      </span>
+                    </label>
+                    <details className="ml-8">
+                      <summary className="hit-44 cursor-pointer text-base text-blue-700 dark:text-blue-300 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">Show the features</summary>
+                      <p className="text-base text-slate-700 dark:text-slate-200 pb-1">{preview.features.map(x => f(x.label)).join(', ')}</p>
+                    </details>
+                  </div>
                 )}
 
                 {preview.hasSampleData && (
@@ -287,20 +325,14 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                     <input type="checkbox" className={box} checked={sample} onChange={e => setSample(e.target.checked)} />
                     <span>
                       <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Add sample data</span>
-                      <span className="block text-sm text-slate-600 dark:text-slate-300">Made-up entries to try things out. You can remove them in one click.</span>
+                      <span className="block text-base text-slate-600 dark:text-slate-300">Made-up entries to try things out. You can remove them in one click.</span>
                     </span>
                   </label>
                 )}
 
-                <p className="text-sm text-slate-600 dark:text-slate-300">Nothing you already have is changed. You can delete added {t('list', { many: true })} later from the {t('list')} menu.</p>
+                <p className="text-base text-slate-600 dark:text-slate-300">Nothing you already have is changed. You can delete added {t('list', { many: true })} later from the {t('list')} menu.</p>
               </>
             )}
-            <div className="flex justify-end gap-2">
-              <button type="button" className="btn-secondary" onClick={onClose} disabled={working}>Cancel</button>
-              <button type="button" className="btn-primary" disabled={working || preview === null || lists.size === 0} onClick={() => void apply()}>
-                {working ? 'Adding…' : 'Add'}
-              </button>
-            </div>
           </div>
         )}
 
@@ -327,6 +359,22 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
             <div className="flex justify-end">
               <button type="button" className="btn-primary" onClick={onClose}>Done</button>
             </div>
+          </div>
+        )}
+        </div>
+
+        {step === 'variant' && chosen && (
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+            {!initial && <button type="button" className="btn-secondary" onClick={() => setStep('gallery')}>Back</button>}
+            <button type="button" className="btn-primary" onClick={() => source && void loadPreview(source, variant)}>Next</button>
+          </div>
+        )}
+        {step === 'review' && (
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={working}>Cancel</button>
+            <button type="button" className="btn-primary" disabled={working || preview === null || lists.size === 0} onClick={() => void apply()}>
+              {working ? 'Adding…' : 'Add'}
+            </button>
           </div>
         )}
       </div>

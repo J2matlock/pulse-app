@@ -125,42 +125,9 @@
           "is_required": 1
         },
         {
-          "name": "Phone",
-          "column_type": "phone",
-          "position": 1,
-          "width": 140,
-          "is_required": 1
-        },
-        {
-          "name": "Email",
-          "column_type": "email",
-          "position": 2,
-          "width": 210
-        },
-        {
-          "name": "Buying or selling",
-          "column_type": "dropdown",
-          "position": 3,
-          "width": 160,
-          "config": "{\"options\": [\"Buying\", \"Selling\", \"Both\"]}"
-        },
-        {
-          "name": "Current address",
-          "column_type": "address",
-          "position": 4,
-          "width": 180
-        },
-        {
-          "name": "Price range",
-          "column_type": "text",
-          "position": 5,
-          "width": 140,
-          "description": "What they want to spend, or what they hope to get"
-        },
-        {
           "name": "Pre-approval expires",
           "column_type": "date",
-          "position": 6,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
           "description": "Mortgage pre-approval letters usually run 60 to 90 days"
@@ -168,10 +135,43 @@
         {
           "name": "Listing agreement expires",
           "column_type": "date",
-          "position": 7,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
           "description": "For sellers: when your listing agreement ends"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 4,
+          "width": 210
+        },
+        {
+          "name": "Buying or selling",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 160,
+          "config": "{\"options\": [\"Buying\", \"Selling\", \"Both\"]}"
+        },
+        {
+          "name": "Current address",
+          "column_type": "address",
+          "position": 6,
+          "width": 180
+        },
+        {
+          "name": "Price range",
+          "column_type": "text",
+          "position": 7,
+          "width": 140,
+          "description": "What they want to spend, or what they hope to get"
         },
         {
           "name": "Found you through",
@@ -220,36 +220,9 @@
           "description": "The street address"
         },
         {
-          "name": "Stage",
-          "column_type": "status",
-          "position": 1,
-          "width": 150,
-          "config": "{\"options\": [{\"label\": \"Showing\", \"color\": \"#64748b\"}, {\"label\": \"Offer made\", \"color\": \"#3b82f6\"}, {\"label\": \"Under contract\", \"color\": \"#f59e0b\"}, {\"label\": \"Clear to close\", \"color\": \"#14b8a6\"}, {\"label\": \"Closed\", \"color\": \"#22c55e\"}, {\"label\": \"Fell through\", \"color\": \"#ef4444\"}]}"
-        },
-        {
-          "name": "Side",
-          "column_type": "dropdown",
-          "position": 2,
-          "width": 120,
-          "config": "{\"options\": [\"Buyer side\", \"Listing side\"]}"
-        },
-        {
-          "name": "Price",
-          "column_type": "currency",
-          "position": 3,
-          "width": 130
-        },
-        {
-          "name": "Contract date",
-          "column_type": "date",
-          "position": 4,
-          "width": 150,
-          "description": "The day the contract was fully signed. The contingency dates count from here"
-        },
-        {
           "name": "Inspection done",
           "column_type": "date",
-          "position": 5,
+          "position": 1,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Inspection period\", \"log_changes\": true}",
           "description": "Date the inspection was done and any repair requests sent"
@@ -257,7 +230,7 @@
         {
           "name": "Appraisal received",
           "column_type": "date",
-          "position": 6,
+          "position": 2,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Appraisal\", \"log_changes\": true}",
           "description": "Date the appraisal came back"
@@ -265,7 +238,7 @@
         {
           "name": "Loan approved",
           "column_type": "date",
-          "position": 7,
+          "position": 3,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Financing contingency\", \"log_changes\": true}",
           "description": "Date the lender gave final loan approval"
@@ -273,25 +246,52 @@
         {
           "name": "Closing date",
           "column_type": "date",
-          "position": 8,
+          "position": 4,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Closing\", \"log_changes\": true}",
           "description": "The closing date in the contract"
         },
         {
-          "name": "Closed on",
-          "column_type": "date",
-          "position": 9,
-          "width": 150,
-          "description": "Filled in when the transaction moves to Closed"
-        },
-        {
           "name": "Closing anniversary",
           "column_type": "date",
-          "position": 10,
+          "position": 5,
           "width": 160,
           "config": "{\"alert_rule_name\": \"Closing anniversary\"}",
           "description": "Date you last sent a closing-anniversary note"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 6,
+          "width": 150,
+          "config": "{\"options\": [{\"label\": \"Showing\", \"color\": \"#64748b\"}, {\"label\": \"Offer made\", \"color\": \"#3b82f6\"}, {\"label\": \"Under contract\", \"color\": \"#f59e0b\"}, {\"label\": \"Clear to close\", \"color\": \"#14b8a6\"}, {\"label\": \"Closed\", \"color\": \"#22c55e\"}, {\"label\": \"Fell through\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Side",
+          "column_type": "dropdown",
+          "position": 7,
+          "width": 120,
+          "config": "{\"options\": [\"Buyer side\", \"Listing side\"]}"
+        },
+        {
+          "name": "Price",
+          "column_type": "currency",
+          "position": 8,
+          "width": 130
+        },
+        {
+          "name": "Contract date",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "The day the contract was fully signed. The contingency dates count from here"
+        },
+        {
+          "name": "Closed on",
+          "column_type": "date",
+          "position": 10,
+          "width": 150,
+          "description": "Filled in when the transaction moves to Closed"
         },
         {
           "name": "Commission",
