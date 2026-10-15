@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
@@ -17,6 +17,7 @@ vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
 
 import { AppearanceSection } from '../../../../src/renderer/components/settings/AppearanceSection'
 import { localeClockFormat } from '../../../../src/renderer/stores/settingsStore'
+import { FilesStorageSection } from '../../../../src/renderer/components/settings/FilesStorageSection'
 import { setWords } from '../../vocabFixture'
 
 beforeEach(() => { setWords(); mockInvoke.mockReset() })
@@ -98,5 +99,33 @@ describe('Appearance', () => {
     expect(buttons[2]!.className).toMatch(/bg-slate-900/)
     fireEvent.click(buttons[0]!)
     expect(setGridLines).toHaveBeenCalledWith('full')
+  })
+})
+
+describe('Data → Files', () => {
+  const MB = 1024 * 1024
+  function usage(bytes: number, limitMb: number) {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'attachments:usage'
+      ? { ok: true, data: { count: 3, bytes, limitBytes: limitMb * MB } }
+      : { ok: false, error: 'not in this test' }))
+  }
+
+  it('shows the room used; the limit and emptying the Trash are under a closed "More settings"', async () => {
+    usage(10 * MB, 1000)
+    render(<FilesStorageSection />)
+    await screen.findByRole('progressbar')
+    const limit = screen.getByLabelText('Room for files (MB)')
+    expect((limit.closest('details') as HTMLDetailsElement).open).toBe(false)
+    expect(screen.getByRole('button', { name: 'Remove files in the Trash now' }).closest('details')).toBe(limit.closest('details'))
+  })
+
+  it('opens by itself with a changed limit, or when room is nearly gone', async () => {
+    usage(10 * MB, 2000)
+    render(<FilesStorageSection />)
+    await waitFor(() => expect((screen.getByLabelText('Room for files (MB)').closest('details') as HTMLDetailsElement).open).toBe(true))
+    cleanup()
+    usage(950 * MB, 1000)
+    render(<FilesStorageSection />)
+    await waitFor(() => expect((screen.getByLabelText('Room for files (MB)').closest('details') as HTMLDetailsElement).open).toBe(true))
   })
 })

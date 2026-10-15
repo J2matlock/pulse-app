@@ -231,7 +231,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-cell-history',
     question: 'Can I see what a cell\'s previous value was?',
-    answer: 'Yes! Right-click the cell and choose "View history". Pulse keeps the last 50 changes to each cell: what the value was, when it changed, and what it became. Handy for checking when a status was last updated. Settings > Data says how long history is kept.',
+    answer: 'Yes! Right-click the cell and choose "View history". Pulse keeps the last 50 changes to each cell: what the value was, when it changed, and what it became. Handy for checking when a status was last updated. Settings > Data > More settings says how long history is kept.',
     category: 'caseload-grid',
     keywords: ['old value', 'who changed', 'when did it change', 'audit'],
   },

@@ -11,6 +11,7 @@ import { RemoveSampleDataDialog, sampleDataChanged } from '../shared/SampleDataB
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
+import { MoreSettings } from './MoreSettings'
 import { ImportWizard } from '../grid/ImportWizard'
 import { useFeature } from '../../hooks/useFeature'
 import { localDateString } from '../../../shared/dates'
@@ -229,108 +230,113 @@ export function DataSection(): React.ReactElement {
         </button>
       </div>
 
-      <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <p className="text-base font-medium text-slate-700 dark:text-slate-300">Old cell values</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Pulse keeps a record of every cell change so you can see what a value used to be ("View history" on a cell). Removing old changes frees space.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="history-retention" className="text-base text-slate-700 dark:text-slate-300">Keep</label>
-          <select
-            id="history-retention"
-            className="input"
-            style={{ minHeight: 44, width: 'auto' }}
-            defaultValue="12"
-            onChange={e => {
-              const el = e.target
-              el.dataset.months = el.value
-            }}
-            data-months="12"
-          >
-            <option value="6">6 months</option>
-            <option value="12">12 months</option>
-            <option value="24">24 months</option>
-          </select>
-          <button
-            className="btn-secondary"
-            style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
-            onClick={() => void compactHistory(parseInt((document.getElementById('history-retention') as HTMLSelectElement | null)?.value ?? '12', 10))}
-          >
-            Remove older ones
-          </button>
-        </div>
-        {/* Destructive, so not an option in the "keep" dropdown (E-32) */}
-        <button
-          className="btn-secondary text-red-700 dark:text-red-300"
-          style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
-          onClick={() => setConfirmDeleteHistory(true)}
-        >
-          Delete all history…
-        </button>
-        <ConfirmDialog
-          open={confirmDeleteHistory}
-          title="Delete all cell history?"
-          message='Every record of what a cell used to say goes away, for every cell. "View history" will be empty until values change again. Your current values stay as they are.'
-          confirmLabel="Delete all history"
-          destructive
-          onConfirm={() => { setConfirmDeleteHistory(false); void compactHistory(0) }}
-          onCancel={() => setConfirmDeleteHistory(false)}
-        />
-      </div>
+      {/* Upkeep and support tools: rarely needed, so folded away (Q1c). Open by itself when .pulse files were registered */}
+      <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+        <MoreSettings changed={pulseRegistered === true} data-testid="data-more">
+          <div className="space-y-3">
+            <p className="text-base font-medium text-slate-700 dark:text-slate-300">Old cell values</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Pulse keeps a record of every cell change so you can see what a value used to be ("View history" on a cell). Removing old changes frees space.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <label htmlFor="history-retention" className="text-base text-slate-700 dark:text-slate-300">Keep</label>
+              <select
+                id="history-retention"
+                className="input"
+                style={{ minHeight: 44, width: 'auto' }}
+                defaultValue="12"
+                onChange={e => {
+                  const el = e.target
+                  el.dataset.months = el.value
+                }}
+                data-months="12"
+              >
+                <option value="6">6 months</option>
+                <option value="12">12 months</option>
+                <option value="24">24 months</option>
+              </select>
+              <button
+                className="btn-secondary"
+                style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
+                onClick={() => void compactHistory(parseInt((document.getElementById('history-retention') as HTMLSelectElement | null)?.value ?? '12', 10))}
+              >
+                Remove older ones
+              </button>
+            </div>
+            {/* Destructive, so not an option in the "keep" dropdown (E-32) */}
+            <button
+              className="btn-secondary text-red-700 dark:text-red-300"
+              style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
+              onClick={() => setConfirmDeleteHistory(true)}
+            >
+              Delete all history…
+            </button>
+            <ConfirmDialog
+              open={confirmDeleteHistory}
+              title="Delete all cell history?"
+              message='Every record of what a cell used to say goes away, for every cell. "View history" will be empty until values change again. Your current values stay as they are.'
+              confirmLabel="Delete all history"
+              destructive
+              onConfirm={() => { setConfirmDeleteHistory(false); void compactHistory(0) }}
+              onCancel={() => setConfirmDeleteHistory(false)}
+            />
+          </div>
 
-      <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <p className="text-base font-medium text-slate-700 dark:text-slate-300">Check your data file</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Looks for damage in the file that holds your data. It takes a few seconds and changes nothing.
-        </p>
-        <button
-          className="btn-secondary"
-          style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
-          onClick={async () => {
-            const res = await safeInvoke<boolean>(IPC.APP_INTEGRITY_CHECK)
-            if (res.ok && res.data) toast.success('No problems found in your data file.')
-            else if (res.ok && !res.data) toast.error('Your data file has a problem. Restore a backup from Settings → Backup.')
-            else toast.error("We couldn't check the data file — try again")
-          }}
-        >
-          <RefreshCw className="w-4 h-4 inline mr-2" />
-          Check the data file
-        </button>
-      </div>
+          <div className="space-y-3">
+            <p className="text-base font-medium text-slate-700 dark:text-slate-300">Check your data file</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Looks for damage in the file that holds your data. It takes a few seconds and changes nothing.
+            </p>
+            <button
+              className="btn-secondary"
+              style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
+              onClick={async () => {
+                const res = await safeInvoke<boolean>(IPC.APP_INTEGRITY_CHECK)
+                if (res.ok && res.data) toast.success('No problems found in your data file.')
+                else if (res.ok && !res.data) toast.error('Your data file has a problem. Restore a backup from Settings → Backup.')
+                else toast.error("We couldn't check the data file — try again")
+              }}
+            >
+              <RefreshCw className="w-4 h-4 inline mr-2" />
+              Check the data file
+            </button>
+          </div>
 
-      {/* File association */}
-      <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <p className="text-base font-medium text-slate-700 dark:text-slate-300">
-          File association
-        </p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Register .pulse files so you can double-click them to open in Pulse.
-        </p>
-        {platform === 'win32' && pulseRegistered !== null && (
-          <button
-            onClick={async () => {
-              const shouldRegister = !pulseRegistered
-              const res = await safeInvoke(IPC.FILE_ASSOC_REGISTER, shouldRegister)
-              if (res.ok) {
-                setPulseRegistered(shouldRegister)
-                toast.success(shouldRegister ? 'Pulse now opens .pulse files when you double-click them.' : 'Pulse no longer opens .pulse files on a double-click.')
-              } else {
-                toast.error("Pulse couldn't set itself up to open .pulse files — you can still open them from Templates")
-              }
-            }}
-            className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                       text-base text-slate-700 dark:text-slate-300
-                       hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[44px]
-                       focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
-          >
-            {pulseRegistered ? 'Unregister .pulse files' : 'Register .pulse files'}
-          </button>
-        )}
-        {platform === 'linux' && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            On Linux, double-clicking a .pulse file isn't set up automatically. Open the file from Templates → "Open a layout file…" instead.
-          </p>
-        )}
+          {/* File association */}
+          <div className="space-y-2">
+            <p className="text-base font-medium text-slate-700 dark:text-slate-300">
+              File association
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Register .pulse files so you can double-click them to open in Pulse.
+            </p>
+            {platform === 'win32' && pulseRegistered !== null && (
+              <button
+                onClick={async () => {
+                  const shouldRegister = !pulseRegistered
+                  const res = await safeInvoke(IPC.FILE_ASSOC_REGISTER, shouldRegister)
+                  if (res.ok) {
+                    setPulseRegistered(shouldRegister)
+                    toast.success(shouldRegister ? 'Pulse now opens .pulse files when you double-click them.' : 'Pulse no longer opens .pulse files on a double-click.')
+                  } else {
+                    toast.error("Pulse couldn't set itself up to open .pulse files — you can still open them from Templates")
+                  }
+                }}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                           text-base text-slate-700 dark:text-slate-300
+                           hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[44px]
+                           focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
+              >
+                {pulseRegistered ? 'Unregister .pulse files' : 'Register .pulse files'}
+              </button>
+            )}
+            {platform === 'linux' && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                On Linux, double-clicking a .pulse file isn't set up automatically. Open the file from Templates → "Open a layout file…" instead.
+              </p>
+            )}
+          </div>
+        </MoreSettings>
       </div>
 
       <SampleDataControls />

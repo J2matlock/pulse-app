@@ -3,10 +3,11 @@ import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Paperclip } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
-import { LIMIT_MB_RANGE, formatBytes } from '../../../shared/attachments'
+import { LIMIT_MB_RANGE, DEFAULT_LIMIT_MB, formatBytes } from '../../../shared/attachments'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
 import { useUndoStore } from '../../stores/undoStore'
+import { MoreSettings } from './MoreSettings'
 
 export function FilesStorageSection(): React.ReactElement {
   const [usage, setUsage] = useState<{ count: number; bytes: number; limitBytes: number } | null>(null)
@@ -43,14 +44,17 @@ export function FilesStorageSection(): React.ReactElement {
           </div>
         </>
       )}
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="block text-base text-slate-700 dark:text-slate-200">
-          Room for files (MB)
-          <input type="number" min={LIMIT_MB_RANGE.min} max={LIMIT_MB_RANGE.max} className="input w-32 mt-1 block" value={limit} onChange={e => setLimit(e.target.value)} />
-        </label>
-        <button type="button" className="btn-secondary" onClick={() => void saveLimit()}>Save</button>
-        <button type="button" className="btn-secondary" onClick={() => void emptyTrash()}>Remove files in the Trash now</button>
-      </div>
+      {/* The limit and emptying the Trash matter only when room runs short: open by itself then, or when the limit was changed (Q1c) */}
+      <MoreSettings changed={usage !== null && (Math.round(usage.limitBytes / (1024 * 1024)) !== DEFAULT_LIMIT_MB || pct > 90)}>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block text-base text-slate-700 dark:text-slate-200">
+            Room for files (MB)
+            <input type="number" min={LIMIT_MB_RANGE.min} max={LIMIT_MB_RANGE.max} className="input w-32 mt-1 block" value={limit} onChange={e => setLimit(e.target.value)} />
+          </label>
+          <button type="button" className="btn-secondary" onClick={() => void saveLimit()}>Save</button>
+          <button type="button" className="btn-secondary" onClick={() => void emptyTrash()}>Remove files in the Trash now</button>
+        </div>
+      </MoreSettings>
       <p className="text-sm text-slate-500 dark:text-slate-400">Files are kept inside your Pulse data, locked with your password, so they're part of every backup. Bigger files make backups slower.</p>
     </section>
   )
