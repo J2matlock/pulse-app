@@ -47,6 +47,8 @@ export interface DetectedColumn {
   lastFirstNames?: boolean
   /** A date column: cells that say "TBD", "n/a" and the like instead of a date, in the whole file */
   placeholders?: { count: number; example: string }
+  /** A date column: up to 200 of its dates as the import will store them (YYYY-MM-DD), to tell due dates from done dates (R4) */
+  dateValues?: string[]
 }
 
 export interface ImportPreview {
@@ -252,6 +254,8 @@ function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
 
 /** Data rows read to decide a column's type, and how many filled values of them */
 const TYPE_SCAN_ROWS = 100
+/** Dates per date column the preview hands over, for "are these due dates?" (R4) */
+const DATE_VALUE_SAMPLES = 200
 const TYPE_SAMPLES = 20
 
 /** Headers that name running notes; free text under them keeps its length */
@@ -999,9 +1003,14 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
     const nameSamples = dataRows.slice(0, 50).map(row => String(row[i] || '').trim()).filter(Boolean)
     let placeholders: DetectedColumn['placeholders']
+    let dateValues: string[] | undefined
     if (type === 'date') {
       const found = filled(dataRows).filter(isDatePlaceholder)
       if (found.length > 0) placeholders = { count: found.length, example: found[0]! }
+      // Read the way the import reads them: the same day-first or month-first choice from every value
+      const all = filled(dataRows)
+      const order = analyzeDateOrder(all, preferredDateOrder()).order
+      dateValues = all.slice(0, DATE_VALUE_SAMPLES).map(v => normalizeValue(v, 'date', true, order)).filter(v => /^\d{4}-\d{2}-\d{2}$/.test(v))
     }
     return {
       index: i,
@@ -1010,6 +1019,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
       samples,
       ...(type === 'text' && looksLastFirst(nameSamples) ? { lastFirstNames: true } : {}),
       ...(placeholders ? { placeholders } : {}),
+      ...(dateValues?.length ? { dateValues } : {}),
     }
   })
 

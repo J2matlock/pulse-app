@@ -1,9 +1,26 @@
 /**
- * Which dates come due again, guessed from a column's name. Shared by setup's
- * "Which of these dates repeat?" and the import summary (UX Q1a).
+ * Which dates come due again, guessed from a column's name and, on import,
+ * from its dates. Shared by setup's "Which of these dates repeat?" and the
+ * import summary (UX Q1a).
  */
+import { localDateString } from '../../shared/dates'
+import { looksLikeBirthColumn } from '../../shared/parseDate'
 
-export type DateAnswer = { repeat: 'no' } | { repeat: 'due' } | { repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
+export type RepeatUnit = 'days' | 'months' | 'years'
+
+export type DateAnswer = ({ repeat: 'no' } | { repeat: 'due' } | { repeat: 'every'; n: number; unit: RepeatUnit }) & {
+  /**
+   * Import: some of the column's dates are in the future (20–60 %), so it asks
+   * "next due or last done?" (persona study R4). `picked` is null until answered;
+   * `every` is the repeat "last done" keeps.
+   */
+  mixed?: { future: number; picked: 'due' | 'last' | null; every: { n: number; unit: RepeatUnit } }
+}
+
+/** At least this share of a column's dates in the future: they're due dates, whatever the name says */
+export const FUTURE_DUE_SHARE = 0.6
+/** From this share up to FUTURE_DUE_SHARE, the import asks */
+export const FUTURE_MIXED_SHARE = 0.2
 
 /**
  * The likely answer from a column's name, so most people can just click on:
@@ -39,14 +56,40 @@ export function yellowDaysBefore(answer: DateAnswer): number {
 }
 
 /** "every month", "every 6 months", "every year" */
-export function everyPhrase(n: number, unit: 'days' | 'months' | 'years'): string {
+export function everyPhrase(n: number, unit: RepeatUnit): string {
   const one = unit.slice(0, -1)
   return n === 1 ? `every ${one}` : `every ${n} ${unit}`
 }
 
-/** A guess for each date column, keyed by its id */
-export function guessRepeats(columns: ReadonlyArray<{ id: number; name: string }>): Record<number, DateAnswer> {
-  return Object.fromEntries(columns.map(c => [c.id, suggestRepeat(c.name)]))
+/**
+ * A guess for each date column, keyed by its id. `samples` (import: up to 200
+ * of a column's dates as YYYY-MM-DD) can overrule the name: a review date in
+ * the future isn't the day it was last done (Linda's "Last done Dec 4, 2026").
+ * Mostly future → a due date; partly future → the name's guess, asked about.
+ */
+export function guessRepeats(
+  columns: ReadonlyArray<{ id: number; name: string }>,
+  samples?: Record<number, readonly string[] | undefined>,
+  today: string = localDateString(),
+): Record<number, DateAnswer> {
+  return Object.fromEntries(columns.map(c => {
+    const byName = suggestRepeat(c.name)
+    const dates = (samples?.[c.id] ?? []).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    // A birthday "in the future" is a two-digit year, not a due date
+    if (dates.length === 0 || looksLikeBirthColumn(c.name)) return [c.id, byName]
+    const future = dates.filter(d => d > today).length / dates.length
+    if (future >= FUTURE_DUE_SHARE) return [c.id, { repeat: 'due' } satisfies DateAnswer]
+    if (future >= FUTURE_MIXED_SHARE && byName.repeat === 'every') {
+      const mixed = { future, picked: future > 0.5 ? 'due' as const : null, every: { n: byName.n, unit: byName.unit } }
+      return [c.id, (mixed.picked === 'due' ? { repeat: 'due', mixed } : { ...byName, mixed }) satisfies DateAnswer]
+    }
+    return [c.id, byName]
+  }))
+}
+
+/** Import columns still waiting on "next due or last done?" */
+export function unansweredDates(answers: Record<number, DateAnswer>): number[] {
+  return Object.entries(answers).filter(([, a]) => a.mixed && a.mixed.picked === null).map(([id]) => Number(id))
 }
 
 /**

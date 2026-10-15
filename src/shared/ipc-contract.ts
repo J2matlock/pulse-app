@@ -182,6 +182,8 @@ export interface ImportFilePreview {
     samples: string[]
     /** Most values look like "Smith, Jane" */
     lastFirstNames?: boolean
+    /** A date column: up to 200 of its dates as they will be stored (YYYY-MM-DD) */
+    dateValues?: string[]
   }>
   /** 0-based header row, detected or chosen */
   detectedHeaderRow: number

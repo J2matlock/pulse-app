@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { suggestRepeat, yellowDaysBefore, guessRepeats, describeRepeats, everyPhrase } from '../../../src/renderer/utils/repeatGuess'
+import { suggestRepeat, yellowDaysBefore, guessRepeats, describeRepeats, everyPhrase, unansweredDates } from '../../../src/renderer/utils/repeatGuess'
 import * as picker from '../../../src/renderer/views/setup/DateRepeatPicker'
 
 const monthly = { repeat: 'every', n: 1, unit: 'months' }
@@ -55,5 +55,47 @@ describe('describing the answers', () => {
     expect(everyPhrase(1, 'days')).toBe('every day')
     expect(everyPhrase(90, 'days')).toBe('every 90 days')
     expect(everyPhrase(2, 'years')).toBe('every 2 years')
+  })
+})
+
+describe('guessRepeats reads the dates (persona study R4)', () => {
+  const today = '2026-10-15'
+  /** n dates, `future` of them after today */
+  const dates = (n: number, future: number) => Array.from({ length: n }, (_, i) => i < future ? `2026-12-${String(1 + (i % 28)).padStart(2, '0')}` : `2026-0${1 + (i % 9)}-10`)
+  const cols = [{ id: 1, name: 'Plan Review' }, { id: 2, name: 'Last Contact' }, { id: 3, name: 'Date of birth' }, { id: 4, name: 'Start' }]
+
+  it('takes a column with 80 % future dates as due dates, whatever its name', () => {
+    const g = guessRepeats(cols, { 1: dates(10, 8), 2: dates(10, 8), 4: dates(10, 8) }, today)
+    expect(g[1]).toEqual({ repeat: 'due' })
+    expect(g[2]).toEqual({ repeat: 'due' })
+    expect(g[4]).toEqual({ repeat: 'due' })
+  })
+
+  it('keeps the name\'s guess and asks for 30 % future, with nothing picked', () => {
+    const g = guessRepeats(cols, { 1: dates(10, 3) }, today)
+    expect(g[1]).toEqual({ ...yearly, mixed: { future: 0.3, picked: null, every: { n: 1, unit: 'years' } } })
+  })
+
+  it('picks "next due" when more than half are future, and still shows the question', () => {
+    const g = guessRepeats(cols, { 1: dates(20, 11) }, today)
+    expect(g[1]).toEqual({ repeat: 'due', mixed: { future: 0.55, picked: 'due', every: { n: 1, unit: 'years' } } })
+  })
+
+  it('leaves all-past dates, no dates, and birthdays to the name', () => {
+    const g = guessRepeats(cols, { 1: dates(10, 0), 2: dates(10, 1), 3: dates(10, 9) }, today)
+    expect(g[1]).toEqual(yearly)
+    expect(g[2]).toEqual(monthly)
+    expect(g[3]).toEqual({ repeat: 'no' })
+    expect(guessRepeats(cols, undefined, today)[1]).toEqual(yearly)
+    // A column that isn't a repeat by name isn't asked about
+    expect(guessRepeats(cols, { 4: dates(10, 3) }, today)[4]).toEqual({ repeat: 'no' })
+  })
+
+  it('lists the columns still waiting on the question', () => {
+    expect(unansweredDates(guessRepeats(cols, { 1: dates(10, 3), 2: dates(10, 9) }, today))).toEqual([1])
+  })
+
+  it('names due-date columns as such', () => {
+    expect(describeRepeats(cols.slice(0, 2), guessRepeats(cols, { 1: dates(10, 8) }, today))).toBe('Last Contact repeats every month and Plan Review is a due date.')
   })
 })

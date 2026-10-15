@@ -132,7 +132,11 @@ export function newDateColumns(mappings: ColumnMapping[], preview: ImportPreview
     .map(m => ({ id: m.sourceIndex, name: (m.newName || preview.headers[m.sourceIndex] || `Column ${m.sourceIndex + 1}`).trim() }))
 }
 
-/** A guess for every new date column, keyed by file place */
+/**
+ * A guess for every new date column, keyed by file place: from its name and
+ * the dates the preview read (mostly future = due dates).
+ */
 export function guessDateAnswers(mappings: ColumnMapping[], preview: ImportPreview): Record<number, DateAnswer> {
-  return guessRepeats(newDateColumns(mappings, preview))
+  const samples = Object.fromEntries(preview.detectedColumns.map(c => [c.index, c.dateValues]))
+  return guessRepeats(newDateColumns(mappings, preview), samples)
 }

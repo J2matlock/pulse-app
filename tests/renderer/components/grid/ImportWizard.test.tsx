@@ -430,6 +430,23 @@ describe('ImportWizard', () => {
       expect((screen.getByLabelText('Last visit') as HTMLSelectElement).value).toBe('every')
     })
 
+    it('asks "next due or last done?" for partly-future dates, and Import waits for the answer (persona study R4)', async () => {
+      const mixed = { ...preview, detectedColumns: preview.detectedColumns.map(c => c.index === 2 ? { ...c, dateValues: ['2099-01-05', '2020-01-01', '2020-02-01', '2020-03-01'] } : c) }
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => channel === 'import:file-preview' ? Promise.resolve({ ok: true, data: mixed }) : base(channel, ...args))
+      await toSummary()
+      expect(screen.getByTestId('future-dates-question').textContent).toMatch(/Some dates in Last visit are in the future/)
+      const importButton = screen.getByRole('button', { name: 'Import' }) as HTMLButtonElement
+      expect(importButton.disabled).toBe(true)
+      fireEvent.click(screen.getByRole('radio', { name: /Next due/ }))
+      expect(importButton.disabled).toBe(false)
+      fireEvent.click(importButton)
+      await screen.findByText(/We brought in 1 client/)
+      fireEvent.click(screen.getByLabelText('Close'))
+      await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
+      expect(rulesCall()![2]).toContainEqual({ columnId: 10, repeat: 'due' })
+    })
+
     it('applies the answers shown, with the standard rules, when the summary is closed after the import', async () => {
       await toSummary()
       fireEvent.change(screen.getByLabelText('Review Due'), { target: { value: 'no' } })

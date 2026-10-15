@@ -116,4 +116,12 @@ describe('the dates the import makes', () => {
       5: { repeat: 'every', n: 1, unit: 'years' },
     })
   })
+
+  it('reads the dates the preview parsed: mostly future is a due date (persona study R4)', () => {
+    const future = ['2099-12-04', '2099-11-27', '2099-01-02', '2099-03-04', '2020-01-01']
+    const p = preview()
+    const withDates = preview({ detectedColumns: p.detectedColumns.map(c => c.index === 5 ? { ...c, dateValues: future } : c) })
+    const plan = planImport(withDates, detected, [nameCol], 0)
+    expect(guessDateAnswers(plan.mappings, withDates)[5]).toEqual({ repeat: 'due' })
+  })
 })

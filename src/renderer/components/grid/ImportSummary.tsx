@@ -4,11 +4,11 @@
  * which dates repeat); after it, what came in, what was skipped and what to
  * check. The wizard owns the buttons; this is what sits between them.
  */
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import { AlertTriangle, Check } from 'lucide-react'
 import type { Column } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
-import { describeRepeats, type DateAnswer } from '../../utils/repeatGuess'
+import { describeRepeats, everyPhrase, type DateAnswer } from '../../utils/repeatGuess'
 import { DateRepeatPicker } from '../../views/setup/DateRepeatPicker'
 import { SecondaryButton } from '../ui/Button'
 import { TypeBadge, findNameParts, splitWarning, type ColumnMapping, type ImportOptions, type ImportPreview, type ImportResult } from './importWizardShared'
@@ -83,6 +83,63 @@ function ThingsToCheck({ warnings }: { warnings: string[] }): React.ReactElement
       )}
     </section>
   )
+}
+
+/**
+ * "Some dates in Plan Review are in the future. Are these the dates it's next
+ * due, or the dates it was last done?" One per partly-future date column, to
+ * answer before Import (persona study R4: future reviews became "Last done").
+ */
+function FutureDatesQuestion({ name, answer, onPick }: {
+  name: string
+  answer: DateAnswer & { mixed: NonNullable<DateAnswer['mixed']> }
+  onPick: (picked: 'due' | 'last') => void
+}): React.ReactElement {
+  const id = useId()
+  const { every } = answer.mixed
+  const options: Array<{ value: 'due' | 'last'; label: React.ReactNode }> = [
+    { value: 'due', label: <>Next due: these are the dates it&apos;s due</> },
+    { value: 'last', label: <>Last done: it&apos;s due again {everyPhrase(every.n, every.unit)} after them</> },
+  ]
+  return (
+    <fieldset className="rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3" data-testid="future-dates-question">
+      <legend className="sr-only">{name}: next due or last done?</legend>
+      <p className="text-base text-slate-800 dark:text-slate-100">
+        Some dates in <strong>{name}</strong> are in the future. Are these the dates it&apos;s <strong>next due</strong>, or the dates it was <strong>last done</strong>?
+      </p>
+      <div className="mt-2 space-y-1">
+        {options.map(o => (
+          <label key={o.value} className="flex items-center gap-3 min-h-[44px] px-1 text-base text-slate-800 dark:text-slate-100 cursor-pointer">
+            <input type="radio" name={`${id}-future`} className="w-5 h-5 flex-shrink-0" checked={answer.mixed.picked === o.value} onChange={() => onPick(o.value)} />
+            <span>{o.label}</span>
+          </label>
+        ))}
+      </div>
+      {answer.mixed.picked === null && <p className="text-sm text-amber-800 dark:text-amber-200">Choose one to go on.</p>}
+    </fieldset>
+  )
+}
+
+/** The answer after "next due" or "last done" on the future-dates question; the question stays */
+export function pickFutureDates(a: DateAnswer, picked: 'due' | 'last'): DateAnswer {
+  if (!a.mixed) return a
+  const mixed = { ...a.mixed, picked }
+  return picked === 'due' ? { repeat: 'due', mixed } : { repeat: 'every', n: a.mixed.every.n, unit: a.mixed.every.unit, mixed }
+}
+
+/**
+ * The repeat picker's answers, keeping what it doesn't know about: a changed
+ * column's future-dates question follows the new choice (a due date = "next
+ * due", a repeat = "last done"); "no reminder" drops the question.
+ */
+export function mergePickerAnswers(prev: Record<number, DateAnswer>, next: Record<number, DateAnswer>): Record<number, DateAnswer> {
+  return Object.fromEntries(Object.entries(next).map(([id, a]) => {
+    const old = prev[Number(id)]
+    if (!old?.mixed || a === old) return [id, a]
+    if (a.repeat === 'no') return [id, { repeat: 'no' }]
+    const mixed = a.repeat === 'due' ? { ...old.mixed, picked: 'due' as const } : { ...old.mixed, picked: 'last' as const, every: { n: a.n, unit: a.unit } }
+    return [id, { ...a, mixed }]
+  }))
 }
 
 /** A column as the summary lists it: its name in the list and what it holds */
@@ -163,6 +220,10 @@ export function ImportSummary({
     .map(m => preview.headers[m.sourceIndex] ?? '').filter(Boolean) : []
 
   const repeats = describeRepeats(dateColumns, dateAnswers)
+  const futureQuestions = dateColumns.flatMap(c => {
+    const a = dateAnswers[c.id]
+    return a?.mixed ? [{ column: c, answer: { ...a, mixed: a.mixed } }] : []
+  })
   const warnings = before ? (preview.warnings ?? []) : (result?.warnings ?? [])
   const sheetName = preview.sheets[preview.activeSheet] ?? preview.sheets[0] ?? ''
 
@@ -253,13 +314,17 @@ export function ImportSummary({
             {repeats ?? 'None of these dates repeat, so they won\'t change color.'}
             {repeats && ' They turn yellow, then red, as they come due.'}
           </p>
+          {askDates && futureQuestions.map(({ column, answer }) => (
+            <FutureDatesQuestion key={column.id} name={column.name} answer={answer}
+              onPick={picked => onDateAnswers({ ...dateAnswers, [column.id]: pickFutureDates(answer, picked) })} />
+          ))}
           {/* The sentence states the guesses; the picker waits a click away, so the summary fits a laptop screen */}
           {askDates && (
             <details className="rounded-lg border border-slate-200 dark:border-slate-700">
               <summary className="cursor-pointer min-h-[44px] flex items-center px-4 text-base font-medium text-blue-700 dark:text-blue-300 rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
                 Change these
               </summary>
-              <div className="px-4 pb-4"><DateRepeatPicker columns={dateColumns} value={dateAnswers} onChange={onDateAnswers} /></div>
+              <div className="px-4 pb-4"><DateRepeatPicker columns={dateColumns} value={dateAnswers} onChange={next => onDateAnswers(mergePickerAnswers(dateAnswers, next))} /></div>
             </details>
           )}
         </section>

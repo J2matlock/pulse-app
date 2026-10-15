@@ -5,7 +5,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 
-import { ImportSummary, type ImportSummaryProps } from '../../../../src/renderer/components/grid/ImportSummary'
+import { ImportSummary, mergePickerAnswers, type ImportSummaryProps } from '../../../../src/renderer/components/grid/ImportSummary'
 import type { ImportPreview } from '../../../../src/renderer/components/grid/importWizardShared'
 import { guessRepeats } from '../../../../src/renderer/utils/repeatGuess'
 import { setWords } from '../../vocabFixture'
@@ -115,6 +115,34 @@ describe('ImportSummary after the import', () => {
   it('shows the progress while importing', () => {
     render(<ImportSummary {...props({ phase: 'after', loading: true, importProgress: { imported: 50, total: 80 } })} />)
     expect(screen.getByText('Importing 50 of 80…')).toBeTruthy()
+  })
+
+  it('asks about partly-future dates: next due or last done (persona study R4)', () => {
+    const answers = guessRepeats(dateColumns, { 3: ['2026-12-04', '2025-11-01', '2025-10-01', '2025-09-01'] }, '2026-10-15')
+    const onDateAnswers = vi.fn()
+    const { rerender } = render(<ImportSummary {...props({ dateAnswers: answers, onDateAnswers })} />)
+    const q = screen.getByTestId('future-dates-question')
+    expect(q.textContent).toContain('Some dates in Annual review are in the future. Are these the dates it\'s next due, or the dates it was last done?')
+    expect(q.textContent).toContain('Choose one to go on.')
+    const due = screen.getByRole('radio', { name: /Next due/ }) as HTMLInputElement
+    const last = screen.getByRole('radio', { name: /Last done: it's due again every year after them/ }) as HTMLInputElement
+    expect(due.checked || last.checked).toBe(false)
+    fireEvent.click(due)
+    const next = onDateAnswers.mock.calls[0]![0] as typeof answers
+    expect(next[3]).toMatchObject({ repeat: 'due', mixed: { picked: 'due' } })
+    rerender(<ImportSummary {...props({ dateAnswers: next, onDateAnswers })} />)
+    expect(screen.getByText(/Annual review is a due date/)).toBeTruthy()
+    expect(screen.queryByText('Choose one to go on.')).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: /Last done/ }))
+    expect((onDateAnswers.mock.calls[1]![0] as typeof answers)[3]).toMatchObject({ repeat: 'every', n: 1, unit: 'years', mixed: { picked: 'last' } })
+  })
+
+  it('a column changed in the picker keeps its question in step', () => {
+    const prev = guessRepeats(dateColumns, { 3: ['2026-12-04', '2025-11-01', '2025-10-01', '2025-09-01'] }, '2026-10-15')
+    expect(mergePickerAnswers(prev, { ...prev, 3: { repeat: 'due' } })[3]).toMatchObject({ repeat: 'due', mixed: { picked: 'due' } })
+    expect(mergePickerAnswers(prev, { ...prev, 3: { repeat: 'every', n: 2, unit: 'years' } })[3]).toMatchObject({ mixed: { picked: 'last', every: { n: 2, unit: 'years' } } })
+    expect(mergePickerAnswers(prev, { ...prev, 3: { repeat: 'no' } })[3]).toEqual({ repeat: 'no' })
+    expect(mergePickerAnswers(prev, prev)[2]).toBe(prev[2])
   })
 
   it('uses the list\'s words, never "clients", in a car-shop workspace', () => {

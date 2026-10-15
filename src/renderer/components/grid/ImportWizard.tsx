@@ -25,7 +25,7 @@ import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
 import { useAlertStore } from '../../stores/alertStore'
-import type { DateAnswer } from '../../utils/repeatGuess'
+import { unansweredDates, type DateAnswer } from '../../utils/repeatGuess'
 import {
   STEP_LABELS, OLD_SPREADSHEET, OLD_SPREADSHEET_MESSAGE, findNameParts,
   type ImportPreview, type ColumnMapping, type ImportOptions, type ImportResult, type Step,
@@ -558,7 +558,9 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
   const onSummary = step === 6
   const before = onSummary && !importResult
   const rowsToImport = preview ? (preview.dataRowCount ?? preview.rows.length) : 0
+  // "Next due or last done?" for partly-future dates is answered before going on (R4)
   const dateColumns = preview ? newDateColumns(mappings, preview) : []
+  const datesWaiting = unansweredDates(dateAnswers).some(id => dateColumns.some(c => c.id === id))
 
   return (
     <>
@@ -840,7 +842,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
             )}
 
             {before && !loading && preview && (
-              <PrimaryButton disabled={rowsToImport === 0}
+              <PrimaryButton disabled={rowsToImport === 0 || (datesAsked && datesWaiting)}
                 onClick={() => { const input = currentInput(); if (input) void runImport(input) }}>
                 Import
               </PrimaryButton>
@@ -853,7 +855,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
                     {undo === 'busy' ? 'Undoing…' : 'Undo this import'}
                   </SecondaryButton>
                 )}
-                <PrimaryButton busy={closing} onClick={() => void done()}>
+                <PrimaryButton busy={closing} disabled={!datesAsked && undo !== 'done' && datesWaiting} onClick={() => void done()}>
                   Done
                 </PrimaryButton>
               </>
