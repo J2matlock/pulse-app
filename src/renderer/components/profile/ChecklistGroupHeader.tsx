@@ -6,5 +6,5 @@ import { ChecklistGroupHeader as GroupHeader, type GroupHeaderProps } from '../s
  * The example stays neutral: workspaces with other words see it too (Decision Log 2026-10-01).
  */
 export function ChecklistGroupHeader(props: GroupHeaderProps) {
-  return <GroupHeader noun="heading" placeholder="Heading, e.g. Paperwork to collect" {...props} />
+  return <GroupHeader noun="heading" placeholder="Name, e.g. Paperwork" {...props} />
 }

@@ -104,7 +104,7 @@ describe('checklist group undo and redo track the current ids', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Add a heading' }))
     const box = await screen.findByRole('textbox', { name: 'Heading name' }) as HTMLInputElement
     expect(box.value).toBe('')
-    expect(box.placeholder).toBe('Heading, e.g. Paperwork to collect')
+    expect(box.placeholder).toBe('Name, e.g. Paperwork')
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(await screen.findByText('New heading')).toBeTruthy()
     expect(calls('checklist:group-update')).toEqual([])
