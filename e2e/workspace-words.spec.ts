@@ -132,6 +132,8 @@ test.describe('Changing the workspace words', () => {
     await window.getByLabel('What you track: more than one').fill('widgets');
     await window.getByLabel('Lists: one').fill('bin');
     await window.getByLabel('Lists: more than one').fill('bins');
+    // The notes words sit under "More words" since the settings pass (Q1c)
+    if (!await window.getByLabel('Notes: one').isVisible()) await window.getByTestId('more-words').locator('summary').click();
     await window.getByLabel('Notes: one').fill('jot');
     await window.getByLabel('Notes: more than one').fill('jots');
     await window.getByRole('button', { name: 'Save words' }).click();
