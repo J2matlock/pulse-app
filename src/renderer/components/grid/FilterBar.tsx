@@ -8,7 +8,7 @@ import { dropdownVariants } from '../../utils/animations'
 import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID } from '../../../shared/types'
 import { Tooltip } from '../shared/Tooltip'
 import { useVocab } from '../../hooks/useVocab'
-import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, filterValueLabel, LinkFilterValue } from './filterOptions'
+import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, filterValueLabel, LinkFilterValue, offersIncludeBlank, IncludeBlankToggle, includeBlankSuffix, withIncludeBlank } from './filterOptions'
 
 export function FilterBar(): React.ReactElement | null {
   const { t } = useVocab()
@@ -30,7 +30,7 @@ export function FilterBar(): React.ReactElement | null {
 
   const [showPanel, setShowPanel] = useState(false)
   const [showSaved, setShowSaved] = useState(false)
-  const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string } | null>(null)
+  const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string; includeBlank?: boolean } | null>(null)
   const [saveNameInput, setSaveNameInput] = useState('')
   const [showSaveName, setShowSaveName] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -58,7 +58,7 @@ export function FilterBar(): React.ReactElement | null {
 
   function handleAddFilter() {
     if (!newFilter) return
-    addFilter(newFilter)
+    addFilter(withIncludeBlank(newFilter, columns.find(c => c.id === newFilter.columnId)?.column_type))
     setShowPanel(false)
     setNewFilter(null)
   }
@@ -121,11 +121,12 @@ export function FilterBar(): React.ReactElement | null {
                 {!NO_VALUE_OPS.includes(f.operator) && (
                   <span>{filterValueLabel(f, rows)}</span>
                 )}
+                {f.includeBlank && <span>{includeBlankSuffix(f).trim()}</span>}
                 <button
                   onClick={() => removeFilter(i)}
                   className="hit-44 ml-0.5 text-blue-400 hover:text-blue-700 dark:hover:text-blue-100"
                   title="Remove this filter"
-                  aria-label={`Remove filter: ${f.columnId === ROW_TAG_COLUMN_ID ? 'Tags' : (col?.name ?? `Col ${f.columnId}`)} ${OPERATOR_LABELS[f.operator]}${!NO_VALUE_OPS.includes(f.operator) ? ` ${filterValueLabel(f, rows)}` : ''}`}
+                  aria-label={`Remove filter: ${f.columnId === ROW_TAG_COLUMN_ID ? 'Tags' : (col?.name ?? `Col ${f.columnId}`)} ${OPERATOR_LABELS[f.operator]}${!NO_VALUE_OPS.includes(f.operator) ? ` ${filterValueLabel(f, rows)}` : ''}${includeBlankSuffix(f)}`}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -236,7 +237,7 @@ export function FilterBar(): React.ReactElement | null {
                             const needsValue = !NO_VALUE_OPS.includes(preset.op)
                             if (!needsValue || preset.value != null) {
                               // Auto-add immediately (no value input needed)
-                              addFilter({ columnId: newFilter.columnId, operator: preset.op, value: preset.value ?? '' })
+                              addFilter({ columnId: newFilter.columnId, operator: preset.op, value: preset.value ?? '', ...(preset.includeBlank ? { includeBlank: true } : {}) })
                               setShowPanel(false)
                               setNewFilter(null)
                             } else {
@@ -262,7 +263,7 @@ export function FilterBar(): React.ReactElement | null {
                     className="input w-full text-base"
                     style={{ minHeight: 36 }}
                     value={newFilter.operator}
-                    onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' ? '' : newFilter.value }) }}
+                    onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' || NO_VALUE_OPS.includes(op) ? '' : newFilter.value }) }}
                   >
                     {ops.map(op => (
                       <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>
@@ -313,6 +314,10 @@ export function FilterBar(): React.ReactElement | null {
                     </div>
                   )
                 })()}
+
+                {offersIncludeBlank(newFilter.operator, columns.find(c => c.id === newFilter.columnId)?.column_type) && (
+                  <IncludeBlankToggle checked={!!newFilter.includeBlank} onChange={includeBlank => setNewFilter({ ...newFilter, includeBlank })} />
+                )}
 
                 <div className="flex gap-2">
                   <button

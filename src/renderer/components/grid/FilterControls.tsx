@@ -13,7 +13,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { matchFilter } from '../../utils/filterMatch'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { localDateString } from '../../../shared/dates'
-import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, LinkFilterValue } from './filterOptions'
+import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, LinkFilterValue, offersIncludeBlank, IncludeBlankToggle, withIncludeBlank } from './filterOptions'
 
 const OVERDUE_FILTER = { columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status' as const, value: 'overdue' }
 const NO_ROWS: GridRow[] = []
@@ -174,7 +174,7 @@ function FilterBarInline({
     columns: s.columns, addFilter: s.addFilter, savedFilters: s.savedFilters,
     applySavedFilter: s.applySavedFilter,
   })))
-  const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string } | null>(null)
+  const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string; includeBlank?: boolean } | null>(null)
   const { t } = useVocab()
   const panelTitle = `Show only ${t('record', { many: true })} where…`
   // Pop-ups take focus, close on Escape and give focus back (AUDIT-044)
@@ -208,7 +208,7 @@ function FilterBarInline({
 
   function handleAddFilter() {
     if (!newFilter) return
-    addFilter(newFilter)
+    addFilter(withIncludeBlank(newFilter, columns.find(c => c.id === newFilter.columnId)?.column_type))
     onClosePanel()
     setNewFilter(null)
   }
@@ -283,7 +283,7 @@ function FilterBarInline({
                           onClick={() => {
                             const needsValue = !NO_VALUE_OPS.includes(preset.op)
                             if (!needsValue || preset.value != null) {
-                              addFilter({ columnId: newFilter.columnId, operator: preset.op, value: preset.value ?? '' })
+                              addFilter({ columnId: newFilter.columnId, operator: preset.op, value: preset.value ?? '', ...(preset.includeBlank ? { includeBlank: true } : {}) })
                               onClosePanel()
                               setNewFilter(null)
                             } else {
@@ -303,7 +303,7 @@ function FilterBarInline({
 
                 <div>
                   <label htmlFor="filter-inline-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">How it matches</label>
-                  <select id="filter-inline-operator" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.operator} onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' ? '' : newFilter.value }) }}>
+                  <select id="filter-inline-operator" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.operator} onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' || NO_VALUE_OPS.includes(op) ? '' : newFilter.value }) }}>
                     {ops.map(op => <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>)}
                   </select>
                 </div>
@@ -350,6 +350,9 @@ function FilterBarInline({
                     </div>
                   )
                 })()}
+                {offersIncludeBlank(newFilter.operator, columns.find(c => c.id === newFilter.columnId)?.column_type) && (
+                  <IncludeBlankToggle checked={!!newFilter.includeBlank} onChange={includeBlank => setNewFilter({ ...newFilter, includeBlank })} />
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddFilter}

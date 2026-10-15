@@ -145,6 +145,33 @@ describe('FilterBar', () => {
     expect(removeBtn2).toBeTruthy()
   })
 
+  it('a date filter that takes in blank cells says so on its chip (R6)', async () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name'), makeColumn(3, 'Last contact', 'date')], activeFilters: [{ columnId: 3, operator: 'not_this_month', value: '', includeBlank: true }] })
+    await renderSettled(<FilterBar />)
+    expect(screen.getByText('not this month')).toBeTruthy()
+    expect(screen.getByText('(or blank)')).toBeTruthy()
+    expect(screen.getByLabelText('Remove filter: Last contact not this month (or blank)')).toBeTruthy()
+  })
+
+  it('"Not this month" is one click on a date column, blank and TBD included (R6)', async () => {
+    useGridStore.setState({ columns: [makeColumn(3, 'Last contact', 'date')], activeFilters: [] })
+    await renderSettled(<FilterControls />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Not this month' }))
+    expect(useGridStore.getState().activeFilters).toEqual([{ columnId: 3, operator: 'not_this_month', value: '', includeBlank: true }])
+  })
+
+  it('a "before" date filter offers "Include blank or not-a-date" (R6)', async () => {
+    useGridStore.setState({ columns: [makeColumn(3, 'Last contact', 'date')], activeFilters: [] })
+    await renderSettled(<FilterControls />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    fireEvent.change(await screen.findByLabelText('How it matches'), { target: { value: 'before' } })
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '2026-10-01' } })
+    fireEvent.click(screen.getByLabelText('Include blank or not-a-date'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add filter' }))
+    expect(useGridStore.getState().activeFilters).toEqual([{ columnId: 3, operator: 'before', value: '2026-10-01', includeBlank: true }])
+  })
+
   it('shows a date in a chip the way cells show it, not as 2026-10-10 (G-38)', async () => {
     useGridStore.setState({ activeFilters: [{ columnId: 2, operator: 'lt', value: '2026-10-10' }] })
     await renderSettled(<FilterBar />)
