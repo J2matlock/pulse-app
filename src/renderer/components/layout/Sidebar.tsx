@@ -31,6 +31,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useToday } from '../../hooks/useToday'
 import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
+import { SecondaryButton, DangerButton } from '../ui/Button'
 
 /** What the Tasks count means, for screen readers and the collapsed tooltip */
 const TASKS_DUE_WORDS = 'of your tasks due today or late'
@@ -74,14 +75,10 @@ function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteCo
           </p>
         )}
         <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="btn-secondary">Cancel</button>
-          <button
-            autoFocus
-            onClick={onConfirm}
-            className="btn-primary bg-red-600 hover:bg-red-700"
-          >
+          <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+          <DangerButton autoFocus onClick={onConfirm}>
             Move to the Trash
-          </button>
+          </DangerButton>
         </div>
       </motion.div>
     </div>

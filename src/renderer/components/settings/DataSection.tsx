@@ -17,6 +17,7 @@ import { localDateString } from '../../../shared/dates'
 import { HUMAN_SERVICES_VOCAB } from '../../../shared/vocab'
 import { friendlyError } from '../../utils/friendlyError'
 import { IPC_READ_ONLY } from '../../../shared/constants'
+import { DangerButton } from '../ui/Button'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
@@ -378,7 +379,7 @@ export function DataSection(): React.ReactElement {
                 placeholder="Password"
               />
             </div>
-            <button
+            <DangerButton
               disabled={resetTyped !== 'RESET EVERYTHING' || !resetPassword}
               onClick={async () => {
                 const res = await safeInvoke<boolean>(IPC.APP_FACTORY_RESET, resetPassword)
@@ -391,11 +392,10 @@ export function DataSection(): React.ReactElement {
                   toast.error(friendlyError(res.error, "We couldn't erase everything — nothing was changed; try again"))
                 }
               }}
-              className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed w-full"
-              style={{ minHeight: 44 }}
+              className="w-full"
             >
               Erase everything
-            </button>
+            </DangerButton>
           </div>
         </div>
       </div>

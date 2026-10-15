@@ -257,7 +257,8 @@ describe('DeadlinePanel', () => {
     const col = makeColumn({ id: 1, name: 'Last Contact' })
     render(<DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
     const extend = screen.getByRole('button', { name: 'Extend…' })
-    expect(extend.className).toMatch(/text-base/)
+    // The shared compact button: 15 px text, 36 px drawn inside a 44 px click area
+    expect(extend.className).toMatch(/btn-compact-secondary/)
     expect(extend.className).not.toMatch(/text-sm|underline/)
   })
 })
