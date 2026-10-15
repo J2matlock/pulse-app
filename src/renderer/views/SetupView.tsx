@@ -246,7 +246,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
   if (step === 'sheet-import' && gridId !== null) {
     return (
       <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
-        <ImportWizard open gridId={gridId} askDeadlines={false} onClose={cancelImport} onImported={r => {
+        <ImportWizard open gridId={gridId} onClose={cancelImport} onImported={r => {
           // "Undo this import" then close: nothing to describe, so it's like cancelling
           if (r.undone) { importUndone.current = true; return }
           importDone.current = true

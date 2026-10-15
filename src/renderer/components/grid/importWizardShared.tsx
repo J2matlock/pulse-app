@@ -79,7 +79,7 @@ export const STEP_LABELS: Record<Step, string> = {
   3: 'Preview',
   4: 'Match columns',
   5: 'Options',
-  6: 'Results',
+  6: 'Summary',
 }
 
 export const COLUMN_TYPES = [
