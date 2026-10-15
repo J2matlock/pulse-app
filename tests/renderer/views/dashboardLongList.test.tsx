@@ -155,17 +155,38 @@ describe("DashboardView — a long What's due list", () => {
   beforeEach(() => {
     setWords()
     vi.clearAllMocks()
+    sessionStorage.clear()
     setupMocks()
   })
 
-  it('draws the soonest 100, says how many there are, and Show all draws the rest', async () => {
+  it("What's due draws the worst 10 (persona study R6), and Show all draws the rest", async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
+    expect(names()).toHaveLength(10)
+    expect(screen.getByText('Showing the soonest 10 of 250.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 250' }))
+    expect(names()).toHaveLength(250)
+    expect(screen.queryByTestId('dashboard-show-all')).toBeNull()
+  })
+
+  it("What's due stays open for the rest of the session", async () => {
+    const first = render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 250' }))
+    first.unmount()
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(names()).toHaveLength(250)
+  })
+
+  it('the Overdue tab draws the soonest 100, says how many there are, and Show all draws the rest', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByRole('tab', { name: /Overdue/ }))
     expect(names()).toHaveLength(100)
     expect(screen.getByText('Showing the soonest 100 of 250.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Show all 250' }))
     expect(names()).toHaveLength(250)
-    expect(screen.queryByTestId('dashboard-show-all')).toBeNull()
   })
 
   it('search looks through every item, not only the ones drawn', async () => {

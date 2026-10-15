@@ -83,6 +83,7 @@ const followUps = [
 
 beforeEach(() => {
   setWords()
+  sessionStorage.clear()
   useWorkspaceStore.setState({ features: { tasks: true, checklists: true } })
   vi.mocked(safeInvoke).mockImplementation(((channel: string) => {
     if (channel === 'dashboard:get-all') return Promise.resolve({ ok: true, data: { stats: { totalActive: 9, followUpsPending: 2, activeByList: [] }, deadlines, followUps, archived: [] } })
@@ -127,6 +128,8 @@ describe('the dashboard counts one way', () => {
   it("What's due still lists the task with no date, and no window counts it", async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 20)) })
+    // 11 items: the 10 worst show, then "Show all"; the undated task sorts last
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 11' }))
     expect(screen.getByText('Someday')).toBeTruthy()
     fireEvent.click(tab(/Next 30 days/))
     expect(screen.queryByText('Someday')).toBeNull()

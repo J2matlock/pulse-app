@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true })
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 
-import { MonthlyContactsCard } from '../../../../src/renderer/views/dashboard/MonthlyContactsCard'
+import { MonthlyContactsCard, RequirementsLine } from '../../../../src/renderer/views/dashboard/MonthlyContactsCard'
 import { setWords } from '../../vocabFixture'
 
 const requirements = [{ id: 1, grid_id: 5, label: 'Visit', note_types: ['visit'], per_month: 1 }]
@@ -69,5 +69,62 @@ describe('MonthlyContactsCard', () => {
     render(<MemoryRouter><MonthlyContactsCard /></MemoryRouter>)
     expect(await screen.findByText(/^All 2 pets are done for/)).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Requirements this month' })).toBeTruthy()
+  })
+
+  // Wed Oct 14 2026: 3 days left in the week (to Sat Oct 17), 17 in October
+  const twoPeriods = { ok: true, data: [{
+    gridId: 5, gridName: 'Waiver',
+    requirements: [{ label: 'Visit', note_types: ['visit'], per_month: 1, period: 'month' }, { label: 'Check-in', note_types: ['phone'], per_month: 1, period: 'week' }],
+    ranges: [
+      { period: 'month', start: '2026-10-01', end: '2026-10-31', key: '2026-10', label: 'October 2026' },
+      { period: 'week', start: '2026-10-11', end: '2026-10-17', key: '2026-W42', label: 'Week of Oct 11' },
+    ],
+    clients: [
+      { rowId: 1, clientName: 'Ana B', counts: [0, 1] },
+      { rowId: 2, clientName: 'Cal D', counts: [1, 0] },
+      { rowId: 3, clientName: 'Dee F', counts: [1, 1] },
+    ],
+  }] }
+
+  it('the line under the tiles counts who is done and who is behind with under 7 days left (R6)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 14, 12))
+    try {
+      mockInvoke.mockResolvedValue(twoPeriods)
+      render(<MemoryRouter><RequirementsLine /><MonthlyContactsCard /></MemoryRouter>)
+      const line = await screen.findByTestId('requirements-line')
+      expect(line.textContent).toBe('Contact requirements this week and this month:1 of 3 clients done·1 behind with under 7 days left·Show who')
+      // One request between the line and the card
+      expect(mockInvoke.mock.calls.filter(c => c[0] === 'contact-req:status')).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('"Show who" opens the card on the ones with the least time left, then everyone not done (R6)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 14, 12))
+    try {
+      mockInvoke.mockResolvedValue(twoPeriods)
+      render(<MemoryRouter><RequirementsLine /><MonthlyContactsCard /></MemoryRouter>)
+      const line = await screen.findByTestId('requirements-line')
+      fireEvent.click(within(line).getByRole('button', { name: 'Show who' }))
+      expect(screen.getByText('Cal D')).toBeTruthy()
+      expect(screen.getByText('3 days left')).toBeTruthy()
+      expect(screen.queryByText('Ana B')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Show everyone not done (2)' }))
+      const names = screen.getAllByText(/^(Ana B|Cal D)$/).map(e => e.textContent)
+      expect(names).toEqual(['Cal D', 'Ana B'])
+      expect(screen.queryByText('Dee F')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('the line has no "Show who" when the card is hidden', async () => {
+    mockInvoke.mockResolvedValue(twoPeriods)
+    render(<MemoryRouter><RequirementsLine /></MemoryRouter>)
+    const line = await screen.findByTestId('requirements-line')
+    expect(within(line).queryByRole('button')).toBeNull()
   })
 })

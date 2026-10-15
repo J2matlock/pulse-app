@@ -49,6 +49,7 @@ import { FollowUpDashRow } from './dashboard/FollowUpDashRow'
 import { ChecklistDueRow } from './dashboard/ChecklistDueRow'
 import { WeekViewTab } from './dashboard/WeekViewTab'
 import { MonthViewTab } from './dashboard/MonthViewTab'
+import { RequirementsLine } from './dashboard/MonthlyContactsCard'
 import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
 import { assertNever } from '../../shared/assertNever'
@@ -60,10 +61,18 @@ import { EmptyState } from '../components/shared/EmptyState'
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
 /** Up to 2,000 items can come back; drawing them all took most of a second at 5,000 records (UX pass Q9b) */
 const FIRST_ITEMS_SHOWN = 100
+/** What's due starts with its worst few, so the cards under it are in reach (persona study R6) */
+const WHATS_DUE_FIRST = 10
+/** "Show all" on What's due stays open until the app closes; it isn't a setting */
+const WHATS_DUE_ALL_KEY = 'pulse.dashboard.whatsDueAll'
+function readWhatsDueAll(): boolean {
+  try { return sessionStorage.getItem(WHATS_DUE_ALL_KEY) === '1' } catch { return false }
+}
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
   const showChecklists = useFeature('checklists')
+  const requirementsOn = useFeature('requirements')
   const [customizing, setCustomizing] = useState(false)
   const gettingStarted = useGettingStarted()
   const tabsRef = useRef<HTMLDivElement>(null)
@@ -106,8 +115,13 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [])
   useEffect(() => { setSelectedDeadlines(new Set()); setSelecting(false) }, [topTab])
-  // What's due and Overdue draw their first FIRST_ITEMS_SHOWN items until this is on
+  // Overdue and the search results draw their first FIRST_ITEMS_SHOWN items until this is on
   const [showAllItems, setShowAllItems] = useState(false)
+  const [whatsDueAll, setWhatsDueAll] = useState(readWhatsDueAll)
+  const showAllWhatsDue = useCallback(() => {
+    setWhatsDueAll(true)
+    try { sessionStorage.setItem(WHATS_DUE_ALL_KEY, '1') } catch { /* this session only, then */ }
+  }, [])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -542,10 +556,10 @@ export default function DashboardView(): React.ReactElement {
     }
   }
 
-  function renderList(items: PriorityItem[]): React.ReactElement {
+  // The soonest first: a long list draws only its top, the rest a button away (UX pass Q9b)
+  function renderList(items: PriorityItem[], cap = { first: FIRST_ITEMS_SHOWN, all: showAllItems, onShowAll: () => setShowAllItems(true) }): React.ReactElement {
     const seen = new Set<string>()
-    // The soonest first: a long list draws only its top, the rest a button away (UX pass Q9b)
-    const shown = showAllItems ? items : items.slice(0, FIRST_ITEMS_SHOWN)
+    const shown = cap.all ? items : items.slice(0, cap.first)
     return (
       <div role="list">
         {renderBulkBar(shown)}
@@ -565,7 +579,7 @@ export default function DashboardView(): React.ReactElement {
             <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
               Showing the soonest {shown.length.toLocaleString()} of {items.length.toLocaleString()}.
             </p>
-            <SecondaryButton size="compact" onClick={() => setShowAllItems(true)} data-testid="dashboard-show-all">
+            <SecondaryButton size="compact" onClick={cap.onShowAll} data-testid="dashboard-show-all">
               Show all {items.length.toLocaleString()}
             </SecondaryButton>
           </div>
@@ -673,7 +687,8 @@ export default function DashboardView(): React.ReactElement {
                     description="No deadlines, tasks, or follow-ups need attention right now." />
                 )
               ) : (
-                renderList(filteredItems)
+                // A search shows what it found; otherwise the worst 10, then "Show all"
+                renderList(filteredItems, debouncedSearch.trim() ? undefined : { first: WHATS_DUE_FIRST, all: whatsDueAll, onShowAll: showAllWhatsDue })
               )}
             </>
           )}
@@ -797,6 +812,8 @@ export default function DashboardView(): React.ReactElement {
           />
           {/* Tasks, checklist items and follow-ups count in the three tiles above, like the tabs they open (R6) */}
         </div>
+        {/* How the requirements stand, without scrolling past What's due to their card (R6) */}
+        {requirementsOn && <RequirementsLine />}
         {gettingStarted.compact && <GettingStartedCard state={gettingStarted} />}
         </>
         } />
