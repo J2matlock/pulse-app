@@ -19,6 +19,7 @@ import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
 import { useGridStore } from '../stores/gridStore'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
+import { PrimaryButton } from '../components/ui/Button'
 
 // The chip renderer lives beside the editor, which shows it as a live preview (E-26)
 export { TemplateText }
@@ -114,17 +115,13 @@ export default function LetterTemplateView(): React.ReactElement {
           <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">
             Letters
           </h1>
-          <button
+          <PrimaryButton
             onClick={() => { setEditTarget(null); setShowEdit(true) }}
-            title="New template"
             aria-label="New letter template"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600
-                       text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                       focus:ring-offset-3 min-h-[44px]"
+            icon={<Plus className="w-4 h-4" />}
           >
-            <Plus className="w-4 h-4" />
             New
-          </button>
+          </PrimaryButton>
         </div>
 
         {/* List */}
@@ -244,16 +241,9 @@ export default function LetterTemplateView(): React.ReactElement {
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </button>
-                <button
-                  onClick={() => setShowGenerate(true)}
-                  title="Make a letter from this template"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
-                             text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                             focus:ring-offset-3 min-h-[44px]"
-                >
-                  <FileText className="w-4 h-4" />
+                <PrimaryButton onClick={() => setShowGenerate(true)} icon={<FileText className="w-4 h-4" />}>
                   Make a letter…
-                </button>
+                </PrimaryButton>
                 {grids.length > 0 && (
                   <button
                     onClick={() => setShowBatch(true)}

@@ -36,6 +36,7 @@ import { useVocab } from '../hooks/useVocab'
 import { wordNow } from '../utils/vocab'
 import { useFeature } from '../hooks/useFeature'
 import { shortYmd } from '../../shared/dates'
+import { PrimaryButton } from '../components/ui/Button'
 
 interface Props {
   onClose: () => void
@@ -401,13 +402,9 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
               </div>
               <p className="text-xl font-semibold text-slate-900 dark:text-white">We couldn't open focus mode</p>
               <p className="text-slate-600 dark:text-slate-400">{loadError}</p>
-              <button
-                onClick={onClose}
-                className="mt-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400"
-                style={{ minHeight: 44 }}
-              >
+              <PrimaryButton onClick={onClose} className="mt-2 px-6">
                 Close
-              </button>
+              </PrimaryButton>
             </div>
           ) : !hasAnything ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -416,13 +413,9 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
               </div>
               <p className="text-xl font-semibold text-slate-900 dark:text-white">You're all caught up!</p>
               <p className="text-slate-600 dark:text-slate-400">No deadlines or tasks are due today.</p>
-              <button
-                onClick={onClose}
-                className="mt-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400"
-                style={{ minHeight: 44 }}
-              >
+              <PrimaryButton onClick={onClose} className="mt-2 px-6">
                 Back to work
-              </button>
+              </PrimaryButton>
             </div>
           ) : (
             <>

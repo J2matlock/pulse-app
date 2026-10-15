@@ -4,6 +4,7 @@ import type { Grid } from '../../../shared/types'
 import type { SetupTemplate } from './types'
 import { Badge } from './Badge'
 import { ApplyTemplateDialog } from './ApplyTemplateDialog'
+import { PrimaryButton, DangerButton } from '../../components/ui/Button'
 
 interface SetupTemplateCardProps {
   template: SetupTemplate
@@ -71,14 +72,9 @@ export function SetupTemplateCard({ template, grids, onDelete, onExport, onRefre
 
         {/* Actions */}
         <div className="flex items-center gap-2 mt-auto pt-1">
-          <button
-            type="button"
-            onClick={() => setShowApply(true)}
-            className="flex-1 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-base font-medium
-                       min-h-[44px] focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors text-center"
-          >
+          <PrimaryButton onClick={() => setShowApply(true)} className="flex-1">
             Apply
-          </button>
+          </PrimaryButton>
 
           <>
             <button
@@ -96,15 +92,9 @@ export function SetupTemplateCard({ template, grids, onDelete, onExport, onRefre
 
             {confirmDelete ? (
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-base font-medium
-                             min-h-[44px] focus:outline-hidden focus:ring-3 focus:ring-red-500 transition-colors"
-                >
-                  {deleting ? '...' : 'Delete'}
-                </button>
+                <DangerButton onClick={handleDelete} disabled={deleting}>
+                  {deleting ? '…' : 'Delete'}
+                </DangerButton>
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
