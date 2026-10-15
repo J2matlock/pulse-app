@@ -2,7 +2,9 @@
  * UndoToast — the toast for undoable actions, at the bottom of the app's one
  * toast column (ToastHost places it; other toasts stack above it), not over
  * the buttons in the middle (UX D-28). Shows a countdown bar and an [Undo]
- * button; it waits while the pointer or focus is on it.
+ * button; it waits while the pointer or focus is on it. It never takes focus, so
+ * Enter meant for the page doesn't land on it, and it says Ctrl+Z works too, for
+ * whoever's hands stay on the keyboard (persona study R3).
  */
 import React, { useEffect, useState } from 'react'
 import { RotateCcw, X } from 'lucide-react'
@@ -73,7 +75,10 @@ function UndoToastBody(): React.ReactElement | null {
       {/* With a second button the words get their own line, so they aren't squeezed into a narrow column */}
       <div className={`flex gap-3 px-4 py-3 ${action ? 'flex-col' : 'items-center'}`}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className="flex-1 text-base break-words min-w-0">{toast.description}</span>
+          <span className="flex-1 text-base break-words min-w-0">
+            {toast.description}
+            {canUndo && <span className="text-slate-300"> · {modHelp('Ctrl+Z')} also undoes</span>}
+          </span>
           {action && dismiss}
         </div>
         <div className="flex items-center justify-end gap-3">
@@ -83,7 +88,7 @@ function UndoToastBody(): React.ReactElement | null {
             </SecondaryButton>
           )}
           {canUndo && (
-            <PrimaryButton tone="inverse" icon={<RotateCcw className="w-4 h-4" />} title={`Undo (${modHelp('Ctrl+Z')})`} onClick={() => void undoFromToast()}>
+            <PrimaryButton tone="inverse" icon={<RotateCcw className="w-4 h-4" />} title={`Undo (${modHelp('Ctrl+Z')})`} aria-keyshortcuts="Control+Z" onClick={() => void undoFromToast()}>
               Undo
             </PrimaryButton>
           )}

@@ -545,6 +545,44 @@ describe('ColumnHeader', () => {
     expect(deleteColumn).not.toHaveBeenCalled()
   })
 
+  describe('a column with values asks first (persona study R3)', () => {
+    afterEach(() => { useGridStore.setState({ rows: [] }) })
+    const row = (id: number, value: string | null) => ({ row_id: id, position: id, is_active: 1, is_starred: 0, acuity_level_id: null, deleted_at: null, created_at: '', updated_at: '', col_2: value })
+
+    it('says how many records have a value, and nothing goes until it is answered', async () => {
+      const deleteColumn = vi.fn()
+      setupStores({ deleteColumn, rows: [row(1, '2026-01-05'), row(2, ''), row(3, '2026-02-01'), row(4, null)] })
+      vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: [] })
+      render(<ColumnHeader column={makeColumn(2, 'Background check', 'date')} />)
+      fireEvent.contextMenu(screen.getByText('Background check').closest('div')!)
+      fireEvent.click(screen.getByText('Move column to the Trash'))
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
+      expect(screen.getByTestId('column-value-count').textContent)
+        .toBe('2 clients have a value in this column. They come back if you restore it from the Trash within 30 days.')
+      expect(screen.queryByTestId('column-dependents')).toBeNull()
+      expect(deleteColumn).not.toHaveBeenCalled()
+    })
+
+    it('an empty column still goes at once, with the Undo toast (Q4)', async () => {
+      const deleteColumn = vi.fn().mockResolvedValue(undefined)
+      setupStores({ deleteColumn, rows: [row(1, ''), row(2, null)] })
+      vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: [] })
+      render(<ColumnHeader column={makeColumn(2, 'Background check', 'date')} />)
+      fireEvent.contextMenu(screen.getByText('Background check').closest('div')!)
+      fireEvent.click(screen.getByText('Move column to the Trash'))
+      await waitFor(() => expect(deleteColumn).toHaveBeenCalledWith(2))
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('one arrow press past "Deadline rule…" lands on Column settings, not the Trash', () => {
+      render(<ColumnHeader column={makeColumn(2, 'Background check', 'date')} />)
+      fireEvent.contextMenu(screen.getByText('Background check').closest('div')!)
+      const menu = screen.getByText('Move column to the Trash').closest('.fixed') as HTMLElement
+      const tail = [...menu.querySelectorAll('button, hr')].map(el => el.tagName === 'HR' ? '—' : el.textContent?.trim() ?? '').slice(-4)
+      expect(tail).toEqual(['Deadline rule…', 'Column settings…', '—', 'Move column to the Trash'])
+    })
+  })
+
   it('offers "Use this as each client\'s name" on other columns, not the name column (1.8, B-28)', () => {
     const setNameColumn = vi.fn()
     setupStores({ setNameColumn })

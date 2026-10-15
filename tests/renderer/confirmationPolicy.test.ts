@@ -38,7 +38,9 @@ const ALLOWED: Record<string, { kind: Kind; why: string; count?: number }> = {
   'components/forms/FillFormDialog.tsx': { kind: 'D', why: 'Discard unsaved changes' },
   'components/shared/SampleDataBanner.tsx': { kind: 'D', why: 'Remove the sample records: it also clears the undo history' },
   'views/GridView.tsx': { kind: 'D', why: 'Change column type: every caller passes skipConfirm and ChangeTypeDialog previews it with undo; looks unreachable, left for a cleanup' },
-  'components/grid/ColumnHeader.tsx': { kind: 'dependents', why: 'Only when rules, forms or views use the column: the dialog lists them' },
+  // A column that holds values asks too (persona study R3: one arrow press too many trashed 50 dates the
+  // user couldn't see go); an empty one still goes at once with the Undo toast
+  'components/grid/ColumnHeader.tsx': { kind: 'dependents', why: 'Only when the column has values or dependents: the dialog says how many records have a value and lists what uses it' },
   'components/alerts/DeleteRuleConfirm.tsx': { kind: 'dependents', why: 'Only when columns use the rule: the dialog lists them' },
 }
 

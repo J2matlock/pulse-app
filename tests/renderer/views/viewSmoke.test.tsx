@@ -523,7 +523,7 @@ describe('TrashView', () => {
   it('shows the 30-day retention notice', async () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Deleted clients and caseloads wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
+    expect(screen.getByText('Deleted clients, caseloads and columns wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
   })
 
   it('shows empty state when trash is empty', async () => {

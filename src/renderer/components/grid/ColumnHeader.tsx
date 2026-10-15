@@ -68,6 +68,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const [showChangeType, setShowChangeType] = useState(false)
   // What uses this column (rules, forms, views…), listed before a delete
   const [dependents, setDependents] = useState<string[]>([])
+  // How many records hold a value in it, said in the Trash question (R3)
+  const [valueCount, setValueCount] = useState(0)
   const [showEditOptions, setShowEditOptions] = useState(false)
   const [showColFormat, setShowColFormat] = useState(false)
   const renameRef = useRef<HTMLInputElement>(null)
@@ -221,10 +223,14 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
   async function handleDelete() {
     setShowMenu(false)
+    const key = `col_${column.id}` as const
+    const withValues = useGridStore.getState().rows.filter(r => String(r[key] ?? '').trim() !== '').length
     const res = await safeInvoke(IPC.COLUMN_DEPENDENTS, column.id)
-    // Nothing else uses it: straight to the Trash, with the Undo toast (Q4). When rules, forms
-    // or views use it, the dialog stays to show what will stop working (or when that can't be told)
-    if (res.ok && res.data.length === 0) { await deleteColumn(column.id); return }
+    // Empty and nothing else uses it: straight to the Trash, with the Undo toast (Q4). When it holds
+    // values (one arrow press too many lost 50 dates, persona study R3), or rules, forms or views use
+    // it, the dialog says what's at stake (or asks anyway when that can't be told)
+    if (res.ok && res.data.length === 0 && withValues === 0) { await deleteColumn(column.id); return }
+    setValueCount(withValues)
     setDependents(res.ok ? res.data : [])
     setShowDeleteColConfirm(true)
   }
@@ -509,16 +515,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   Use this as each {t('record')}'s name
                 </button>
               )}
-              {/* Everything else lives in one dialog, so the menu stays short (G-21) */}
-              <button
-                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={() => { setShowMenu(false); setShowColumnSettings(true) }}
-              >
-                <Settings2 className="w-4 h-4" />
-                Column settings…
-              </button>
-
-              {/* Deadline rule — only for date columns; opens its own dialog (B-12) */}
+              {/* Deadline rule — only for date columns; opens its own dialog (B-12). Above Column
+                  settings, so one arrow press too many from it lands on a dialog, not the Trash (R3) */}
               {takesDeadlineRule(column.column_type) && (
                 <>
                   <hr className="my-1 border-slate-200 dark:border-slate-700" />
@@ -534,6 +532,15 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   </button>
                 </>
               )}
+
+              {/* Everything else lives in one dialog, so the menu stays short (G-21) */}
+              <button
+                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={() => { setShowMenu(false); setShowColumnSettings(true) }}
+              >
+                <Settings2 className="w-4 h-4" />
+                Column settings…
+              </button>
 
               <hr className="my-1 border-slate-200 dark:border-slate-700" />
               <button
@@ -619,7 +626,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         <ConfirmDialog
           open={showDeleteColConfirm}
           title={`Move the column "${column.name}" to the Trash?`}
-          message={`The column and its values go to the Trash. You can undo this, or bring it back from ${t('list', { cap: true })} settings for 30 days.`}
+          message={`The column and its values go to the Trash. You can undo this, or restore it from the Trash page for 30 days.`}
           confirmLabel="Move to the Trash"
           onConfirm={async () => {
             setShowDeleteColConfirm(false)
@@ -627,6 +634,11 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           }}
           onCancel={() => setShowDeleteColConfirm(false)}
         >
+          {valueCount > 0 && (
+            <p className="mb-3 text-base text-slate-700 dark:text-slate-200" data-testid="column-value-count">
+              {valueCount} {t('record', { count: valueCount })} {valueCount === 1 ? 'has' : 'have'} a value in this column. They come back if you restore it from the Trash within 30 days.
+            </p>
+          )}
           {dependents.length > 0 && (
             <div className="mb-3 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3" data-testid="column-dependents">
               <p className="text-base font-medium text-amber-900 dark:text-amber-200">These use this column and will stop working as they do now:</p>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Trash2, RotateCcw } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { DeletedRow } from '../../shared/types'
@@ -16,6 +16,7 @@ import { TrashFiles } from '../components/shared/TrashFiles'
 import { useGridStore } from '../stores/gridStore'
 import { useUndoStore } from '../stores/undoStore'
 import { friendlyError } from '../utils/friendlyError'
+import { DeletedColumnsSection } from '../components/grid/DeletedColumnsSection'
 
 type DeletedList = { id: number; name: string; deleted_at: string; records: number }
 
@@ -39,6 +40,10 @@ export default function TrashView() {
   const [fileCount, setFileCount] = useState(0)
   const [filesReload, setFilesReload] = useState(0)
   const files = filesOn ? fileCount : 0
+  // Deleted columns wait here too, from every list (persona study R3: they were only in List settings)
+  const grids = useGridStore(s => s.grids)
+  const liveLists = useMemo(() => (Array.isArray(grids) ? grids : []).map(g => ({ id: g.id, name: g.name })), [grids])
+  const [columnCount, setColumnCount] = useState(0)
   // Purging records takes their files with them: the Files list must reload
   const reloadFiles = () => setFilesReload(n => n + 1)
 
@@ -148,7 +153,7 @@ export default function TrashView() {
             <Trash2 className="w-5 h-5" />
             Trash
           </h1>
-          <PurposeLine className="mt-1">{f('Deleted {record:many} and {list:many} wait here for 30 days, then go for good. Restore brings one back.')}</PurposeLine>
+          <PurposeLine className="mt-1">{f('Deleted {record:many}, {list:many} and columns wait here for 30 days, then go for good. Restore brings one back.')}</PurposeLine>
         </div>
         {(rows.length > 0 || lists.length > 0 || files > 0) && (
           <button
@@ -187,12 +192,14 @@ export default function TrashView() {
         </section>
       )}
 
+      <DeletedColumnsSection lists={liveLists} onCountChange={setColumnCount} />
+
       {/* Content */}
-      {rows.length === 0 ? (lists.length > 0 || files > 0 ? null :
+      {rows.length === 0 ? (lists.length > 0 || files > 0 || columnCount > 0 ? null :
         <EmptyState
           icon={<Trash2 className="w-12 h-12" />}
           title="The Trash is empty"
-          description={`Deleted ${t('record', { many: true })} and ${t('list', { many: true })} will appear here for 30 days before being removed for good.`}
+          description={`Deleted ${t('record', { many: true })}, ${t('list', { many: true })} and columns will appear here for 30 days before being removed for good.`}
         />
       ) : (
         <div className="flex-1 overflow-auto px-6 py-4">
