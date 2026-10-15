@@ -6,6 +6,8 @@ import { render, screen, act, cleanup } from '@testing-library/react'
 import toast from 'react-hot-toast'
 import { ToastHost, TOAST_EDGE, TOAST_GAP, UNDO_FALLBACK_HEIGHT } from '../../../../src/renderer/components/shared/ToastHost'
 import { useUndoStore } from '../../../../src/renderer/stores/undoStore'
+import { useLiftToastsAbove } from '../../../../src/renderer/components/shared/toastLift'
+import { useRef } from 'react'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 // react-hot-toast asks about reduced motion
@@ -80,6 +82,25 @@ describe('ToastHost', () => {
     const css = readFileSync(join(__dirname, '../../../../src/renderer/styles/globals.css'), 'utf8')
     const dark = /\n {2}\.dark \{([^}]*)\}/.exec(css)![1]!
     expect(dark).toMatch(/--toast-bg: #1E293B/)
+  })
+
+  it('a bar fixed at the bottom lifts the toasts above it while it shows (Q6)', async () => {
+    function Bar(): React.ReactElement {
+      const ref = useRef<HTMLDivElement>(null)
+      useLiftToastsAbove(ref, 8)
+      return <div ref={ref}>bar</div>
+    }
+    const top = window.innerHeight - 100
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { top: this.textContent === 'bar' ? top : 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    })
+    const { rerender } = render(<><ToastHost /><Bar /></>)
+    act(() => { toast('Lifted') })
+    expect(await screen.findByText('Lifted')).toBeTruthy()
+    expect(toastContainer('Lifted').style.bottom).toBe('108px')
+    rerender(<ToastHost />)
+    expect(toastContainer('Lifted').style.bottom).toBe(`${TOAST_EDGE}px`)
+    rect.mockRestore()
   })
 
   it('App renders one ToastHost per screen and no bare Toaster or UndoToast', () => {

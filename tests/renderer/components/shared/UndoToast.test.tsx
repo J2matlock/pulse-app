@@ -8,7 +8,11 @@ import { render, screen, act, cleanup, fireEvent } from '@testing-library/react'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 vi.mock('motion/react', () => ({
-  motion: new Proxy({}, { get: () => (props: Record<string, unknown>) => { const { children } = props; return <span>{children as React.ReactNode}</span> } }),
+  // The toast card is a motion.div now (Q6): keep its DOM props, drop motion's own
+  motion: new Proxy({}, { get: () => (props: Record<string, unknown>) => {
+    const { children, initial: _i, animate: _a, exit: _e, transition: _t, variants: _v, ...rest } = props
+    return <div {...rest}>{children as React.ReactNode}</div>
+  } }),
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 

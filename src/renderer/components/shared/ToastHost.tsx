@@ -7,6 +7,8 @@
  *   the other toasts stack above it, never on top of it. Its height is
  *   measured with a ResizeObserver; without one (jsdom) a fixed 96 px is kept
  *   free while it shows.
+ * - A bar fixed at the bottom (the grid's bulk-action bar) lifts the whole column
+ *   above it while it shows (toastLift.ts), so no toast covers its buttons.
  * - Toasts follow the theme (dark in dark mode), use 15 px text and 8 px
  *   corners, stay 5.5 s by default, and show lucide icons, not emoji. For a
  *   warning or key icon on a plain toast(): { icon: <ToastIcon kind="warning" /> }
@@ -19,6 +21,7 @@ import { UndoToast } from './UndoToast'
 import { ErrorBoundary } from './ErrorBoundary'
 import { useUndoStore } from '../../stores/undoStore'
 import { LAYER } from '../ui/layers'
+import { useToastLift } from './toastLift'
 
 /** Space from the window's bottom and right edges, and between toasts */
 export const TOAST_EDGE = 24
@@ -74,11 +77,12 @@ function useUndoHeight(withUndo: boolean): [React.RefObject<HTMLDivElement | nul
 
 export function ToastHost({ withUndo = false }: { withUndo?: boolean }): React.ReactElement {
   const [undoRef, undoHeight] = useUndoHeight(withUndo)
-  const bottom = TOAST_EDGE + (undoHeight > 0 ? undoHeight + TOAST_GAP : 0)
+  const edge = Math.max(TOAST_EDGE, useToastLift())
+  const bottom = edge + (undoHeight > 0 ? undoHeight + TOAST_GAP : 0)
   return (
     <>
       {withUndo && (
-        <div ref={undoRef} data-testid="undo-toast-slot" className={`fixed ${LAYER.toast}`} style={{ bottom: TOAST_EDGE, right: TOAST_EDGE }}>
+        <div ref={undoRef} data-testid="undo-toast-slot" className={`fixed ${LAYER.toast}`} style={{ bottom: edge, right: TOAST_EDGE }}>
           <ErrorBoundary fallback={null}>
             <UndoToast />
           </ErrorBoundary>

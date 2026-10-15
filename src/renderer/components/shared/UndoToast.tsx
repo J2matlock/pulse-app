@@ -6,6 +6,8 @@
  */
 import React, { useEffect, useState } from 'react'
 import { RotateCcw, X } from 'lucide-react'
+import { motion } from 'motion/react'
+import { MOTION, easeOut } from '../../utils/animations'
 import { useShallow } from 'zustand/react/shallow'
 import { useUndoStore, UNDO_TOAST_MS } from '../../stores/undoStore'
 import { PrimaryButton, SecondaryButton, IconButton } from '../ui/Button'
@@ -53,7 +55,12 @@ function UndoToastBody(): React.ReactElement | null {
   const dismiss = <IconButton label="Dismiss" size="compact" tone="inverse" icon={<X className="w-4 h-4" />} onClick={dismissToast} />
 
   return (
-    <div
+    // Each new toast rises 12 px into place (Q6); under reduced motion it only fades in
+    <motion.div
+      key={toast.itemId ?? toast.description}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: MOTION.enter, ease: easeOut }}
       className="flex flex-col overflow-hidden rounded-lg shadow-2xl bg-slate-800 text-white"
       style={{ minWidth: 300, maxWidth: 420 }}
       onMouseEnter={() => hold(true)}
@@ -90,6 +97,6 @@ function UndoToastBody(): React.ReactElement | null {
           style={{ width: `${progress}%` }}
         />
       </div>
-    </div>
+    </motion.div>
   )
 }
