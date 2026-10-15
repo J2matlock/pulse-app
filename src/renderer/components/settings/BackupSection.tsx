@@ -551,7 +551,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           open
           variant="typed"
           title="Restore from backup?"
-          message={`This will replace all your current data with the backup from "${restoreTarget.label}". Your current data will be saved as a safety backup first. This cannot be undone without the safety backup.\n\nType RESTORE to confirm.`}
+          message={`This will replace all your current data with the backup from "${restoreTarget.label}". Your current data is saved as a safety backup first, so you can go back.\n\nType RESTORE to confirm.`}
           requiredPhrase="RESTORE"
           confirmLabel="Replace my data with this backup"
           destructive

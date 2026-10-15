@@ -117,8 +117,8 @@ export function AppointmentActions({ appointment: a, onChanged, showEndSeries = 
       )}
       {editing && <AppointmentDialog appointment={a} onClose={() => { setEditing(false); onChanged?.() }} />}
       {deleting && <ScopeDialog verb="Delete" onChoose={scope => void remove(scope)} onCancel={() => setDeleting(false)} />}
-      <ConfirmDialog open={askFuture} title="This hasn't happened yet" destructive={false} confirmLabel="Mark it done"
-        message={`This ${t('appointment')} is on a later day. Mark it done anyway?`}
+      <ConfirmDialog open={askFuture} title="Mark it done anyway?" destructive={false} confirmLabel="Mark it done"
+        message={`This ${t('appointment')} is on a later day, so it hasn't happened yet.`}
         onConfirm={() => { setAskFuture(false); setDoneNote('') }} onCancel={() => setAskFuture(false)} />
     </div>
   )

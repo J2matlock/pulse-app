@@ -146,7 +146,7 @@ describe('ContactForm', () => {
     fireEvent.change(nameInput, { target: { value: 'Dirty data' } })
     fireEvent.click(screen.getByText('Cancel'))
     // Should show ConfirmDialog with discard message
-    expect(screen.getByText(/Unsaved changes/)).toBeTruthy()
+    expect(screen.getByText(/Discard your changes/)).toBeTruthy()
   })
 
   it('renders category dropdown with categories from store', () => {

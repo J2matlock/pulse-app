@@ -341,7 +341,7 @@ export function DataSection(): React.ReactElement {
           <div className="space-y-3 flex-1 min-w-0">
             <div>
               <p className="text-base font-medium text-red-700 dark:text-red-400">Danger zone</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Erase all data and start fresh — this cannot be undone</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Erase all data and start fresh. This can't be undone.</p>
               <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 Permanently deletes all data on this computer, including every {t('record')}, column, setting, and the automatic backups. Backups you saved somewhere else (a USB drive or another folder) are not deleted.
               </p>

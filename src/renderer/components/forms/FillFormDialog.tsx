@@ -291,9 +291,9 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
     </div>
     <ConfirmDialog
       open={askDiscard}
-      title="Discard your answers?"
+      title="Discard your changes?"
       message="What you've filled in on this form hasn't been saved."
-      confirmLabel="Discard answers"
+      confirmLabel="Discard changes"
       onConfirm={() => { setAskDiscard(false); onClose() }}
       onCancel={() => setAskDiscard(false)}
     />

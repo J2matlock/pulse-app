@@ -393,7 +393,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
       <ConfirmDialog
         open={showDeleteConfirm}
         title={`Delete "${p.name}" forever?`}
-        message={`This deletes the ${t('contact')} for good, with everything in their log, their links to ${t('record', { many: true })}, and their extra details. It doesn't go to the Trash. You can undo it right away: click Undo in the message at the bottom of the window, or the Undo arrow at the top.`}
+        message={`This deletes the ${t('contact')} for good, with their history, their links to ${t('record', { many: true })}, and their extra details. It doesn't go to the Trash. You can undo this right away: click Undo in the message at the bottom of the window, or the Undo arrow at the top.`}
         confirmLabel={`Delete ${t('contact')} forever`}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}

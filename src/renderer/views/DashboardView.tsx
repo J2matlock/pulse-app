@@ -781,7 +781,7 @@ export default function DashboardView(): React.ReactElement {
             <PrintExportMenu items={printExportItems} />
             {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
             {pickingLettersList && (
-              <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
+              <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel={`Choose this ${t('list')}`}
                 onCancel={() => setPickingLettersList(false)}
                 onChoose={id => {
                   setPickingLettersList(false)

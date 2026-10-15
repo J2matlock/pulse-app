@@ -924,8 +924,8 @@ export default function TasksView(): React.ReactElement {
       {/* Delete group confirmation */}
       <ConfirmDialog
         open={confirmDeleteGroup !== null}
-        title="Delete group"
-        message={`Delete group "${confirmDeleteGroup?.name}"? Items will become ungrouped.`}
+        title={`Delete the group "${confirmDeleteGroup?.name ?? ''}"?`}
+        message="Its tasks stay, ungrouped."
         confirmLabel="Delete group"
         destructive
         onConfirm={() => confirmDeleteGroup && void handleDeleteGroup(confirmDeleteGroup.id)}
@@ -935,8 +935,8 @@ export default function TasksView(): React.ReactElement {
       {/* Clear completed confirmation */}
       <ConfirmDialog
         open={showClearConfirm}
-        title="Delete completed tasks"
-        message={`Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? '' : 's'}? You can undo this.`}
+        title={`Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? '' : 's'}?`}
+        message="You can undo this."
         confirmLabel={`Delete ${completedTasks.length} task${completedTasks.length === 1 ? '' : 's'}`}
         destructive
         onConfirm={async () => { setShowClearConfirm(false); await deleteTasks(completedTasks.map(t => t.id)); setShowCompleted(false) }}

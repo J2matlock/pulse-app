@@ -37,7 +37,7 @@ afterEach(() => cleanup())
 
 describe('ConfirmDialog (audit A06-21)', () => {
   it('a destructive confirmation is an alertdialog described by its message', async () => {
-    render(<ConfirmDialog open title="Delete Test Person" message="This can't be undone." onConfirm={() => {}} onCancel={() => {}} />)
+    render(<ConfirmDialog open title="Delete Test Person" message="This can't be undone." confirmLabel="Delete" onConfirm={() => {}} onCancel={() => {}} />)
     const dlg = screen.getByRole('alertdialog', { name: 'Delete Test Person' })
     const describedBy = dlg.getAttribute('aria-describedby')
     expect(describedBy).toBeTruthy()
@@ -46,7 +46,7 @@ describe('ConfirmDialog (audit A06-21)', () => {
   })
 
   it('a non-destructive confirmation stays a plain dialog', async () => {
-    render(<ConfirmDialog open destructive={false} title="Apply the change?" onConfirm={() => {}} onCancel={() => {}} />)
+    render(<ConfirmDialog open destructive={false} title="Apply the change?" confirmLabel="Apply" onConfirm={() => {}} onCancel={() => {}} />)
     const dlg = screen.getByRole('dialog', { name: 'Apply the change?' })
     expect(dlg.getAttribute('aria-describedby')).toBeNull()
     await expectNoAxeViolations(document.body)

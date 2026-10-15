@@ -363,7 +363,7 @@ describe('ColumnHeader', () => {
     fireEvent.contextMenu(header)
     expect(screen.getByText('Rename')).toBeTruthy()
     expect(screen.getByText('Hide column')).toBeTruthy()
-    expect(screen.getByText('Delete column')).toBeTruthy()
+    expect(screen.getByText('Move column to the Trash…')).toBeTruthy()
   })
 
   it('moves a column left or right without dragging, skipping hidden ones (G-32)', () => {
@@ -387,14 +387,14 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Move right')).toBeTruthy()
   })
 
-  it('moves the menu up when it would run off the bottom of the window, so "Delete column" shows (V1)', () => {
+  it('moves the menu up when it would run off the bottom of the window, so "Move column to the Trash…" shows (V1)', () => {
     const tall = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(500)
     const h = window.innerHeight
     Object.defineProperty(window, 'innerHeight', { value: 600, configurable: true })
     try {
       render(<ColumnHeader column={makeColumn(1, 'Name')} />)
       fireEvent.contextMenu(screen.getByText('Name').closest('div')!, { clientX: 10, clientY: 400 })
-      const menu = screen.getByText('Delete column').closest('.fixed') as HTMLElement
+      const menu = screen.getByText('Move column to the Trash…').closest('.fixed') as HTMLElement
       expect(menu.style.top).toBe('90px')
       expect(menu.style.bottom).toBe('auto')
       expect(menu.style.maxHeight).toBe('584px')
@@ -416,7 +416,7 @@ describe('ColumnHeader', () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: ['Deadline rule "Within 30 days"', 'Form "Intake"'] })
     render(<ColumnHeader column={makeColumn(2, 'Start date', 'date')} />)
     fireEvent.contextMenu(screen.getByText('Start date').closest('div')!)
-    fireEvent.click(screen.getByText('Delete column'))
+    fireEvent.click(screen.getByText('Move column to the Trash…'))
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
     expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith('column:dependents', 2)
     expect(screen.getByText('Deadline rule "Within 30 days"')).toBeTruthy()

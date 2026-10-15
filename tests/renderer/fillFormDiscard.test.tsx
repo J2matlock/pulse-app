@@ -53,16 +53,16 @@ describe('not losing a filled-in form', () => {
     fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Ada' } })
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByText('Discard your answers?')).toBeTruthy()
+    expect(screen.getByText('Discard your changes?')).toBeTruthy()
     // Keep filling in
     // The question's own Cancel is the last one on the page
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Cancel' }).at(-1)!) })
-    expect(screen.queryByText('Discard your answers?')).toBeNull()
+    expect(screen.queryByText('Discard your changes?')).toBeNull()
     expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe('Ada')
     // A click on the dark area outside asks too; Discard closes
     fireEvent.click(document.querySelector('.bg-black\\/50')!)
-    expect(screen.getByText('Discard your answers?')).toBeTruthy()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard answers' })) })
+    expect(screen.getByText('Discard your changes?')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard changes' })) })
     expect(onClose).toHaveBeenCalled()
   })
 

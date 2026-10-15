@@ -885,7 +885,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       <ConfirmDialog
         open={confirmReset}
         title="Uncheck all completed items?"
-        message={`Uncheck ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} for ${clientName} so ${completedItems.length === 1 ? 'it' : 'they'} can be done again? This can be undone.`}
+        message={`Uncheck ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} for ${clientName} so ${completedItems.length === 1 ? 'it' : 'they'} can be done again. You can undo this.`}
         confirmLabel="Uncheck all"
         onConfirm={() => { setConfirmReset(false); void doResetCycle() }}
         onCancel={() => setConfirmReset(false)}
@@ -894,8 +894,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       {/* Remove done items confirmation */}
       <ConfirmDialog
         open={confirmClear}
-        title="Remove done items"
-        message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'}? You can undo this.`}
+        title={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'}?`}
+        message="You can undo this."
         confirmLabel={`Delete ${completedItems.length} item${completedItems.length === 1 ? '' : 's'}`}
         destructive={true}
         onConfirm={() => { setConfirmClear(false); void doClearCompleted() }}
@@ -905,8 +905,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       {/* Delete group confirmation */}
       <ConfirmDialog
         open={!!confirmDeleteGroup}
-        title="Delete group"
-        message={`Delete the group "${confirmDeleteGroup?.name}"? Items in this group will become ungrouped. This can be undone.`}
+        title={`Delete the group "${confirmDeleteGroup?.name ?? ''}"?`}
+        message="Its items stay on the checklist, ungrouped. You can undo this."
         confirmLabel="Delete group"
         destructive={true}
         onConfirm={() => { if (confirmDeleteGroup) { void handleDeleteGroup(confirmDeleteGroup.id); setConfirmDeleteGroup(null) } }}
@@ -1370,8 +1370,8 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist Templates
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Delete template"
-        message={`Delete the template "${deleteTarget?.name}"? This cannot be undone.`}
+        title={`Delete the template "${deleteTarget?.name ?? ''}"?`}
+        message="This can't be undone."
         confirmLabel="Delete template"
         destructive
         onConfirm={() => { if (deleteTarget) { void handleDelete(deleteTarget.id); setDeleteTarget(null) } }}

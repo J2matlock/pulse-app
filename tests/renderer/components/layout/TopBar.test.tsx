@@ -36,7 +36,7 @@ vi.mock('../../../../src/renderer/components/profile/Breadcrumb', () => ({
 }))
 
 vi.mock('../../../../src/renderer/components/shared/UndoHistoryPanel', () => ({
-  UndoHistoryPanel: () => <div data-testid="undo-history-panel"><button>Clear all</button></div>,
+  UndoHistoryPanel: () => <div data-testid="undo-history-panel"><button>Forget history…</button></div>,
 }))
 
 let mockUndoStack: Array<{ description: string }> = []
@@ -228,7 +228,7 @@ describe('TopBar', () => {
     trigger.focus()
     fireEvent.click(trigger)
     expect(screen.getByTestId('undo-history-panel')).toBeDefined()
-    expect(document.activeElement?.textContent).toBe('Clear all')
+    expect(document.activeElement?.textContent).toBe('Forget history…')
     fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
     expect(screen.queryByTestId('undo-history-panel')).toBeNull()
     expect(document.activeElement).toBe(trigger)

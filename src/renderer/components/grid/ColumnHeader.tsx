@@ -485,7 +485,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 onClick={handleDelete}
               >
                 <Trash2 className="w-4 h-4" />
-                Delete column
+                Move column to the Trash…
               </button>
             </div>
           </>, document.body
@@ -559,12 +559,12 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         {showLinkSettings && linkType && <LinkSetupDialog mode="edit" type={linkType} onClose={() => setShowLinkSettings(false)} />}
         {showStageSettings && <StageSettingsDialog column={column} onClose={() => setShowStageSettings(false)} />}
 
-        {/* Delete column confirmation */}
+        {/* Move-to-Trash confirmation */}
         <ConfirmDialog
           open={showDeleteColConfirm}
-          title={`Delete column "${column.name}"?`}
+          title={`Move the column "${column.name}" to the Trash?`}
           message={`The column and its values go to the Trash. You can undo this, or bring it back from ${t('list', { cap: true })} settings for 30 days.`}
-          confirmLabel="Delete column"
+          confirmLabel="Move to the Trash"
           onConfirm={async () => {
             setShowDeleteColConfirm(false)
             await deleteColumn(column.id)

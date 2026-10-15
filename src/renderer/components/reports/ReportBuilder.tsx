@@ -499,7 +499,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
       <ConfirmDialog
         open={confirmDelete}
         title={`Delete "${initial?.name ?? ''}"?`}
-        message={pinned ? 'The report also comes off the dashboard. This can’t be undone.' : 'This can’t be undone.'}
+        message={pinned ? 'The report also comes off the dashboard. This can\'t be undone.' : 'This can\'t be undone.'}
         confirmLabel="Delete report"
         destructive
         onConfirm={() => void remove()}

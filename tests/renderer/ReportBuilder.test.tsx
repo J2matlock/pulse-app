@@ -61,7 +61,7 @@ describe('report builder', () => {
     expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('')
   })
 
-  it('forgets them after "Leave without saving"', async () => {
+  it('forgets them after "Discard changes"', async () => {
     const first = render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
     await wait(50)
     fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Not wanted' } })
@@ -206,11 +206,11 @@ describe('reports view and dashboard card', () => {
     fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Changed' } })
     await wait(50)
     fireEvent.click(screen.getByRole('button', { name: /New report/ }))
-    expect(screen.getByText('Leave without saving?')).toBeTruthy()
+    expect(screen.getByText('Discard your changes?')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('Changed')
     fireEvent.click(screen.getByRole('button', { name: /New report/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Leave without saving' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
     await wait()
     expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('')
   })

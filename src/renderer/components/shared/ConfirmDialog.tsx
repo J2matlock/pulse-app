@@ -8,7 +8,8 @@ interface BaseProps {
   open: boolean
   title: string
   message?: string
-  confirmLabel?: string
+  /** The button says the title's verb ("Delete", "Restore"), never "OK" or "Confirm" (UX review F-06) */
+  confirmLabel: string
   onConfirm: () => void
   onCancel: () => void
   destructive?: boolean
@@ -33,7 +34,7 @@ export type ConfirmDialogProps = StandardProps | TypedProps
  * variant="typed"    — user must type requiredPhrase exactly to enable Confirm
  */
 export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | null {
-  const { open, title, message, confirmLabel = 'Confirm', onConfirm, onCancel, destructive = true, children } = props
+  const { open, title, message, confirmLabel, onConfirm, onCancel, destructive = true, children } = props
   const [typed, setTyped] = useState('')
   const primaryRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -113,7 +114,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
               onClick={onCancel}
               className="hit-44 absolute top-4 right-4 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
               aria-label="Close"
-              title="Close dialog"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -171,7 +172,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
                 onClick={onCancel}
                 className="btn-secondary"
                 style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
-                title="Cancel (Escape)"
+                title="Cancel (Esc)"
               >
                 Cancel
               </button>

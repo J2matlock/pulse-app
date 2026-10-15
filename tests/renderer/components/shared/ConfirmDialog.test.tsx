@@ -27,6 +27,7 @@ describe('ConfirmDialog', () => {
     open: true,
     title: 'Delete Client',
     message: 'This action cannot be undone.',
+    confirmLabel: 'Confirm',
     onConfirm: vi.fn(),
     onCancel: vi.fn(),
   }

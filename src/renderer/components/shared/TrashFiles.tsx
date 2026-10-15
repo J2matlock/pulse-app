@@ -58,7 +58,7 @@ export function TrashFiles({ reloadKey = 0, onCountChange }: Props = {}): React.
       <ConfirmDialog
         open={purge !== null}
         title="Delete this file forever?"
-        message={`"${purge?.file_name ?? ''}" will be removed from Pulse. This cannot be undone.`}
+        message={`"${purge?.file_name ?? ''}" will be removed from Pulse. This can't be undone.`}
         confirmLabel="Delete forever"
         destructive
         onConfirm={async () => {

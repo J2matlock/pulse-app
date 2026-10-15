@@ -194,10 +194,10 @@ export default function GridView(): React.ReactElement {
         title="Change column type?"
         message={
           pendingTypeChange
-            ? `"${columnTypeLabel(pendingTypeChange.oldType)}" becomes "${columnTypeLabel(pendingTypeChange.newType)}". The values stay as they are.`
+            ? `"${columnTypeLabel(pendingTypeChange.oldType)}" becomes "${columnTypeLabel(pendingTypeChange.newType)}". The values stay as they are; any that don't fit the new type show as they were typed until you change them.`
             : ''
         }
-        confirmLabel="Change Type"
+        confirmLabel={pendingTypeChange ? `Change to ${columnTypeLabel(pendingTypeChange.newType)}` : 'Change type'}
         destructive={false}
         onConfirm={() => void confirmColumnTypeChange()}
         onCancel={cancelColumnTypeChange}

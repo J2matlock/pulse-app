@@ -175,7 +175,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200 dark:border-slate-700">
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex-1">
-            Action History
+            Action history
           </span>
           <button
             onClick={() => setConfirmClear(true)}
@@ -184,7 +184,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
                        disabled:opacity-40 disabled:cursor-not-allowed
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm px-1"
           >
-            Clear all
+            Forget history…
           </button>
           <button
             onClick={onClose}
@@ -283,7 +283,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
       {confirmUndoTo && (
         <ConfirmDialog
           open
-          title="Undo multiple actions"
+          title="Undo these actions?"
           message={`Some of the actions being undone have linked ${t('activity', { many: true })}. Those will be marked as voided: kept, and shown when you tick "Show voided ${t('activity', { many: true })}".`}
           confirmLabel="Undo all"
           destructive={false}
@@ -300,9 +300,9 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
       {confirmClear && (
         <ConfirmDialog
           open
-          title="Clear history"
-          message="This will clear all undo and redo history for this session. You won't be able to undo recent actions."
-          confirmLabel="Clear history"
+          title="Forget the undo history?"
+          message="You won't be able to undo or redo anything you've done so far. Your data stays as it is."
+          confirmLabel="Forget history"
           onConfirm={() => { setConfirmClear(false); clear(); onClose() }}
           onCancel={() => setConfirmClear(false)}
         />

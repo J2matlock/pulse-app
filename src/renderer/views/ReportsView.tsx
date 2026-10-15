@@ -148,9 +148,9 @@ export default function ReportsView(): React.ReactElement {
       )}
       <ConfirmDialog
         open={leaving !== null}
-        title="Leave without saving?"
+        title="Discard your changes?"
         message="Your changes to this report haven't been saved. If you leave now, they're lost."
-        confirmLabel="Leave without saving"
+        confirmLabel="Discard changes"
         destructive
         onConfirm={() => { const to = leaving!.to; setLeaving(null); forgetReportDraft(reportDraftKey(openId ? { id: openId } : null)); go(to) }}
         onCancel={() => setLeaving(null)}

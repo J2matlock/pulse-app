@@ -450,8 +450,8 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
       </div>
       <ConfirmDialog
         open={showDiscardConfirm}
-        title="Unsaved changes"
-        message="You have unsaved changes. Discard them?"
+        title="Discard your changes?"
+        message={`What you changed on this ${t('contact')} hasn't been saved.`}
         confirmLabel="Discard changes"
         destructive
         onConfirm={() => { setShowDiscardConfirm(false); onClose() }}

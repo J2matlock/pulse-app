@@ -111,7 +111,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-add-remove-columns',
     question: 'How do I add or remove columns?',
-    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: click the ⋯ on its header (or right-click the header) and choose "Hide column". "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To delete a column, open the same menu and choose "Delete column": it goes to the Trash with its values, and you can undo that, or restore it from {List} settings for 30 days.',
+    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: click the ⋯ on its header (or right-click the header) and choose "Hide column". "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To delete a column, open the same menu and choose "Move column to the Trash…": it goes to the Trash with its values, and you can undo that, or restore it from {List} settings for 30 days.',
     keywords: ['hide column', 'delete column', 'remove column'],
     category: 'caseload-grid',
     tourStepIds: ['add-column'],
@@ -734,7 +734,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'files-add',
     question: 'How do I keep documents and photos with {a record}?',
-    answer: 'On {a record}\'s page, open the Files section and click "Add files…", or drag files from your computer onto it. To attach a file to {a activity}, click the paperclip under it. PDFs, pictures, Word, Excel and text files can be added, up to 15 MB each; programs and scripts are refused. Click a file to open it, give it a description, save a copy somewhere else, or remove it (Undo brings it back). To see how many files each {record} has in the {list}, add a column of the type "Files (how many)".',
+    answer: 'On {a record}\'s page, open the Files section and click "Add files…", or drag files from your computer onto it. To attach a file to {a activity}, click the paperclip under it. PDFs, pictures, Word, Excel and text files can be added, up to 15 MB each; programs and scripts are refused. Click a file to open it, give it a description, save a copy somewhere else, or remove it (you can undo this). To see how many files each {record} has in the {list}, add a column of the type "Files (how many)".',
     category: 'client-profiles',
     feature: 'attachments',
   },

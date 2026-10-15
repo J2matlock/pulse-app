@@ -45,7 +45,7 @@ describe('axe helper', () => {
 
 describe('axe: shared dialogs', () => {
   it('confirm dialog has no accessibility problems', async () => {
-    render(<ConfirmDialog open title="Delete Test Person" message="This can't be undone." onConfirm={() => {}} onCancel={() => {}} />)
+    render(<ConfirmDialog open title="Delete Test Person" message="This can't be undone." confirmLabel="Delete" onConfirm={() => {}} onCancel={() => {}} />)
     await expectNoAxeViolations(document.body)
   })
 
