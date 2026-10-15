@@ -1,10 +1,10 @@
 /**
- * DashboardView — count tiles, then the tabs What's due, Overdue, This week,
- * This month, then the cards people chose (Recently archived among them).
+ * DashboardView — count tiles, then the tabs What's due, Overdue, Next 7 days,
+ * Next 30 days, then the cards people chose (Recently archived among them).
  */
 import { onTabListKeyDown } from '../utils/tabListKeys'
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail, LayoutDashboard } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail, LayoutDashboard } from 'lucide-react'
 import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
 import { Tooltip } from '../components/shared/Tooltip'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
@@ -29,7 +29,7 @@ import { pulseEvents } from '../events'
 import { useVocab, useVocabByList } from '../hooks/useVocab'
 import { GettingStartedCard, useGettingStarted } from './dashboard/GettingStartedCard'
 import { PrintExportMenu } from './dashboard/PrintExportMenu'
-import { daysLeftInWeek, monthTabCount, weekTabCount } from './dashboard/tabCounts'
+import { datedItems, recordsIn, windowTabs } from './dashboard/tabCounts'
 import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
 
@@ -37,8 +37,9 @@ import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, To
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
-import { dashboardTileCounts, deadlinesMayBeCut, followUpsMayBeCut, isLateDeadline } from './dashboard/tileCounts'
+import { dashboardTileCounts, deadlinesMayBeCut, followUpsMayBeCut } from './dashboard/tileCounts'
 import { useListsChanged } from './dashboard/useDashboardRefresh'
+import { deadlineLabel } from '../../shared/deadlineLabel'
 import { ColorKeyPopover } from '../components/grid/ColorKeyPopover'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
@@ -49,6 +50,7 @@ import { FollowUpDashRow } from './dashboard/FollowUpDashRow'
 import { ChecklistDueRow } from './dashboard/ChecklistDueRow'
 import { WeekViewTab } from './dashboard/WeekViewTab'
 import { MonthViewTab } from './dashboard/MonthViewTab'
+import { RequirementsLine } from './dashboard/MonthlyContactsCard'
 import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
 import { assertNever } from '../../shared/assertNever'
@@ -60,13 +62,20 @@ import { EmptyState } from '../components/shared/EmptyState'
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
 /** Up to 2,000 items can come back; drawing them all took most of a second at 5,000 records (UX pass Q9b) */
 const FIRST_ITEMS_SHOWN = 100
+/** What's due starts with its worst few, so the cards under it are in reach (persona study R6) */
+const WHATS_DUE_FIRST = 10
+/** "Show all" on What's due stays open until the app closes; it isn't a setting */
+const WHATS_DUE_ALL_KEY = 'pulse.dashboard.whatsDueAll'
+function readWhatsDueAll(): boolean {
+  try { return sessionStorage.getItem(WHATS_DUE_ALL_KEY) === '1' } catch { return false }
+}
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
   const showChecklists = useFeature('checklists')
+  const requirementsOn = useFeature('requirements')
   const [customizing, setCustomizing] = useState(false)
   const gettingStarted = useGettingStarted()
-  const weekStart = useSettingsStore(s => s.weekStart)
   const tabsRef = useRef<HTMLDivElement>(null)
   const lettersOn = useFeature('letters')
   const openGridId = useGridStore(s => s.activeGridId)
@@ -107,8 +116,13 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [])
   useEffect(() => { setSelectedDeadlines(new Set()); setSelecting(false) }, [topTab])
-  // What's due and Overdue draw their first FIRST_ITEMS_SHOWN items until this is on
+  // Overdue and the search results draw their first FIRST_ITEMS_SHOWN items until this is on
   const [showAllItems, setShowAllItems] = useState(false)
+  const [whatsDueAll, setWhatsDueAll] = useState(readWhatsDueAll)
+  const showAllWhatsDue = useCallback(() => {
+    setWhatsDueAll(true)
+    try { sessionStorage.setItem(WHATS_DUE_ALL_KEY, '1') } catch { /* this session only, then */ }
+  }, [])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -268,6 +282,8 @@ export default function DashboardView(): React.ReactElement {
         gridName: row.grid_name,
         columnId: row.column_id,
         columnName: row.column_name,
+        // "Appeal window", not "Appeal filed", when the date comes from another column (R6)
+        title: deadlineLabel(rule, { name: row.column_name }).title,
         dateValue: row.date_value,
         daysUntil,
         alertRuleId,
@@ -345,13 +361,19 @@ export default function DashboardView(): React.ReactElement {
     return alertRules.filter(r => ids.has(r.id))
   }, [deadlines, alertRules])
 
-  // The tiles count deadlines the way the morning briefing and desktop reminder do
-  // (overdue includes a used-up quota); tasks, checklist items and follow-ups due
-  // or late get their own tile, the same as the briefing's "task due" lines
+  // The tiles and the tabs they open count one way (persona study R6): every deadline,
+  // task with a due date, checklist item and follow-up; overdue includes a used-up quota
   const derivedCounts = useMemo(() => dashboardTileCounts({
     deadlines, deadlinesCut: deadlinesCut, followUpDays: followUpsWithDays.map(f => f.daysUntil), followUpsCut: followUpsCut,
-    otherDueDays: [...tasksWithDays, ...checklistWithDays].map(x => x.daysUntil), server: stats,
+    otherDueDays: [...tasksWithDays.filter(t => t.task.due_date), ...checklistWithDays].map(x => x.daysUntil), server: stats,
   }), [deadlines, deadlinesCut, tasksWithDays, checklistWithDays, followUpsWithDays, followUpsCut, stats])
+
+  // The Overdue, Next 7 days and Next 30 days tabs, filtered the way the tiles count
+  const windows = useMemo(() => windowTabs(datedItems({ deadlines, tasksWithDays, checklistWithDays, followUpsWithDays })),
+    [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
+  const overdueItems = windows.overdue
+  // The Overdue tile counts items; say how many records they're about (R6). Unknown past main's cap
+  const overdueRecords = deadlinesCut || followUpsCut ? null : recordsIn(overdueItems)
 
   // Everything on "What's due", soonest first; the search filters this, the next-step banner doesn't
   const priorityItems = useMemo((): PriorityItem[] => {
@@ -369,7 +391,7 @@ export default function DashboardView(): React.ReactElement {
     const has = (s: string | null | undefined) => (s ?? '').toLowerCase().includes(q)
     return priorityItems.filter(it => {
       switch (it.kind) {
-        case 'deadline': return has(it.data.clientName) || has(it.data.columnName) || has(it.data.gridName)
+        case 'deadline': return has(it.data.clientName) || has(it.data.title) || has(it.data.columnName) || has(it.data.gridName)
         case 'task': return has(it.data.title) || has(it.data.category)
         case 'checklist': return has(it.data.title) || has(it.data.client_name) || has(it.data.grid_name)
         case 'followup': return has(it.data.client_name) || has(it.data.content) || has(it.data.grid_name)
@@ -377,16 +399,6 @@ export default function DashboardView(): React.ReactElement {
       }
     })
   }, [priorityItems, debouncedSearch])
-
-  const overdueItems = useMemo((): PriorityItem[] => {
-    const items: PriorityItem[] = []
-    // Like the Overdue tile: late, or a used-up quota
-    for (const d of deadlines) { if (isLateDeadline(d)) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil }) }
-    for (const { task, daysUntil } of tasksWithDays) { if (daysUntil < 0) items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil }) }
-    for (const { item: ci, daysUntil } of checklistWithDays) { if (daysUntil < 0) items.push({ kind: 'checklist', data: ci, daysUntil, sortKey: daysUntil }) }
-    for (const { followUp, daysUntil } of followUpsWithDays) { if (daysUntil < 0) items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil }) }
-    return items.sort((a, b) => a.sortKey - b.sortKey)
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
 
   // The one thing to do next, over the whole workload (Q2); the empty and error states speak for themselves
   const step = useMemo(() => nextStep({ overdueItems, priorityItems, t }), [overdueItems, priorityItems, t])
@@ -402,22 +414,19 @@ export default function DashboardView(): React.ReactElement {
     )
   }, [archivedRows, debouncedArchiveSearch])
 
-  // Each tab says how many rows are behind it (UX D-20); the counts use the tabs' own filters
-  const tabCounts = useMemo<Record<TopTab, number>>(() => {
-    const todayStart = new Date(today + 'T00:00:00')
-    return {
-      priority: deadlines.filter(d => d.threshold !== null).length + tasksWithDays.length + checklistWithDays.length + followUpsWithDays.length,
-      overdue: overdueItems.length,
-      week: weekTabCount({ deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, daysLeft: daysLeftInWeek(todayStart, weekStart) }),
-      month: monthTabCount(deadlines, todayStart),
-    }
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, overdueItems, today, weekStart])
+  // Each tab says how many rows are behind it (UX D-20): the length of what it shows
+  const tabCounts = useMemo<Record<TopTab, number>>(() => ({
+    priority: priorityItems.length,
+    overdue: windows.overdue.length,
+    next7: windows.next7.length,
+    next30: windows.next30.length,
+  }), [priorityItems, windows])
 
   const TOP_TABS = useMemo<{ key: TopTab; label: string; icon: React.ReactNode }[]>(() => [
-    { key: 'priority',   label: "What's due",   icon: <AlertTriangle className="w-4 h-4" /> },
-    { key: 'overdue',    label: 'Overdue',      icon: <AlertTriangle className="w-4 h-4" /> },
-    { key: 'week',       label: 'This week',    icon: <Clock className="w-4 h-4" /> },
-    { key: 'month',      label: 'This month',   icon: <Calendar className="w-4 h-4" /> },
+    { key: 'priority',   label: "What's due",    icon: <AlertTriangle className="w-4 h-4" /> },
+    { key: 'overdue',    label: 'Overdue',       icon: <AlertTriangle className="w-4 h-4" /> },
+    { key: 'next7',      label: 'Next 7 days',   icon: <Clock className="w-4 h-4" /> },
+    { key: 'next30',     label: 'Next 30 days',  icon: <Calendar className="w-4 h-4" /> },
   ], [])
 
   // A count tile opens its tab and brings the tabs into view (UX D-06)
@@ -550,10 +559,10 @@ export default function DashboardView(): React.ReactElement {
     }
   }
 
-  function renderList(items: PriorityItem[]): React.ReactElement {
+  // The soonest first: a long list draws only its top, the rest a button away (UX pass Q9b)
+  function renderList(items: PriorityItem[], cap = { first: FIRST_ITEMS_SHOWN, all: showAllItems, onShowAll: () => setShowAllItems(true) }): React.ReactElement {
     const seen = new Set<string>()
-    // The soonest first: a long list draws only its top, the rest a button away (UX pass Q9b)
-    const shown = showAllItems ? items : items.slice(0, FIRST_ITEMS_SHOWN)
+    const shown = cap.all ? items : items.slice(0, cap.first)
     return (
       <div role="list">
         {renderBulkBar(shown)}
@@ -573,7 +582,7 @@ export default function DashboardView(): React.ReactElement {
             <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
               Showing the soonest {shown.length.toLocaleString()} of {items.length.toLocaleString()}.
             </p>
-            <SecondaryButton size="compact" onClick={() => setShowAllItems(true)} data-testid="dashboard-show-all">
+            <SecondaryButton size="compact" onClick={cap.onShowAll} data-testid="dashboard-show-all">
               Show all {items.length.toLocaleString()}
             </SecondaryButton>
           </div>
@@ -681,7 +690,8 @@ export default function DashboardView(): React.ReactElement {
                     description="No deadlines, tasks, or follow-ups need attention right now." />
                 )
               ) : (
-                renderList(filteredItems)
+                // A search shows what it found; otherwise the worst 10, then "Show all"
+                renderList(filteredItems, debouncedSearch.trim() ? undefined : { first: WHATS_DUE_FIRST, all: whatsDueAll, onShowAll: showAllWhatsDue })
               )}
             </>
           )}
@@ -696,15 +706,12 @@ export default function DashboardView(): React.ReactElement {
             )
           )}
 
-          {/* This Week tab */}
-          {topTab === 'week' && (
-            <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner}
-              onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
+          {/* Next 7 days and Next 30 days: rolling from today; the calendar week and month are on the Calendar */}
+          {topTab === 'next7' && (
+            <WeekViewTab items={windows.next7} today={today} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
-
-          {/* This Month tab */}
-          {topTab === 'month' && (
-            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
+          {topTab === 'next30' && (
+            <MonthViewTab items={windows.next30} today={today} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
 
         </div>
@@ -784,8 +791,9 @@ export default function DashboardView(): React.ReactElement {
             href="/grid"
           />
           <SummaryCard
-            label="Overdue deadlines"
+            label="Overdue"
             value={isLoading ? '—' : derivedCounts.overdue}
+            sub={!isLoading && overdueRecords ? `for ${overdueRecords} ${t('record', { count: overdueRecords })}` : undefined}
             icon={<AlertTriangle className="w-5 h-5" />}
             colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300'}
             urgent={derivedCounts.overdue > 0}
@@ -793,28 +801,22 @@ export default function DashboardView(): React.ReactElement {
           />
           <SummaryCard
             label="Due in the next 7 days"
-            value={isLoading ? '—' : derivedCounts.dueThisWeek}
+            value={isLoading ? '—' : derivedCounts.next7}
             icon={<Clock className="w-5 h-5" />}
-            colorClass={derivedCounts.dueThisWeek > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}
-            onClick={() => openTab('week')}
+            colorClass={derivedCounts.next7 > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}
+            onClick={() => openTab('next7')}
           />
           <SummaryCard
             label="Due in the next 30 days"
-            value={isLoading ? '—' : derivedCounts.dueThisMonth}
+            value={isLoading ? '—' : derivedCounts.next30}
             icon={<Calendar className="w-5 h-5" />}
-            colorClass={derivedCounts.dueThisMonth > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-600 dark:text-slate-300'}
-            onClick={() => openTab('month')}
+            colorClass={derivedCounts.next30 > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-600 dark:text-slate-300'}
+            onClick={() => openTab('next30')}
           />
-          {(showTasks || showChecklists) && (<>
-            <SummaryCard
-              label="Tasks, checklist items and follow-ups due or late"
-              value={isLoading ? '—' : derivedCounts.otherDue}
-              icon={<ClipboardList className="w-5 h-5" />}
-              colorClass="text-slate-800 dark:text-slate-100"
-              href="/tasks"
-            />
-          </>)}
+          {/* Tasks, checklist items and follow-ups count in the three tiles above, like the tabs they open (R6) */}
         </div>
+        {/* How the requirements stand, without scrolling past What's due to their card (R6) */}
+        {requirementsOn && <RequirementsLine />}
         {gettingStarted.compact && <GettingStartedCard state={gettingStarted} />}
         </>
         } />

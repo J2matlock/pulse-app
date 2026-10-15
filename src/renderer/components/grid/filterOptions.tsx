@@ -41,6 +41,8 @@ export const OPERATOR_LABELS: Record<FilterOperator, string> = {
   lt:            'less than',
   before:        'before',
   after:         'after',
+  before_this_month: 'before this month',
+  not_this_month:    'not this month',
   links_to:      'links to',
   due_status:    'deadline is',
 }
@@ -58,7 +60,7 @@ const OPS_FOR_TYPE: Record<Exclude<ColumnType, 'deadline'>, FilterOperator[]> = 
   // Worked out from a date: compared as the number the cell shows
   age_from_dob:    ['gt', 'lt', 'equals', 'not_equals', 'is_empty', 'is_not_empty'],
   calculated_days: ['lt', 'gt', 'equals', 'not_equals', 'is_empty', 'is_not_empty'],
-  date:     ['equals', 'before', 'after', 'is_empty', 'is_not_empty'],
+  date:     ['equals', 'before', 'after', 'before_this_month', 'not_this_month', 'is_empty', 'is_not_empty'],
   checkbox: ['equals', 'not_equals'],
   dropdown: ['equals', 'not_equals', 'is_empty', 'is_not_empty'],
   status:   ['equals', 'not_equals', 'is_empty', 'is_not_empty'],
@@ -70,7 +72,31 @@ const OPS_FOR_TYPE: Record<Exclude<ColumnType, 'deadline'>, FilterOperator[]> = 
   file_count:  ['gt', 'lt', 'equals', 'not_equals'],
 }
 
-export const NO_VALUE_OPS: FilterOperator[] = ['is_empty', 'is_not_empty']
+export const NO_VALUE_OPS: FilterOperator[] = ['is_empty', 'is_not_empty', 'before_this_month', 'not_this_month']
+
+/** Date filters that can take in blank and not-a-date cells too ("TBD", R6) */
+const INCLUDE_BLANK_OPS: FilterOperator[] = ['before', 'after', 'before_this_month', 'not_this_month']
+export const offersIncludeBlank = (op: FilterOperator, colType: string | undefined): boolean =>
+  colType === 'date' && INCLUDE_BLANK_OPS.includes(op)
+
+/** The "Include blank or not-a-date" tick box under a date filter's value */
+export function IncludeBlankToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }): React.ReactElement {
+  return (
+    <label className="flex items-center gap-2 min-h-11 text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+      <input type="checkbox" className="w-5 h-5" checked={checked} onChange={e => onChange(e.target.checked)} />
+      Include blank or not-a-date
+    </label>
+  )
+}
+
+/** The filter to add: "include blank" only where it means something, so a changed operator doesn't carry it */
+export function withIncludeBlank(f: ColumnFilter, colType: string | undefined): ColumnFilter {
+  const { includeBlank, ...rest } = f
+  return includeBlank && offersIncludeBlank(rest.operator, colType) ? { ...rest, includeBlank: true } : rest
+}
+
+/** " (or blank)" after a filter chip's words when it takes in blank cells */
+export const includeBlankSuffix = (f: ColumnFilter): string => (f.includeBlank ? ' (or blank)' : '')
 
 /**
  * The operators for a column. A column with a deadline rule offers "due
@@ -102,7 +128,7 @@ export function DueStatusValue({ id, value, onChange }: { id: string; value: str
 }
 
 // Quick preset buttons shown after column selection to reduce clicks
-export type FilterPreset = { label: string; op: FilterOperator; value?: string }
+export type FilterPreset = { label: string; op: FilterOperator; value?: string; includeBlank?: boolean }
 export const PRESETS_BY_TYPE: Record<string, FilterPreset[]> = {
   text: [
     { label: 'Contains\u2026', op: 'contains' },
@@ -130,6 +156,8 @@ export const PRESETS_BY_TYPE: Record<string, FilterPreset[]> = {
   ],
   date: [
     { label: 'In the past', op: 'before', value: TODAY_TOKEN },
+    // "Not seen this month": nobody seen yet, or "TBD", counts too (R6)
+    { label: 'Not this month', op: 'not_this_month', includeBlank: true },
     { label: 'Is empty', op: 'is_empty' },
   ],
   checkbox: [

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Week view items are buttons, so the keyboard can open them (Q-053). */
+/** Next 7 days items are buttons, so the keyboard can open them (Q-053). */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -23,10 +23,11 @@ describe('week view items (Q-053)', () => {
     const task = { id: 1, title: 'Call the landlord', category: null, due_date: today } as unknown as CaseloadTask
     const item = { id: 2, title: 'Send consent form', row_id: 7, grid_id: 3, client_name: 'Jane Smith', grid_name: 'Waitlist', due_date: today } as unknown as ChecklistDueItem
     const followUp = { id: 3, client_name: 'Ann Lee', row_id: 8, grid_id: 3, grid_name: 'Waitlist', follow_up_date: today } as unknown as FollowUpRow
-    render(<WeekViewTab deadlines={[]} isLoading={false}
-      tasksWithDays={[{ task, daysUntil: 0 }]}
-      checklistWithDays={[{ item, daysUntil: 0 }]}
-      followUpsWithDays={[{ followUp, daysUntil: 0 }]} />)
+    render(<WeekViewTab today={today} isLoading={false} items={[
+      { kind: 'task', data: task, daysUntil: 0, sortKey: 0 },
+      { kind: 'checklist', data: item, daysUntil: 0, sortKey: 0 },
+      { kind: 'followup', data: followUp, daysUntil: 0, sortKey: 0 },
+    ]} />)
     fireEvent.click(screen.getByRole('button', { name: /Call the landlord/ }))
     expect(navigate).toHaveBeenLastCalledWith('/tasks')
     fireEvent.click(screen.getByRole('button', { name: /Send consent form/ }))

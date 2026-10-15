@@ -18,6 +18,15 @@ function amount(text: string): number {
   return cleaned === '' ? NaN : Number(cleaned)
 }
 
+/** A cell's calendar date (YYYY-MM-DD), or null when it's blank or isn't a date ("TBD") */
+function cellYmd(val: string): string | null {
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(val)
+  if (iso) return iso[1]!
+  if (val.trim() === '') return null
+  const t = new Date(val)
+  return isNaN(t.getTime()) ? null : localDateString(t)
+}
+
 /** A date filter value meaning "the day it's checked", so a saved "in the past" never freezes (G-40) */
 export const TODAY_TOKEN = '@today'
 
@@ -91,6 +100,7 @@ export function matchFilter(
       // The tag filter offers only the four above; others leave it off
       case 'equals': case 'not_equals': case 'starts_with': case 'ends_with':
       case 'gt': case 'lt': case 'before': case 'after': case 'links_to':
+      case 'before_this_month': case 'not_this_month':
         return true
       default:
         // An operator added without a case fails typecheck; one from a saved
@@ -147,16 +157,27 @@ export function matchFilter(
       return !isNaN(n) && !isNaN(m) && n < m
     }
     case 'before': {
-      if (cellVal === '' || v === '') return false
+      if (v === '') return false
       const cellDate = new Date(cellVal).getTime()
       const filterDate = new Date(v).getTime()
-      return !isNaN(cellDate) && !isNaN(filterDate) && cellDate < filterDate
+      // "TBD" or nothing yet: left out unless the filter asks for them (R6)
+      if (cellVal === '' || isNaN(cellDate)) return !!filter.includeBlank && !isNaN(filterDate)
+      return !isNaN(filterDate) && cellDate < filterDate
     }
     case 'after': {
-      if (cellVal === '' || v === '') return false
+      if (v === '') return false
       const cellDate = new Date(cellVal).getTime()
       const filterDate = new Date(v).getTime()
-      return !isNaN(cellDate) && !isNaN(filterDate) && cellDate > filterDate
+      if (cellVal === '' || isNaN(cellDate)) return !!filter.includeBlank && !isNaN(filterDate)
+      return !isNaN(filterDate) && cellDate > filterDate
+    }
+    // "Not seen this month" (R6): the month it is when checked, so a saved filter never goes stale
+    case 'before_this_month':
+    case 'not_this_month': {
+      const ymd = cellYmd(cellVal)
+      if (ymd === null) return !!filter.includeBlank
+      const month = localDateString().slice(0, 7)
+      return filter.operator === 'before_this_month' ? ymd.slice(0, 7) < month : ymd.slice(0, 7) !== month
     }
     // "Links to" on a column that is no longer a link column leaves the filter off
     case 'links_to':      return true

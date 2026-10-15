@@ -159,11 +159,11 @@ describe('DashboardView — data smoke tests (5 deadlines, 3 follow-ups)', () =>
     setupMocks()
   })
 
-  it('renders 5 summary cards', async () => {
+  it('renders 4 summary cards', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
     const cards = screen.getAllByTestId('summary-card')
-    expect(cards.length).toBe(5)
+    expect(cards.length).toBe(4)
   })
 
   it('Active clients card shows 42', async () => {
@@ -178,7 +178,7 @@ describe('DashboardView — data smoke tests (5 deadlines, 3 follow-ups)', () =>
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
     const cards = screen.getAllByTestId('summary-card')
-    const overdue = cards.find(c => c.getAttribute('data-label') === 'Overdue deadlines')
+    const overdue = cards.find(c => c.getAttribute('data-label') === 'Overdue')
     expect(overdue).toBeDefined()
   })
 

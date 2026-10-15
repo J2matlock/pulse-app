@@ -1,43 +1,61 @@
 /**
- * Which items the This week and This month tabs show, so the tab labels can
- * count exactly what's behind them (D-20). The tabs filter with these too.
+ * What the Overdue, Next 7 days and Next 30 days tabs show (persona study R6).
+ * The tabs filter with these and count what they filter, and the tiles count
+ * the same items with `countDue` (shared/deadlineTiles.ts), so a tile, its tab's
+ * label and the rows under it are always one number. The calendar week and
+ * month are the Calendar page's; here the windows roll from today.
  */
 import type { CaseloadTask, ChecklistDueItem } from '../../../shared/types'
-import { isUsedUp } from '../../../shared/deadlineEngine'
-import type { ExtendedDeadlineInfo, FollowUpRow } from './types'
-import { getEffectiveDate } from './getEffectiveDate'
+import { NEXT_DAYS, dueWithin, isLateDeadline, type DueWindow } from '../../../shared/deadlineTiles'
+import type { ExtendedDeadlineInfo, FollowUpRow, PriorityItem } from './types'
 
-/** Days from today to the last day of this calendar week (0 on that day). */
-export function daysLeftInWeek(today: Date, weekStart: 'sunday' | 'monday'): number {
-  const dayOfWeek = weekStart === 'monday' ? (today.getDay() + 6) % 7 : today.getDay()
-  return 6 - dayOfWeek
-}
+export const itemDaysUntil = (item: PriorityItem): number => item.kind === 'deadline' ? item.data.daysUntil : item.daysUntil
+const dueLike = (item: PriorityItem) => item.kind === 'deadline' ? item.data : { daysUntil: item.daysUntil }
 
-/** Late (however late), a used-up allowance, or due by the end of this week */
-export function deadlineInWeekTab(d: ExtendedDeadlineInfo, daysLeft: number): boolean {
-  return d.daysUntil < 0 || isUsedUp({ state: d.state, daysUntil: d.daysUntil }) || d.daysUntil <= daysLeft
-}
+/** Late, or a used-up quota: the Overdue tile and tab */
+export const isLateItem = (item: PriorityItem): boolean => isLateDeadline(dueLike(item))
 
-/** Due this calendar month */
-export function deadlineInMonthTab(d: ExtendedDeadlineInfo, year: number, month: number): boolean {
-  const eff = getEffectiveDate(d)
-  return eff !== null && eff.getFullYear() === year && eff.getMonth() === month
-}
+/** Due from today through the window's last day, not late */
+export const inWindow = (item: PriorityItem, which: DueWindow): boolean => dueWithin(dueLike(item), NEXT_DAYS[which])
 
-export function weekTabCount(input: {
+/**
+ * Everything with a date the dashboard counts, soonest first: every deadline
+ * (whatever its color rules say), tasks with a due date, checklist items and
+ * follow-ups. A task with no due date is on What's due but in no window.
+ */
+export function datedItems(input: {
   deadlines: ExtendedDeadlineInfo[]
   tasksWithDays: Array<{ task: CaseloadTask; daysUntil: number }>
   checklistWithDays: Array<{ item: ChecklistDueItem; daysUntil: number }>
   followUpsWithDays: Array<{ followUp: FollowUpRow; daysUntil: number }>
-  daysLeft: number
-}): number {
-  const inWeek = (daysUntil: number) => daysUntil <= input.daysLeft
-  return input.deadlines.filter(d => deadlineInWeekTab(d, input.daysLeft)).length
-    + input.tasksWithDays.filter(t => inWeek(t.daysUntil) && !!t.task.due_date).length
-    + input.checklistWithDays.filter(c => inWeek(c.daysUntil)).length
-    + input.followUpsWithDays.filter(f => inWeek(f.daysUntil)).length
+}): PriorityItem[] {
+  const items: PriorityItem[] = []
+  for (const d of input.deadlines) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil })
+  for (const { task, daysUntil } of input.tasksWithDays) { if (task.due_date) items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil }) }
+  for (const { item, daysUntil } of input.checklistWithDays) items.push({ kind: 'checklist', data: item, daysUntil, sortKey: daysUntil })
+  for (const { followUp, daysUntil } of input.followUpsWithDays) items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil })
+  return items.sort((a, b) => a.sortKey - b.sortKey)
 }
 
-export function monthTabCount(deadlines: ExtendedDeadlineInfo[], now: Date): number {
-  return deadlines.filter(d => deadlineInMonthTab(d, now.getFullYear(), now.getMonth())).length
+export interface WindowTabs { overdue: PriorityItem[]; next7: PriorityItem[]; next30: PriorityItem[] }
+
+/** The three tabs' rows, in one pass */
+export function windowTabs(dated: PriorityItem[]): WindowTabs {
+  const out: WindowTabs = { overdue: [], next7: [], next30: [] }
+  for (const it of dated) {
+    if (isLateItem(it)) { out.overdue.push(it); continue }
+    if (inWindow(it, 'next7')) out.next7.push(it)
+    if (inWindow(it, 'next30')) out.next30.push(it)
+  }
+  return out
+}
+
+/** How many records the items are about (a task belongs to no record) */
+export function recordsIn(items: PriorityItem[]): number {
+  const rows = new Set<number>()
+  for (const it of items) {
+    if (it.kind === 'deadline') rows.add(it.data.rowId)
+    else if (it.kind === 'checklist' || it.kind === 'followup') rows.add(it.data.row_id)
+  }
+  return rows.size
 }

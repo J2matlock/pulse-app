@@ -71,6 +71,8 @@ export type FilterOperator =
   | 'is_empty' | 'is_not_empty'
   | 'gt' | 'lt'
   | 'before' | 'after'
+  /** Date columns, against the calendar month it is when checked (persona study R6); no value */
+  | 'before_this_month' | 'not_this_month'
   /** Link columns (W04): links to this record (value = its row id) */
   | 'links_to'
   /** Columns with a deadline rule: overdue | today | next7 | next30 | done | paused (G-12) */
@@ -80,6 +82,8 @@ export interface ColumnFilter {
   columnId: number
   operator: FilterOperator
   value: string  // empty string for is_empty/is_not_empty
+  /** Date filters: a blank cell or one that isn't a date ("TBD") matches too (R6) */
+  includeBlank?: boolean
 }
 
 // Grid row as returned by the pivot query

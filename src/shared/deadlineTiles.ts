@@ -35,20 +35,44 @@ export function daysAwayLabel(daysUntil: number): string {
   return `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
 }
 
+/** Anything with a days-until: a deadline (with its engine state), a task, a checklist item, a follow-up */
+export interface DueLike { daysUntil: number; state?: DeadlineState }
+
+/** The dashboard's rolling windows, from today: "Next 7 days" and "Next 30 days" */
+export const NEXT_DAYS = { next7: DAYS_THIS_WEEK, next30: DAYS_THIS_MONTH } as const
+export type DueWindow = keyof typeof NEXT_DAYS
+
+/** Due from today through `days` days from now, and not late: the "Next 7 / 30 days" test */
+export function dueWithin(d: DueLike, days: number): boolean {
+  return !isLateDeadline(d) && d.daysUntil <= days
+}
+
+export interface DueCounts { overdue: number; next7: number; next30: number }
+
+/**
+ * The one way the dashboard counts (persona study R6): the tiles and the
+ * Overdue / Next 7 days / Next 30 days tabs all count with this, over every
+ * kind of item the What's due list shows. Overdue = late or a used-up quota;
+ * the next 7 and 30 days start today and leave out what's late.
+ */
+export function countDue(items: Iterable<DueLike>): DueCounts {
+  let overdue = 0, next7 = 0, next30 = 0
+  for (const d of items) {
+    if (isLateDeadline(d)) { overdue++; continue }
+    if (d.daysUntil <= NEXT_DAYS.next7) next7++
+    if (d.daysUntil <= NEXT_DAYS.next30) next30++
+  }
+  return { overdue, next7, next30 }
+}
+
 export interface DeadlineTileCounts { overdue: number; dueThisWeek: number; dueThisMonth: number }
 
 /**
- * The dashboard's deadline tiles, counted like the morning briefing and the
- * desktop reminder (D-19, D-20): overdue = late or a used-up quota; the
- * rolling "next 7 / 30 days" include today. Main counts the full list with this
- * too, for when the list it sends is cut at its cap (F-024).
+ * The deadline part of the tiles, counted like the morning briefing and the
+ * desktop reminder (D-19, D-20). Main counts the full list with this, for when
+ * the list it sends is cut at its cap (F-024).
  */
-export function countDeadlineTiles(deadlines: Array<{ daysUntil: number; state?: DeadlineState }>): DeadlineTileCounts {
-  let overdue = 0, dueThisWeek = 0, dueThisMonth = 0
-  for (const d of deadlines) {
-    if (isLateDeadline(d)) { overdue++; continue }
-    if (d.daysUntil <= DAYS_THIS_WEEK) dueThisWeek++
-    if (d.daysUntil <= DAYS_THIS_MONTH) dueThisMonth++
-  }
-  return { overdue, dueThisWeek, dueThisMonth }
+export function countDeadlineTiles(deadlines: DueLike[]): DeadlineTileCounts {
+  const c = countDue(deadlines)
+  return { overdue: c.overdue, dueThisWeek: c.next7, dueThisMonth: c.next30 }
 }

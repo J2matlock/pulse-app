@@ -326,7 +326,7 @@ export const STEPS: TourStep[] = [
     title: 'Dashboard views',
     subtitle: 'Multiple ways to see your workload',
     description:
-      'Switch between tabs to see different slices of your work: What\'s due for the most urgent, Overdue, and This week and This month for planning ahead. Recently archived {record:many} are a link beside the tabs.',
+      'Switch between tabs to see different slices of your work: What\'s due for the most urgent, Overdue, and Next 7 days and Next 30 days for planning ahead. Each tile above opens the tab it counts.',
     icon: <LayoutDashboard className="w-6 h-6" />,
     position: 'bottom',
     route: '#/dashboard',

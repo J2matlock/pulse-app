@@ -385,7 +385,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dash-overview',
     question: 'What does the dashboard show me each day?',
-    answer: 'The Dashboard gives you a quick summary: what\'s overdue (in red) and due soon, your tasks, and cards you choose with "Customize". Use the tabs to switch between "What\'s due", "Overdue", "This week" and "This month"; "Recently archived" is a link below them.',
+    answer: 'The Dashboard gives you a quick summary: what\'s overdue (in red) and due soon, your tasks, and cards you choose with "Customize". Use the tabs to switch between "What\'s due", "Overdue", "Next 7 days" and "Next 30 days" (counted from today; the Calendar shows calendar weeks and months). "Recently archived" is a card further down.',
     category: 'dashboard-deadlines',
     tourStepIds: ['dashboard', 'dashboard-tabs'],
     keywords: ['today', 'home', 'overview', 'start of day'],

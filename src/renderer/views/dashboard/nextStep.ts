@@ -10,7 +10,7 @@ import type { VocabKey, TermOptions } from '../../../shared/vocab'
 import { daysOverdueLabel } from '../../../shared/deadlineTiles'
 import { shortDate, ymdLocalDate } from '../../../shared/dates'
 import { assertNever } from '../../../shared/assertNever'
-import type { PriorityItem } from './types'
+import type { ExtendedDeadlineInfo, PriorityItem } from './types'
 
 type Words = (key: VocabKey, opts?: TermOptions) => string
 
@@ -77,6 +77,9 @@ export function itemPath(item: PriorityItem): string {
   }
 }
 
+/** What's due: "Appeal window" for a rule worked out from another column, else the column (deadlineLabel) */
+const titleOf = (d: ExtendedDeadlineInfo): string => d.title ?? d.columnName
+
 const daysUntilOf = (item: PriorityItem): number => item.kind === 'deadline' ? item.data.daysUntil : item.daysUntil
 
 /** What the first item is and how late: "Last Face-to-Face, 12 days overdue", "Due Mar 3" */
@@ -85,7 +88,7 @@ function lateDetail(item: PriorityItem): string {
   switch (item.kind) {
     case 'deadline':
       // A used-up quota is late whatever its end date says
-      return days < 0 ? `${item.data.columnName}, ${daysOverdueLabel(days)}` : `${item.data.columnName}, ${item.data.label ?? 'all used'}`
+      return days < 0 ? `${titleOf(item.data)}, ${daysOverdueLabel(days)}` : `${titleOf(item.data)}, ${item.data.label ?? 'all used'}`
     case 'task':
       return item.data.due_date ? `Due ${shortDate(ymdLocalDate(item.data.due_date))}` : 'Overdue'
     case 'checklist':
@@ -100,7 +103,7 @@ function lateDetail(item: PriorityItem): string {
 /** What the item is, for "today" and "next": the deadline's column or the checklist item */
 function whatOf(item: PriorityItem): string | null {
   switch (item.kind) {
-    case 'deadline': return item.data.columnName
+    case 'deadline': return titleOf(item.data)
     case 'task': return null
     case 'checklist': return item.data.title
     case 'followup': return 'Follow-up'
@@ -117,12 +120,16 @@ function overdueSentence(items: PriorityItem[], t: Words): string {
   }
   const kind = kinds[0] ?? 'deadline'
   if (kind === 'deadline') {
-    const columns = new Set(items.map(i => i.kind === 'deadline' ? i.data.columnName : ''))
+    const columns = new Set(items.map(i => i.kind === 'deadline' ? titleOf(i.data) : ''))
     if (columns.size === 1) {
       const first = items[0]
-      const column = first?.kind === 'deadline' ? first.data.columnName : ''
+      const column = first?.kind === 'deadline' ? titleOf(first.data) : ''
       return `${column} is overdue for ${n} ${t('record', { count: n })}.`
     }
+    // Deadlines and records are both counted somewhere (the list's Overdue button counts
+    // records): say both when they differ (persona study R6)
+    const records = new Set(items.map(i => i.kind === 'deadline' ? i.data.rowId : 0)).size
+    if (records !== n) return `${countOf(n, kind)} are overdue, for ${records} ${t('record', { count: records })}.`
   }
   return `${countOf(n, kind)} ${n === 1 ? 'is' : 'are'} overdue.`
 }

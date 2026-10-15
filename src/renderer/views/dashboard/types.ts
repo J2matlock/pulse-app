@@ -48,6 +48,8 @@ export interface ArchivedRow {
 }
 
 export interface ExtendedDeadlineInfo extends DeadlineInfo {
+  /** What's due (deadlineLabel): the rule's name when the date comes from another column, else the column's */
+  title?: string
   intervalDays: number | null
   /** Full rule interval (days, or calendar months, end-of-month) */
   interval?: RuleInterval
@@ -69,7 +71,7 @@ export interface ExtendedDeadlineInfo extends DeadlineInfo {
   meter?: MeterInfo
 }
 
-export type TopTab = 'priority' | 'overdue' | 'week' | 'month'
+export type TopTab = 'priority' | 'overdue' | 'next7' | 'next30'
 
 export type PriorityItem =
   | { kind: 'deadline'; data: ExtendedDeadlineInfo; sortKey: number }

@@ -176,7 +176,7 @@ describe('DashboardView — interactions', () => {
     await flushEffects()
 
     const cards = screen.getAllByTestId('summary-card')
-    expect(cards.length).toBe(5)
+    expect(cards.length).toBe(4)
     // Active Clients should show 15
     const activeCard = cards.find(c => c.getAttribute('data-label') === 'Active clients')
     expect(activeCard?.getAttribute('data-value')).toBe('15')
@@ -192,7 +192,7 @@ describe('DashboardView — interactions', () => {
     expect(priorityTab.textContent).toContain('(4)')
   })
 
-  it('switches to This Week tab and shows WeekViewTab content', async () => {
+  it('switches to the Next 7 days tab and shows WeekViewTab content', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
 
@@ -200,20 +200,20 @@ describe('DashboardView — interactions', () => {
     const tablists = screen.getAllByRole('tablist')
     const topTablist = tablists[0]
     const weekTab = Array.from(topTablist.querySelectorAll('[role="tab"]'))
-      .find(t => t.textContent?.includes('This week'))! as HTMLElement
+      .find(t => t.textContent?.includes('Next 7 days'))! as HTMLElement
     fireEvent.click(weekTab)
     expect(weekTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByTestId('week-view')).toBeDefined()
   })
 
-  it('switches to This Month tab and shows MonthViewTab content', async () => {
+  it('switches to the Next 30 days tab and shows MonthViewTab content', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
 
     const tablists = screen.getAllByRole('tablist')
     const topTablist = tablists[0]
     const monthTab = Array.from(topTablist.querySelectorAll('[role="tab"]'))
-      .find(t => t.textContent?.includes('This month'))! as HTMLElement
+      .find(t => t.textContent?.includes('Next 30 days'))! as HTMLElement
     fireEvent.click(monthTab)
     expect(monthTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByTestId('month-view')).toBeDefined()
@@ -234,7 +234,7 @@ describe('DashboardView — interactions', () => {
     const tile = screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Due in the next 7 days')!
     fireEvent.click(tile)
     expect(screen.getByTestId('week-view')).toBeDefined()
-    fireEvent.click(screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Overdue deadlines')!)
+    fireEvent.click(screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Overdue')!)
     expect(screen.getByRole('tab', { name: /Overdue/ }).getAttribute('aria-selected')).toBe('true')
   })
 
@@ -389,7 +389,7 @@ describe('DashboardView — interactions', () => {
       : Promise.resolve({ ok: true, data: [] }))
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    const tile = screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Overdue deadlines')
+    const tile = screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Overdue')
     expect(tile?.getAttribute('data-value')).toBe('1')
     const overdueTab = Array.from(screen.getAllByRole('tablist')[0]!.querySelectorAll('[role="tab"]'))
       .find(t => t.textContent?.includes('Overdue'))! as HTMLElement

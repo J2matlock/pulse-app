@@ -396,13 +396,13 @@ describe('DashboardView', () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
     const cards = screen.getAllByTestId('summary-card')
-    expect(cards.length).toBe(5)
+    // Tasks, checklist items and follow-ups count in the three due tiles (persona study R6)
+    expect(cards.length).toBe(4)
     const cardLabels = cards.map(c => c.textContent)
     expect(cardLabels).toContain('Active clients')
-    expect(cardLabels).toContain('Overdue deadlines')
+    expect(cardLabels).toContain('Overdue')
     expect(cardLabels).toContain('Due in the next 7 days')
     expect(cardLabels).toContain('Due in the next 30 days')
-    expect(cardLabels).toContain('Tasks, checklist items and follow-ups due or late')
   })
 
   it('renders top tab bar with What\'s due selected by default', async () => {
