@@ -81,7 +81,8 @@ export function MoveToGridDialog({
  * Trash keeps them 30 days, and Undo (toast, top bar, Ctrl+Z) brings them back.
  * Typing a word stays for deleting forever (G-34). Returns false when it failed.
  */
-export async function trashRows(ids: number[]): Promise<boolean> {
+/** what: the records by name, as the bulk bar's button says them ("Bergstrom home and 4 unnamed") */
+export async function trashRows(ids: number[], what?: string): Promise<boolean> {
   if (ids.length === 0) return false
   const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
   if (!result.ok) { toast.error(friendlyError(result.error)); return false }
@@ -91,7 +92,7 @@ export async function trashRows(ids: number[]): Promise<boolean> {
   const label = `${ids.length} ${wordNow('record', { count: ids.length })}`
   useUndoStore.getState().pushWithToast({
     id: crypto.randomUUID(),
-    description: `Moved ${label} to the Trash`,
+    description: `Moved ${what || label} to the Trash`,
     timestamp: Date.now(),
     category: 'structural',
     icon: 'Trash2',

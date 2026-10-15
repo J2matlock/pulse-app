@@ -27,8 +27,10 @@ vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
   rlog: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
+// Names by row id for the tests that need them (R3: the Trash button names records); '' = no name
+const names = vi.hoisted(() => new Map<number, string>())
 vi.mock('../../../../src/renderer/utils/clientName', () => ({
-  getClientName: () => 'Test Client',
+  getClientName: (r: { row_id: number }, _c: unknown, fallback = 'Unnamed') => names.has(r.row_id) ? (names.get(r.row_id) || fallback) : 'Test Client',
 }))
 
 vi.mock('react-hot-toast', () => ({
@@ -37,7 +39,7 @@ vi.mock('react-hot-toast', () => ({
 
 // ── Store imports ───────────────────────────────────────────────────────────
 
-import { BulkActionBar } from '../../../../src/renderer/components/grid/BulkActionBar'
+import { BulkActionBar, namedRecords } from '../../../../src/renderer/components/grid/BulkActionBar'
 import type { BulkActionBarProps } from '../../../../src/renderer/components/grid/BulkActionBar'
 import type { GridRow, Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
@@ -96,15 +98,36 @@ describe('BulkActionBar', () => {
     expect(screen.getByText('1 client selected')).toBeTruthy()
   })
 
-  it('Move to the Trash names the count and acts at once, with an Undo toast, no dialog (UX-B-25, Q4)', async () => {
+  it('Move to the Trash names the records and acts at once, with an Undo toast, no dialog (UX-B-25, Q4, R3)', async () => {
     useUndoStore.getState().clear()
+    names.set(1, 'Bergstrom home').set(2, '')
     const setSelectedRowIds = vi.fn()
     render(<BulkActionBar {...makeProps({ setSelectedRowIds })} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Move 2 to the Trash' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move Bergstrom home and 1 unnamed to the Trash' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     await vi.waitFor(() => expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(IPC.ROW_BULK_ACTION, 'delete', [1, 2]))
-    await vi.waitFor(() => expect(useUndoStore.getState().toast?.description).toBe('Moved 2 clients to the Trash'))
+    await vi.waitFor(() => expect(useUndoStore.getState().toast?.description).toBe('Moved Bergstrom home and 1 unnamed to the Trash'))
     expect(setSelectedRowIds.mock.calls.at(-1)![0].size).toBe(0)
+    names.clear()
+  })
+
+  describe('namedRecords: which records, by name (persona study R3)', () => {
+    const t = ((key: string, o?: { count?: number }) => key === 'record' && o?.count !== 1 ? 'clients' : 'client') as Parameters<typeof namedRecords>[1]
+    it('1 record: its name, or "1 unnamed client"', () => {
+      expect(namedRecords(['Bergstrom home'], t)).toBe('Bergstrom home')
+      expect(namedRecords([''], t)).toBe('1 unnamed client')
+    })
+    it('2 records: both names', () => {
+      expect(namedRecords(['Bergstrom home', 'Nowak home'], t)).toBe('Bergstrom home and Nowak home')
+    })
+    it('5 records: two names and the rest counted; nameless ones kept apart while the rest are named', () => {
+      expect(namedRecords(['Bergstrom home', '', '', '', ''], t)).toBe('Bergstrom home and 4 unnamed')
+      expect(namedRecords(['Bergstrom home', 'Nowak home', 'Olson home', '', ''], t)).toBe('Bergstrom home, Nowak home and 3 more')
+      expect(namedRecords(['', '', '', '', ''], t)).toBe('5 unnamed clients')
+    })
+    it('a long name is shortened so the button stays on one line', () => {
+      expect(namedRecords(['The Bergstrom family foster home on County Road 12'], t)).toBe('The Bergstrom family foster h…')
+    })
   })
 
   it('clear selection button calls setSelectedRowIds with empty set', () => {
