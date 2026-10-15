@@ -8,6 +8,9 @@ import { useVocab } from '../../hooks/useVocab'
 
 interface Draft { id: string; name: string; fields: string }
 
+/** The format shown worked out in the dialog, so the idea is visible before anyone types */
+const EXAMPLE_FORMAT = ['Who', 'What happened', 'Next steps']
+
 /** Create and edit your own note formats (built-in ones are listed for reference). */
 export function NoteFormatsDialog({ formats, onClose }: {
   formats: NoteFormat[]
@@ -58,6 +61,20 @@ export function NoteFormatsDialog({ formats, onClose }: {
               Built in: {builtins.map(f => `${f.name} (${f.fields.join(', ')})`).join('; ')}.
             </p>
           )}
+          {/* One format shown as it looks in the note box, so "sections" means something (E-42) */}
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 space-y-2" aria-label="Example format">
+            <p className="text-base text-slate-700 dark:text-slate-200">
+              Each line you type becomes a box in the note. For example, a format with the lines {EXAMPLE_FORMAT.map((s, i) => <React.Fragment key={s}>{i > 0 && ', '}<strong>{s}</strong></React.Fragment>)} gives:
+            </p>
+            <div className="space-y-1.5" aria-hidden="true">
+              {EXAMPLE_FORMAT.map(s => (
+                <div key={s}>
+                  <span className="block text-sm font-medium text-slate-600 dark:text-slate-300">{s}</span>
+                  <div className="h-9 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          </div>
           <p className="text-base text-slate-700 dark:text-slate-200">Your own formats: one section name per line.</p>
           {drafts.map((d, i) => (
             <fieldset key={d.id} className="rounded-lg border border-slate-300 dark:border-slate-600 p-4 space-y-2">

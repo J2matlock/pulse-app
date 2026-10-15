@@ -75,6 +75,11 @@ describe('ContactCard', () => {
     expect(screen.getByText('Accepting')).toBeTruthy()
   })
 
+  it('shows no pill when availability is unknown (E-22)', () => {
+    render(<ContactCard provider={makeProvider({ availability_status: 'unknown' })} {...defaultProps} />)
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   it('shows phone and email when present', () => {
     const provider = makeProvider()
     render(<ContactCard provider={provider} {...defaultProps} />)

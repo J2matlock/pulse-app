@@ -2,7 +2,7 @@
 /** The UI Scale slider and number box go up to 200% (WCAG 1.4.4, AUDIT-055). */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
@@ -29,6 +29,24 @@ function renderSection(setUiScale: (v: number) => void, uiScale = 100) {
     />,
   )
 }
+
+// E-40: "UI scale" became "Text and button size", with three presets above the slider
+describe('Text and button size presets', () => {
+  it('offers Normal, Larger and Largest, marking the one in use', () => {
+    const setUiScale = vi.fn()
+    renderSection(setUiScale, 125)
+    expect(screen.getByText('Text and button size')).toBeTruthy()
+    expect(screen.queryByText(/UI Scale/)).toBeNull()
+    const group = screen.getByRole('group', { name: 'Text and button size presets' })
+    const buttons = within(group).getAllByRole('button')
+    expect(buttons.map(b => b.textContent)).toEqual(['Normal', 'Larger', 'Largest'])
+    expect(buttons[1]!.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(buttons[2]!)
+    expect(setUiScale).toHaveBeenCalledWith(150)
+    fireEvent.click(buttons[0]!)
+    expect(setUiScale).toHaveBeenCalledWith(100)
+  })
+})
 
 describe('UI Scale up to 200%', () => {
   it('the slider and the number box both stop at 200, and the scale shows 200%', () => {

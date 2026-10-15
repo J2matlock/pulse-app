@@ -26,7 +26,7 @@ export function ContactRequirementsSettings(): React.ReactElement {
     <div className="pb-4 border-b border-slate-200 dark:border-slate-700 space-y-2">
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{t('requirement', { many: true, cap: true })}</h2>
       <p className="text-sm text-slate-600 dark:text-slate-300">
-        How many {t('activity', { many: true })} each {t('record')} needs per calendar month, counted from the {t('activity', { many: true })} you log. The Dashboard shows who is behind.
+        How many {t('activity', { many: true })} each {t('record')} needs in a period (a week, month, quarter or year), counted from the {t('activity', { many: true })} you log. The Dashboard shows who is behind.
       </p>
       <ul className="space-y-1">
         {grids.map(g => {

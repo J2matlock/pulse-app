@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { onTabListKeyDown } from '../../utils/tabListKeys'
 import {
   Star, Pencil, Trash2, Copy, Check, Phone, Mail, Globe, MapPin,
-  Clock, CheckCircle, XCircle, Download, Printer
+  Clock, CheckCircle, XCircle,
 } from 'lucide-react'
 import { useCopyFeedback, copyText } from '../../hooks/useCopyFeedback'
 import { AvailabilityBadge } from './AvailabilityBadge'
@@ -11,14 +11,16 @@ import { ContactLinkedClients } from './ContactLinkedClients'
 import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
-import { Tooltip } from '../shared/Tooltip'
+import { ProfileMoreMenu } from '../profile/ProfileMoreMenu'
 import { ANIM_STAR_BOUNCE, ANIM_CHECKED_FLASH } from '../../../shared/constants'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
-import { modHelp } from '../../utils/keys'
 import type { Provider, ProviderCustomField } from '../../../shared/types'
+import { availabilityLabel } from '../../../shared/availability'
+import { parseDbTimestamp, localDateString } from '../../../shared/dates'
+import { daysBetween } from '../../../shared/ymd'
 import { useVocab } from '../../hooks/useVocab'
 
 interface Props {
@@ -28,6 +30,13 @@ interface Props {
 }
 
 type DetailTab = 'info' | 'interactions' | 'clients'
+
+/** "never", "today", "yesterday", "12 days ago": calendar days, like the badge */
+function lastChecked(checkedAt: string | null | undefined): string {
+  if (!checkedAt) return 'never'
+  const days = Math.max(0, daysBetween(localDateString(parseDbTimestamp(checkedAt)), localDateString()))
+  return days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
+}
 
 function CopyField({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   const { copied, copyToClipboard } = useCopyFeedback()
@@ -177,46 +186,38 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
                   {p.category_name}
                 </span>
               )}
-              <AvailabilityBadge status={p.availability_status} checkedAt={p.availability_checked_at} />
+              {/* "Unknown" alone said nothing; the Info tab's Availability block explains it (E-22) */}
+              {p.availability_status && p.availability_status !== 'unknown' && (
+                <AvailabilityBadge status={p.availability_status} checkedAt={p.availability_checked_at} />
+              )}
+              {!!p.is_starred && (
+                <span className="inline-flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300">
+                  <Star size={14} className={`fill-amber-400 text-amber-400 ${starBounce ? 'animate-star-bounce' : ''}`} aria-hidden="true" /> Starred
+                </span>
+              )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1 flex-shrink-0">
-            <Tooltip content={`${p.is_starred ? 'Unstar' : 'Star'} ${t('contact')}`}>
-              <button onClick={handleToggleStar}
-                className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700" title={`${p.is_starred ? 'Unstar' : 'Star'} ${t('contact')}`} aria-label={`${p.is_starred ? 'Unstar' : 'Star'} ${t('contact')}`}>
-                <Star size={16} className={`${p.is_starred ? 'fill-amber-400 text-amber-400' : 'text-slate-300'} ${starBounce ? 'animate-star-bounce' : ''}`} />
-              </button>
-            </Tooltip>
-            <Tooltip content="Export PDF">
-              <button onClick={async () => {
-                  const res = await safeInvoke(IPC.EXPORT_PDF_CONTACT, p.id)
-                  if (!res.ok) toast.error(friendlyError(res.error, "We couldn't export the PDF — try again"))
-                }}
-                className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700" title="Export PDF" aria-label="Export PDF">
-                <Printer size={16} className="text-slate-500" />
-              </button>
-            </Tooltip>
-            <Tooltip content="Export vCard">
-              <button onClick={async () => {
-                  const res = await safeInvoke(IPC.CONTACTS_EXPORT_VCF, [p.id])
-                  if (!res.ok) toast.error(friendlyError(res.error, "We couldn't export the vCard — try again"))
-                }}
-                className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700" title="Export vCard" aria-label="Export vCard">
-                <Download size={16} className="text-slate-500" />
-              </button>
-            </Tooltip>
-            <Tooltip content={`Edit ${t('contact')}`}>
-              <button onClick={onEdit}
-                className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700" title={`Edit ${t('contact')}`} aria-label={`Edit ${t('contact')}`}>
-                <Pencil size={16} className="text-slate-500" />
-              </button>
-            </Tooltip>
-            <Tooltip content={`Delete ${t('contact')}`}>
-              <button onClick={() => setShowDeleteConfirm(true)}
-                className="hit-44 p-2 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20" title={`Delete ${t('contact')}`} aria-label={`Delete ${t('contact')}`}>
-                <Trash2 size={16} className="text-red-600 dark:text-red-400" />
-              </button>
-            </Tooltip>
+          {/* Edit and Delete in words; the rest under More (E-24). More comes first so its menu opens over the panel */}
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+            <ProfileMoreMenu items={[
+              { label: p.is_starred ? 'Remove star' : `Star this ${t('contact')}`, onSelect: handleToggleStar },
+              { label: 'Save as PDF…', onSelect: () => void (async () => {
+                const res = await safeInvoke(IPC.EXPORT_PDF_CONTACT, p.id)
+                if (!res.ok) toast.error(friendlyError(res.error, "We couldn't export the PDF — try again"))
+              })() },
+              { label: 'Export vCard…', onSelect: () => void (async () => {
+                const res = await safeInvoke(IPC.CONTACTS_EXPORT_VCF, [p.id])
+                if (!res.ok) toast.error(friendlyError(res.error, "We couldn't export the vCard — try again"))
+              })() },
+            ]} />
+            <button type="button" onClick={onEdit} aria-label={`Edit ${t('contact')}`}
+              className="btn-secondary inline-flex items-center gap-1.5" style={{ minHeight: 44 }}>
+              <Pencil size={16} aria-hidden="true" /> Edit
+            </button>
+            <button type="button" onClick={() => setShowDeleteConfirm(true)} aria-label={`Delete ${t('contact')}`}
+              className="btn-secondary inline-flex items-center gap-1.5 text-red-700 dark:text-red-300" style={{ minHeight: 44 }}>
+              <Trash2 size={16} aria-hidden="true" /> Delete
+            </button>
           </div>
         </div>
       </div>
@@ -287,18 +288,29 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
               </div>
             )}
 
-            {/* Mark as checked */}
-            <div className="flex items-center gap-2">
-              <button onClick={handleMarkChecked}
-                className={`hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-base border transition-all ${
-                  checkedFlash
-                    ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                    : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-                style={{ fontSize: 15, minHeight: 36 }}>
-                <CheckCircle size={14} />
-                {checkedFlash ? 'Marked!' : 'Mark as Checked Today'}
-              </button>
+            {/* Availability: the status, when it was last confirmed, and the button that confirms it, together (E-23) */}
+            <div className="py-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3" role="group" aria-labelledby="contact-availability-heading">
+              <div id="contact-availability-heading" className="text-sm text-slate-500 dark:text-slate-400 mb-1">Availability</div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2" style={{ fontSize: 15 }}>
+                <span className="text-slate-900 dark:text-white">
+                  {p.availability_status && p.availability_status !== 'unknown' ? availabilityLabel(p.availability_status) : 'Not checked'}
+                  <span className="text-slate-500 dark:text-slate-400"> — last checked {lastChecked(p.availability_checked_at)}</span>
+                </span>
+                <button type="button" onClick={handleMarkChecked}
+                  title="Saves today's date as the day you confirmed whether they're taking referrals"
+                  className={`hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-base border transition-all ${
+                    checkedFlash
+                      ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                      : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                  style={{ fontSize: 15, minHeight: 44 }}>
+                  <CheckCircle size={14} aria-hidden="true" />
+                  {checkedFlash ? 'Saved' : 'I checked today'}
+                </button>
+                <button type="button" onClick={onEdit} className="hit-44 text-base text-blue-700 dark:text-blue-300 underline" style={{ fontSize: 15 }}>
+                  Change status…
+                </button>
+              </div>
             </div>
 
             {/* Languages */}
@@ -381,7 +393,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
       <ConfirmDialog
         open={showDeleteConfirm}
         title={`Delete "${p.name}" forever?`}
-        message={`This deletes the ${t('contact')} for good, with everything in their log, their links to ${t('record', { many: true })}, and their extra details. It doesn't go to the Trash. You can undo it right away with ${modHelp('Ctrl+Z')}.`}
+        message={`This deletes the ${t('contact')} for good, with everything in their log, their links to ${t('record', { many: true })}, and their extra details. It doesn't go to the Trash. You can undo it right away: click Undo in the message at the bottom of the window, or the Undo arrow at the top.`}
         confirmLabel={`Delete ${t('contact')} forever`}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}

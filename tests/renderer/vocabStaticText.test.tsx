@@ -15,6 +15,7 @@ Object.defineProperty(window, 'api', { value: { invoke: vi.fn(), on: () => () =>
 import { STEPS } from '../../src/renderer/components/shared/TourOverlay'
 import { SECTIONS } from '../../src/renderer/components/shared/KeyboardShortcutsModal'
 import { VARIABLE_GROUPS } from '../../src/renderer/components/shared/VariableInsertMenu'
+import { PLACEHOLDER_GROUPS } from '../../src/renderer/views/letter-template/PlaceholderReference'
 import { SECURITY_SUMMARY_TEXT } from '../../src/renderer/components/shared/SecuritySummaryDialog'
 import { FAQ_ITEMS } from '../../src/renderer/views/help/faqData'
 import { CATEGORY_LABELS } from '../../src/renderer/views/help/types'
@@ -36,6 +37,7 @@ const texts: string[] = [
   ...STEPS.flatMap(s => [s.title, s.subtitle, s.description, s.tip ?? '']),
   ...SECTIONS.flatMap(s => s.shortcuts.map(i => i.description)),
   ...VARIABLE_GROUPS.flatMap(g => [g.label, ...g.items.map(i => i.desc)]),
+  ...PLACEHOLDER_GROUPS.flatMap(g => [g.label, ...g.items.map(i => i.desc)]),
   SECURITY_SUMMARY_TEXT,
   ...FAQ_ITEMS.flatMap(i => [i.question, i.answer]),
   ...Object.values(CATEGORY_LABELS),

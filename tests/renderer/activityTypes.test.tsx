@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
@@ -144,5 +144,37 @@ describe('Settings editor', () => {
     expect(toastError).toHaveBeenCalledWith('This type is used by 3 notes. Archive it instead.')
 
     expect(screen.getByText('Archived (1)')).toBeTruthy()
+  })
+
+  // E-21: a Delete that always fails is disabled with the reason, and Archive leaves a way back
+  it('greys out Delete for a kind in use, saying why, and offers Restore right after Archive', async () => {
+    served = [type(1, 'session', 'Session', { in_use: { notes: 14, other: 0 } }), type(2, 'phone', 'Phone', { in_use: { notes: 0, other: 1 } }), type(3, 'email', 'Email', { in_use: { notes: 0, other: 0 } })]
+    mockInvoke.mockImplementation(async (channel: string, ...args: unknown[]) => {
+      if (channel === IPC.ACTIVITY_TYPE_GET_ALL) return { ok: true, data: served }
+      if (channel === IPC.ACTIVITY_TYPE_ARCHIVE) {
+        served = served.map(x => x.id === args[0] ? { ...x, is_archived: args[1] ? 1 : 0 } : x)
+        return { ok: true, data: true }
+      }
+      return { ok: true, data: null }
+    })
+    await useActivityTypeStore.getState().load()
+    render(<ActivityTypesEditor />)
+
+    const sessionDelete = screen.getByLabelText('Name of Session').closest('li')!.querySelector('button[title^="Used by"]') as HTMLButtonElement
+    expect(sessionDelete.disabled).toBe(true)
+    expect(screen.getByText('Used by 14 case notes — archive instead')).toBeTruthy()
+    expect(screen.getByText('Used by a rule, form or column — archive instead')).toBeTruthy()
+    const emailDelete = screen.getByLabelText('Name of Email').closest('li')!.querySelector('button[title^="Only types"]') as HTMLButtonElement
+    expect(emailDelete.disabled).toBe(false)
+
+    const phoneRow = screen.getByLabelText('Name of Phone').closest('li')!
+    await act(async () => { fireEvent.click(phoneRow.querySelector('button[title^="Hide"]')!) })
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.ACTIVITY_TYPE_ARCHIVE, 2, true)
+    const status = (await screen.findByText(/Phone archived\./)).closest('p')!
+    expect(status.textContent).toContain('Phone archived.')
+    await act(async () => { fireEvent.click(within(status).getByRole('button', { name: 'Restore' })) })
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.ACTIVITY_TYPE_ARCHIVE, 2, false)
+    await waitFor(() => expect(screen.queryByText(/Phone archived\./)).toBeNull())
+    expect(screen.getByLabelText('Name of Phone')).toBeTruthy()
   })
 })

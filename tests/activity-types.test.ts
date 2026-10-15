@@ -139,6 +139,15 @@ describe('ACTIVITY_TYPE_*', () => {
     const gridId = (testDb.db.prepare('SELECT id FROM grids LIMIT 1').get() as { id: number }).id
     testDb.db.prepare("INSERT INTO contact_requirements (grid_id, label, note_types, per_month) VALUES (?, 'Emails', '[\"email\"]', 1)").run(gridId)
     expect((await invoke(IPC.ACTIVITY_TYPE_DELETE, email)).ok).toBe(false)
+
+    // The full list says what each type is used by, so Settings can grey out Delete with the reason (E-21)
+    const all = (await invoke(IPC.ACTIVITY_TYPE_GET_ALL, true)).data as Array<{ key: string; in_use?: { notes: number; other: number } }>
+    expect(all.find(t => t.key === 'phone')?.in_use).toEqual({ notes: 1, other: 0 })
+    expect(all.find(t => t.key === 'email')?.in_use).toEqual({ notes: 0, other: 1 })
+    expect(all.find(t => t.key === 'visit')?.in_use).toEqual({ notes: 0, other: 0 })
+    // The short list is for note boxes and has no counts to compute
+    const active = (await invoke(IPC.ACTIVITY_TYPE_GET_ALL, false)).data as Array<{ in_use?: unknown }>
+    expect(active.every(t => t.in_use === undefined)).toBe(true)
   })
 
   it('counts deadline rules, forms, stage steps and appointments as uses, and names them (L-15)', async () => {

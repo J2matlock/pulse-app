@@ -13,6 +13,8 @@ export interface FAQItem {
   category: FAQCategory
   /** Only applies with this feature on; otherwise listed under "More features you can turn on" */
   feature?: FeatureKey
+  /** Other ways people say it ("contacts per month"); searched like the question (E-06) */
+  keywords?: string[]
   tourStepIds?: string[]
   demo?: React.ReactNode
 }

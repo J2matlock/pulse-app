@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
-import { X as XIcon, Pencil, Trash2, Check, Plus } from 'lucide-react'
+import { X as XIcon, Trash2, Check, Plus } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useShallow } from 'zustand/react/shallow'
@@ -171,11 +171,11 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                               <span className="text-sm text-slate-500 dark:text-slate-400">{f.field_type}</span>
                               <button
                                 onClick={() => deleteCustomField(f.id, editingId!)}
-                                className="hit-44 p-1 rounded-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
+                                className="hit-44 p-1 rounded-sm hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
                                 title="Remove field"
                                 aria-label={`Remove field ${f.field_name}`}
                               >
-                                <Trash2 size={12} className="text-red-400" />
+                                <Trash2 size={16} className="text-red-600 dark:text-red-400" />
                               </button>
                             </div>
                           ))}
@@ -250,26 +250,33 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                     </div>
                   </div>
                 ) : (
-                  /* Normal row */
-                  <div className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 group" style={{ minHeight: 44 }}>
+                  /* Normal row: Edit and Delete always visible, and the field count says custom fields exist (E-12) */
+                  <div className="flex flex-wrap items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50" style={{ minHeight: 44 }}>
                     <div
                       className="w-5 h-5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: cat.color }}
                     />
-                    <span className="flex-1 text-slate-900 dark:text-white" style={{ fontSize: 15 }}>{cat.name}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-slate-900 dark:text-white" style={{ fontSize: 15 }}>{cat.name}</span>
+                      <span className="block text-sm text-slate-500 dark:text-slate-400">Fields: {cat.field_count ?? 0}</span>
+                    </span>
                     <button
+                      type="button"
                       onClick={() => startEdit(cat.id, cat.name, cat.color)}
-                      className="hit-44 p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
-                      title="Edit"
+                      aria-label={`Edit ${cat.name}`}
+                      className="px-3 rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                      style={{ minHeight: 44, fontSize: 15 }}
                     >
-                      <Pencil size={14} className="text-slate-500" />
+                      Edit
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setDeletingId(cat.id); setEditingId(null) }}
-                      className="hit-44 p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-red-500 focus:opacity-100"
-                      title="Delete"
+                      aria-label={`Delete ${cat.name}`}
+                      className="px-3 rounded-md border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
+                      style={{ minHeight: 44, fontSize: 15 }}
                     >
-                      <Trash2 size={14} className="text-red-600 dark:text-red-400" />
+                      Delete
                     </button>
                   </div>
                 )}

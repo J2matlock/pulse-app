@@ -18,6 +18,7 @@ import { matchFilter } from '../src/renderer/utils/filterMatch'
 import { evalCellFormat } from '../src/renderer/components/grid/CellConditionalFormatPanel'
 import { ROW_TAG_COLUMN_ID, type CellFormatRule, type Column, type FilterOperator, type GridRow } from '../src/shared/types'
 import { FEATURES, isOn } from '../src/shared/features'
+import { FEATURE_PLACES } from '../src/shared/featurePlaces'
 import { DATE_BUCKETS, DATE_PRESETS, REPORT_SOURCES, VALUE_FNS, FN_LABELS, SOURCE_LABELS, bucketDate, formatReportCell, presetRange, reportConfigSchema, type DateBucket, type DatePreset } from '../src/shared/reports'
 import { APPT_STATUSES } from '../src/shared/appointments'
 import { CARDINALITIES } from '../src/shared/links'
@@ -130,6 +131,11 @@ describe('feature switches', () => {
 
   it('every listed feature can be switched on', () => {
     for (const f of FEATURES) expect(isOn({ [f.key]: true }, f.key), f.key).toBe(true)
+  })
+
+  it('every feature says where it shows once on, and nowhere else', () => {
+    expect(Object.keys(FEATURE_PLACES).sort()).toEqual(FEATURES.map(f => f.key).sort())
+    for (const f of FEATURES) expect(FEATURE_PLACES[f.key].trim().length, f.key).toBeGreaterThan(0)
   })
 })
 

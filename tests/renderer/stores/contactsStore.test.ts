@@ -128,8 +128,8 @@ describe('contactsStore', () => {
     expect(useContactsStore.getState().providers[0].name).toBe('New Name')
   })
 
-  it('deleteProvider removes from state and shows warning toast', async () => {
-    const toast = (await import('react-hot-toast')).default
+  it('deleteProvider removes from state and shows the Undo toast (E-14)', async () => {
+    const { useUndoStore } = await import('../../../src/renderer/stores/undoStore')
     const p1 = makeProvider(1, { name: 'To Delete' })
     useContactsStore.setState({ providers: [p1] })
 
@@ -148,10 +148,8 @@ describe('contactsStore', () => {
     })
 
     expect(useContactsStore.getState().providers).toHaveLength(0)
-    expect(toast).toHaveBeenCalledWith(
-      expect.stringContaining('Provider deleted'),
-      expect.objectContaining({ duration: 5000 })
-    )
+    // The standard Undo toast (it has an Undo button), not a plain "Press Ctrl+Z" message
+    expect(useUndoStore.getState().toast?.description).toBe('Deleted provider "To Delete"')
   })
 
   it('deleteProvider clears selection when deleting selected provider', async () => {

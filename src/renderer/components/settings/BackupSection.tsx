@@ -44,6 +44,11 @@ interface ScheduledConfig {
 
 const LARGE_BACKUP_BYTES = 500 * 1024 * 1024
 
+/** `dir` is `parent` or a folder under it (so "/data2" isn't inside "/data") */
+function isInside(dir: string, parent: string): boolean {
+  return dir === parent || (dir.startsWith(parent) && /^[\\/]/.test(dir.slice(parent.length)))
+}
+
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
@@ -79,6 +84,8 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   const [backupReminderDays, setBackupReminderDays] = useState(7)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [validatingDestination, setValidatingDestination] = useState(false)
+  // The folder the database lives in: scheduled copies kept there defeat the point (E-11)
+  const [dataDir, setDataDir] = useState<string | null>(null)
   const [backupPreview, setBackupPreview] = useState<BackupPreviewData | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const restoreResultTrapRef = useRef<HTMLDivElement>(null)
@@ -94,6 +101,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       }>(IPC.BACKUP_GET_INFO)
       if (res.ok) {
         setBackupInfo({ lastAuto: res.data.lastAutoBackup, autoCount: res.data.autoBackupCount, lastAutoBackupFailed: res.data.lastAutoBackupFailed, lastAutoBackupError: res.data.lastAutoBackupError, dbSize: res.data.dbSize })
+        setDataDir(res.data.dbPath ? res.data.dbPath.replace(/[\\/][^\\/]+$/, '') : null)
       }
       const listRes = await safeInvoke<AutoBackupEntry[]>(IPC.BACKUP_AUTO_LIST)
       if (listRes.ok) setAutoBackups(listRes.data)
@@ -193,9 +201,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
     await initiateRestore(path, path.split(/[\\/]/).pop() ?? path)
   }
 
-  async function handleScheduledDestinationChange() {
+  /** The copies would sit next to the database (the default folder, or one inside the data folder) */
+  const destinationBesideData = !scheduledConfig.destinationDir || (dataDir !== null && isInside(scheduledConfig.destinationDir, dataDir))
+
+  async function handleScheduledDestinationChange(config: ScheduledConfig = scheduledConfig) {
     const dialogRes = await safeInvoke(IPC.APP_SHOW_FILE_DIALOG, {
-      title: 'Choose Backup Destination Folder',
+      title: 'Where should the copies go? Pick a different drive or a network folder.',
       properties: ['openDirectory']
     })
     if (!dialogRes.ok || dialogRes.data.canceled || !dialogRes.data.filePaths?.length) return
@@ -209,8 +220,16 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       return
     }
     setValidatingDestination(false)
-    saveScheduledConfig({ ...scheduledConfig, destinationDir: dir })
+    saveScheduledConfig({ ...config, destinationDir: dir })
     setScheduledConfig(prev => ({ ...prev, destinationDir: dir }))
+  }
+
+  /** Turning the schedule on with the default folder asks where the copies should go straight away (E-11) */
+  function toggleScheduled(enabled: boolean) {
+    const next = { ...scheduledConfig, enabled }
+    setScheduledConfig(next)
+    saveScheduledConfig(next)
+    if (enabled && destinationBesideData) void handleScheduledDestinationChange(next)
   }
 
   // Saved straight away: every change here is a single click, and a delayed
@@ -389,7 +408,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           <input
             type="checkbox"
             checked={scheduledConfig.enabled}
-            onChange={e => updateScheduledConfig({ enabled: e.target.checked })}
+            onChange={e => toggleScheduled(e.target.checked)}
             className="w-5 h-5 accent-blue-600 flex-shrink-0"
           />
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -443,6 +462,11 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               {validationError && (
                 <p role="alert" className="text-sm text-red-600 dark:text-red-400 mt-1">
                   {validationError}
+                </p>
+              )}
+              {destinationBesideData && (
+                <p role="status" className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-md px-3 py-2 mt-1">
+                  These copies would go to the same folder as your data, so one failure takes both. Click "Change…" and pick a different drive or a network folder.
                 </p>
               )}
             </div>

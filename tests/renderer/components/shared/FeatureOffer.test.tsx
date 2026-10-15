@@ -47,6 +47,15 @@ describe('FeatureOffer', () => {
     expect(screen.queryByText('Record minutes?')).toBeNull()
   })
 
+  it('with `always`, shows after "Not now" was said elsewhere and has no "Not now" of its own', async () => {
+    dismissed = '["timeTracking"]'
+    render(<FeatureOffer feature="timeTracking" message="Record minutes?" always />)
+    expect(screen.getByText('Record minutes?')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull()
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.SETTINGS_GET, 'feature_offers_dismissed')
+  })
+
   it("isn't shown when the feature is on or not built yet", async () => {
     setWords(undefined, undefined, { ...EXISTING_FEATURES, timeTracking: true })
     render(<FeatureOffer feature="timeTracking" message="Record minutes?" />)

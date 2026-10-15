@@ -29,6 +29,10 @@ describe('shortcut list', () => {
     expect(missing).toEqual([])
   })
 
+  it('never shows the code name "Mod" in a description (E-36)', () => {
+    expect(rows.filter(r => /\bMod\b/.test(r.description)).map(r => r.description)).toEqual([])
+  })
+
   it('writes ⌘ on a Mac and Ctrl elsewhere', () => {
     expect(shortcutText(['Mod', 'Shift', 'T'], false)).toBe('Ctrl+Shift+T')
     expect(shortcutText(['Mod', 'Shift', 'T'], true)).toBe('⌘+Shift+T')

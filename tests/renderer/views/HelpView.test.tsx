@@ -25,6 +25,7 @@ vi.mock('../../../src/shared/constants', async () => ({
 
 vi.mock('../../../src/renderer/components/shared/TourOverlay', () => ({
   STEPS: [],
+  tourSteps: (steps: unknown[]) => steps,
 }))
 
 vi.mock('../../../src/renderer/views/help/faqData', () => ({

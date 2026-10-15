@@ -11,7 +11,6 @@ import type {
   ProviderCategory,
   ProviderCustomField,
 } from '../../shared/types'
-import { modHelp } from '../utils/keys'
 import type { ContactsStore } from './contactsTypes'
 import { createContactActivitySlice } from './contactsActivitySlice'
 
@@ -169,8 +168,6 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
       set({ selectedProviderId: null, selectedProvider: null })
     }
     await get().loadProviders()
-    toast(`${wordNow('contact', { cap: true }, null)} deleted. Press ${modHelp('Ctrl+Z')} to undo.`, { duration: 5000 })
-
     // Undo makes a new contact; redo deletes that one, not a look-alike found by name.
     let currentId: number | null = null
     pushContactUndo(
@@ -188,6 +185,8 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
           await useContactsStore.getState().loadProviders()
         }
       },
+      // The Undo toast has a button, so undoing doesn't depend on knowing Ctrl+Z (UX review E-14)
+      { toast: true },
     )
   },
 
@@ -399,14 +398,16 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
   createCustomField: async (categoryId, fieldName, fieldType) => {
     try {
       await storeInvoke(IPC.CONTACTS_CREATE_CUSTOM_FIELD, categoryId, fieldName, fieldType)
-      await get().loadCustomFields(categoryId)
+      // The category list carries each category's field count
+      await Promise.all([get().loadCustomFields(categoryId), get().loadCategories()])
     } catch (err) { rlog.error('contactsStore', 'createCustomField failed', err) }
   },
 
   deleteCustomField: async (fieldId, categoryId) => {
     try {
       await storeInvoke(IPC.CONTACTS_DELETE_CUSTOM_FIELD, fieldId)
-      await get().loadCustomFields(categoryId)
+      // The category list carries each category's field count
+      await Promise.all([get().loadCustomFields(categoryId), get().loadCategories()])
     } catch (err) { rlog.error('contactsStore', 'deleteCustomField failed', err) }
   },
 

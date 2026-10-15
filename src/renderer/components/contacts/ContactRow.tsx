@@ -87,7 +87,8 @@ export const ContactRow = React.memo(function ContactRow({ provider, isSelected,
 
       {/* Availability */}
       <div className="flex-shrink-0">
-        <AvailabilityBadge status={p.availability_status} compact />
+        {/* A grey "Unknown" on every new entry said nothing (E-22) */}
+        {p.availability_status && p.availability_status !== 'unknown' && <AvailabilityBadge status={p.availability_status} compact />}
       </div>
 
       {/* Last contacted */}

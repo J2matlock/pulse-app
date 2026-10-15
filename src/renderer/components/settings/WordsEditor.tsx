@@ -147,40 +147,35 @@ export function WordsEditor(): React.ReactElement {
       )}
       {editingList !== null && <ListSettingsDialog gridId={editingList} onClose={() => setEditingList(null)} />}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-base">
-          <thead>
-            <tr className="text-left text-slate-600 dark:text-slate-300 border-b-2 border-slate-300 dark:border-slate-600">
-              <th className={`${cell} font-medium`} scope="col">Word for</th>
-              <th className={`${cell} font-medium`} scope="col">One</th>
-              <th className={`${cell} font-medium`} scope="col">More than one</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ROWS.map(r => (
-              <tr key={r.key} className="border-b border-slate-200 dark:border-slate-700">
-                <th scope="row" className={`${cell} text-left font-normal`}>
-                  <span className="block font-medium text-slate-800 dark:text-slate-100">{r.label}</span>
-                  <span className="block text-sm text-slate-500 dark:text-slate-400">{r.hint}</span>
-                </th>
-                {(['one', 'many'] as const).map(form => {
-                  const err = errors[r.key]?.[form]
-                  const id = `word-${r.key}-${form}`
-                  return (
-                    <td key={form} className={cell}>
-                      <label htmlFor={id} className="sr-only">{r.label}: {form === 'one' ? 'one' : 'more than one'}</label>
-                      <input id={id} className="input w-full min-w-[9rem]" value={v[r.key][form]} maxLength={VOCAB_WORD_MAX + 10}
-                        aria-invalid={!!err} aria-describedby={err ? `${id}-err` : undefined}
-                        onChange={e => setWord(r.key, form, e.target.value)} />
-                      {err && <span id={`${id}-err`} className="block text-sm text-red-700 dark:text-red-300 mt-1">{err}</span>}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Each word is a block with its two boxes under the label, so a long default like
+          "contact requirements" never gets cut off in a narrow panel (E-39) */}
+      <ul className="divide-y divide-slate-200 dark:divide-slate-700 border-y border-slate-300 dark:border-slate-600">
+        {ROWS.map(r => (
+          <li key={r.key} className={`${cell} py-3 grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2 items-start`}>
+            <div>
+              <span className="block font-medium text-slate-800 dark:text-slate-100">{r.label}</span>
+              <span className="block text-sm text-slate-500 dark:text-slate-400">{r.hint}</span>
+            </div>
+            {(['one', 'many'] as const).map(form => {
+              const err = errors[r.key]?.[form]
+              const id = `word-${r.key}-${form}`
+              return (
+                <div key={form}>
+                  {/* The visible label is short; the box's spoken name says which word it is */}
+                  <label htmlFor={id} className="block text-sm text-slate-600 dark:text-slate-300 mb-0.5">
+                    {form === 'one' ? 'One' : 'More than one'}
+                  </label>
+                  <input id={id} className="input w-full" value={v[r.key][form]} maxLength={VOCAB_WORD_MAX + 10}
+                    aria-label={`${r.label}: ${form === 'one' ? 'one' : 'more than one'}`}
+                    aria-invalid={!!err} aria-describedby={err ? `${id}-err` : undefined}
+                    onChange={e => setWord(r.key, form, e.target.value)} />
+                  {err && <span id={`${id}-err`} className="block text-sm text-red-700 dark:text-red-300 mt-1">{err}</span>}
+                </div>
+              )
+            })}
+          </li>
+        ))}
+      </ul>
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn-primary" disabled={!dirty || hasErrors || saving} onClick={() => void save()}>

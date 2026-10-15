@@ -125,17 +125,19 @@ function CheckForUpdatesButton(): React.ReactElement {
         </div>
       )}
 
-      {/* How to update instructions */}
-      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
-        <p className="text-base font-semibold text-slate-700 dark:text-slate-200">How to update Pulse</p>
-        <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600 dark:text-slate-400">
-          {howTo.steps.map(step => <li key={step}>{step}</li>)}
-        </ol>
-        <div className="flex items-start gap-2 pt-1">
-          <Shield className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">{howTo.dataNote}</p>
+      {/* How to update: only when there is an update, so step 1's button exists (E-18) */}
+      {result?.available && (
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
+          <p className="text-base font-semibold text-slate-700 dark:text-slate-200">How to update Pulse</p>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600 dark:text-slate-400">
+            {howTo.steps.map(step => <li key={step}>{step}</li>)}
+          </ol>
+          <div className="flex items-start gap-2 pt-1">
+            <Shield className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">{howTo.dataNote}</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

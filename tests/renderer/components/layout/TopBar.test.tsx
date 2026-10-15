@@ -75,8 +75,33 @@ vi.mock('../../../../src/renderer/stores/undoStore', () => ({
   }),
 }))
 
-import { TopBar } from '../../../../src/renderer/components/layout/TopBar'
+import { TopBar, helpCategoryFor } from '../../../../src/renderer/components/layout/TopBar'
+
 import { setWords } from '../../vocabFixture'
+
+// E-13: "Help for this page" from Settings opens the topic of the tab that is open, not always "Keep my data safe"
+describe('helpCategoryFor', () => {
+  it('maps each Settings tab to its own Help topic', () => {
+    expect(helpCategoryFor('/settings', 'tab=alerts')).toBe('dashboard-deadlines')
+    expect(helpCategoryFor('/settings', 'tab=workspace')).toBe('getting-started')
+    expect(helpCategoryFor('/settings', 'tab=notes')).toBe('client-profiles')
+    expect(helpCategoryFor('/settings', 'tab=data')).toBe('import-export')
+    expect(helpCategoryFor('/settings', 'tab=security')).toBe('security-backups')
+    expect(helpCategoryFor('/settings', 'tab=backup')).toBe('security-backups')
+    expect(helpCategoryFor('/settings', 'tab=about')).toBe('tips-shortcuts')
+    expect(helpCategoryFor('/settings', 'tab=appearance')).toBe('tips-shortcuts')
+  })
+
+  it('reads the tab from the hash route when no query is given, and keeps the other pages', () => {
+    window.location.hash = '#/settings?tab=alerts'
+    expect(helpCategoryFor('/settings')).toBe('dashboard-deadlines')
+    window.location.hash = '#/settings'
+    expect(helpCategoryFor('/settings')).toBe('getting-started')
+    window.location.hash = ''
+    expect(helpCategoryFor('/grid/3')).toBe('caseload-grid')
+    expect(helpCategoryFor('/help')).toBe('all')
+  })
+})
 
 function renderTopBar(path = '/grid') {
   return render(

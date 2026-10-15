@@ -12,9 +12,11 @@ export function pushContactUndo(
   icon: string,
   undoFn: () => Promise<void>,
   redoFn: () => Promise<void>,
-  opts?: { category?: UndoCategory; sideEffects?: SideEffect[] }
+  opts?: { category?: UndoCategory; sideEffects?: SideEffect[]; toast?: boolean }
 ) {
-  useUndoStore.getState().push({
+  // toast: the standard Undo toast (with its button), for steps that can't be seen being undone otherwise
+  const store = useUndoStore.getState()
+  ;(opts?.toast ? store.pushWithToast : store.push)({
     id: crypto.randomUUID(),
     timestamp: Date.now(),
     description,

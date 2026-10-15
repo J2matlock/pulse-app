@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { Info, ChevronDown, ChevronRight } from 'lucide-react'
 import { useVocab } from '../../hooks/useVocab'
 
-const PLACEHOLDER_GROUPS = [
+/** Exported for tests/renderer/vocabStaticText.test.tsx, which checks every label and description uses word tokens */
+export const PLACEHOLDER_GROUPS = [
   {
     label: '{Record} details',
     items: [
@@ -71,7 +72,7 @@ export function PlaceholderReference(): React.ReactElement {
                       {item.key}
                     </code>
                     <span className="text-sm text-slate-500 dark:text-slate-400">
-                      — {item.desc}
+                      — {f(item.desc)}
                     </span>
                   </div>
                 ))}

@@ -13,30 +13,15 @@ import { EditTemplateModal } from './letter-template/EditTemplateModal'
 import { GenerateLetterModal } from './letter-template/GenerateLetterModal'
 import { DeleteConfirmModal } from './letter-template/DeleteConfirmModal'
 import { PlaceholderReference } from './letter-template/PlaceholderReference'
+import { TemplateText } from './letter-template/TemplateText'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
 import { useGridStore } from '../stores/gridStore'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 
-/** Template text with each {{field}} as a readable chip, so it doesn't look like code */
-export function TemplateText({ content }: { content: string }): React.ReactElement {
-  const parts = content.split(/(\{\{[^{}]+\}\})/g)
-  return (
-    <div className="whitespace-pre-wrap text-base text-slate-800 dark:text-slate-200 leading-relaxed" data-testid="template-text">
-      {parts.map((p, i) => {
-        const m = p.match(/^\{\{\s*([^{}]+?)\s*\}\}$/)
-        if (!m) return <React.Fragment key={i}>{p}</React.Fragment>
-        const label = m[1]!.replace(/^field:/, '').replace(/[_:]+/g, ' ').trim()
-        return (
-          <span key={i} title={p} className="inline-block px-1.5 mx-0.5 rounded-md border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
-            {label}
-          </span>
-        )
-      })}
-    </div>
-  )
-}
+// The chip renderer lives beside the editor, which shows it as a live preview (E-26)
+export { TemplateText }
 
 export default function LetterTemplateView(): React.ReactElement {
   const { t: w } = useVocab(null)
@@ -127,7 +112,7 @@ export default function LetterTemplateView(): React.ReactElement {
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-            Letter Templates
+            Letters
           </h1>
           <button
             onClick={() => { setEditTarget(null); setShowEdit(true) }}

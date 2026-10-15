@@ -50,10 +50,13 @@ export function seedDefaultCategories(): void {
 
 const CATEGORIES_SEEDED_KEY = 'contact_categories_seeded'
 
+// Each category says how many custom fields it has, so Manage Categories can show
+// "Fields: 2" and the feature has a visible handle (UX review E-12)
+const CATEGORIES_SQL = `SELECT c.*, (SELECT COUNT(*) FROM provider_custom_fields f WHERE f.category_id = c.id) AS field_count
+  FROM provider_categories c ORDER BY c.position ASC`
+
 export function getCategories(): ProviderCategory[] {
-  const rows = cachedStmt('categories_get_all',
-    'SELECT * FROM provider_categories ORDER BY position ASC'
-  ).all() as ProviderCategory[]
+  const rows = cachedStmt('categories_get_all', CATEGORIES_SQL).all() as ProviderCategory[]
 
   // Lazy-seed defaults once (human-services workspaces only; others start with none).
   // The flag stops the defaults coming back after someone deletes every category.
@@ -66,9 +69,7 @@ export function getCategories(): ProviderCategory[] {
   if (!seeded && usesHumanServicesWords()) {
     seedDefaultCategories()
     db.prepare(`INSERT OR REPLACE INTO app_meta (key, value) VALUES ('${CATEGORIES_SEEDED_KEY}', '1')`).run()
-    return cachedStmt('categories_get_all',
-      'SELECT * FROM provider_categories ORDER BY position ASC'
-    ).all() as ProviderCategory[]
+    return cachedStmt('categories_get_all', CATEGORIES_SQL).all() as ProviderCategory[]
   }
 
   return rows

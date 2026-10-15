@@ -132,11 +132,24 @@ describe('SnippetsView', () => {
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'snippet:delete' ? { ok: false, error: 'Invalid ID' } : { ok: true, data: sampleSnippets }))
     render(<SnippetsView />)
     await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
-    fireEvent.click(screen.getAllByLabelText('Delete')[0])
+    fireEvent.click(screen.getByLabelText('Delete /lm'))
     fireEvent.click(screen.getByLabelText('Confirm delete snippet'))
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("We couldn't delete that snippet — try again"))
     expect(screen.getByText('/lm')).toBeDefined()
     expect(screen.getByText('/fu')).toBeDefined()
+  })
+
+  // E-29: no hover-only controls
+  it('shows Edit and Delete in words on every snippet', async () => {
+    mockInvoke.mockResolvedValue({ ok: true, data: sampleSnippets })
+    render(<SnippetsView />)
+    await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
+    for (const trig of ['lm', 'fu']) {
+      const edit = screen.getByRole('button', { name: `Edit /${trig}` })
+      expect(edit.textContent).toContain('Edit')
+      expect(edit.closest('div')!.className).not.toMatch(/opacity-0/)
+      expect(screen.getByRole('button', { name: `Delete /${trig}` }).textContent).toContain('Delete')
+    }
   })
 
   it('filters snippets by search input', async () => {

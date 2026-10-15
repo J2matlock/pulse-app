@@ -18,6 +18,27 @@ import { friendlyError } from '../../utils/friendlyError'
 
 const SHOWN = 50
 
+/** The Settings → Profile details a letter can use, by placeholder ending (my_name, case_manager_name, …) */
+const PROFILE_DETAILS = { name: 'name', title: 'title', org: 'organization', phone: 'phone', email: 'email' } as const
+type ProfileDetail = keyof typeof PROFILE_DETAILS
+
+/**
+ * The profile details this template uses that are empty, so the letter would print
+ * "My name is ," (UX review E-08). Worked out here from the template text; a shared
+ * empty-placeholder signal may replace it.
+ */
+export function emptyProfileDetails(content: string, profile: Record<string, string> | null): string[] {
+  const used = new Set<ProfileDetail>()
+  for (const m of content.matchAll(/\{\{\s*(?:my|case_manager)_(name|title|org|phone|email)\s*\}\}/g)) used.add(m[1] as ProfileDetail)
+  return (Object.keys(PROFILE_DETAILS) as ProfileDetail[])
+    .filter(k => used.has(k) && !(profile?.[`profile_${k}`] ?? '').trim())
+    .map(k => PROFILE_DETAILS[k])
+}
+
+function listWords(words: string[]): string {
+  return words.length <= 1 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`
+}
+
 interface GenerateModalProps {
   template: LetterTemplate
   grids: Grid[]
@@ -40,6 +61,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
   const [result, setResult] = useState<string | null>(null)
   const [unknown, setUnknown] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [missingProfile, setMissingProfile] = useState<string[]>([])
   const { copied, copyToClipboard: doCopy, resetCopied } = useCopyFeedback()
   const resultRef = useRef<HTMLTextAreaElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
@@ -73,6 +95,21 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
     })()
     return () => { cancelled = true }
   }, [selectedGridId, t])
+
+  // Which of the template's "your name / title / …" details Settings → Profile leaves empty
+  useEffect(() => {
+    if (!/\{\{\s*(?:my|case_manager)_/.test(template.content)) { setMissingProfile([]); return }
+    let cancelled = false
+    void safeInvoke<Record<string, string> | null>(IPC.SETTINGS_GET_ALL).then(res => {
+      if (!cancelled) setMissingProfile(emptyProfileDetails(template.content, res.ok ? res.data : null))
+    })
+    return () => { cancelled = true }
+  }, [template.content])
+
+  function openProfileSettings() {
+    onClose()
+    window.location.hash = '#/settings?tab=profile'
+  }
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -149,6 +186,19 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
             <div role="alert" className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-base text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          )}
+
+          {missingProfile.length > 0 && (
+            <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
+              <AlertTriangle className="w-5 h-5 text-amber-700 dark:text-amber-400 flex-shrink-0" aria-hidden="true" />
+              <p className="flex-1 min-w-0 text-base text-amber-900 dark:text-amber-100">
+                Your {listWords(missingProfile)} {missingProfile.length === 1 ? "isn't" : "aren't"} set, so the letter will have a blank where {missingProfile.length === 1 ? 'it goes' : 'they go'}.
+              </p>
+              <button type="button" onClick={openProfileSettings}
+                className="text-base font-medium text-blue-700 dark:text-blue-300 underline min-h-[44px] focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
+                Fill in Settings → Profile
+              </button>
             </div>
           )}
 

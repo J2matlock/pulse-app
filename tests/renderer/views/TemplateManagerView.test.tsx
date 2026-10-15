@@ -95,7 +95,7 @@ describe('TemplateManagerView', () => {
     await flushEffects()
     // e.g. applying a template as a new list updates the grid store
     act(() => { useGridStore.setState({ grids: [{ id: 1, name: 'Intake', is_active: 1 }, { id: 2, name: 'Waitlist', is_active: 1 }], activeGridId: 2 } as never) })
-    fireEvent.click(screen.getByTitle(/as a reusable template/))
+    fireEvent.click(screen.getByTitle(/as a layout file/))
     expect(screen.queryByText(/no .* to save yet/i)).toBeNull()
     expect((screen.getByLabelText(/Which/) as HTMLSelectElement).value).toBe('2')
   })
@@ -104,7 +104,7 @@ describe('TemplateManagerView', () => {
     useGridStore.setState({ grids: [{ id: 1, name: 'Intake', is_active: 1 }, { id: 2, name: 'Waitlist', is_active: 1 }], activeGridId: 1 } as never)
     render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
     await flushEffects()
-    fireEvent.click(screen.getByTitle(/as a reusable template/))
+    fireEvent.click(screen.getByTitle(/as a layout file/))
     const dialog = screen.getByRole('dialog', { name: /Save .* as Template/ })
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     const [, active, options] = focusTrapCalls.at(-1)!
@@ -125,22 +125,22 @@ describe('TemplateManagerView', () => {
     expect(screen.getByText('Templates')).toBeDefined()
   })
 
-  it('renders Caseload Templates section heading', async () => {
+  it('renders the Caseload layouts section heading (E-28)', async () => {
     render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByRole('heading', { name: 'Caseload templates' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Caseload layouts' })).toBeDefined()
   })
 
-  it('renders Checklist Templates section heading', async () => {
+  it('renders the Checklists section heading (E-28)', async () => {
     render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Checklist Templates')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Checklists' })).toBeDefined()
   })
 
   it('renders import and export buttons', async () => {
     render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByLabelText('Import a .pulse template file')).toBeDefined()
-    expect(screen.getByLabelText(/^Save the current \w+ as a reusable template$/)).toBeDefined()
+    expect(screen.getByLabelText('Open a layout file')).toBeDefined()
+    expect(screen.getByLabelText(/^Save this \w+'s layout$/)).toBeDefined()
   })
 })

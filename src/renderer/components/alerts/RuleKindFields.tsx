@@ -12,17 +12,35 @@ import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useVocab } from '../../hooks/useVocab'
 import { draftToConfig, draftToCondition, type RuleDraft, type Anchor, type OffsetUnit } from './ruleDraft'
 
+/** Examples carry {word} tokens so they read in the workspace's own words (E-30) */
 const KIND_CARD_TEXT = {
   interval: { title: 'After the date in this column', example: 'Every 30 days, 6 months, 1 year' },
   relative: { title: 'From another date', example: '45 days after Referral date · 60 days before Lease end' },
   calendar: { title: 'On fixed dates', example: 'Every Mar 31 · quarterly on the 15th' },
-  meter: { title: 'By usage', example: 'Every 5,000 miles or 6 months' },
-  quota: { title: 'A limited number of visits', example: '12 sessions until the authorization ends' },
-  sequence: { title: 'A series of steps', example: '30-day, 90-day, then annual' },
+  meter: { title: 'By usage', example: 'Every 5,000 miles or 6 months, whichever is first' },
+  quota: { title: 'A limited number of {activity:many}', example: '12 {activity:many} until the authorization ends' },
+  sequence: { title: 'A series of steps', example: '30-day review, 90-day review, then every year' },
 } satisfies Record<RuleKind, { title: string; example: string }>
 
 /** One card per rule kind, in RULE_KINDS order */
 export const KIND_CARDS: Array<{ kind: RuleKind; title: string; example: string }> = RULE_KINDS.map(kind => ({ kind, ...KIND_CARD_TEXT[kind] }))
+
+/**
+ * Why a kind can't be used with these columns (null when it can), so the card
+ * is greyed out with the reason instead of leading to "add a column first" (E-30).
+ */
+export function kindUnavailable(columns: Column[]): Record<RuleKind, string | null> {
+  const dates = columns.filter(c => c.column_type === 'date').length
+  const numbers = columns.filter(c => c.column_type === 'number' || c.column_type === 'currency').length
+  return {
+    interval: null,
+    relative: null,
+    calendar: null,
+    meter: numbers < 2 ? 'Needs two number columns in this {list}: the current reading and the reading at the last service.' : null,
+    quota: dates === 0 ? 'Needs a start and an end date column in this {list}.' : null,
+    sequence: null,
+  }
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const UNIT_LABELS: Record<OffsetUnit, string> = { days: 'days', months: 'months', businessDays: 'working days' }
@@ -32,18 +50,28 @@ const hint = 'text-sm text-slate-500 dark:text-slate-400'
 
 type Set = (patch: Partial<RuleDraft>) => void
 
-export function KindCards({ value, onChange, disabled }: { value: RuleKind; onChange: (k: RuleKind) => void; disabled: boolean }): React.ReactElement {
+export function KindCards({ value, onChange, disabled, columns }: {
+  value: RuleKind; onChange: (k: RuleKind) => void; disabled: boolean
+  /** The list's columns; kinds they can't support are greyed out with the reason (the chosen kind stays usable) */
+  columns?: Column[]
+}): React.ReactElement {
+  const { f } = useVocab(null)
+  const unavailable = columns ? kindUnavailable(columns) : null
   return (
     <div role="radiogroup" aria-label="How is this deadline worked out?" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {KIND_CARDS.map(c => (
-        <button key={c.kind} type="button" role="radio" aria-checked={value === c.kind} disabled={disabled} onClick={() => onChange(c.kind)}
-          className={`text-left px-3 py-2 rounded-lg border-2 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 disabled:cursor-not-allowed ${
-            value === c.kind ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-slate-200 dark:border-slate-600 hover:border-blue-400'
-          }`} style={{ minHeight: 44 }}>
-          <span className="block text-base font-medium text-slate-800 dark:text-slate-100">{c.title}</span>
-          <span className={`block ${hint}`}>{c.example}</span>
-        </button>
-      ))}
+      {KIND_CARDS.map(c => {
+        const reason = value === c.kind ? null : unavailable?.[c.kind] ?? null
+        return (
+          <button key={c.kind} type="button" role="radio" aria-checked={value === c.kind} disabled={disabled || reason !== null} onClick={() => onChange(c.kind)}
+            title={reason ? f(reason) : undefined}
+            className={`text-left px-3 py-2 rounded-lg border-2 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 disabled:cursor-not-allowed ${
+              value === c.kind ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : reason ? 'border-slate-200 dark:border-slate-700 opacity-60' : 'border-slate-200 dark:border-slate-600 hover:border-blue-400'
+            }`} style={{ minHeight: 44 }}>
+            <span className="block text-base font-medium text-slate-800 dark:text-slate-100">{f(c.title)}</span>
+            <span className={`block ${hint}`}>{reason ? f(reason) : f(c.example)}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }

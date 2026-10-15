@@ -12,11 +12,14 @@ import { resolveAlertColor } from '../../utils/alertColors'
 import { ContactRequirementsSettings } from '../contact-req/ContactRequirementsSettings'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFeature } from '../../hooks/useFeature'
+import { useVocab } from '../../hooks/useVocab'
+import { FeatureOffer } from '../shared/FeatureOffer'
 import { DaysOffSection } from './DaysOffSection'
 import { RemindersSection } from './RemindersSection'
 import { BackgroundSection } from './BackgroundSection'
 
 export function AlertsSection(): React.ReactElement {
+  const { t, f } = useVocab(null)
   const showRequirements = useFeature('requirements')
   const showReminders = useFeature('notifications')
   const { rules: alertRules, isLoaded: alertsLoaded, loadRules: loadAlertRules } = useAlertStore(useShallow(s => ({
@@ -24,6 +27,9 @@ export function AlertsSection(): React.ReactElement {
   })))
   const [editingAlertRule, setEditingAlertRule] = useState<ParsedAlertRule | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<ParsedAlertRule | null>(null)
+  // A rule made here does nothing until a date column uses it, which happens in the list, not
+  // in Settings: the new card says so (E-07)
+  const [justCreatedId, setJustCreatedId] = useState<number | null>(null)
   // Column names for the summaries ("45 days after Referral date"), from the columns that use the rules
   const usage = useAlertStore(s => s.usage)
   const storeColumns = useGridStore(s => s.columns)
@@ -39,16 +45,9 @@ export function AlertsSection(): React.ReactElement {
 
   return (
     <>
-      {showReminders ? <RemindersSection summary={<DailySummaryToggle />} /> : (
-        <section className="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-700" aria-labelledby="reminders-heading">
-          <h2 id="reminders-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Reminders</h2>
-          <DailySummaryToggle />
-        </section>
-      )}
-      {showReminders && <BackgroundSection />}
-      {showRequirements && <ContactRequirementsSettings />}
-      <DaysOffSection />
-      <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Deadline rules</h2>
+      {/* The tab is named for deadline rules, so they come first (E-15) */}
+      <section className="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-700" aria-labelledby="deadline-rules-heading">
+      <h2 id="deadline-rules-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Deadline rules</h2>
       <p className="text-sm text-slate-500 dark:text-slate-400">
         A deadline rule works out when a date comes due, and colors it as it gets close. One rule can be used by many columns.
       </p>
@@ -58,7 +57,10 @@ export function AlertsSection(): React.ReactElement {
       )}
 
       <div className="space-y-2">
-        {alertRules.map(rule => (
+        {alertRules.map(rule => {
+          const summary = ruleSummary(rule, columnName)
+          const uses = usage.filter(u => u.rule_id === rule.id)
+          return (
           <div
             key={rule.id}
             className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
@@ -70,12 +72,20 @@ export function AlertsSection(): React.ReactElement {
                   <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">(built-in)</span>
                 )}
               </p>
-              {rule.description && (
+              {rule.description && rule.description !== rule.name && (
                 <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{rule.description}</p>
               )}
-              {/* What it does, in plain words, and its colors (D-16) */}
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{ruleSummary(rule, columnName)}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Used by: {usedByText(usage.filter(u => u.rule_id === rule.id))}</p>
+              {/* What it does, in plain words, and its colors (D-16); not repeated when it is the name (E-35) */}
+              {summary !== rule.name && summary !== rule.description && (
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{summary}</p>
+              )}
+              {rule.id === justCreatedId && uses.length === 0 ? (
+                <p role="status" className="text-sm text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/30 rounded-md px-2 py-1 mt-1">
+                  Not used yet. To use it, open a date column's ⋯ menu in your {t('list')} and choose "Deadline rule".
+                </p>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Used by: {usedByText(uses)}</p>
+              )}
               <span className="flex items-center gap-1 mt-1" aria-hidden="true">
                 {[...rule.thresholds].sort((a, b) => b.daysBefore - a.daysBefore).map((t, i) => {
                   const { className, style } = resolveAlertColor(t.bgClass)
@@ -106,7 +116,8 @@ export function AlertsSection(): React.ReactElement {
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       <button
@@ -123,9 +134,28 @@ export function AlertsSection(): React.ReactElement {
       {editingAlertRule !== undefined && (
         <AlertRuleEditor
           rule={editingAlertRule ?? undefined}
-          onClose={() => { setEditingAlertRule(undefined); void loadAlertRules() }}
+          onClose={createdId => { setEditingAlertRule(undefined); if (createdId !== undefined) setJustCreatedId(createdId); void loadAlertRules() }}
         />
       )}
+      </section>
+
+      {showRequirements ? <ContactRequirementsSettings /> : (
+        <section className="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-700" aria-labelledby="requirements-heading">
+          <h2 id="requirements-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">{t('requirement', { many: true, cap: true })}</h2>
+          <FeatureOffer feature="requirements" always message={f('Need a minimum number of visits or calls per month? Turn on {Requirement:many} to set how many {activity:many} each {record} needs, and see who is behind.')} />
+        </section>
+      )}
+
+      {showReminders ? <RemindersSection summary={<DailySummaryToggle />} /> : (
+        <section className="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-700" aria-labelledby="reminders-heading">
+          <h2 id="reminders-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Reminders</h2>
+          <DailySummaryToggle />
+          {/* An off feature leaves a trace where its controls would be (E-20) */}
+          <FeatureOffer feature="notifications" always message="Want a desktop notification each morning? Turn on Reminders." />
+        </section>
+      )}
+      {showReminders && <BackgroundSection />}
+      <DaysOffSection />
     </>
   )
 }

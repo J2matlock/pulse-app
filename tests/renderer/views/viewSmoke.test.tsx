@@ -248,6 +248,7 @@ vi.mock('../../../src/renderer/components/shared/RecoveryKeyDisplayModal', () =>
 // HelpView sub-components
 vi.mock('../../../src/renderer/components/shared/TourOverlay', () => ({
   STEPS: [],
+  tourSteps: (steps: unknown[]) => steps,
 }))
 vi.mock('../../../src/renderer/views/help/faqData', () => ({
   FAQ_ITEMS: [],
@@ -438,7 +439,7 @@ describe('ContactsView', () => {
   it('renders the Provider Directory heading', async () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
-    const heading = screen.getByRole('heading', { name: 'Contacts' })
+    const heading = screen.getByRole('heading', { name: /^Contacts\s*— your / })
     expect(heading).toBeDefined()
     expect(heading.tagName).toBe('H1')
   })

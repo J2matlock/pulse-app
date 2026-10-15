@@ -6,7 +6,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
 import toast from 'react-hot-toast'
 import { RecoveryKeyDisplayModal } from '../shared/RecoveryKeyDisplayModal'
-import { SecurityCheckup } from './SecurityCheckup'
+import { SecurityCheckup, CHECKUP_TARGETS } from './SecurityCheckup'
 import { PasswordStrength } from '../shared/PasswordStrength'
 import { FieldError, fieldErrorProps } from '../shared/FieldError'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
@@ -231,17 +231,23 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 value={pwForm.hint} onChange={e => setPwForm(f => ({ ...f, hint: e.target.value }))}
                 placeholder="A hint shown on the lock screen (not your password)" />
             </div>
-            <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
-              <input id="settings-pw-reencrypt" type="checkbox" className="mt-1 w-5 h-5 flex-shrink-0"
-                checked={pwReencrypt} onChange={e => setPwReencrypt(e.target.checked)}
-                aria-describedby="settings-pw-reencrypt-help" />
-              <span>
-                <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also re-encrypt my data</span>
-                <span id="settings-pw-reencrypt-help" className="block text-base text-slate-600 dark:text-slate-400">
-                  {REENCRYPT_HELP} Your recovery key stops working too, so you'll make a new one. This can take a minute if you have a lot of data.
+            {/* For one situation only, so it sits under Advanced rather than beside the new password (E-31) */}
+            <details open={pwReencrypt} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
+              <summary className="hit-44 flex items-center text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
+                Advanced: if someone may know your old password…
+              </summary>
+              <label className="flex items-start gap-3 cursor-pointer select-none pb-3" style={{ minHeight: 44 }}>
+                <input id="settings-pw-reencrypt" type="checkbox" className="mt-1 w-5 h-5 flex-shrink-0"
+                  checked={pwReencrypt} onChange={e => setPwReencrypt(e.target.checked)}
+                  aria-describedby="settings-pw-reencrypt-help" />
+                <span>
+                  <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also re-encrypt my data</span>
+                  <span id="settings-pw-reencrypt-help" className="block text-base text-slate-600 dark:text-slate-400">
+                    {REENCRYPT_HELP} Your recovery key stops working too, so you'll make a new one. This can take a minute if you have a lot of data.
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            </details>
             <button type="submit" className="btn-primary w-full" style={{ minHeight: 44 }}
               disabled={pwSaving || (pwForm.next.length > 0 && pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm)}>
               {pwSaving ? (pwReencrypt ? 'Re-encrypting…' : 'Saving…') : 'Save new password'}
@@ -270,8 +276,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         </div>
       )}
 
-      {/* Recovery Key Management (the recovery-key reminder's "Save it now" scrolls here) */}
-      <div id="settings-recovery-key" className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+      {/* Recovery Key Management: the Security checkup's "Create one below" link and the recovery-key reminder's "Save it now" scroll here */}
+      <div id={CHECKUP_TARGETS.recoveryKey} className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Recovery Key</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">

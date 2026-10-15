@@ -71,6 +71,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   }, [open])
   // Other lists' records, by name, a moment after typing stops
   const crossGridResults = useCrossListSearch(open, query)
+  const otherListResults = useMemo(() => crossGridResults.filter(r => r.gridId !== activeGridId), [crossGridResults, activeGridId])
 
 
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -279,12 +280,12 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
               </Command.Group>
             )}
 
-            {/* Cross-grid search results */}
-            {crossGridResults.length > 0 && (
+            {/* Other lists' hits; the open list's are above already, so with one list this group never shows (E-37) */}
+            {otherListResults.length > 0 && (
               <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  All {t('list', { many: true, cap: true })}
+                  Other {t('list', { many: true, cap: true })}
                 </span>}>
-                {crossGridResults.map(r => (
+                {otherListResults.map(r => (
                   <Command.Item
                     key={`xgrid-${r.gridId}-${r.rowId}`}
                     value={`xgrid-${r.gridId}-${r.rowId}`}

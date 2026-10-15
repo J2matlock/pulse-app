@@ -523,6 +523,8 @@ export interface ProviderCategory {
   color: string
   position: number
   created_at: string
+  /** How many custom fields the category has (from the category list) */
+  field_count?: number
 }
 
 export interface Provider {

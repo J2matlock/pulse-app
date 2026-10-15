@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, copyToClipboard: vi.fn() }, writable: true })
@@ -11,7 +11,7 @@ vi.mock('../../../../src/renderer/stores/settingsStore', () => ({
   useSettingsStore: (sel: (s: { autoLockMinutes: number }) => unknown) => sel({ autoLockMinutes: autoLock }),
 }))
 
-import { SecurityCheckup } from '../../../../src/renderer/components/settings/SecurityCheckup'
+import { SecurityCheckup, CHECKUP_TARGETS } from '../../../../src/renderer/components/settings/SecurityCheckup'
 import { setFeatures, EXISTING_FEATURES } from '../../vocabFixture'
 
 describe('SecurityCheckup', () => {
@@ -29,6 +29,47 @@ describe('SecurityCheckup', () => {
     render(<SecurityCheckup hasRecovery={false} />)
     expect(await screen.findByText(/Your Pulse data folder is inside OneDrive/)).toBeTruthy()
     expect(screen.getByText('Security checkup: 1 of 4')).toBeTruthy()
+  })
+
+  // E-01: every line reads as its state, so "Recovery key created" never sits beside a warning triangle
+  it('says "No recovery key yet" when there is none and "Recovery key saved" when there is', async () => {
+    autoLock = 15
+    const { unmount } = render(<SecurityCheckup hasRecovery={false} />)
+    expect(await screen.findByText('No recovery key yet')).toBeTruthy()
+    expect(screen.queryByText(/Recovery key created/)).toBeNull()
+    expect(screen.queryByText('Recovery key saved')).toBeNull()
+    unmount()
+    render(<SecurityCheckup hasRecovery={true} />)
+    expect(await screen.findByText('Recovery key saved')).toBeTruthy()
+    expect(screen.queryByText('No recovery key yet')).toBeNull()
+  })
+
+  it('the failing recovery line links to the recovery-key control and scrolls to it', async () => {
+    autoLock = 60
+    const section = document.createElement('div')
+    section.id = CHECKUP_TARGETS.recoveryKey
+    const button = document.createElement('button')
+    button.textContent = 'Generate Recovery Key'
+    section.appendChild(button)
+    document.body.appendChild(section)
+    const scrolled = vi.fn()
+    section.scrollIntoView = scrolled
+    const lock = document.createElement('select')
+    lock.id = CHECKUP_TARGETS.autoLock
+    lock.scrollIntoView = vi.fn()
+    document.body.appendChild(lock)
+    try {
+      render(<SecurityCheckup hasRecovery={false} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Create one below' }))
+      expect(scrolled).toHaveBeenCalled()
+      expect(document.activeElement).toBe(button)
+      fireEvent.click(screen.getByRole('button', { name: 'Change it below' }))
+      expect(lock.scrollIntoView).toHaveBeenCalled()
+      expect(document.activeElement).toBe(lock)
+    } finally {
+      section.remove()
+      lock.remove()
+    }
   })
 
   it('passes when everything is set up', async () => {

@@ -4,15 +4,16 @@
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, ChevronDown, Eye, BookOpen, Sparkles, ShieldCheck } from 'lucide-react'
-import { STEPS } from '../components/shared/TourOverlay'
+import { STEPS, tourSteps } from '../components/shared/TourOverlay'
 import { featureNow } from '../hooks/useFeature'
 import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
 import { DEBOUNCE_SEARCH } from '../../shared/constants'
-import type { FAQCategory } from './help/types'
+import type { FAQCategory, FAQItem } from './help/types'
 import { CATEGORY_LABELS, ALL_CATEGORIES } from './help/types'
 import { FAQ_ITEMS } from './help/faqData'
 import { SecuritySummaryDialog } from '../components/shared/SecuritySummaryDialog'
+import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { highlightText } from './help/highlightText'
 import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
@@ -32,6 +33,31 @@ export function showMeSteps(ids: string[]): TourStep[] {
   return ids
     .map(id => STEPS.find(s => s.id === id))
     .filter((s): s is TourStep => s != null && (!s.feature || featureNow(s.feature)))
+}
+
+/** The words someone typed, each matched on its own ("contacts month" finds "contacts per month") */
+export function searchWords(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).map(w => w.trim()).filter(Boolean)
+}
+
+/**
+ * How well an item matches a search: 0 when any word is missing; otherwise
+ * a match in the question counts most, then the keywords, then the answer,
+ * so "How do I change my password?" beats an answer that merely says
+ * "password" (UX review E-06).
+ */
+export function searchScore(item: Pick<FAQItem, 'question' | 'answer' | 'keywords'>, words: string[]): number {
+  const question = item.question.toLowerCase()
+  const answer = item.answer.toLowerCase()
+  const keywords = (item.keywords ?? []).map(k => k.toLowerCase())
+  let score = 0
+  for (const w of words) {
+    if (question.includes(w)) score += 3
+    else if (keywords.some(k => k.includes(w))) score += 2
+    else if (answer.includes(w)) score += 1
+    else return 0
+  }
+  return score
 }
 
 // SessionStorage key for persisting state across mini-tour navigation
@@ -54,6 +80,7 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
   const [debouncedSearch, setDebouncedSearch] = useState(persisted.current?.search ?? '')
   const [activeCategory, setActiveCategory] = useState<FAQCategory | 'all'>(persisted.current?.category ?? 'all')
   const [showSecuritySummary, setShowSecuritySummary] = useState(false)
+  const [confirmTour, setConfirmTour] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set(persisted.current?.openIds ?? []))
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -73,20 +100,30 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
     return () => clearTimeout(id)
   }, [search])
 
-  // Filter items
+  // Filter items; a search is ranked (question, then keywords, then answer) and every word must match
   const filteredItems = useMemo(() => {
     let items = faqItems
     if (activeCategory !== 'all') {
       items = items.filter(it => it.category === activeCategory)
     }
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase()
-      items = items.filter(it =>
-        it.question.toLowerCase().includes(q) || it.answer.toLowerCase().includes(q)
-      )
+    const words = searchWords(debouncedSearch)
+    if (words.length > 0) {
+      items = items
+        .map((it, i) => ({ it, score: searchScore(it, words), i }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score || a.i - b.i)
+        .map(x => x.it)
     }
     return items
   }, [activeCategory, debouncedSearch, faqItems])
+  const searching = searchWords(debouncedSearch).length > 0
+
+  // Typing a search while a category chip is on would search only that category and
+  // say "No questions match" without saying why (E-05), so typing goes back to All
+  function handleSearchChange(value: string) {
+    setSearch(value)
+    if (value.trim() && activeCategory !== 'all') setActiveCategory('all')
+  }
 
   // Topics for switched-off features go in their own section, with a way to turn them on
   const features = useWorkspaceStore(s => s.features)
@@ -109,9 +146,9 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
     const label = FEATURES.find(x => x.key === key)?.label ?? 'That feature'
     try {
       await updateWorkspace({ features: { [key]: true } })
-      toast.success(`${f(label)} is on. You can turn it off in Settings → Workspace.`)
+      toast.success(`${f(label)} is on. You can turn it off in Settings → Words & features.`)
     } catch {
-      toast.error("We couldn't turn that on. Try Settings → Workspace.")
+      toast.error("We couldn't turn that on. Try Settings → Words & features.")
     }
   }
 
@@ -203,52 +240,40 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
                          bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
                          text-[15px] placeholder-slate-500
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Search help..."
+              placeholder="Search help…"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
               style={{ minHeight: 44 }}
             />
           </div>
         </div>
 
-        {/* Security summary for supervisors / IT */}
-        <div className="flex items-center gap-4 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
-          <ShieldCheck className="w-8 h-8 text-green-700 dark:text-green-300 flex-shrink-0" aria-hidden="true" />
-          <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-slate-800 dark:text-slate-100">Need your supervisor's or IT's OK?</p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">A one-page, plain-English summary of how Pulse protects {t('record')} information, ready to copy into an email.</p>
-          </div>
-          <button type="button" className="btn-secondary flex-shrink-0" onClick={() => setShowSecuritySummary(true)}>
-            Security &amp; privacy
+        {/* One slim row for the tour, what's new and the security summary, so the first
+            question is on the first screen at 768 px (E-17) */}
+        <div className="flex gap-2 flex-wrap">
+          <button type="button" className="btn-secondary flex items-center gap-2" onClick={() => setConfirmTour(true)}>
+            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+            Retake the full tour
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
+            What's new in this version
+          </button>
+          <button type="button" className="btn-secondary flex items-center gap-2" onClick={() => setShowSecuritySummary(true)}
+            title={`A one-page, plain-English summary of how Pulse protects ${t('record')} information, for your supervisor or IT`}>
+            <ShieldCheck className="w-4 h-4 text-green-700 dark:text-green-300" aria-hidden="true" />
+            Security &amp; privacy summary
           </button>
         </div>
         <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
-
-        <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
-          What's new in this version
-        </button>
-
-        {/* Retake Full Tour card */}
-        <button
-          onClick={onStartTour}
-          className="w-full text-left bg-linear-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20
-                     border border-blue-200 dark:border-blue-700 rounded-xl p-4 flex items-center gap-4
-                     hover:from-blue-100 hover:to-blue-150 dark:hover:from-blue-900/40 dark:hover:to-blue-800/30
-                     transition-colors group"
-          style={{ minHeight: 44 }}
-        >
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-base font-semibold text-blue-800 dark:text-blue-200">
-              Retake the full tour
-            </div>
-            <div className="text-sm text-blue-600 dark:text-blue-400">
-              Want a refresher? Walk through every part of Pulse you have switched on, step by step.
-            </div>
-          </div>
-        </button>
+        {/* The tour leaves this page, so it asks first (E-43) */}
+        <ConfirmDialog
+          open={confirmTour}
+          title={`Start the ${tourSteps(STEPS).length}-step tour?`}
+          message="It walks through every part of Pulse you have switched on. You can stop any time."
+          confirmLabel="Start the tour"
+          onConfirm={() => { setConfirmTour(false); onStartTour() }}
+          onCancel={() => setConfirmTour(false)}
+        />
 
         {/* Category chips */}
         <div className="flex gap-2 flex-wrap">
@@ -279,13 +304,25 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
           ))}
         </div>
 
-        {/* FAQ Accordion — grouped by category */}
+        {/* FAQ Accordion — grouped by category when browsing, best match first when searching */}
         {filteredItems.length === 0 ? (
-          <div className="text-center py-12">
-            <Search className="w-10 h-10 text-slate-300 dark:text-slate-500 mx-auto mb-3" />
+          <div className="text-center py-12 space-y-3">
+            <Search className="w-10 h-10 text-slate-300 dark:text-slate-500 mx-auto" />
             <p className="text-base text-slate-500 dark:text-slate-400">
-              No questions match your search. Try different keywords, or browse the categories above.
+              {activeCategory !== 'all'
+                ? <>No matches in "{f(CATEGORY_LABELS[activeCategory])}".</>
+                : 'No questions match your search. Try other words, or browse the categories above.'}
             </p>
+            {activeCategory !== 'all' && (
+              <button type="button" className="btn-secondary" onClick={() => setActiveCategory('all')}>Search all topics</button>
+            )}
+          </div>
+        ) : searching ? (
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1 pt-2">Best matches first</h2>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {filteredItems.filter(it => !(it.feature && !isOn(features, it.feature))).map(item => renderItem(item))}
+            </div>
           </div>
         ) : (
           Array.from(grouped.entries()).map(([category, items]) => (

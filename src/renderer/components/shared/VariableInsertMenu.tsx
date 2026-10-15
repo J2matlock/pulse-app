@@ -149,11 +149,12 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
                             : 'hover:bg-slate-100 dark:hover:bg-slate-700'
                           }`}
             >
-              <span className="font-mono text-sm text-blue-600 dark:text-blue-400">
-                {item.key}
-              </span>
-              <span className="text-sm text-slate-500 dark:text-slate-400">
+              {/* The plain name first; the code form is secondary (E-26) */}
+              <span className="text-base text-slate-800 dark:text-slate-100">
                 {f(item.desc)}
+              </span>
+              <span className="font-mono text-sm text-slate-500 dark:text-slate-400">
+                {item.key}
               </span>
             </button>
           )

@@ -63,6 +63,28 @@ describe('AboutSection update check (F-036)', () => {
   })
 })
 
+// E-18: "1. Click Download update above" only when that button exists
+describe('AboutSection "How to update" instructions', () => {
+  it('are hidden until an update is available', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => channel === IPC.APP_CHECK_FOR_UPDATES
+      ? { ok: true, data: { available: false } } : { ok: true, data: {} })
+    render(<AboutSection />)
+    expect(screen.queryByText('How to update Pulse')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('You have the latest version.')).toBeTruthy()
+    expect(screen.queryByText('How to update Pulse')).toBeNull()
+  })
+
+  it('show with the Download button when a newer version is found', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => channel === IPC.APP_CHECK_FOR_UPDATES
+      ? { ok: true, data: { available: true, version: '9.9.9' } } : { ok: true, data: {} })
+    render(<AboutSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('How to update Pulse')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download update' })).toBeTruthy()
+  })
+})
+
 describe('AboutSection update check and a skipped version (S-4)', () => {
   function answer(skipped: string | null) {
     mockInvoke.mockImplementation(async (channel: string) => {

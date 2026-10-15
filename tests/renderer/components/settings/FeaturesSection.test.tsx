@@ -14,6 +14,7 @@ import { FeaturesSection } from '../../../../src/renderer/components/settings/Fe
 import { useNoteTracking } from '../../../../src/renderer/hooks/useNoteTracking'
 import { useWorkspaceStore } from '../../../../src/renderer/stores/workspaceStore'
 import { IPC } from '../../../../src/shared/ipc-channels'
+import { FEATURES } from '../../../../src/shared/features'
 import { setWords } from '../../vocabFixture'
 
 beforeEach(() => {
@@ -30,6 +31,16 @@ describe('FeaturesSection', () => {
     expect(screen.getByRole('checkbox', { name: /Time on case notes/ })).toBeTruthy()
     // Not built yet, so not offered
     expect(screen.getByRole('checkbox', { name: /^Files/ })).toBeTruthy()
+  })
+
+  // E-02 (d): a switch alone doesn't tell anyone where the feature lives once it's on
+  it('says where each feature shows, in the workspace words', () => {
+    render(<FeaturesSection />)
+    const lines = screen.getAllByText(/^Shows in: /)
+    expect(lines.length).toBe(FEATURES.filter(d => d.available).length)
+    expect(screen.getByText('Shows in: Settings → Deadlines & reminders → Reminders')).toBeTruthy()
+    expect(screen.getByText(/^Shows in: Settings → Deadlines & reminders, the Dashboard/).textContent).toContain("a client's page")
+    for (const line of lines) expect(line.textContent).not.toMatch(/[{}]/)
   })
 
   it('shows each switch as saved and saves a change', async () => {
