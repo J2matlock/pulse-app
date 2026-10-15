@@ -45,6 +45,8 @@ type PulseEvents = {
   'day:changed': { date: string }
   /** Show first-run setup again (no lists left), at one of its starting points */
   'setup:open': { step: 'start' | 'examples' | 'sheet-name' | 'blank' }
+  /** Open the deadline card for a grid cell (Done, Done on…, Extend…); anchor: the cell, else it's looked up */
+  'deadline:open-card': { rowId: number; columnId: number; anchor?: HTMLElement | null }
 }
 
 class TypedEventBus {

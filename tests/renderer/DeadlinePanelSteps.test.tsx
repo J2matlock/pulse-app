@@ -3,11 +3,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
+// Main's engine: step 2 ("Review") is the one due
+const served = [{
+  row_id: 9, grid_id: 1, grid_name: 'EI', column_id: 3, column_name: 'Plan steps', column_config: '{"alert_rule_id":7}',
+  date_value: '', client_name: 'Frank', interval_days: null, interval_months: null, end_of_month: null, rule_kind: 'sequence',
+  due: '2026-07-10', state: 'ok', daysUntil: 131, estimated: false, detail: '', step: 1, label: 'Review (step 2 of 2)',
+}]
 const invoke = vi.fn(async (channel: string) => channel === 'deadlines:grid-context'
   ? { ok: true, data: { meter: {}, quota: {}, progress: {} } }
+  : channel === 'deadlines:get' ? { ok: true, data: served }
   : { ok: true, data: { sysLogId: 5 } })
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
@@ -28,11 +36,14 @@ afterEach(() => vi.useRealTimers())
 describe('sequence steps on the profile', () => {
   it('shows done and upcoming steps, and checks off the current one', async () => {
     useGridStore.setState({ activeGridId: 1, deadlineContext: { meter: {}, quota: {}, progress: { '9:3': [{ step: 0, anchor: '2026-01-10' }] } } } as never)
-    render(<DeadlinePanel row={row} columns={columns} alertRules={[rule]} onDateSave={async () => {}} />)
+    render(<MemoryRouter><DeadlinePanel row={row} columns={columns} alertRules={[rule]} onDateSave={async () => {}} /></MemoryRouter>)
     const steps = screen.getByRole('list', { name: 'Steps for Plan steps' })
     expect(within(steps).getByText('IFSP meeting').className).toMatch(/line-through/)
     expect(within(steps).getByText('Review')).toBeTruthy()
-    await act(async () => { fireEvent.click(within(steps).getByRole('button', { name: 'Mark done' })) })
+    // The step's Done is the card's first button, as on the dashboard and the Calendar (Q3)
+    const done = await screen.findByRole('button', { name: 'Mark Review done for Frank' })
+    expect(done.textContent).toBe('Mark Review done')
+    await act(async () => { fireEvent.click(done) })
     expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_STEP_DONE, 9, 3, 1, null)
   })
 })

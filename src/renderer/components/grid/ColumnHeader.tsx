@@ -90,7 +90,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   // Freeze/pin column state
   const colIndex = allColumns.findIndex(c => c.id === column.id)
   const menuRef = useRef<HTMLDivElement>(null)
-  const onMenuKeyDown = useMenuKeys(menuRef, showMenu, () => setShowMenu(false))
+  // While the name is being typed the menu stays open under it without taking focus;
+  // once the name is saved (Tab, Down arrow) focus moves into the menu (UX pass Q3)
+  const onMenuKeyDown = useMenuKeys(menuRef, showMenu && !isRenaming, () => setShowMenu(false))
 
   // Move left / right among the shown columns, so columns can be reordered without dragging (G-32)
   const shownColumns = allColumns.filter(c => c.is_visible !== 0)
@@ -170,8 +172,22 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     }
   }
 
-  async function handleRenameSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  // Saving can be asked for twice (Enter, then the box's blur as it goes): only once counts
+  const renamingRef = useRef(false)
+
+  /** The name and the column's menu under the header, together (UX pass Q3) */
+  function startRename() {
+    renamingRef.current = true
+    setRenameName(column.name)
+    setIsRenaming(true)
+    const rect = rootRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ x: rect.left, y: rect.bottom })
+    setShowMenu(true)
+  }
+
+  /** Save the typed name. False when it can't be saved yet (another column has it): the box stays open */
+  async function commitRename(): Promise<boolean> {
+    if (!renamingRef.current) return true
     const name = renameName.trim()
     if (name && name !== column.name) {
       // Another column already called this (hidden ones too): keep editing (B-14)
@@ -179,11 +195,28 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
       if (taken) {
         toast.error(`There's already a column called "${taken.name}". Give this one a different name.`)
         renameRef.current?.focus()
-        return
+        return false
       }
+      renamingRef.current = false
+      setIsRenaming(false)
       await updateColumn(column.id, { name })
+      return true
     }
+    renamingRef.current = false
     setIsRenaming(false)
+    return true
+  }
+
+  function cancelRename() {
+    renamingRef.current = false
+    setRenameName(column.name)
+    setIsRenaming(false)
+    setShowMenu(false)
+  }
+
+  async function handleRenameSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (await commitRename()) setShowMenu(false)
   }
 
   async function handleDelete() {
@@ -214,6 +247,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   useLayoutEffect(() => {
     const el = menuRef.current
     if (!showMenu || !el) return
+    // While renaming, the menu stays under the name's box (never over it) and scrolls instead
+    if (isRenaming) return
     const room = window.innerHeight - 16
     const height = el.scrollHeight + 2
     const top = el.getBoundingClientRect().top
@@ -222,6 +257,18 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     el.style.top = `${Math.max(8, window.innerHeight - 8 - height)}px`
     el.style.maxHeight = `${room}px`
   })
+
+  // A click outside the name and the menu while renaming: the box's blur saves, this closes the menu
+  useEffect(() => {
+    if (!isRenaming || !showMenu) return
+    function onDown(e: MouseEvent) {
+      const target = e.target as Node | null
+      if (!target || menuRef.current?.contains(target) || rootRef.current?.contains(target)) return
+      setShowMenu(false)
+    }
+    document.addEventListener('mousedown', onDown, true)
+    return () => document.removeEventListener('mousedown', onDown, true)
+  }, [isRenaming, showMenu])
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
@@ -252,14 +299,20 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             ref={renameRef}
             autoFocus
             type="text"
+            aria-label="Column name"
             className="w-full bg-transparent border-b border-blue-500 text-base font-semibold"
             value={renameName}
             onChange={e => setRenameName(e.target.value)}
+            onFocus={e => e.currentTarget.select()}
             onBlur={e => {
               if (e.relatedTarget === null && !document.hasFocus()) return
-              handleRenameSubmit(e)
+              void commitRename()
             }}
-            onKeyDown={e => e.key === 'Escape' && setIsRenaming(false)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelRename(); return }
+              // Tab and the Down arrow save the name and move into the menu below it
+              if ((e.key === 'Tab' && !e.shiftKey) || e.key === 'ArrowDown') { e.preventDefault(); void commitRename() }
+            }}
           />
         </form>
       ) : (
@@ -274,7 +327,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             }}
             onDoubleClick={() => {
               if (sortClickTimer.current) { clearTimeout(sortClickTimer.current); sortClickTimer.current = null }
-              setIsRenaming(true); setRenameName(column.name)
+              startRename()
             }}
           >
             {column.name}
@@ -333,8 +386,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
         {showMenu && createPortal(
             <>
-              {/* Click-away backdrop */}
-              <div className="fixed inset-0 z-[9998]" onClick={() => setShowMenu(false)} />
+              {/* Click-away backdrop; not while renaming, so the name's box can still be clicked into */}
+              {!isRenaming && <div className="fixed inset-0 z-[9998]" onClick={() => setShowMenu(false)} />}
               <div
                 ref={menuRef}
                 onKeyDown={onMenuKeyDown}
@@ -346,7 +399,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                     const menuW = 270 // w-64 ≈ 256px + border/shadow
                     const menuH = 400 // estimated max height
                     const clampedX = Math.min(rawX, window.innerWidth - menuW)
-                    if (rawY + menuH > window.innerHeight - 8) {
+                    if (!isRenaming && rawY + menuH > window.innerHeight - 8) {
                       // Flip upward: anchor bottom to click point
                       return { bottom: Math.max(8, window.innerHeight - rawY), left: Math.max(8, clampedX), maxHeight: rawY - 8 }
                     }
@@ -376,7 +429,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
               <hr className="my-1 border-slate-200 dark:border-slate-700" />
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={() => { setIsRenaming(true); setRenameName(column.name); setShowMenu(false) }}
+                onClick={startRename}
               >
                 <Edit2 className="w-4 h-4" />
                 Rename

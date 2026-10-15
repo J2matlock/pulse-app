@@ -19,6 +19,7 @@ import { columnTypeLabel } from '../../shared/columnTypes'
 import { useNavigate } from 'react-router-dom'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
+import { DeadlineCardHost } from '../components/deadlines/DeadlineCardHost'
 
 export default function GridView(): React.ReactElement {
   const { t } = useVocab()
@@ -185,6 +186,7 @@ export default function GridView(): React.ReactElement {
           onActiveMatchChange={setFindReplaceActiveMatch}
         />
         {showBoard ? <BoardView /> : <DataGrid />}
+        <DeadlineCardHost />
       </div>
       <GridStatusFooter />
 

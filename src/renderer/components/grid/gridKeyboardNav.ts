@@ -4,6 +4,7 @@ import { formatCellForClipboard, checkPaste } from './gridHelpers'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
 import { copyText } from '../../hooks/useCopyFeedback'
+import { columnHasDeadlineRule, openDeadlineCard } from '../deadlines/openDeadlineCard'
 
 type CellCoord = { rowId: number; columnId: number }
 
@@ -198,6 +199,12 @@ export function handleCellKeyDown(
       }
       if (!editing) {
         const col = columns.find(c => c.id === columnId)
+        // On a deadline: its card, to mark it done or extend it without leaving the list (UX pass Q3)
+        if (columnHasDeadlineRule(col ?? columnMap.get(columnId))) {
+          e.preventDefault()
+          openDeadlineCard(rowId, columnId, typeof HTMLElement !== 'undefined' && e.currentTarget instanceof HTMLElement ? e.currentTarget : null)
+          break
+        }
         if (col?.column_type === 'checkbox') {
           e.preventDefault()
           const row = currentRows.find(r => r.row_id === rowId)

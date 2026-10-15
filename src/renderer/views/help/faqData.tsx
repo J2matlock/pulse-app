@@ -19,7 +19,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-customize-columns',
     question: 'How do I customize columns for my {list}?',
-    answer: 'Click "More" in the toolbar and choose "Add a column…" to create new columns. You can choose from many types: text, dates, phone numbers, dropdowns, checkboxes, and more. To rename a column, click the ⋯ on its header (or right-click the header) and choose "Rename". To reorder columns, drag a column header left or right.',
+    answer: 'Click "More" in the toolbar and choose "Add a column…" to create new columns. You can choose from many types: text, dates, phone numbers, dropdowns, checkboxes, and more. To rename a column, double-click its name, type the new one and press Enter (or click the ⋯ on its header, or right-click the header, and choose "Rename"). The column\'s menu opens under the name at the same time, so you can change anything else about the column there. To reorder columns, drag a column header left or right.',
     keywords: ['rename column', 'new column', 'move column'],
     category: 'getting-started',
     tourStepIds: ['add-column'],
@@ -138,7 +138,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-sort',
     question: 'How do I sort my {list} by a column?',
-    answer: 'Click any column header to sort by that column. Click again to reverse the sort direction. You can hold Shift and click additional headers for multi-column sorting \u2014 the secondary sort breaks ties in the first column (for example, sort by status first, then alphabetically by name within each status group).',
+    answer: 'Click a column\'s name to sort by that column. Click again to reverse the sort direction. (Double-clicking the name renames the column instead.) You can hold Shift and click additional headers for multi-column sorting \u2014 the secondary sort breaks ties in the first column (for example, sort by status first, then alphabetically by name within each status group).',
     category: 'caseload-grid',
   },
   {

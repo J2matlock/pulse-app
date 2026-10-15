@@ -52,6 +52,7 @@ import { GridContextMenu } from '../../../../src/renderer/components/grid/GridCo
 import type { GridContextMenuProps } from '../../../../src/renderer/components/grid/GridContextMenu'
 import type { Column, GridRow } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { pulseEvents } from '../../../../src/renderer/events'
 
 function makeColumn(id: number, name: string, type = 'text'): Column {
   return {
@@ -121,6 +122,26 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('Copy cell')).toBeTruthy()
     expect(screen.getByText('Paste')).toBeTruthy()
     expect(screen.getByText('Clear cell')).toBeTruthy()
+  })
+
+  it('offers "Mark done or extend…" first for a cell with a deadline rule, and opens its card (Q3)', () => {
+    const ruled = { ...makeColumn(2, 'Last contact', 'date'), config: '{"alert_rule_id":4}' } as Column
+    const props = makeProps({ columns: [makeColumn(1, 'Name'), ruled], contextMenu: { x: 100, y: 100, rowId: 1, colId: 2 } })
+    const opened: unknown[] = []
+    const off = pulseEvents.on('deadline:open-card', e => opened.push(e))
+    render(<GridContextMenu {...props} />)
+    const item = screen.getByText('Mark done or extend…')
+    // First in "This cell", before Copy cell
+    expect(item.compareDocumentPosition(screen.getByText('Copy cell')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(item)
+    expect(props.onClose).toHaveBeenCalled()
+    expect(opened).toEqual([{ rowId: 1, columnId: 2, anchor: undefined }])
+    off()
+  })
+
+  it('has no "Mark done or extend…" on a cell without a deadline rule', () => {
+    render(<GridContextMenu {...makeProps({ columns: [makeColumn(1, 'Name'), makeColumn(2, 'Start', 'date')], contextMenu: { x: 100, y: 100, rowId: 1, colId: 2 } })} />)
+    expect(screen.queryByText('Mark done or extend…')).toBeNull()
   })
 
   it('keeps history, color rules and formatting behind "More…" so the menu fits the screen (UX-B-01)', () => {

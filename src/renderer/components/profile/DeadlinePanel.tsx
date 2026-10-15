@@ -3,21 +3,17 @@ import { Calendar } from 'lucide-react'
 import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
 import { computeDaysUntil, computeEffectiveDeadline, getAlertThreshold, evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { takesDeadlineRule } from '../../../shared/types'
-import { engineRuleFrom, referencedColumns, meterInfo, sequenceAnchor, sequenceStepDue, ymdToDate, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
+import { engineRuleFrom, sequenceAnchor, sequenceStepDue, ymdToDate, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
 import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { completeDeadlines, isOneOffDeadline } from '../../views/dashboard/completeDeadline'
-import { OneOffDoneDialog, type OneOffChoice } from '../../views/dashboard/OneOffDoneDialog'
-import { ExtendDeadlineDialog } from '../../views/dashboard/ExtendDeadlineDialog'
-import { MeterReadingDialog } from '../../views/dashboard/MeterReadingDialog'
-import { getClientName } from '../../utils/clientName'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { IPC } from '../../../shared/ipc-channels'
-import { extendDeadline, removeExtension } from '../../views/dashboard/extendDeadline'
 import { localDateString, shortDate } from '../../../shared/dates'
 import { useToday } from '../../hooks/useToday'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
-import { PrimaryButton, SecondaryButton } from '../ui/Button'
+import { PrimaryButton } from '../ui/Button'
+import { useRecordDeadlines, deadlineKey } from '../deadlines/useRecordDeadlines'
+import { DeadlineCardContent } from '../deadlines/DeadlineCardContent'
 
 /** Maps a bgClass to a solid (full-opacity) hex color for borders / progress bars. */
 function solidColor(bgClass: string): string {
@@ -135,13 +131,9 @@ export function DeadlinePanel({
   const [isSaving, setIsSaving] = useState(false)
 
   const progressContext = useGridStore(s => s.deadlineContext.progress)
-  const extensionsContext = useGridStore(s => s.deadlineContext.extensions)
-  const [stepBusy, setStepBusy] = useState(false)
-  const [extendingCol, setExtendingCol] = useState<{ col: Column; due: string | null } | null>(null)
-  const [doneBusy, setDoneBusy] = useState<number | null>(null)
-  const [askReading, setAskReading] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule } | null>(null)
-  const [askOneOff, setAskOneOff] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule; due: string | null } | null>(null)
-  const refreshContext = () => useGridStore.getState().refreshDeadlineContext()
+  // Done, Done on…, Extend… come from the shared deadline card, with main's engine
+  // behind them, as on the grid, the Calendar and the dashboard (UX pass Q3)
+  const { infos, reload } = useRecordDeadlines([row.row_id], { includeDone: true })
   // Days-until is worked out on every render: render again when the day changes at midnight
   useToday()
 
@@ -243,17 +235,6 @@ export function DeadlinePanel({
     }))
   }
 
-  async function markStep(col: Column, rawValue: string | null, step: number) {
-    setStepBusy(true)
-    try {
-      await completeDeadlines([{ rowId: row.row_id, columnId: col.id, columnName: col.name, clientName: '', dateValue: rawValue ?? '', ruleKind: 'sequence', step }],
-        { onUndone: () => useGridStore.getState().refreshDeadlineContext() })
-      await useGridStore.getState().refreshDeadlineContext()
-    } finally {
-      setStepBusy(false)
-    }
-  }
-
   /** Read the record back after Done (or its undo), so this page shows the new date */
   async function refreshRow() {
     const gridId = useGridStore.getState().activeGridId
@@ -264,20 +245,10 @@ export function DeadlinePanel({
     await useGridStore.getState().refreshDeadlineContext()
   }
 
-  /** Done, the same as on the dashboard: a repeating date starts its next cycle, a one-off is renewed or finished (R-04, D-22) */
-  async function markDone(col: Column, rawValue: string | null, rule: ParsedAlertRule, reading?: number, oneOff?: OneOffChoice) {
-    setDoneBusy(col.id)
-    try {
-      let checklistTemplateId: number | null = null
-      try { checklistTemplateId = (JSON.parse(col.config || '{}') as { done_checklist_id?: number }).done_checklist_id ?? null } catch { /* none */ }
-      const done = await completeDeadlines([{
-        rowId: row.row_id, columnId: col.id, columnName: col.name, clientName: getClientName(row, columns),
-        dateValue: rawValue ?? '', interval: toRuleInterval(rule), checklistTemplateId, ruleKind: rule.kind ?? 'interval', reading, oneOff,
-      }], { onUndone: refreshRow })
-      if (done.length > 0) await refreshRow()
-    } finally {
-      setDoneBusy(null)
-    }
+  /** After Done, Undo or an extension: the record and the card load again */
+  async function changed() {
+    await refreshRow()
+    await reload()
   }
 
   function startEdit(col: Column, currentValue: string | null) {
@@ -324,8 +295,7 @@ export function DeadlinePanel({
           const nextDue = rawValue && hasInterval(interval) ? (engine?.due ? ymdToDate(engine.due) : computeEffectiveDeadline(rawValue, interval)) : null
           // The stored date is when it was last done for repeating and worked-out rules; for a plain date it's the due date (R-23)
           const storedIsLastDone = !!rule && ((rule.kind ?? 'interval') !== 'interval' || hasInterval(interval))
-          const kind = rule?.kind ?? 'interval'
-          const canMarkDone = !!rule && kind !== 'quota' && kind !== 'sequence' && !!engine?.due && engine.state !== 'done' && engine.state !== 'paused'
+          const info = rule ? infos?.get(deadlineKey(row.row_id, col.id)) : undefined
 
           return (
             <div
@@ -345,13 +315,6 @@ export function DeadlinePanel({
                       {result.state === 'done' ? 'Done' : result.state === 'paused' ? 'Paused' : result.due && daysUntil !== null ? formatUrgency(daysUntil) : 'Nothing due yet'}
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{result.detail || (rule?.kind === 'quota' ? 'Enter the start, end and how many are allowed' : '')}</div>
-                    {result.extended && (() => {
-                      const ext = (extensionsContext[`${row.row_id}:${col.id}`] ?? [])[0]
-                      return ext ? (
-                        <button type="button" onClick={() => void removeExtension(ext.id, col.name, refreshContext)}
-                          className="hit-44 mt-1 text-base text-blue-700 dark:text-blue-300 underline">Remove extension</button>
-                      ) : null
-                    })()}
                     {rule && stepsFor(rule, col, rawValue).length > 0 && (
                       <ol className="mt-2 space-y-1" aria-label={`Steps for ${col.name}`}>
                         {stepsFor(rule, col, rawValue).map(st => (
@@ -360,12 +323,6 @@ export function DeadlinePanel({
                             <span className={st.done ? 'line-through text-slate-500 dark:text-slate-400' : ''}>{st.label}</span>
                             {st.due && <span className="text-slate-500 dark:text-slate-400">· {formatDate(st.due)}</span>}
                             <span className="sr-only">{st.done ? '(done)' : '(not done)'}</span>
-                            {!st.done && result.step === st.index && (
-                              <button type="button" disabled={stepBusy} onClick={() => void markStep(col, rawValue, st.index)}
-                                className="hit-44 ml-auto px-2 py-0.5 rounded-sm bg-green-100 hover:bg-green-200 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-sm font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500">
-                                Mark done
-                              </button>
-                            )}
                           </li>
                         ))}
                       </ol>
@@ -458,29 +415,12 @@ export function DeadlinePanel({
                   </button>
                 )}
 
-                {!isEditing && (canMarkDone || (rule && daysUntil !== null && !result?.extended)) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    {canMarkDone && (
-                      <button type="button" disabled={doneBusy === col.id}
-                        onClick={() => {
-                          if (kind === 'meter') setAskReading({ col, rawValue, rule: rule! })
-                          else if (isOneOffDeadline({ ruleKind: kind, interval })) setAskOneOff({ col, rawValue, rule: rule!, due: engine?.due ?? null })
-                          else void markDone(col, rawValue, rule!)
-                        }}
-                        title={kind === 'meter' ? 'Mark done: asks for the current reading'
-                          : kind !== 'interval' || hasInterval(interval) ? 'Mark done: saves today as the day it was done'
-                          : 'Mark done: asks whether it was renewed (a new date) or finished'}
-                        className="hit-44 px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 text-base font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
-                        style={{ minHeight: 36 }}>
-                        Done
-                      </button>
-                    )}
-                    {rule && daysUntil !== null && !result?.extended && (
-                      <SecondaryButton size="compact" onClick={() => setExtendingCol({ col, due: engine?.due ?? null })}
-                        title="Give more time: pick a later due date and say why">
-                        Extend…
-                      </SecondaryButton>
-                    )}
+                {/* The shared card's buttons: Done · Done on… · Extend… (or Remove extension) */}
+                {!isEditing && info && (
+                  <div className="mt-2">
+                    <DeadlineCardContent info={info} where="profile" layout="stack" words={false}
+                      onChanged={changed} onDone={() => void changed()}
+                      onChangeDate={col.column_type === 'date' ? () => startEdit(col, rawValue) : undefined} />
                   </div>
                 )}
 
@@ -498,28 +438,6 @@ export function DeadlinePanel({
           )
         })}
       </div>
-      {extendingCol && (
-        <ExtendDeadlineDialog title={extendingCol.col.name} currentDue={extendingCol.due} onClose={() => setExtendingCol(null)}
-          onSave={(newDue, reason) => {
-            const target = extendingCol.col
-            setExtendingCol(null)
-            void extendDeadline(row.row_id, target.id, target.name, newDue, reason, refreshContext)
-          }} />
-      )}
-      {askOneOff && (
-        <OneOffDoneDialog title={askOneOff.col.name} currentDue={askOneOff.due} onClose={() => setAskOneOff(null)}
-          onSave={choice => { const a = askOneOff; setAskOneOff(null); void markDone(a.col, a.rawValue, a.rule, undefined, choice) }} />
-      )}
-      {askReading && (
-        <MeterReadingDialog title={askReading.col.name} onClose={() => setAskReading(null)}
-          info={(() => {
-            const r = engineRuleFrom(askReading.rule)
-            const values: Record<number, string | null> = {}
-            for (const id of referencedColumns(r)) values[id] = (row[`col_${id}` as `col_${number}`] ?? null) as string | null
-            return meterInfo(r, values)
-          })()}
-          onSave={reading => { const a = askReading; setAskReading(null); void markDone(a.col, a.rawValue, a.rule, reading) }} />
-      )}
     </section>
   )
 }

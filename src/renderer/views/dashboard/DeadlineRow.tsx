@@ -1,5 +1,4 @@
 import React from 'react'
-import { CheckCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
 import { classifyDeadline, daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
@@ -7,9 +6,9 @@ import { TIER_TEXT } from '../../utils/dueTiers'
 import { resolveAlertColor } from '../../utils/alertColors'
 import type { ExtendedDeadlineInfo } from './types'
 import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
-import { useVocab } from '../../hooks/useVocab'
 import { shortDate } from '../../../shared/dates'
-import { useDeadlineActions } from './useDeadlineActions'
+import { deadlineTraits } from './useDeadlineActions'
+import { DeadlineCardContent } from '../../components/deadlines/DeadlineCardContent'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -20,11 +19,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   onToggleSelect?: () => void
 }): React.ReactElement {
   const navigate = useNavigate()
-  const { t } = useVocab(deadline.gridId)
   const { daysUntil, threshold, clientName, columnName, gridName, dateValue, rowId, gridId } = deadline
-  // Done, Done on…, Extend… and their dialogs, shared with the Calendar's panel (UX D-08)
-  const act = useDeadlineActions(deadline, { onMarkDone, onChanged: onUndoneMarkDone })
-  const { ruleKind, ruleInterval, oneOff, recurring, stepName } = act
+  const { ruleKind, ruleInterval, recurring } = deadlineTraits(deadline)
   const usedUp = isUsedUp({ state: deadline.state, daysUntil })
   const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
 
@@ -105,62 +101,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
         <div className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">{deadlineFormatted}</div>
         <div className={`text-sm ${urgencyColor} tabular-nums`}>{urgencyLabel}</div>
       </div>
-      {onMarkDone && (deadline.extensionId ? (
-        <button
-          onClick={() => void act.removeExtension()}
-          title={deadline.detail}
-          className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 44 }}
-        >
-          Remove extension
-        </button>
-      ) : (
-        <button
-          onClick={act.startExtend}
-          title="Give it a new due date, with a reason"
-          className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 44 }}
-        >
-          Extend…
-        </button>
-      ))}
-      {onMarkDone && ruleKind === 'quota' && (
-        <button
-          onClick={() => navigate(`/profile/${rowId}?gridId=${gridId}`)}
-          title={`Open the ${t('record')} to set new dates and how many are allowed`}
-          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 44 }}
-        >
-          Renew…
-        </button>
-      )}
-      {onMarkDone && ruleKind !== 'quota' && (
-        <button
-          onClick={act.startDone}
-          disabled={act.marking}
-          title={act.doneTitle}
-          aria-label={`Mark ${stepName ?? columnName} done for ${clientName}`}
-          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 text-sm font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
-          style={{ minHeight: 44 }}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          {stepName ? `Mark ${stepName} done` : 'Done'}
-        </button>
-      )}
-      {/* The work happened on an earlier day (meter readings ask for the day in their dialog); words, not a chevron (UX D-04) */}
-      {onMarkDone && act.canPickDay && !oneOff && (
-        <button
-          onClick={act.startDoneOnDay}
-          disabled={act.marking}
-          title="It happened on an earlier day: choose which"
-          aria-label={`Done on another day: ${columnName} for ${clientName}`}
-          className="flex-shrink-0 -ml-2 px-2.5 py-1.5 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
-          style={{ minHeight: 44 }}
-        >
-          Done on…
-        </button>
-      )}
-      {act.dialogs}
+      {/* Done · Done on… · Extend…, the same card as the grid, the profile and the Calendar (Q3); the name is the Open link */}
+      {onMarkDone && <DeadlineCardContent info={deadline} where="dashboard" layout="row" onDone={onMarkDone} onChanged={onUndoneMarkDone} />}
     </div>
   )
 }
