@@ -7,9 +7,11 @@ import { TickingNumber } from '../../components/shared/TickingNumber'
  * `href` goes to another page, `onClick` opens a tab on the dashboard.
  */
 export function SummaryCard({
-  label, value, icon, colorClass, urgent = false, href, onClick,
+  label, value, sub, icon, colorClass, urgent = false, href, onClick,
 }: {
   label: string
+  /** A short line under the number: what it's counted over ("for 36 clients") */
+  sub?: string
   value: number | string
   icon: React.ReactNode
   colorClass: string
@@ -25,6 +27,7 @@ export function SummaryCard({
         <span className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-tight">{label}</span>
       </div>
       <div className={`text-2xl font-bold leading-none ${colorClass}`}><TickingNumber value={value} /></div>
+      {sub && <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
     </>
   )
   // A tint, not a border, sets a tile apart (Q8); a late count adds a red ring

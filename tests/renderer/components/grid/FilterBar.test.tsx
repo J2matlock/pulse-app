@@ -238,12 +238,12 @@ describe('FilterControls (G-12, G-30)', () => {
     await renderSettled(<FilterControls />)
     const expected = rows.filter(r => matchFilter(r, { columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status', value: 'overdue' }, columns, undefined, new Map([[4, rule]]))).length
     expect(expected).toBe(2)
-    const chip = screen.getByRole('button', { name: 'Overdue (2)' })
+    const chip = screen.getByRole('button', { name: '2 clients overdue' })
     expect(chip.getAttribute('title')).toBe('Show the 2 clients with an overdue deadline')
     expect(chip.querySelector('.text-red-700')).not.toBeNull()
     // While it's on, the count stays but the red goes: the rows on screen are the overdue ones
     fireEvent.click(chip)
-    expect(screen.getByRole('button', { name: 'Overdue (2)' }).querySelector('.text-red-700')).toBeNull()
+    expect(screen.getByRole('button', { name: '2 clients overdue' }).querySelector('.text-red-700')).toBeNull()
     // Nothing late: plain "Overdue"
     act(() => { useGridStore.setState({ rows: rows.slice(2), activeFilters: [] }) })
     expect(screen.getByRole('button', { name: 'Overdue' })).toBeTruthy()
@@ -262,13 +262,13 @@ describe('FilterControls (G-12, G-30)', () => {
     ] as unknown as GridRow[]
     useGridStore.setState({ columns, rows, deadlineContext: null })
     await renderSettled(<FilterControls />)
-    expect(screen.getByRole('button', { name: 'Overdue (1)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '1 client overdue' })).toBeTruthy()
     // An edit makes Bo late
     act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === 2 ? { ...r, col_2: '2021-06-01' } : r) })) })
-    expect(screen.getByRole('button', { name: 'Overdue (2)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '2 clients overdue' })).toBeTruthy()
     // A late record added
     act(() => { useGridStore.setState(s => ({ rows: [...s.rows, { row_id: 3, col_1: 'Cy', col_2: '2019-02-02' } as unknown as GridRow] })) })
-    expect(screen.getByRole('button', { name: 'Overdue (3)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '3 clients overdue' })).toBeTruthy()
     // A ten-year rule: nobody is late any more
     act(() => { useAlertStore.setState({ rules: [{ ...rule, interval_days: 3650 }] }) })
     expect(screen.getByRole('button', { name: 'Overdue' })).toBeTruthy()
@@ -283,9 +283,9 @@ describe('FilterControls (G-12, G-30)', () => {
     const rows = Array.from({ length: 450 }, (_, i) => ({ row_id: i + 1, col_1: `P${i}`, col_2: i % 3 === 0 ? localDateString() : '2020-01-05' })) as unknown as GridRow[]
     useGridStore.setState({ columns, rows, deadlineContext: null })
     await renderSettled(<FilterControls />)
-    expect(await screen.findByRole('button', { name: 'Overdue (300)' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '300 clients overdue' })).toBeTruthy()
     act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === 1 ? { ...r, col_2: '2020-01-05' } : r) })) })
-    expect(screen.getByRole('button', { name: 'Overdue (301)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '301 clients overdue' })).toBeTruthy()
     useAlertStore.setState({ rules: [] })
     useGridStore.setState({ rows: [] })
   })

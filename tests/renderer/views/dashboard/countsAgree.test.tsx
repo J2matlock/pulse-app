@@ -35,8 +35,8 @@ vi.mock('../../../../src/renderer/stores/taskStore', () => {
   return { useTaskStore: store }
 })
 vi.mock('../../../../src/renderer/views/dashboard/SummaryCard', () => ({
-  SummaryCard: ({ label, value, onClick }: { label: string; value: string | number; onClick?: () => void }) => (
-    <button type="button" data-testid="summary-card" data-label={label} data-value={String(value)} onClick={onClick}>{label}</button>
+  SummaryCard: ({ label, value, sub, onClick }: { label: string; value: string | number; sub?: string; onClick?: () => void }) => (
+    <button type="button" data-testid="summary-card" data-label={label} data-value={String(value)} data-sub={sub} onClick={onClick}>{label}</button>
   ),
 }))
 vi.mock('../../../../src/renderer/views/dashboard/DeadlineRow', () => ({
@@ -116,6 +116,12 @@ describe('the dashboard counts one way', () => {
     const text = (panel ?? document.body).textContent ?? ''
     for (const s of some) expect(text).toContain(s)
     if (panel) expect(within(panel).queryByText('Far Fran')).toBeNull()
+  })
+
+  it('the Overdue tile says how many records its items are about', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
+    expect(tile('Overdue').getAttribute('data-sub')).toBe('for 3 clients')
   })
 
   it("What's due still lists the task with no date, and no window counts it", async () => {

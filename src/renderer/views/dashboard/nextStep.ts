@@ -123,6 +123,10 @@ function overdueSentence(items: PriorityItem[], t: Words): string {
       const column = first?.kind === 'deadline' ? first.data.columnName : ''
       return `${column} is overdue for ${n} ${t('record', { count: n })}.`
     }
+    // Deadlines and records are both counted somewhere (the list's Overdue button counts
+    // records): say both when they differ (persona study R6)
+    const records = new Set(items.map(i => i.kind === 'deadline' ? i.data.rowId : 0)).size
+    if (records !== n) return `${countOf(n, kind)} are overdue, for ${records} ${t('record', { count: records })}.`
   }
   return `${countOf(n, kind)} ${n === 1 ? 'is' : 'are'} overdue.`
 }

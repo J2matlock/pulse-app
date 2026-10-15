@@ -104,7 +104,7 @@ export function FilterControls(): React.ReactElement {
     <div className="flex items-center flex-wrap gap-1" data-tour="filter-controls">
       <button
         onClick={() => setShowStarredOnly(!showStarredOnly)}
-        className={`btn-secondary flex items-center gap-1.5 ${showStarredOnly ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300' : ''}`}
+        className={`btn-secondary hit-44 flex items-center gap-1.5 ${showStarredOnly ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300' : ''}`}
         style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
         title={showStarredOnly ? `Showing starred ${t('record', { many: true })} only. Click to show all.` : `Show starred ${t('record', { many: true })} only`}
         aria-pressed={showStarredOnly}
@@ -121,7 +121,7 @@ export function FilterControls(): React.ReactElement {
             if (i >= 0) removeFilter(i)
             else addFilter({ columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status', value: 'overdue' })
           }}
-          className={`btn-secondary flex items-center gap-1.5 ${overdueOn ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300' : ''}`}
+          className={`btn-secondary hit-44 flex items-center gap-1.5 ${overdueOn ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300' : ''}`}
           style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
           aria-pressed={overdueOn}
           title={overdueOn
@@ -130,8 +130,9 @@ export function FilterControls(): React.ReactElement {
               ? `Show the ${overdueCount} ${t('record', { count: overdueCount })} with an overdue deadline`
               : `Show ${t('record', { many: true })} with an overdue deadline`}
         >
+          {/* Says what it counts: records with a deadline overdue, not deadlines (persona study R6) */}
           {overdueCount > 0
-            ? <span className={overdueOn ? undefined : 'text-red-700 dark:text-red-300'}>Overdue <span className="tabular-nums">({overdueCount})</span></span>
+            ? <span className={overdueOn ? undefined : 'text-red-700 dark:text-red-300'}><span className="tabular-nums">{overdueCount}</span> {t('record', { count: overdueCount })} overdue</span>
             : 'Overdue'}
         </button>
       )}
@@ -139,7 +140,7 @@ export function FilterControls(): React.ReactElement {
         <button
           ref={filterBtnRef}
           onClick={() => { void loadSavedFilters(); setShowPanel(v => !v) }}
-          className={`btn-secondary flex items-center gap-2 ${activeFilters.length > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : ''}`}
+          className={`btn-secondary hit-44 flex items-center gap-2 ${activeFilters.length > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : ''}`}
           style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           title={`Filter ${t('record', { many: true })}`}
           aria-expanded={showPanel}

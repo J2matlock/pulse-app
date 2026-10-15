@@ -29,7 +29,7 @@ import { pulseEvents } from '../events'
 import { useVocab, useVocabByList } from '../hooks/useVocab'
 import { GettingStartedCard, useGettingStarted } from './dashboard/GettingStartedCard'
 import { PrintExportMenu } from './dashboard/PrintExportMenu'
-import { datedItems, windowTabs } from './dashboard/tabCounts'
+import { datedItems, recordsIn, windowTabs } from './dashboard/tabCounts'
 import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
 
@@ -355,6 +355,8 @@ export default function DashboardView(): React.ReactElement {
   const windows = useMemo(() => windowTabs(datedItems({ deadlines, tasksWithDays, checklistWithDays, followUpsWithDays })),
     [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
   const overdueItems = windows.overdue
+  // The Overdue tile counts items; say how many records they're about (R6). Unknown past main's cap
+  const overdueRecords = deadlinesCut || followUpsCut ? null : recordsIn(overdueItems)
 
   // Everything on "What's due", soonest first; the search filters this, the next-step banner doesn't
   const priorityItems = useMemo((): PriorityItem[] => {
@@ -773,6 +775,7 @@ export default function DashboardView(): React.ReactElement {
           <SummaryCard
             label="Overdue"
             value={isLoading ? '—' : derivedCounts.overdue}
+            sub={!isLoading && overdueRecords ? `for ${overdueRecords} ${t('record', { count: overdueRecords })}` : undefined}
             icon={<AlertTriangle className="w-5 h-5" />}
             colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300'}
             urgent={derivedCounts.overdue > 0}

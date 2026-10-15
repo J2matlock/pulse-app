@@ -55,8 +55,17 @@ describe('nextStep', () => {
   })
 
   it('several overdue columns: counts the deadlines', () => {
-    const late = [deadline('Maria', 'Annual Review', -20), deadline('Ann', 'Last Visit', -2)]
+    const late = [deadline('Maria', 'Annual Review', -20, { rowId: 1 }), deadline('Ann', 'Last Visit', -2, { rowId: 2 })]
     expect(nextStep({ overdueItems: late, priorityItems: late, t: hs })!.sentence).toBe('2 deadlines are overdue.')
+  })
+
+  it('says how many records too when some have more than one overdue (R6: 38 deadlines, 36 people)', () => {
+    const late = [
+      deadline('Maria', 'Annual Review', -20, { rowId: 1 }), deadline('Maria', 'Last Visit', -9, { rowId: 1 }),
+      deadline('Ann', 'Last Visit', -2, { rowId: 2 }),
+    ]
+    expect(nextStep({ overdueItems: late, priorityItems: late, t: hs })!.sentence).toBe('3 deadlines are overdue, for 2 clients.')
+    expect(nextStep({ overdueItems: late, priorityItems: late, t: shop })!.sentence).toBe('3 deadlines are overdue, for 2 customers.')
   })
 
   it('mixed kinds: lists only the kinds present', () => {
