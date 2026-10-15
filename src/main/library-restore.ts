@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'crypto'
 import type { Database } from 'better-sqlite3-multiple-ciphers'
-import { getDb } from './database'
+import { getDb, registerCloseHook } from './database'
 import type { LibraryKind } from '../shared/libraryKinds'
 
 /** The table for each kind: fixed here, never named by the renderer */
@@ -112,3 +112,7 @@ export function restoreLibraryItem(token: string): { kind: LibraryKind; id: numb
 export function forgetLibraryCopies(): void {
   kept.clear()
 }
+
+// Lock, quit and backup restore all close the database: the deleted copies go with it,
+// so nothing deleted lingers in memory while Pulse is locked or after a restore
+registerCloseHook(forgetLibraryCopies)

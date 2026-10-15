@@ -107,6 +107,14 @@ describe('library restore: refusals', () => {
     expect(() => restoreLibraryItem(token)).toThrow(LibraryRestoreError)
   })
 
+  it('locking, quitting or restoring a backup (the database closing) forgets every kept copy', async () => {
+    const ids = seedAll()
+    const token = deleteKeepingCopy('snippet', ids.snippet, () => { testDb.db.prepare('DELETE FROM snippets WHERE id = ?').run(ids.snippet) })
+    const { closeDatabase } = await import('../src/main/database')
+    closeDatabase()
+    expect(() => restoreLibraryItem(token)).toThrow(LibraryRestoreError)
+  })
+
   it('an unknown token is refused in plain words', () => {
     expect(() => restoreLibraryItem('not-a-token')).toThrow("That can't be brought back any more.")
   })
