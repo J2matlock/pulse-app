@@ -50,6 +50,7 @@ function UndoToastBody(): React.ReactElement | null {
 
   const canUndo = !!toast.itemId && toast.itemId === topId
   const action = toast.action
+  const dismiss = <IconButton label="Dismiss" size="compact" tone="inverse" icon={<X className="w-4 h-4" />} onClick={dismissToast} />
 
   return (
     <div
@@ -62,20 +63,25 @@ function UndoToastBody(): React.ReactElement | null {
       role="status"
       aria-live="polite"
     >
-      {/* Content row */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <span className="flex-1 text-base break-words min-w-0">{toast.description}</span>
-        {action && (
-          <SecondaryButton tone="inverse" onClick={() => { dismissToast(); action.run() }}>
-            {action.label}
-          </SecondaryButton>
-        )}
-        {canUndo && (
-          <PrimaryButton tone="inverse" icon={<RotateCcw className="w-4 h-4" />} title={`Undo (${modHelp('Ctrl+Z')})`} onClick={() => void undoFromToast()}>
-            Undo
-          </PrimaryButton>
-        )}
-        <IconButton label="Dismiss" size="compact" tone="inverse" icon={<X className="w-4 h-4" />} onClick={dismissToast} />
+      {/* With a second button the words get their own line, so they aren't squeezed into a narrow column */}
+      <div className={`flex gap-3 px-4 py-3 ${action ? 'flex-col' : 'items-center'}`}>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="flex-1 text-base break-words min-w-0">{toast.description}</span>
+          {action && dismiss}
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          {action && (
+            <SecondaryButton tone="inverse" onClick={() => { dismissToast(); action.run() }}>
+              {action.label}
+            </SecondaryButton>
+          )}
+          {canUndo && (
+            <PrimaryButton tone="inverse" icon={<RotateCcw className="w-4 h-4" />} title={`Undo (${modHelp('Ctrl+Z')})`} onClick={() => void undoFromToast()}>
+              Undo
+            </PrimaryButton>
+          )}
+          {!action && dismiss}
+        </div>
       </div>
       {/* Countdown bar */}
       <div className="h-0.5 bg-slate-700">
