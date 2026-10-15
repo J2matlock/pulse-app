@@ -332,7 +332,7 @@ export default function CalendarView(): React.ReactElement {
               </label>
             )}
             {/* What the screen is for, and the deadline colours while deadlines show (Q2) */}
-            <PurposeLine className="w-full">
+            <PurposeLine wide className="w-full">
               Click a day to see what's due or add to it.{layers.has('deadlines') && ' Red = late, orange = due now, yellow = coming up, green = not yet due.'}
             </PurposeLine>
           </div>

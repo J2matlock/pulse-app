@@ -8,9 +8,10 @@
  */
 import React from 'react'
 
-export function PurposeLine({ children, className }: { children: React.ReactNode; className?: string }): React.ReactElement {
+/** wide: no line-length cap, for a screen whose line also carries a key (Calendar's colours) */
+export function PurposeLine({ children, className, wide = false }: { children: React.ReactNode; className?: string; wide?: boolean }): React.ReactElement {
   return (
-    <p data-purpose className={`max-w-prose text-base text-slate-600 dark:text-slate-300 ${className ?? ''}`}>
+    <p data-purpose className={`${wide ? '' : 'max-w-3xl '}text-base text-slate-600 dark:text-slate-300 ${className ?? ''}`}>
       {children}
     </p>
   )
