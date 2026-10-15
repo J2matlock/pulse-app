@@ -489,6 +489,11 @@ export const IPC = {
 
   // The current recovery key has unlocked Pulse once (Settings suggests a new one)
   AUTH_RECOVERY_KEY_USED: 'auth:recovery-key-used',
+  // Persona study R3
+  /** Delete a record Add just made, only if nothing was put in it (no value, note, file, tag…) */
+  ROW_DISCARD_IF_EMPTY: 'row:discard-if-empty',
+  /** Search found nothing in the list: is a match in the Trash or archived? (names and counts only) */
+  ROW_SEARCH_ELSEWHERE: 'row:search-elsewhere',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

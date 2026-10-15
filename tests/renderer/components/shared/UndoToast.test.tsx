@@ -75,4 +75,13 @@ describe('UndoToast', () => {
     expect(undo.getAttribute('title')).toMatch(/Undo \((Ctrl|⌘)\+Z\)/)
     expect(screen.getByRole('status').getAttribute('aria-live')).toBe('polite')
   })
+
+  it('says Ctrl+Z works too, names the shortcut for screen readers, and never takes focus (persona study R3)', () => {
+    const before = document.activeElement
+    act(() => { useUndoStore.getState().pushWithToast(step('Deleted column "Background check"')) })
+    render(<UndoToast />)
+    expect(screen.getByRole('status').textContent).toMatch(/Deleted column "Background check" · (Ctrl|⌘)\+Z also undoes/)
+    expect(screen.getByRole('button', { name: /^Undo/ }).getAttribute('aria-keyshortcuts')).toBe('Control+Z')
+    expect(document.activeElement).toBe(before)
+  })
 })

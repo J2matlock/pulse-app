@@ -79,7 +79,7 @@ export function ImportPreviewStep({
                 : "We're not sure which row has your column names. Look at the table below, and use the arrows to move it if it's wrong."}
             </p>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1" data-allow-repeat="">
             <button
               onClick={() => {
                 if (headerRowIndex <= 0) return

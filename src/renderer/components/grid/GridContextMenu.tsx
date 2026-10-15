@@ -83,7 +83,7 @@ export function GridContextMenu({
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => { onClose() }} />
+      <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => { onClose() }} />
       <motion.div
         ref={menuRef}
         role="menu"

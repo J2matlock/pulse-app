@@ -17,6 +17,29 @@ import { SecondaryButton, IconButton } from '../ui/Button'
 import { Tooltip } from '../shared/Tooltip'
 import { useLiftToastsAbove } from '../shared/toastLift'
 
+type Words = ReturnType<typeof useVocab>['t']
+
+const MAX_NAME = 30
+const short = (name: string) => name.length > MAX_NAME ? `${name.slice(0, MAX_NAME - 1).trimEnd()}…` : name
+
+/**
+ * Which records a bulk action is about, said by name (persona study R3: "Move 5 to the
+ * Trash" took a real home along with four nameless ones). Up to two names, then a count;
+ * records with no name are counted apart while the rest are named: "Bergstrom home and
+ * 4 unnamed", "Bergstrom home, Nowak home and 3 more", "3 unnamed clients".
+ * names: each record's name, '' for one with none.
+ */
+export function namedRecords(names: string[], t: Words): string {
+  const named = names.filter(n => n.trim() !== '').map(n => short(n.trim()))
+  const unnamed = names.length - named.length
+  const shown = named.slice(0, 2)
+  const moreNamed = named.length - shown.length
+  const parts = [...shown]
+  if (moreNamed > 0) parts.push(`${moreNamed + unnamed} more`)
+  else if (unnamed > 0) parts.push(shown.length ? `${unnamed} unnamed` : `${unnamed} unnamed ${t('record', { count: unnamed })}`)
+  return parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+}
+
 export interface BulkActionBarProps {
   selectedRowIds: Set<number>
   rowById: Map<number, GridRow>
@@ -99,9 +122,16 @@ export function BulkActionBar({
     }, { action: archiveReasonAction(ids, ids.length === 1 ? `"${names[0]}"` : label, reasonStep) })
   }
 
+  // Named, so a real record caught in a clean-up of empty ones shows on the button (R3)
+  const selectedNames = Array.from(selectedRowIds).map(id => {
+    const r = rowById.get(id)
+    return r ? getClientName(r, columns, '') : ''
+  })
+  const trashWhat = namedRecords(selectedNames, t)
+
   async function trash() {
     const ids = Array.from(selectedRowIds)
-    if (await trashRows(ids)) setSelectedRowIds(new Set())
+    if (await trashRows(ids, trashWhat)) setSelectedRowIds(new Set())
   }
 
   const allArchived = Array.from(selectedRowIds).every(id => {
@@ -185,7 +215,7 @@ export function BulkActionBar({
           </SecondaryButton>
           {bulkAcuityOpen && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setBulkAcuityOpen(false)} />
+              <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setBulkAcuityOpen(false)} />
               <div className="absolute bottom-full mb-2 left-0 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 w-44">
                 {acuityLevels.map(level => (
                   <button
@@ -220,7 +250,7 @@ export function BulkActionBar({
       <div className="w-px h-6 bg-slate-600 flex-shrink-0" aria-hidden="true" />
       {/* Red words, not a red fill: a filled red button is only for a confirmation (Q8) */}
       <SecondaryButton size="compact" tone="inverse" icon={<Trash2 className="w-4 h-4" />} className="text-red-200! dark:text-red-200!" onClick={() => void trash()}>
-        Move {selectedRowIds.size} to the Trash
+        Move {trashWhat} to the Trash
       </SecondaryButton>
       <IconButton size="compact" tone="inverse" label="Clear selection" shortcut="Escape" icon={<X className="w-4 h-4" />} onClick={() => setSelectedRowIds(new Set())} />
     </div>

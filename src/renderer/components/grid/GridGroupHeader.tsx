@@ -113,7 +113,7 @@ export function GroupContextMenuOverlay({
     <AnimatePresence>
       {position && isGrouped && (
         <>
-          <div className="fixed inset-0 z-40" onClick={onClose} />
+          <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={onClose} />
           <motion.div
             className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-44"
             style={{ top: position.y, left: position.x }}

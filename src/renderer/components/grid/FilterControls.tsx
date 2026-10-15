@@ -224,7 +224,7 @@ function FilterBarInline({
       <AnimatePresence>
         {showPanel && newFilter && (
           <>
-            <div className="fixed inset-0 z-40" onClick={onClosePanel} />
+            <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={onClosePanel} />
             <motion.div
               ref={panelRef}
               onKeyDown={panelKeys}

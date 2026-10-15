@@ -52,6 +52,7 @@ import { useDayWatcher } from './hooks/useToday'
 import { useAuthGating } from './hooks/useAuthGating'
 import { useModalManager } from './hooks/useModalManager'
 import { usePulseFileImport } from './hooks/usePulseFileImport'
+import { useRepeatClickGuard } from './hooks/useRepeatClickGuard'
 import { ApplyStarterDialog } from './components/starters/ApplyStarterDialog'
 
 // Global error boundary for unhandled promise rejections
@@ -124,6 +125,8 @@ export default function App(): React.ReactElement {
   useAutoLock(storeLocked, storePasswordSetup, autoLockMinutes)
   // "Due today" moves on at midnight while the app is open
   useDayWatcher(authState === 'ready')
+  // The second click of a double-click doesn't undo the first (persona study R3)
+  useRepeatClickGuard()
 
   if (authState === 'checking') {
     return (

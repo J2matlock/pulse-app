@@ -93,7 +93,11 @@ describe('MenuButton', () => {
     fireEvent.click(btn)
     expect(screen.getByRole('menu', { name: 'Print or save the record' })).toBeTruthy()
     expect(btn.getAttribute('aria-expanded')).toBe('true')
+    // A second click after the 350 ms double-click grace closes it
+    const later = Date.now() + 1000
+    const now = vi.spyOn(Date, 'now').mockReturnValue(later)
     fireEvent.click(btn)
+    now.mockRestore()
     expect(screen.queryByRole('menu')).toBeNull()
   })
 

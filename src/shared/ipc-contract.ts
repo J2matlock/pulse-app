@@ -706,6 +706,10 @@ export interface IPCContract {
   /** Only a file Pulse itself saved this session (a backup) */
   'app:show-in-folder':    { args: [filePath: string];                                         return: boolean }
   'auth:recovery-key-used': { args: [];                                                        return: boolean }
+  // ── Persona study R3 ────────────────────────────────────────────────────
+  /** true: it was empty and is gone; false: something was put in it, so it stays */
+  'row:discard-if-empty':  { args: [rowId: number];                                            return: boolean }
+  'row:search-elsewhere':  { args: [gridId: number, query: string];                            return: SearchElsewhere }
 }
 
 /** Union of all typed channel names */
@@ -906,6 +910,11 @@ export interface ApptStatusChange {
   revertedDates: NoteDateRevert[]
   rowId: number | null
 }
+
+/** One kind of place a search match may be hiding: how many (up to 50), and the newest one */
+export interface ElsewhereMatches { count: number; firstRowId: number | null; firstName: string | null }
+/** row:search-elsewhere — matches of the open list's search that are in the Trash or archived */
+export interface SearchElsewhere { trashed: ElsewhereMatches; archived: ElsewhereMatches }
 
 /** forms:submit — answers by field key */
 export type FormValues = Record<string, string | null | number[]>

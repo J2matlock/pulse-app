@@ -218,6 +218,7 @@ function PaletteBody({ onOpenChange, onFocusMode }: Omit<CommandPaletteProps, 'o
     <div
       role="presentation"
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/40"
+      data-dialog-backdrop=""
       onClick={() => onOpenChange(false)}
     >
       <div

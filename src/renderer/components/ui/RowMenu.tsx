@@ -14,6 +14,8 @@
  * - Keyboard (useMenuKeys): focus goes to the first item, Up/Down/Home/End
  *   move, Escape or Tab closes it and focus goes back to the button.
  * - A click outside, scrolling the page or resizing the window closes it.
+ * - A second click on the button within 350 ms of opening doesn't close it: it's
+ *   the rest of a double-click (useRepeatClickGuard catches most of those first).
  * - Other props (data-tour, data-testid, id) go on the button. Words come
  *   from the caller; nothing here names a record or list.
  */
@@ -37,6 +39,20 @@ export interface MenuItem {
 
 const EDGE = 8
 const GAP = 4
+/** A toggle-close this soon after opening is the second half of the opening double-click */
+const REOPEN_GRACE_MS = 350
+
+/** The open state of a menu button, whose toggle ignores a close right after opening */
+function useMenuToggle(): { open: boolean, toggle: () => void, close: () => void } {
+  const [open, setOpen] = useState(false)
+  const openedAt = useRef(0)
+  const close = useCallback(() => setOpen(false), [])
+  const toggle = useCallback(() => {
+    if (!open) { openedAt.current = Date.now(); setOpen(true); return }
+    if (Date.now() - openedAt.current >= REOPEN_GRACE_MS) setOpen(false)
+  }, [open])
+  return { open, toggle, close }
+}
 
 /** Danger items last, keeping each group's order */
 export function orderItems(items: MenuItem[]): MenuItem[] {
@@ -166,9 +182,8 @@ const TRIGGER: Record<'secondary' | 'ghost' | 'pill', Record<ButtonSize, string>
 export function MenuButton({
   label, items, menuLabel, icon, variant = 'secondary', size = 'normal', chevron = true, align = 'start', className, ...rest
 }: MenuButtonProps): React.ReactElement {
-  const [open, setOpen] = useState(false)
+  const { open, toggle, close } = useMenuToggle()
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const close = useCallback(() => setOpen(false), [])
   return (
     <>
       <button
@@ -176,7 +191,7 @@ export function MenuButton({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className={`${TRIGGER[variant][size]} transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent ${className ?? ''}`}
         {...rest}
       >
@@ -205,9 +220,8 @@ export interface RowMenuProps extends Omit<TriggerAttributes, 'aria-label'> {
 
 /** The "⋯" button on a row or card. Always visible, never only on hover (B-01, D-12). */
 export function RowMenu({ label, items, menuLabel, size = 'compact', variant = 'ghost', align = 'end', ...rest }: RowMenuProps): React.ReactElement {
-  const [open, setOpen] = useState(false)
+  const { open, toggle, close } = useMenuToggle()
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const close = useCallback(() => setOpen(false), [])
   return (
     <>
       <IconButton
@@ -218,7 +232,7 @@ export function RowMenu({ label, items, menuLabel, size = 'compact', variant = '
         variant={variant}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         {...rest}
       />
       {open && <MenuPopup items={items} menuLabel={menuLabel ?? label} anchorRef={buttonRef} align={align} onClose={close} />}

@@ -228,6 +228,7 @@ export function TopBar(): React.ReactElement {
           <Tooltip content={undoHelp} placement="bottom">
             <button
               onClick={() => void undo()}
+              data-allow-repeat=""
               disabled={!canUndo}
               aria-label={undoHelp}
               className="hit-44 flex items-center px-2 py-1.5 rounded-l-md
@@ -264,6 +265,7 @@ export function TopBar(): React.ReactElement {
           <Tooltip content={modHelp('Redo (Ctrl+Y)')} placement="bottom">
             <button
               onClick={() => void redo()}
+              data-allow-repeat=""
               disabled={!canRedo}
               aria-label={modHelp('Redo (Ctrl+Y)')}
               className="hit-44 flex items-center px-2 py-1.5 rounded-md ml-0.5
@@ -320,7 +322,7 @@ export function TopBar(): React.ReactElement {
             <AnimatePresence>
               {showRecent && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowRecent(false)} />
+                  <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowRecent(false)} />
                   <motion.div
                     ref={recentListRef}
                     onKeyDown={recentKeys}

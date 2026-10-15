@@ -25,7 +25,9 @@
  *   dismissible={false}: a step that must be finished with its own button
  *   (the recovery key screen) has no X and ignores Escape and the backdrop.
  *   closeOnBackdrop={false} keeps the X and Escape but ignores a click outside,
- *   for a form whose edits a stray click shouldn't throw away.
+ *   for a form whose edits a stray click shouldn't throw away. A backdrop click in
+ *   the first 350 ms is ignored too: it's the second click of the double-click that
+ *   opened the dialog (useRepeatClickGuard drops most of those already).
  * - Other props (data-testid, data-tour, id, aria-*, onKeyDown) go on the panel.
  *
  * Safety details carried over from ConfirmDialog: the shared focus trap (a
@@ -65,6 +67,9 @@ export interface DialogProps extends PanelAttributes {
   children?: React.ReactNode
 }
 
+/** How long after opening a click on the backdrop is taken as the opening double-click's second half */
+export const BACKDROP_GRACE_MS = 350
+
 const WIDTH: Record<DialogSize, string> = {
   sm: 'max-w-sm',
   md: 'max-w-md',
@@ -79,8 +84,13 @@ export function Dialog({
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const descriptionId = useId()
+  const openedAt = useRef(0)
 
   useFocusTrap(panelRef, open, { onEscape: dismissible ? onClose : undefined })
+
+  useEffect(() => {
+    if (open) openedAt.current = Date.now()
+  }, [open])
 
   useEffect(() => {
     if (!open || !initialFocus) return
@@ -102,6 +112,11 @@ export function Dialog({
     onKeyDown?.(e)
   }
 
+  function handleBackdropClick() {
+    if (Date.now() - openedAt.current < BACKDROP_GRACE_MS) return
+    onClose()
+  }
+
   const hasChildren = children !== undefined && children !== null && children !== false
   const hasBody = description !== undefined || hasChildren
 
@@ -116,7 +131,8 @@ export function Dialog({
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
-        onClick={dismissible && closeOnBackdrop ? onClose : undefined}
+        onClick={dismissible && closeOnBackdrop ? handleBackdropClick : undefined}
+        data-dialog-backdrop=""
         aria-hidden="true"
       />
       <motion.div

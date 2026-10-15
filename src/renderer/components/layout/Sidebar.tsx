@@ -227,7 +227,7 @@ function SortableGridItem({
       <AnimatePresence>
       {menuOpen && menuPos && (
         <>
-          <div className="fixed inset-0 z-40" onClick={onMenuClose} />
+          <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={onMenuClose} />
           <motion.div
             ref={menuRef}
             onKeyDown={menuKeys}

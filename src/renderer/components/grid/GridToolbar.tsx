@@ -179,7 +179,7 @@ export function GridToolbar(): React.ReactElement {
   // ── The Show menu (F-03: its items all start "Show…", so that's its name) ──
   const showMenuPanel = showViewMenu && (
     <>
-      <div className="fixed inset-0 z-40" onClick={() => setShowViewMenu(false)} />
+      <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowViewMenu(false)} />
       <div role="menu" aria-label="Show" ref={viewMenu.ref} onKeyDown={viewMenu.onKeyDown} className="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
         {stagesOn && hasStage && (<>
           <p className={MENU_HEADING} aria-hidden="true">Show as</p>
@@ -226,7 +226,7 @@ export function GridToolbar(): React.ReactElement {
     <AnimatePresence>
       {showReportsMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowReportsMenu(false)} />
+          <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowReportsMenu(false)} />
           <motion.div
             role="menu"
             aria-label="Reports"
@@ -308,7 +308,7 @@ export function GridToolbar(): React.ReactElement {
           </button>
           {showFormMenu && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowFormMenu(false)} />
+              <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowFormMenu(false)} />
               <div role="menu" aria-label="Use a form" ref={formMenu.ref} onKeyDown={formMenu.onKeyDown} className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
                 {listForms.map(f => (
                   <button key={f.id} role="menuitem" type="button" className="w-full text-left px-4 text-base text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700" style={{ minHeight: 44 }}
@@ -406,7 +406,7 @@ export function GridToolbar(): React.ReactElement {
         <AnimatePresence>
           {showMoreMenu && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+              <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowMoreMenu(false)} />
               <motion.div
                 role="menu"
                 aria-label="More"
@@ -495,7 +495,7 @@ export function GridToolbar(): React.ReactElement {
         <AnimatePresence>
           {showManageColumns && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowManageColumns(false)} />
+              <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowManageColumns(false)} />
               <motion.div
                 ref={manageColumnsMenu.ref}
                 onKeyDown={manageColumnsMenu.onKeyDown}

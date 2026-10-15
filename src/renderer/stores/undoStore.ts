@@ -102,6 +102,8 @@ interface UndoState {
   /** Keep the toast up while the pointer or focus is on it; letting go starts its time again */
   holdToast: (hold: boolean) => void
   clear: () => void
+  /** Drop one step without running it: what it would undo is gone already (an untouched new record removed, R3) */
+  discardTop: (itemId: string) => void
 }
 
 const MAX_STACK = 100
@@ -392,6 +394,11 @@ export const useUndoStore = create<UndoState>((set, get) => {
       clearToast()
       _lastFailedUndo = null
       set({ undoStack: [], redoStack: [] })
+    },
+
+    discardTop(itemId: string) {
+      if (get().toast?.itemId === itemId) clearToast()
+      set(s => ({ undoStack: s.undoStack.filter(i => i.id !== itemId), redoStack: s.redoStack.filter(i => i.id !== itemId) }))
     },
   }
 })

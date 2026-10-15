@@ -139,7 +139,7 @@ export function CellFormatRuleCard({
           onChange={e => onChange({ name: e.target.value || undefined })}
         />
         {ruleCount > 1 && (
-          <div className="flex flex-col flex-shrink-0">
+          <div className="flex flex-col flex-shrink-0" data-allow-repeat="">
             <button onClick={() => onMove(i - 1)} disabled={i === 0}
               className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30 disabled:cursor-default"
               title="Move up (checked first)" aria-label="Move up (checked first)">

@@ -259,6 +259,7 @@ async function readAll(): Promise<Record<string, unknown>> {
     'audit trail': loadAuditTrail({}),
     'note-draft:list': await invoke(IPC.NOTE_DRAFT_LIST),
     'note-draft:get (trashed records)': await Promise.all(draftRowIds.map(id => invoke(IPC.NOTE_DRAFT_GET, id))),
+    'row:search-elsewhere (marker)': await invoke(IPC.ROW_SEARCH_ELSEWHERE, g, MARK),
   }
   // Format rules come with the list for every row id; they're side data, kept apart below
   for (const k of ['grid:get-full', 'grid:get-full (archived shown)']) {
@@ -280,6 +281,7 @@ const KNOWN_TRASH_READERS: Record<string, string> = {
   'grid:get-full (archived shown) cellFormats': 'D-009, as above',
   'countLinks': 'D-009: the "delete this link type" warning counts every link the delete removes, trashed records\' too',
   'linkCountsForGrid': 'D-009: the "delete this list" warning counts every link the delete removes, trashed records\' too',
+  'row:search-elsewhere (marker)': 'Persona study R3: a search with no matches says when a record is in the Trash or archived ("Bergstrom home is in the Trash · Show"); names and counts only, for the open list only',
 }
 
 /** The supervisor report has a labelled "removed from the list" section naming records in the Trash (D-008/D-012: labelled "Still in the Trash", F-010) */

@@ -111,8 +111,8 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-add-remove-columns',
     question: 'How do I add or remove columns?',
-    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: click the ⋯ on its header (or right-click the header) and choose "Hide column". "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To delete a column, open the same menu and choose "Move column to the Trash": it goes to the Trash with its values at once (if rules, forms or views use it, Pulse shows them first), and you can undo that, or restore it from {List} settings for 30 days.',
-    keywords: ['hide column', 'delete column', 'remove column'],
+    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: click the ⋯ on its header (or right-click the header) and choose "Hide column". "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To delete a column, open the same menu and choose "Move column to the Trash". It goes to the Trash with its values (the Trash page lists it under Deleted columns). An empty column goes at once; when it holds values, or rules, forms or views use it, Pulse asks first and says how many {record:many} have a value. You can undo that with Ctrl+Z, or restore it from the Trash page (or {List} settings) for 30 days.',
+    keywords: ['hide column', 'delete column', 'remove column', 'deleted column'],
     category: 'caseload-grid',
     tourStepIds: ['add-column'],
   },

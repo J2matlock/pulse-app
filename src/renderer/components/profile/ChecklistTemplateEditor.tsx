@@ -314,6 +314,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
       ref={trapRef}
       variants={backdropVariants} initial="hidden" animate="visible"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      data-dialog-backdrop=""
       role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >

@@ -99,6 +99,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      data-dialog-backdrop=""
       onClick={e => { if (e.target === e.currentTarget) requestClose() }}
     >
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="letter-edit-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh]">

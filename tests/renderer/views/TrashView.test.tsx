@@ -49,6 +49,7 @@ vi.mock('../../../src/renderer/components/shared/EmptyState', () => ({
 }))
 
 import TrashView from '../../../src/renderer/views/TrashView'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { setWords, setFeatures, EXISTING_FEATURES } from '../vocabFixture'
 
 // ── Sample data ──────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ describe('TrashView — interactions', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.getByText('Deleted clients and caseloads wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
+    expect(screen.getByText('Deleted clients, caseloads and columns wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
   })
 
   it('fires IPC call to restore a row when Restore button is clicked', async () => {
@@ -257,5 +258,60 @@ describe('TrashView — more records than the 500 shown (Q-029)', () => {
     expect(screen.queryByText(/most recent of/)).toBeNull()
     fireEvent.click(screen.getByText('Empty the Trash'))
     expect(screen.getByTestId('confirm-message').textContent).toContain('This removes 3 clients')
+  })
+})
+
+describe('TrashView — opened from a search that found nothing in the list (persona study R3)', () => {
+  it('shows the records matching the search, and Show all brings back the rest', async () => {
+    mockTrash(sampleDeletedRows)
+    render(<MemoryRouter initialEntries={['/trash?q=ali']}><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText('Alice Johnson')).toBeTruthy()
+    expect(screen.queryByText('Bob Williams')).toBeNull()
+    expect(screen.getByTestId('trash-search').textContent).toBe('Showing clients matching “ali” (1 of 3).Show all')
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(screen.getByText('Bob Williams')).toBeTruthy()
+  })
+})
+
+describe('TrashView — deleted columns (persona study R3)', () => {
+  const deletedAt = new Date(Date.now() - 2 * 86400000).toISOString().replace('T', ' ').slice(0, 19)
+  let restored = false
+  beforeEach(() => {
+    restored = false
+    useGridStore.setState({ grids: [{ id: 1, name: 'Volunteers' }, { id: 2, name: 'Donors' }] as never, activeGridId: null })
+    mockTrash([], [], (channel, ...args) => {
+      if (channel === 'column:deleted-list') return { ok: true, data: args[0] === 1 && !restored ? [{ id: 7, grid_id: 1, column_id: 9, name: 'Background check', column_type: 'date', deleted_at: deletedAt, values: 2 }] : [] }
+      if (channel === 'column:restore') { restored = true; return { ok: true, data: { columnId: 9, gridId: 1 } } }
+      return { ok: true, data: true }
+    })
+  })
+
+  it('lists a deleted column from any list, and the Trash is not "empty"', async () => {
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByRole('heading', { name: 'Deleted columns' })).toBeTruthy()
+    expect(screen.getByText('Background check')).toBeTruthy()
+    expect(screen.getByText(/from Volunteers · 2 values · 28 days left/)).toBeTruthy()
+    expect(screen.queryByText('The Trash is empty')).toBeNull()
+  })
+
+  it('Restore brings it back with its values, and focus stays on the section', async () => {
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }))
+    await flushEffects()
+    await act(async () => { await new Promise(r => requestAnimationFrame(() => r(null))) })
+    expect(mockInvoke).toHaveBeenCalledWith('column:restore', 7)
+    expect(screen.queryByText('Background check')).toBeNull()
+    expect(screen.getByText('All of them are back, with their values.')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Deleted columns' }))
+  })
+
+  it('says "The Trash is empty" only when no columns wait there either', async () => {
+    mockTrash([], [], () => ({ ok: true, data: [] }))
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText('The Trash is empty')).toBeTruthy()
   })
 })

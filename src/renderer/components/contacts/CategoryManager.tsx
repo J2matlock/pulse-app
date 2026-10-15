@@ -93,6 +93,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
             className="hit-44 w-8 h-8 rounded-full flex-shrink-0 border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 transition-colors"
             style={{ backgroundColor: newColor }}
             title="Click to cycle colors"
+            data-allow-repeat=""
             aria-label={`Color: ${COLOR_NAMES[newColor] ?? newColor}. Click for the next color`}
           />
           <input

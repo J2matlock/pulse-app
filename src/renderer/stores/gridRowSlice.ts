@@ -1,4 +1,5 @@
 import type { Column, GridRow } from '../../shared/types'
+import { columnTraits } from '../../shared/columnTraits'
 import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import { archiveReasonAction, voidReasonNotes } from './archiveReasonStore'
@@ -25,6 +26,29 @@ async function autoFilledValues(gridId: number, rowId: number, columns: Column[]
     rlog.warn('GridStore', 'Could not read the new row back', err)
     return {}
   }
+}
+
+const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === ''
+
+/**
+ * Nothing put in it that the grid can see: every column people fill (typed, or a deadline's
+ * done date) is blank, and it has no star, priority or tag. Notes, files and checklists aren't
+ * in the grid; ROW_DISCARD_IF_EMPTY checks those before anything is removed.
+ */
+export function looksUntouched(row: GridRow, s: Pick<GridState, 'columns' | 'hiddenColumns' | 'rowTagsMap'>): boolean {
+  if (row.is_starred || row.acuity_level_id != null || row.is_active !== 1 || row.deleted_at) return false
+  if ((s.rowTagsMap.get(row.row_id)?.length ?? 0) > 0) return false
+  return [...s.columns, ...s.hiddenColumns].every(c => {
+    const traits = columnTraits(c.column_type)
+    return !traits.storesCells || traits.readOnly || blank(row[`col_${c.id}`])
+  })
+}
+
+/** The record's own page is open (HashRouter: #/profile/12?gridId=3) */
+function profileOpenFor(rowId: number): boolean {
+  if (typeof window === 'undefined') return false
+  const m = /^#\/profile\/(\d+)(?:[?/]|$)/.exec(window.location.hash)
+  return !!m && Number(m[1]) === rowId
 }
 
 type SetState = (partial: Partial<GridState> | ((s: GridState) => Partial<GridState>)) => void
@@ -95,13 +119,26 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
     }
   },
 
+  addingRow: false,
+  freshRow: null as GridState['freshRow'],
+
   addRow: async () => {
     const gridId = get().activeGridId
-    if (!gridId) return
+    // One Add at a time (persona study R3): a double-click or Ctrl+N twice made two records
+    if (!gridId || get().addingRow) return
+    // The record Add just made is still empty: go back to its name rather than make another
+    const fresh = get().freshRow
+    const freshRow = fresh && fresh.gridId === gridId ? get().rows.find(r => r.row_id === fresh.rowId) : undefined
+    if (fresh && freshRow && looksUntouched(freshRow, get())) {
+      set({ lastAddedRowId: fresh.rowId, pinnedRowId: fresh.rowId })
+      return
+    }
+    set({ addingRow: true })
     try {
       const newRowId = await invoke<number>(IPC.ROW_CREATE, gridId)
       const filled = await autoFilledValues(gridId, newRowId, get().columns)
       // Optimistic: add empty row locally (plus any number main gave it)
+      const now = new Date().toISOString()
       const newRow: GridRow = {
         ...filled,
         row_id: newRowId,
@@ -111,22 +148,23 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
 
         acuity_level_id: null,
         deleted_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        created_at: now,
+        updated_at: now,
       }
-      set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId, pinnedRowId: newRowId }))
+      const undoId = crypto.randomUUID()
+      set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId, pinnedRowId: newRowId, freshRow: { rowId: newRowId, gridId, undoId, editing: false } }))
       flashRow(set, newRowId)
       // Undo moves it to the Trash and redo brings back the same record, so
       // later steps (the values typed into it) still find it by id
       useUndoStore.getState().push({
-        id: crypto.randomUUID(),
+        id: undoId,
         description: `Added new ${wordNow('record')}`,
         timestamp: Date.now(),
         category: 'structural',
         icon: 'plus-circle',
         undo: async () => {
           await invoke(IPC.ROW_DELETE, newRowId)
-          set(s => ({ rows: s.rows.filter(r => r.row_id !== newRowId) }))
+          set(s => ({ rows: s.rows.filter(r => r.row_id !== newRowId), ...(s.freshRow?.rowId === newRowId ? { freshRow: null } : {}) }))
         },
         redo: async () => {
           await invoke(IPC.ROW_RESTORE_DELETED, newRowId)
@@ -137,6 +175,44 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
       rlog.error('GridStore', 'Failed to add row', err)
       // The free-version limit already showed its own message
       toast.error(`We couldn't add the ${wordNow('record')} — try again`)
+    } finally {
+      set({ addingRow: false })
+    }
+  },
+
+  discardIfUntouched: async (rowId: number) => {
+    const fresh = get().freshRow
+    // Add is taking it back to its name this moment
+    if (!fresh || fresh.rowId !== rowId || get().lastAddedRowId === rowId) return false
+    const row = get().rows.find(r => r.row_id === rowId)
+    // Something was typed, starred or tagged: it's a real record now
+    if (row && !looksUntouched(row, get())) { set({ freshRow: null }); return false }
+    // Its page is open: what's put in it there hasn't reached the grid yet
+    if (profileOpenFor(rowId)) return false
+    set({ freshRow: null })
+    try {
+      // Main checks again, against notes, files, checklists and everything else
+      const gone = await invoke<boolean>(IPC.ROW_DISCARD_IF_EMPTY, rowId)
+      if (!gone) return false
+      clearCellCoalescing(rowId)
+      set(s => {
+        const selectedRowIds = new Set(s.selectedRowIds)
+        selectedRowIds.delete(rowId)
+        return {
+          rows: s.rows.filter(r => r.row_id !== rowId),
+          selectedRowIds,
+          ...(s.pinnedRowId === rowId ? { pinnedRowId: null } : {}),
+          ...(s.lastAddedRowId === rowId ? { lastAddedRowId: null } : {}),
+        }
+      })
+      // Nothing to undo: "Added new …" would bring back an empty record
+      useUndoStore.getState().discardTop(fresh.undoId)
+      return true
+    } catch (err) {
+      // Locked or closing: try again on the next load
+      set(s => s.freshRow ? {} : { freshRow: fresh })
+      rlog.warn('GridStore', 'Could not remove the empty new record', err)
+      return false
     }
   },
 

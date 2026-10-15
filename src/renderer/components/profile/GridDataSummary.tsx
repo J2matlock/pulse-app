@@ -318,7 +318,7 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
 
           {showColumnPicker && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowColumnPicker(false)} />
+              <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowColumnPicker(false)} />
               <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800
                               border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg
                               py-1 min-w-48 max-h-64 overflow-y-auto">

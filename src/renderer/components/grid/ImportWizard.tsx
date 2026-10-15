@@ -577,7 +577,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
           aria-modal="true"
           aria-labelledby="import-wizard-title"
         >
-          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/60" onClick={close} />
+          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/60" data-dialog-backdrop="" onClick={close} />
           <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-lg shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">

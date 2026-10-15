@@ -104,7 +104,17 @@ export interface RowSliceState {
   selectedRowIds: Set<number>
   setSelectedRowIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void
 
+  /** Add is on its way: another Add (a double-click, Ctrl+N twice) waits for it instead of making a second record */
+  addingRow: boolean
+  /**
+   * The record Add just made, until something is put in it (persona study R3). Add again
+   * goes back to it rather than making another, and leaving it untouched removes it.
+   * editing: one of its cells is open, so a reload leaves it alone.
+   */
+  freshRow: { rowId: number; gridId: number; undoId: string; editing: boolean } | null
   addRow: () => Promise<void>
+  /** Remove the record Add just made if nothing was put in it; resolves true when it went */
+  discardIfUntouched: (rowId: number) => Promise<boolean>
   deleteRow: (rowId: number) => Promise<void>
   archiveRow: (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => Promise<void>
   unarchiveRow: (rowId: number) => Promise<void>

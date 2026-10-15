@@ -466,6 +466,7 @@ export default function ProfileView(): React.ReactElement {
           <Tooltip content={`Previous ${t('record')} (Alt+Left)`} placement="bottom">
             <button
               onClick={goPrev}
+              data-allow-repeat=""
               disabled={prevRowId == null}
               className="hit-44 p-1 rounded-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200
                          disabled:opacity-30 disabled:cursor-not-allowed
@@ -486,6 +487,7 @@ export default function ProfileView(): React.ReactElement {
           <Tooltip content={`Next ${t('record')} (Alt+Right)`} placement="bottom">
             <button
               onClick={goNext}
+              data-allow-repeat=""
               disabled={nextRowId == null}
               className="hit-44 p-1 rounded-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200
                          disabled:opacity-30 disabled:cursor-not-allowed

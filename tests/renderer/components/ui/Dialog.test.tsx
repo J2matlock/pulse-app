@@ -87,8 +87,26 @@ describe('Dialog', () => {
     const { container } = render(<Basic onClose={onClose} />)
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+    const later = Date.now() + 1000
+    const now = vi.spyOn(Date, 'now').mockReturnValue(later)
     fireEvent.click(container.querySelector('.bg-black\\/50')!)
+    now.mockRestore()
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('a backdrop click in the first 350 ms is the opening double-click, not a click outside', () => {
+    const onClose = vi.fn()
+    const start = Date.now()
+    const now = vi.spyOn(Date, 'now').mockReturnValue(start)
+    const { container } = render(<Basic onClose={onClose} />)
+    const backdrop = container.querySelector('[data-dialog-backdrop]')!
+    now.mockReturnValue(start + 200)
+    fireEvent.click(backdrop)
+    expect(onClose).not.toHaveBeenCalled()
+    now.mockReturnValue(start + 400)
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    now.mockRestore()
   })
 
   it('dismissible={false}: no X, and Escape and the backdrop leave it open', () => {

@@ -14,7 +14,8 @@ import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
 import { forgetPurgedRows } from '../list-trash'
 import { purgeRecordLeftovers, pruneAfterPurge } from '../purge-hooks'
-import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
+import { LIVE_GRID, LIVE_ROW, archivedRow, notTrashedRow } from '../../shared/liveRecords'
+import { COLUMN_TYPES, COLUMN_TRAITS } from '../../shared/columnTraits'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_ROWS = 5000
@@ -683,4 +684,87 @@ export function registerRowHandlers(): void {
     for (const id of new Set(rowIds)) notifyCaseLogChanged(id)
     return ok({ noteIds })
   }, { write: true })
+
+  // A record Add just made and nobody put anything in (persona study R3): Esc on its name,
+  // walking away or switching lists removes it, so a nameless record isn't left and counted.
+  // Deleted for good, not trashed (a ghost in the Trash is clutter too), and only when it holds
+  // nothing at all: the renderer's guess from the grid is checked here against every table.
+  define(IPC.ROW_DISCARD_IF_EMPTY, [idArg()], (rowId) => {
+    const db = getDb()
+    const gone = db.transaction(() => {
+      if (!recordIsEmpty(db, rowId)) return false
+      purgeRecordLeftovers(db, [rowId])
+      return db.prepare('DELETE FROM rows WHERE id = ?').run(rowId).changes > 0
+    })()
+    if (gone) pruneAfterPurge(db, [rowId])
+    return ok(gone)
+  }, { write: true })
+
+  // Search found nothing in the open list (persona study R3: "No clients found" for a home
+  // in the Trash, and for one archived). Reads the Trash and the archive on purpose, for this
+  // one list only, and sends back only how many match and the newest one's name.
+  define(IPC.ROW_SEARCH_ELSEWHERE, [idArg(), textArg('Invalid search', { min: 1, max: 200 })], (gridId, query) => {
+    const q = query.trim()
+    const none = { count: 0, firstRowId: null, firstName: null }
+    if (!q) return ok({ trashed: none, archived: none })
+    const like = `%${q.replace(/[\\%_]/g, c => `\\${c}`)}%`
+    const types = SEARCHED_TYPES.map(() => '?').join(', ')
+    const find = (where: string, newestFirst: string) => getDb().prepare(`
+      SELECT r.id, r.display_name AS name FROM rows r
+      WHERE r.grid_id = ? AND ${where} AND (
+        r.display_name LIKE ? ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id
+          WHERE c.row_id = r.id AND (col.is_name_column = 1 OR col.column_type IN (${types})) AND c.value LIKE ? ESCAPE '\\')
+        OR EXISTS (SELECT 1 FROM row_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.row_id = r.id AND t.name LIKE ? ESCAPE '\\')
+      )
+      ORDER BY ${newestFirst} DESC, r.id DESC LIMIT 50
+    `).all(gridId, like, ...SEARCHED_TYPES, like, like) as Array<{ id: number; name: string | null }>
+    const sum = (rows: Array<{ id: number; name: string | null }>) =>
+      ({ count: rows.length, firstRowId: rows[0]?.id ?? null, firstName: rows[0]?.name?.trim() || null })
+    return ok({
+      trashed: sum(find(`NOT (${notTrashedRow('r')})`, 'r.deleted_at')),
+      archived: sum(find(archivedRow('r'), 'r.archived_at')),
+    })
+  })
+}
+
+/** What the grid's search box looks in (renderer utils/searchMatch.ts), less links, whose values are ids */
+const SEARCHED_TYPES = ['text', 'number', 'dropdown', 'phone', 'email', 'url', 'notes', 'status', 'address', 'currency', 'tag', 'auto_number']
+
+/** Worked out by Pulse, never typed: an auto number or an age doesn't make a record "used" */
+const COMPUTED_TYPES = COLUMN_TYPES.filter(t => COLUMN_TRAITS[t].readOnly)
+/** Looked at on their own terms below; every other table that points at the record must have nothing for it */
+const CHECKED_APART = new Set(['rows', 'cells', 'case_log', 'scrap_notes'])
+
+type Db = ReturnType<typeof getDb>
+
+/** Every (table, column) that refers to a record, read from the schema, so a table added later is covered too */
+function recordReferences(db: Db): Array<{ table: string; column: string }> {
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]
+  const refs: Array<{ table: string; column: string }> = []
+  for (const { name } of tables) {
+    if (CHECKED_APART.has(name)) continue
+    const keys = db.prepare('SELECT "table" AS target, "from" AS col FROM pragma_foreign_key_list(?)').all(name) as { target: string; col: string }[]
+    for (const k of keys) if (k.target === 'rows') refs.push({ table: name, column: k.col })
+  }
+  // Kept without a foreign key, so the history outlives the record
+  if (tables.some(t => t.name === 'cell_history')) refs.push({ table: 'cell_history', column: 'row_id' })
+  return refs
+}
+
+const quoteId = (id: string) => `"${id.replace(/"/g, '""')}"`
+
+/** True only when nothing at all was put in the record: a value, note, file, tag, star, link, appointment… */
+function recordIsEmpty(db: Db, rowId: number): boolean {
+  const row = db.prepare('SELECT is_starred, acuity_level_id, archived_at, deleted_at FROM rows WHERE id = ?').get(rowId) as
+    { is_starred: number; acuity_level_id: number | null; archived_at: string | null; deleted_at: string | null } | undefined
+  if (!row || row.is_starred || row.acuity_level_id != null || row.archived_at || row.deleted_at) return false
+  const marks = COMPUTED_TYPES.map(() => '?').join(', ')
+  const typed = db.prepare(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id
+    WHERE c.row_id = ? AND TRIM(COALESCE(c.value, '')) != '' AND col.column_type NOT IN (${marks}) LIMIT 1`).get(rowId, ...COMPUTED_TYPES)
+  if (typed) return false
+  if (db.prepare("SELECT 1 FROM case_log WHERE row_id = ? AND COALESCE(log_type, '') != 'system' LIMIT 1").get(rowId)) return false
+  if (db.prepare("SELECT 1 FROM scrap_notes WHERE row_id = ? AND TRIM(COALESCE(content, '')) NOT IN ('', '<p></p>') LIMIT 1").get(rowId)) return false
+  return recordReferences(db).every(({ table, column }) =>
+    !db.prepare(`SELECT 1 FROM ${quoteId(table)} WHERE ${quoteId(column)} = ? LIMIT 1`).get(rowId))
 }
