@@ -3,15 +3,16 @@
  * columns, their colors, which count as done, and what happens when a
  * record moves into each.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, ArrowDown, Columns3, X } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { ArrowUp, ArrowDown, Columns3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
 import { ACTIVITY_COLORS, type ActivityColor } from '../../../shared/activityTypes'
 import { columnOptionLabels, stageConfigOf, DEFAULT_HIDE_DONE_DAYS, type StageConfig, type StageOption } from '../../../shared/stages'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes, ACTIVITY_SWATCH } from '../../hooks/useActivityTypes'
 import { useGridStore } from '../../stores/gridStore'
@@ -28,8 +29,6 @@ export function initialStageOptions(column: Column): StageOption[] {
 }
 
 export function StageSettingsDialog({ column, onClose }: { column: Column; onClose: () => void }): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const { t } = useVocab()
   const { active: noteTypes } = useActivityTypes()
   const columns = useGridStore(s => s.columns)
@@ -42,12 +41,6 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
   const [hideDays, setHideDays] = useState(String((existing?.hideDoneAfterDays || 0) > 0 ? existing!.hideDoneAfterDays : DEFAULT_HIDE_DONE_DAYS))
   const [open, setOpen] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const patch = (i: number, p: Partial<StageOption>) => setOptions(os => os.map((o, j) => j === i ? { ...o, ...p } : o))
   const patchEnter = (i: number, p: NonNullable<StageOption['onEnter']>) => setOptions(os => os.map((o, j) => {
@@ -78,18 +71,18 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
   const days = hideOn ? Math.max(1, Math.min(3650, parseInt(hideDays, 10) || DEFAULT_HIDE_DONE_DAYS)) : 0
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="stage-settings-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 id="stage-settings-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Columns3 className="w-5 h-5" aria-hidden="true" />{existing ? `${t('stage', { cap: true })} settings: ${column.name}` : `Use "${column.name}" as the ${t('stage')}`}
-          </h2>
-          <button type="button" aria-label="Close" onClick={onClose}
-            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
+    <Dialog open onClose={onClose} size="xl"
+      icon={<Columns3 className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      title={existing ? `${t('stage', { cap: true })} settings: ${column.name}` : `Use "${column.name}" as the ${t('stage')}`}
+      footer={<>
+        {existing && <SecondaryButton className="mr-auto" disabled={saving} onClick={() => void save(null)}>Stop using as the {t('stage')}</SecondaryButton>}
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={saving || options.length === 0}
+          onClick={() => void save({ options, hideDoneAfterDays: days })}>
+          {existing ? 'Save' : `Use as the ${t('stage')}`}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         <p className="text-base text-slate-600 dark:text-slate-300">
           The board shows a column for each {t('stage')}, in this order. Pulse keeps a record of every change to "{column.name}" so it can show how long {t('record', { many: true })} spend in each {t('stage')}.
         </p>
@@ -168,18 +161,7 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
           <input type="number" min={1} max={3650} className="input w-24" value={hideDays} disabled={!hideOn} aria-label="Days" onChange={e => setHideDays(e.target.value)} />
           days
         </label>
-
-        <div className="flex flex-wrap justify-between gap-2">
-          {existing ? <button type="button" className="btn-secondary" disabled={saving} onClick={() => void save(null)}>Stop using as the {t('stage')}</button> : <span />}
-          <div className="flex gap-2">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn-primary" disabled={saving || options.length === 0}
-              onClick={() => void save({ options, hideDoneAfterDays: days })}>
-              {existing ? 'Save' : `Use as the ${t('stage')}`}
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

@@ -3,13 +3,14 @@
  * say how many each can have, and add the columns. In edit mode it renames
  * a link, changes how many each side can have, or removes it.
  */
-import React, { useEffect, useRef, useState } from 'react'
-import { Link2, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Link2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Cardinality, LinkType } from '../../../shared/links'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { DangerButton, PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab, useVocabByList } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { useLinkStore } from '../../stores/linkStore'
@@ -29,8 +30,6 @@ async function afterChange(): Promise<void> {
 }
 
 export function LinkSetupDialog(props: Props): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const grids = useGridStore(s => s.grids)
   const { t } = useVocab(null)
   const wordsFor = useVocabByList()
@@ -58,12 +57,6 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
     if (!touched.forward) setForward(suggestForward)
     if (!touched.backward) setBackward(suggestBackward)
   }, [suggestForward, suggestBackward, touched])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && confirmDelete === null) props.onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [props, confirmDelete])
 
   const one = thisWords('record'), many = thisWords('record', { many: true })
   const tOne = targetWords('record'), tMany = targetWords('record', { many: true })
@@ -103,19 +96,17 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget) props.onClose() }}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="link-setup-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 id="link-setup-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Link2 className="w-5 h-5" aria-hidden="true" />{editing ? 'Link settings' : `Link to another ${t('list')}`}
-          </h2>
-          <button type="button" aria-label="Close" onClick={props.onClose}
-            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
+    <>
+    <Dialog open onClose={props.onClose} size="lg" title={editing ? 'Link settings' : `Link to another ${t('list')}`}
+      icon={<Link2 className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      footer={<>
+        {editing && <DangerButton className="mr-auto" onClick={() => void askDelete()}>Remove this link…</DangerButton>}
+        <SecondaryButton onClick={props.onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={saving || !targetId || !forward.trim() || !backward.trim()} onClick={() => void save()}>
+          {editing ? 'Save' : 'Add link'}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         {editing ? (
           <p className="text-base text-slate-600 dark:text-slate-300">Between {editing.from_grid_name} and {editing.to_grid_name}.</p>
         ) : (
@@ -160,23 +151,14 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
             </label>
           </div>
         )}
-
-        <div className="flex flex-wrap justify-between gap-2">
-          {editing ? <button type="button" className="btn-danger" onClick={() => void askDelete()}>Remove this link…</button> : <span />}
-          <div className="flex gap-2">
-            <button type="button" className="btn-secondary" onClick={props.onClose}>Cancel</button>
-            <button type="button" className="btn-primary" disabled={saving || !targetId || !forward.trim() || !backward.trim()} onClick={() => void save()}>
-              {editing ? 'Save' : 'Add link'}
-            </button>
-          </div>
-        </div>
       </div>
+    </Dialog>
 
       {editing && (
         <ConfirmDialog open={confirmDelete !== null} destructive title="Remove this link?"
           message={`This removes ${confirmDelete ?? 0} link${confirmDelete === 1 ? '' : 's'} between ${editing.from_grid_name} and ${editing.to_grid_name}, and the columns that show them. The audit trail keeps the history.`}
           confirmLabel="Remove link" onConfirm={() => void remove()} onCancel={() => setConfirmDelete(null)} />
       )}
-    </div>
+    </>
   )
 }

@@ -3,11 +3,10 @@
  * Built-in (is_system=1) rules are view-only. Rule kinds, "Only when…",
  * working days and the live preview are in RuleKindFields (W05 §6).
  */
-import React, { useRef, useState, useId } from 'react'
-import { motion } from 'motion/react'
-import { X, Plus, Trash2, AlertCircle, Pipette } from 'lucide-react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
+import React, { useState } from 'react'
+import { Plus, Trash2, AlertCircle, Pipette } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton } from '../ui/Button'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../../stores/alertStore'
 import type { ParsedAlertRule, AlertThreshold } from '../../../shared/types'
@@ -214,10 +213,6 @@ function ColorPicker({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.ReactElement {
-  const dialogTitleId = useId()
-  const trapRef = useRef<HTMLDivElement>(null)
-  // Escape closes like the X and Cancel (AUDIT-046)
-  useFocusTrap(trapRef, true, { onEscape: () => onClose() })
   const { createRule, updateRule } = useAlertStore(useShallow(s => ({
     createRule: s.createRule, updateRule: s.updateRule,
   })))
@@ -371,297 +366,13 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   }
 
   return (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
-      <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={() => onClose()} />
-      <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {isNew ? 'New deadline rule' : isSystem ? 'View deadline rule' : 'Edit deadline rule'}
-          </h2>
-          <button type="button" aria-label="Close" title="Close" onClick={() => onClose()} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-          {isSystem && (
-            <div className="flex items-start gap-2 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400" />
-              <span>This is a built-in rule and cannot be edited.</span>
-            </div>
-          )}
-
-          {/* Rules are shared between columns: say which (Decision F1) */}
-          {!isNew && ruleList.uses.length > 0 && (
-            <p className="text-base text-slate-700 dark:text-slate-200" data-testid="rule-used-by">
-              <span className="font-medium">Used by:</span> {usedByText(ruleList.uses)}
-            </p>
-          )}
-
-          {/* With one list there's nothing to choose, so the question isn't asked (E-16) */}
-          {ruleList.choices.length > 1 && (
-            <div>
-              <label htmlFor="alert-rule-list" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                {ruleList.uses.length > 0 ? `Used in more than one ${w('list')}. Preview and columns from` : `Preview and columns from which ${w('list')}?`}
-              </label>
-              <select id="alert-rule-list" className="input" value={ruleList.gridId ?? ''} onChange={e => ruleList.setGridId(Number(e.target.value))}>
-                {ruleList.choices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-          )}
-
-          {/* How it's worked out */}
-          <div>
-            <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-2">How is this deadline worked out?</h3>
-            <KindCards value={draft.kind} onChange={k => patchDraft({ kind: k })} disabled={isSystem} columns={ruleList.loading ? undefined : otherColumns} />
-          </div>
-
-          {ruleList.loading ? <p className="text-base text-slate-500 dark:text-slate-400">Loading the {w('list')}'s columns…</p>
-            : !isInterval && <KindFields d={draft} set={patchDraft} columns={otherColumns} disabled={isSystem} />}
-
-          {isInterval && (
-          <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-              How is the deadline calculated from the date stored in the cell?
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {INTERVAL_PRESETS.map(preset => (
-                <button key={preset.key} type="button"
-                  onClick={() => !isSystem && setIntervalKey(preset.key)}
-                  disabled={isSystem} aria-pressed={intervalKey === preset.key}
-                  className={`hit-44 px-3 py-1.5 rounded-lg text-base border transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
-                    intervalKey === preset.key
-                      ? 'bg-blue-600 border-blue-600 text-white font-medium'
-                      : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-              <button type="button" onClick={() => !isSystem && setIntervalKey('custom')} disabled={isSystem} aria-pressed={intervalKey === 'custom'}
-                className={`hit-44 px-3 py-1.5 rounded-lg text-base border transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
-                  intervalKey === 'custom'
-                    ? 'bg-blue-600 border-blue-600 text-white font-medium'
-                    : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                Custom…
-              </button>
-            </div>
-            {intervalKey === 'custom' && (
-              <div className="mt-2 flex items-center gap-2">
-                <input type="number" min={1} className="input w-28" aria-label="How many"
-                  value={customAmount} onChange={e => setCustomAmount(e.target.value)}
-                  disabled={isSystem} placeholder="e.g. 18" />
-                <select className="input w-32" aria-label="Unit" value={customUnit}
-                  onChange={e => setCustomUnit(e.target.value as IntervalUnit)} disabled={isSystem}>
-                  <option value="days">days</option>
-                  <option value="months">months</option>
-                  <option value="years">years</option>
-                  <option value="workingDays">working days</option>
-                </select>
-                <span className="text-base text-slate-600 dark:text-slate-300">after the date entered</span>
-              </div>
-            )}
-            {hasInterval(interval) && (
-              <p className="mt-2 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">
-                <strong>{describeInterval(interval)}.</strong> Colors are measured from that deadline.
-              </p>
-            )}
-          </div>
-          )}
-
-          {/* Right as they are for most rules; open when one is set (Q1c) */}
-          <MoreSettings changed={endOfMonth || businessDays !== 0 || draft.condOn} data-testid="rule-more">
-            {isInterval && (
-              <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
-                <input type="checkbox" className="w-5 h-5" checked={endOfMonth} disabled={isSystem}
-                  onChange={e => setEndOfMonth(e.target.checked)} />
-                Due by the end of that month
-              </label>
-            )}
-            {/* A quota's date is the end of its period; moving it would only hide its warnings */}
-            {draft.kind !== 'quota' && (
-            <fieldset>
-              <legend className="text-base font-medium text-slate-700 dark:text-slate-300">If it lands on a weekend or day off</legend>
-              {([[0, 'Leave it on that day'], [1, 'Move it to the working day before'], [2, 'Move it to the next working day']] as const).map(([v, text]) => (
-                <label key={v} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
-                  <input type="radio" name="rule-days-off" className="w-5 h-5" checked={businessDays === v} disabled={isSystem} onChange={() => setBusinessDays(v)} />
-                  {text}
-                </label>
-              ))}
-            </fieldset>
-            )}
-
-            {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
-          </MoreSettings>
-
-          {/* Name and description, under More: a new rule is named after what it does (D-17) */}
-          <details open={!isNew} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
-            <summary className="hit-44 flex items-center text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
-              More: name and description
-            </summary>
-            <div className="space-y-3 pb-3">
-              <div>
-                <label htmlFor="alert-rule-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Rule name</label>
-                <input id="alert-rule-name" className="input" value={name} onChange={e => setName(e.target.value)}
-                  disabled={isSystem} placeholder={autoName} />
-              </div>
-              <div>
-                <label htmlFor="alert-rule-description" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Description <span className="font-normal text-slate-500 dark:text-slate-400">— optional</span>
-                </label>
-                <input id="alert-rule-description" className="input" value={description} onChange={e => setDescription(e.target.value)}
-                  disabled={isSystem} placeholder="Brief description of this rule" />
-              </div>
-            </div>
-          </details>
-
-          {/* Thresholds */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-base font-medium text-slate-700 dark:text-slate-300">Colors as it gets close</label>
-              {!isSystem && editColors && (
-                <button onClick={addThreshold}
-                  className="hit-44 flex items-center gap-1 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
-                  <Plus className="w-4 h-4" />Add a color
-                </button>
-              )}
-            </div>
-            {/* A new rule starts with the usual colors: show them as a key, with the editor one click away (Q1c) */}
-            {!editColors ? (
-              <div className="space-y-2" data-testid="rule-colors-key">
-                <RuleColorKey rule={{ name: 'this rule', thresholds }} compact />
-                <SecondaryButton onClick={() => setEditColors(true)}>Change colors…</SecondaryButton>
-              </div>
-            ) : (
-            <>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-                Click a color step to change it.
-              </p>
-
-              {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet. Add one to say how many days before the date the cell changes color.</p>}
-
-              <div className="space-y-2">
-                {thresholds.map((t, i) => {
-                  const absValue = Math.abs(t.daysBefore)
-                  const direction: 'before' | 'after' = t.daysBefore >= 0 ? 'before' : 'after'
-                  const isOpen = expandedThreshold === i
-                  const { className: colorClass, style: colorStyle } = resolveAlertColor(t.bgClass)
-
-                  return (
-                    <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
-                      {/* Summary row — click to expand/collapse color picker */}
-                      <div
-                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                          isOpen ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                        }`}
-                        onClick={() => setExpandedThreshold(isOpen ? null : i)}
-                      >
-                        {/* Color preview swatch — a real button, so keyboard users can change the color (D-27) */}
-                        <button
-                          type="button"
-                          aria-expanded={isOpen}
-                          aria-label={`Change color for ${t.label || 'this step'}`}
-                          disabled={isSystem}
-                          onClick={e => { e.stopPropagation(); setExpandedThreshold(isOpen ? null : i) }}
-                          className={`hit-44 w-6 h-6 rounded-sm flex-shrink-0 border border-slate-300 dark:border-slate-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${colorClass}`}
-                          style={colorStyle}
-                        />
-
-                        {/* Timing, then the step's name; the name drops to its own line when the row is narrow */}
-                        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-                          {!isSystem ? (
-                            <>
-                              {/* Room for three digits beside the spinner arrows: "60" was cut to "6(" */}
-                              <input
-                                type="number" min={0}
-                                className="input w-[9ch] min-w-[9ch] flex-shrink-0 px-2 text-center py-0.5 text-base"
-                                style={{ minHeight: 44 }}
-                                aria-label={`Number of days for ${t.label || 'this step'}`}
-                                value={absValue}
-                                onChange={e => { e.stopPropagation(); setThresholdDays(i, parseInt(e.target.value, 10) || 0, direction) }}
-                                onClick={e => e.stopPropagation()}
-                                disabled={isSystem}
-                              />
-                              {/* .input is full width: as a flex item it took the name box's room too */}
-                              <select
-                                className="input w-auto flex-shrink-0 py-0.5 text-base"
-                                style={{ minHeight: 44 }}
-                                aria-label={`Before or past the deadline, for ${t.label || 'this step'}`}
-                                value={direction}
-                                onChange={e => { e.stopPropagation(); setThresholdDays(i, absValue, e.target.value as 'before' | 'after') }}
-                                onClick={e => e.stopPropagation()}
-                                disabled={isSystem}
-                              >
-                                <option value="before">days before deadline</option>
-                                <option value="after">days past deadline</option>
-                              </select>
-                            </>
-                          ) : (
-                            <span className="text-sm text-slate-600 dark:text-slate-300">
-                              {absValue} {direction === 'before' ? 'days before' : 'days past'} deadline
-                            </span>
-                          )}
-                          {/* The step's name: the color key, the shape's tooltip and screen readers say it */}
-                          <input
-                            type="text"
-                            className="input flex-1 basis-40 min-w-[10rem] py-0.5 text-base"
-                            style={{ minHeight: 44 }}
-                            value={t.label}
-                            onChange={e => { e.stopPropagation(); updateThreshold(i, { label: e.target.value }) }}
-                            onClick={e => e.stopPropagation()}
-                            disabled={isSystem}
-                            aria-label="Name for this color step"
-                            title="A name for this color step, like “Due soon”. It shows in the color key and is read out by screen readers."
-                            placeholder="Name, like “Due soon”"
-                          />
-                        </div>
-
-                        {!isSystem && (
-                          <button
-                            onClick={e => { e.stopPropagation(); removeThreshold(i) }}
-                            aria-label="Remove this color step"
-                            title="Remove this color step"
-                            className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Expanded color picker */}
-                      {isOpen && !isSystem && (
-                        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
-                          <ColorPicker
-                            value={t.bgClass}
-                            onChange={v => updateThreshold(i, { bgClass: v })}
-                            disabled={isSystem}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-            )}
-          </div>
-
-          <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />
-
-          {error && (
-            <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
+    // Escape closes like the X and Cancel (AUDIT-046)
+    <Dialog open onClose={() => onClose()} size="xl"
+      title={isNew ? 'New deadline rule' : isSystem ? 'View deadline rule' : 'Edit deadline rule'}
+      footer={<>
+        {/* Which columns a change to a shared rule reaches, next to Save */}
         {sharedHere && !isSystem && (
-          <fieldset className="flex-shrink-0 px-6 pt-3 border-t border-slate-200 dark:border-slate-700">
+          <fieldset className="w-full">
             <legend className="sr-only">Which columns get this change?</legend>
             <label className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
               <input type="radio" name="rule-scope" className="w-5 h-5" checked={!makeCopy} onChange={() => setMakeCopy(false)} />
@@ -673,15 +384,286 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
             </label>
           </fieldset>
         )}
-        <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={() => onClose()} className="btn-secondary">Cancel</button>
-          {!isSystem && (
-            <button onClick={handleSave} disabled={isSaving} className="btn-primary">
-              {isSaving ? 'Saving…' : isNew ? 'Create rule' : 'Save changes'}
+        <SecondaryButton onClick={() => onClose()}>Cancel</SecondaryButton>
+        {!isSystem && (
+          <PrimaryButton onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving…' : isNew ? 'Create rule' : 'Save changes'}
+          </PrimaryButton>
+        )}
+      </>}>
+      <div className="space-y-5">
+        {isSystem && (
+          <div className="flex items-start gap-2 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400" />
+            <span>This is a built-in rule and cannot be edited.</span>
+          </div>
+        )}
+
+        {/* Rules are shared between columns: say which (Decision F1) */}
+        {!isNew && ruleList.uses.length > 0 && (
+          <p className="text-base text-slate-700 dark:text-slate-200" data-testid="rule-used-by">
+            <span className="font-medium">Used by:</span> {usedByText(ruleList.uses)}
+          </p>
+        )}
+
+        {/* With one list there's nothing to choose, so the question isn't asked (E-16) */}
+        {ruleList.choices.length > 1 && (
+          <div>
+            <label htmlFor="alert-rule-list" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+              {ruleList.uses.length > 0 ? `Used in more than one ${w('list')}. Preview and columns from` : `Preview and columns from which ${w('list')}?`}
+            </label>
+            <select id="alert-rule-list" className="input" value={ruleList.gridId ?? ''} onChange={e => ruleList.setGridId(Number(e.target.value))}>
+              {ruleList.choices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* How it's worked out */}
+        <div>
+          <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-2">How is this deadline worked out?</h3>
+          <KindCards value={draft.kind} onChange={k => patchDraft({ kind: k })} disabled={isSystem} columns={ruleList.loading ? undefined : otherColumns} />
+        </div>
+
+        {ruleList.loading ? <p className="text-base text-slate-500 dark:text-slate-400">Loading the {w('list')}'s columns…</p>
+          : !isInterval && <KindFields d={draft} set={patchDraft} columns={otherColumns} disabled={isSystem} />}
+
+        {isInterval && (
+        <div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
+            How is the deadline calculated from the date stored in the cell?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {INTERVAL_PRESETS.map(preset => (
+              <button key={preset.key} type="button"
+                onClick={() => !isSystem && setIntervalKey(preset.key)}
+                disabled={isSystem} aria-pressed={intervalKey === preset.key}
+                className={`hit-44 px-3 py-1.5 rounded-lg text-base border transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
+                  intervalKey === preset.key
+                    ? 'bg-blue-600 border-blue-600 text-white font-medium'
+                    : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => !isSystem && setIntervalKey('custom')} disabled={isSystem} aria-pressed={intervalKey === 'custom'}
+              className={`hit-44 px-3 py-1.5 rounded-lg text-base border transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
+                intervalKey === 'custom'
+                  ? 'bg-blue-600 border-blue-600 text-white font-medium'
+                  : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              Custom…
             </button>
+          </div>
+          {intervalKey === 'custom' && (
+            <div className="mt-2 flex items-center gap-2">
+              <input type="number" min={1} className="input w-28" aria-label="How many"
+                value={customAmount} onChange={e => setCustomAmount(e.target.value)}
+                disabled={isSystem} placeholder="e.g. 18" />
+              <select className="input w-32" aria-label="Unit" value={customUnit}
+                onChange={e => setCustomUnit(e.target.value as IntervalUnit)} disabled={isSystem}>
+                <option value="days">days</option>
+                <option value="months">months</option>
+                <option value="years">years</option>
+                <option value="workingDays">working days</option>
+              </select>
+              <span className="text-base text-slate-600 dark:text-slate-300">after the date entered</span>
+            </div>
+          )}
+          {hasInterval(interval) && (
+            <p className="mt-2 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">
+              <strong>{describeInterval(interval)}.</strong> Colors are measured from that deadline.
+            </p>
           )}
         </div>
-      </motion.div>
-    </div>
+        )}
+
+        {/* Right as they are for most rules; open when one is set (Q1c) */}
+        <MoreSettings changed={endOfMonth || businessDays !== 0 || draft.condOn} data-testid="rule-more">
+          {isInterval && (
+            <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input type="checkbox" className="w-5 h-5" checked={endOfMonth} disabled={isSystem}
+                onChange={e => setEndOfMonth(e.target.checked)} />
+              Due by the end of that month
+            </label>
+          )}
+          {/* A quota's date is the end of its period; moving it would only hide its warnings */}
+          {draft.kind !== 'quota' && (
+          <fieldset>
+            <legend className="text-base font-medium text-slate-700 dark:text-slate-300">If it lands on a weekend or day off</legend>
+            {([[0, 'Leave it on that day'], [1, 'Move it to the working day before'], [2, 'Move it to the next working day']] as const).map(([v, text]) => (
+              <label key={v} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input type="radio" name="rule-days-off" className="w-5 h-5" checked={businessDays === v} disabled={isSystem} onChange={() => setBusinessDays(v)} />
+                {text}
+              </label>
+            ))}
+          </fieldset>
+          )}
+
+          {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
+        </MoreSettings>
+
+        {/* Name and description, under More: a new rule is named after what it does (D-17) */}
+        <details open={!isNew} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
+          <summary className="hit-44 flex items-center text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
+            More: name and description
+          </summary>
+          <div className="space-y-3 pb-3">
+            <div>
+              <label htmlFor="alert-rule-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Rule name</label>
+              <input id="alert-rule-name" className="input" value={name} onChange={e => setName(e.target.value)}
+                disabled={isSystem} placeholder={autoName} />
+            </div>
+            <div>
+              <label htmlFor="alert-rule-description" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Description <span className="font-normal text-slate-500 dark:text-slate-400">— optional</span>
+              </label>
+              <input id="alert-rule-description" className="input" value={description} onChange={e => setDescription(e.target.value)}
+                disabled={isSystem} placeholder="Brief description of this rule" />
+            </div>
+          </div>
+        </details>
+
+        {/* Thresholds */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-base font-medium text-slate-700 dark:text-slate-300">Colors as it gets close</label>
+            {!isSystem && editColors && (
+              <button onClick={addThreshold}
+                className="hit-44 flex items-center gap-1 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
+                <Plus className="w-4 h-4" />Add a color
+              </button>
+            )}
+          </div>
+          {/* A new rule starts with the usual colors: show them as a key, with the editor one click away (Q1c) */}
+          {!editColors ? (
+            <div className="space-y-2" data-testid="rule-colors-key">
+              <RuleColorKey rule={{ name: 'this rule', thresholds }} compact />
+              <SecondaryButton onClick={() => setEditColors(true)}>Change colors…</SecondaryButton>
+            </div>
+          ) : (
+          <>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
+              Click a color step to change it.
+            </p>
+
+            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet. Add one to say how many days before the date the cell changes color.</p>}
+
+            <div className="space-y-2">
+              {thresholds.map((t, i) => {
+                const absValue = Math.abs(t.daysBefore)
+                const direction: 'before' | 'after' = t.daysBefore >= 0 ? 'before' : 'after'
+                const isOpen = expandedThreshold === i
+                const { className: colorClass, style: colorStyle } = resolveAlertColor(t.bgClass)
+
+                return (
+                  <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
+                    {/* Summary row — click to expand/collapse color picker */}
+                    <div
+                      className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                        isOpen ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                      }`}
+                      onClick={() => setExpandedThreshold(isOpen ? null : i)}
+                    >
+                      {/* Color preview swatch — a real button, so keyboard users can change the color (D-27) */}
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        aria-label={`Change color for ${t.label || 'this step'}`}
+                        disabled={isSystem}
+                        onClick={e => { e.stopPropagation(); setExpandedThreshold(isOpen ? null : i) }}
+                        className={`hit-44 w-6 h-6 rounded-sm flex-shrink-0 border border-slate-300 dark:border-slate-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${colorClass}`}
+                        style={colorStyle}
+                      />
+
+                      {/* Timing, then the step's name; the name drops to its own line when the row is narrow */}
+                      <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                        {!isSystem ? (
+                          <>
+                            {/* Room for three digits beside the spinner arrows: "60" was cut to "6(" */}
+                            <input
+                              type="number" min={0}
+                              className="input w-[9ch] min-w-[9ch] flex-shrink-0 px-2 text-center py-0.5 text-base"
+                              style={{ minHeight: 44 }}
+                              aria-label={`Number of days for ${t.label || 'this step'}`}
+                              value={absValue}
+                              onChange={e => { e.stopPropagation(); setThresholdDays(i, parseInt(e.target.value, 10) || 0, direction) }}
+                              onClick={e => e.stopPropagation()}
+                              disabled={isSystem}
+                            />
+                            {/* .input is full width: as a flex item it took the name box's room too */}
+                            <select
+                              className="input w-auto flex-shrink-0 py-0.5 text-base"
+                              style={{ minHeight: 44 }}
+                              aria-label={`Before or past the deadline, for ${t.label || 'this step'}`}
+                              value={direction}
+                              onChange={e => { e.stopPropagation(); setThresholdDays(i, absValue, e.target.value as 'before' | 'after') }}
+                              onClick={e => e.stopPropagation()}
+                              disabled={isSystem}
+                            >
+                              <option value="before">days before deadline</option>
+                              <option value="after">days past deadline</option>
+                            </select>
+                          </>
+                        ) : (
+                          <span className="text-sm text-slate-600 dark:text-slate-300">
+                            {absValue} {direction === 'before' ? 'days before' : 'days past'} deadline
+                          </span>
+                        )}
+                        {/* The step's name: the color key, the shape's tooltip and screen readers say it */}
+                        <input
+                          type="text"
+                          className="input flex-1 basis-40 min-w-[10rem] py-0.5 text-base"
+                          style={{ minHeight: 44 }}
+                          value={t.label}
+                          onChange={e => { e.stopPropagation(); updateThreshold(i, { label: e.target.value }) }}
+                          onClick={e => e.stopPropagation()}
+                          disabled={isSystem}
+                          aria-label="Name for this color step"
+                          title="A name for this color step, like “Due soon”. It shows in the color key and is read out by screen readers."
+                          placeholder="Name, like “Due soon”"
+                        />
+                      </div>
+
+                      {!isSystem && (
+                        <button
+                          onClick={e => { e.stopPropagation(); removeThreshold(i) }}
+                          aria-label="Remove this color step"
+                          title="Remove this color step"
+                          className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Expanded color picker */}
+                    {isOpen && !isSystem && (
+                      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                        <ColorPicker
+                          value={t.bgClass}
+                          onChange={v => updateThreshold(i, { bgClass: v })}
+                          disabled={isSystem}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+          )}
+        </div>
+
+        <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />
+
+        {error && (
+          <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+      </div>
+    </Dialog>
   )
 }
