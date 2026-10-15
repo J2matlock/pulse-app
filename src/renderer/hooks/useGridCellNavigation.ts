@@ -60,6 +60,21 @@ interface UseGridCellNavigationReturn {
 
 const cellSelector = (c: CellCoord) => `[data-row-id="${c.rowId}"][data-col-id="${c.columnId}"]`
 
+/** How long a frame is waited for before going ahead anyway: a window that isn't painting gets no frames */
+const FRAME_FALLBACK_MS = 50
+
+/**
+ * Run once after the next frame, or after FRAME_FALLBACK_MS if no frame comes first (frames
+ * stop in a window that isn't being drawn, and focus mustn't wait for them). Returns a cancel.
+ */
+function afterNextFrame(run: () => void): () => void {
+  let done = false
+  const go = () => { if (done) return; done = true; cancelAnimationFrame(frame); clearTimeout(timer); run() }
+  const frame = requestAnimationFrame(go)
+  const timer = setTimeout(go, FRAME_FALLBACK_MS)
+  return () => { done = true; cancelAnimationFrame(frame); clearTimeout(timer) }
+}
+
 /**
  * A cell scrolled into view can still sit under the columns kept in view on the left
  * (they're sticky), which scrollIntoView doesn't know about (persona study, Mark: the lit
@@ -91,9 +106,9 @@ export function useGridCellNavigation({
   scrollToRowIdRef,
 }: UseGridCellNavigationOptions): UseGridCellNavigationReturn {
   const [selectedCell, setSelectedCell] = useState<CellCoord | null>(null)
-  const frameRef = useRef<number | null>(null)
+  const cancelRef = useRef<(() => void) | null>(null)
 
-  useEffect(() => () => { if (frameRef.current !== null) cancelAnimationFrame(frameRef.current) }, [])
+  useEffect(() => () => { cancelRef.current?.() }, [])
 
   const selectCell = useCallback((rowId: number, columnId: number) => {
     setSelectedCell({ rowId, columnId })
@@ -106,17 +121,17 @@ export function useGridCellNavigation({
   const focusCell = useCallback((rowId: number, columnId: number) => {
     const target = { rowId, columnId }
     setSelectedCell(target)
-    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    cancelRef.current?.()
     const idsBefore = visualRowIdsRef.current
     let waitedForRows = false
     let scrolled = false
     // After React has drawn: the next frame, or the one after when the rows changed meanwhile
     // (a save that re-sorts the list moves the record, so it's looked up again then)
     const attempt = () => {
-      frameRef.current = null
+      cancelRef.current = null
       if (!waitedForRows && visualRowIdsRef.current !== idsBefore) {
         waitedForRows = true
-        frameRef.current = requestAnimationFrame(attempt)
+        cancelRef.current = afterNextFrame(attempt)
         return
       }
       const container = containerRef.current
@@ -127,7 +142,7 @@ export function useGridCellNavigation({
         if (!scrolled && scrollTo && visualRowIdsRef.current.includes(rowId)) {
           scrolled = true
           scrollTo(rowId)
-          frameRef.current = requestAnimationFrame(attempt)
+          cancelRef.current = afterNextFrame(attempt)
         }
         return
       }
@@ -135,7 +150,7 @@ export function useGridCellNavigation({
       el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
       if (container) revealPastFrozen(el, container)
     }
-    frameRef.current = requestAnimationFrame(attempt)
+    cancelRef.current = afterNextFrame(attempt)
   }, [visualRowIdsRef, containerRef, scrollToRowIdRef])
 
   const navigateCell = useCallback((

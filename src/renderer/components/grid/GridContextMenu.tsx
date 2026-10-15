@@ -72,7 +72,13 @@ export function GridContextMenu({
 }: GridContextMenuProps): React.ReactElement | null {
   const { t } = useVocab()
   const menuRef = useRef<HTMLDivElement>(null)
-  const onMenuKeyDown = useMenuKeys(menuRef, true, onClose)
+  // Esc (or Tab) gives focus back to the cell at once, not after the closing animation: a key
+  // pressed meanwhile reached the closing menu, and Space opened the record (persona study, Mark)
+  const closeByKey = () => {
+    onClose()
+    document.querySelector<HTMLElement>(`[role="gridcell"][data-row-id="${contextMenu.rowId}"][data-col-id="${contextMenu.colId}"]`)?.focus()
+  }
+  const onMenuKeyDown = useMenuKeys(menuRef, true, closeByKey)
   const cmRules = cellFormats.get(`${contextMenu.rowId}_${contextMenu.colId}`) ?? []
   const cmRow = rowById.get(contextMenu.rowId)
   const cmCol = columns.find(c => c.id === contextMenu.colId)

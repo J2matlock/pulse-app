@@ -250,12 +250,10 @@ export function PasswordSetupView(): React.ReactElement {
             <PulseMark size={48} />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-base">
-            Set a password to protect your data. Your data is encrypted with it.
-          </p>
-          {/* Answered here, not only behind the Privacy Policy link (persona study, Bobby) */}
-          <p className="mt-1 text-slate-600 dark:text-slate-300 text-base" data-testid="stays-here">
-            {PRODUCT_NAME} keeps everything on this computer. Your data is never sent anywhere.
+          {/* Whether anything goes online is answered here, not only behind the Privacy Policy link
+              (persona study, Bobby). Two lines, so the button still fits a 768 px screen (UX-A-04) */}
+          <p className="text-slate-500 dark:text-slate-400 text-base" data-testid="stays-here">
+            Set a password to protect your data. It stays on this computer and is never sent anywhere.
           </p>
         </div>
 

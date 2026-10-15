@@ -173,7 +173,7 @@ describe('PasswordSetupView', () => {
     it('says before the links that nothing leaves this computer (persona study, Bobby)', async () => {
       render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
       await flushEffects()
-      expect(screen.getByTestId('stays-here').textContent).toMatch(/keeps everything on this computer\. Your data is never sent anywhere\./)
+      expect(screen.getByTestId('stays-here').textContent).toBe('Set a password to protect your data. It stays on this computer and is never sent anywhere.')
     })
   })
 

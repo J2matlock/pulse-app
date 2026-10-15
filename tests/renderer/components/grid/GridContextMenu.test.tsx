@@ -197,6 +197,23 @@ describe('GridContextMenu', () => {
     expect(buttons[buttons.length - 1]!.textContent).toBe('Move to the Trash')
   })
 
+  it('Escape gives focus straight back to the cell it opened from, before the menu has gone', () => {
+    const cell = document.createElement('div')
+    cell.setAttribute('role', 'gridcell')
+    cell.setAttribute('data-row-id', '1')
+    cell.setAttribute('data-col-id', '1')
+    cell.tabIndex = -1
+    document.body.appendChild(cell)
+    const onClose = vi.fn()
+    render(<GridContextMenu {...makeProps({ onClose })} />)
+    const item = screen.getAllByRole('menuitem')[0] ?? screen.getAllByRole('button')[0]!
+    item.focus()
+    fireEvent.keyDown(item, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+    expect(document.activeElement).toBe(cell)
+    cell.remove()
+  })
+
   it('puts "Open client" first, and it opens the record (G-31)', () => {
     const onOpenRecord = vi.fn()
     render(<GridContextMenu {...makeProps({ onOpenRecord })} />)
