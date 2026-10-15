@@ -209,6 +209,16 @@ export function formatYmd(v: string): string {
   return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}` : v
 }
 
+/** The group for records with nothing in that field: "(no status)", not "(blank)" (UX D-44) */
+export function noValueLabel(fieldLabel: string): string {
+  return `(no ${fieldLabel.toLowerCase()})`
+}
+const NO_VALUE = /^\(no [^()]*\)$/
+/** Whether a report cell is the "(no …)" group or empty: these sort last */
+export function isNoValue(v: ReportCell): boolean {
+  return v === null || v === '' || (typeof v === 'string' && NO_VALUE.test(v))
+}
+
 /** A value as people read it. Dates and date groups are spelled out ("Oct 2026", "Week of Oct 4, 2026"); the CSV keeps the raw values */
 export function formatReportCell(v: ReportCell, kind: ReportFieldKind, bucket?: DateBucket): string {
   if (v === null || v === '') return '—'
@@ -216,7 +226,7 @@ export function formatReportCell(v: ReportCell, kind: ReportFieldKind, bucket?: 
     if (kind === 'currency') return v.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
     return v.toLocaleString('en-US', { maximumFractionDigits: 2 })
   }
-  if (kind !== 'date') return v
+  if (kind !== 'date' || isNoValue(v)) return v
   switch (bucket) {
     case 'month': { const m = /^(\d{4})-(\d{2})$/.exec(v); return m ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : v }
     case 'quarter': { const m = /^(\d{4}) (Q\d)$/.exec(v); return m ? `${m[2]} ${m[1]}` : v }

@@ -24,6 +24,12 @@ function periodName(r: PeriodRange): string {
   }
 }
 
+/** How many days the period has, first and last included */
+function periodDays(r: PeriodRange): number {
+  const day = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y!, m! - 1, d!).getTime() }
+  return Math.max(1, Math.round((day(r.end) - day(r.start)) / 86_400_000) + 1)
+}
+
 /** Dashboard card: who still needs their required contacts this week, month, quarter or year. Hidden until set up. */
 export function MonthlyContactsCard(): React.ReactElement | null {
   const navigate = useNavigate()
@@ -63,6 +69,9 @@ export function MonthlyContactsCard(): React.ReactElement | null {
   }).join(' · ')
   // "done for October" when there's one period; otherwise just "done"
   const doneFor = ranges.length === 1 ? ` for ${periodName(ranges[0]!)}` : ''
+  // Halfway through the month nobody is "behind" yet: until the last third it's "still to do" (UX D-27)
+  const early = ranges.every(r => daysLeft(r) / periodDays(r) > 1 / 3)
+  const notYet = early ? `still to do${ranges.length === 1 ? ` this ${ranges[0]!.period}` : ''}` : 'still behind'
 
   return (
     <section aria-labelledby="monthly-contacts-title" className="mb-6 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
@@ -81,17 +90,21 @@ export function MonthlyContactsCard(): React.ReactElement | null {
           return (
             <li key={g.gridId} className="px-4 py-3">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {/* The whole line opens the list of who, and says so (UX D-27) */}
                 <button type="button" aria-expanded={open} disabled={behind.length === 0}
                   onClick={() => setExpanded(s => { const n = new Set(s); if (n.has(g.gridId)) n.delete(g.gridId); else n.add(g.gridId); return n })}
-                  className="hit-44 flex items-center gap-1 text-base font-medium text-slate-800 dark:text-slate-100 disabled:cursor-default">
-                  {behind.length > 0 && (open ? <ChevronDown className="w-4 h-4" aria-hidden="true" /> : <ChevronRight className="w-4 h-4" aria-hidden="true" />)}
-                  {g.gridName}
+                  className="hit-44 flex-1 min-w-0 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm px-1 -mx-1 text-left enabled:hover:bg-slate-50 dark:enabled:hover:bg-slate-700/50 disabled:cursor-default focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                  <span className="flex items-center gap-1 text-base font-medium text-slate-800 dark:text-slate-100">
+                    {behind.length > 0 && (open ? <ChevronDown className="w-4 h-4" aria-hidden="true" /> : <ChevronRight className="w-4 h-4" aria-hidden="true" />)}
+                    {g.gridName}
+                  </span>
+                  <span className={`text-base ${behind.length === 0 ? 'text-green-700 dark:text-green-300 font-medium' : 'text-slate-700 dark:text-slate-200'}`}>
+                    {g.clients.length === 0 ? `No ${tg('record', { many: true })} yet`
+                      : behind.length === 0 ? `All ${g.clients.length} ${tg('record', { count: g.clients.length })} are done${doneFor}`
+                      : `${g.clients.length - behind.length} of ${g.clients.length} done · ${behind.length} ${notYet}`}
+                  </span>
+                  {behind.length > 0 && <span className="text-base text-blue-700 dark:text-blue-300">{open ? 'Hide' : 'Show who'}</span>}
                 </button>
-                <span className={`text-base ${behind.length === 0 ? 'text-green-700 dark:text-green-300 font-medium' : 'text-slate-700 dark:text-slate-200'}`}>
-                  {g.clients.length === 0 ? `No ${tg('record', { many: true })} yet`
-                    : behind.length === 0 ? `All ${g.clients.length} ${tg('record', { count: g.clients.length })} are done${doneFor}`
-                    : `${g.clients.length - behind.length} of ${g.clients.length} done · ${behind.length} still behind`}
-                </span>
                 <button type="button" className="hit-44 ml-auto flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
                   onClick={() => setEditing({ gridId: g.gridId, gridName: g.gridName })}>
                   <Settings2 className="w-4 h-4" aria-hidden="true" />Change

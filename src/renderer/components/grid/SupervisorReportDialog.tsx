@@ -71,6 +71,8 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
   const [workerName, setWorkerName] = useState('')
   const [workerTitle, setWorkerTitle] = useState('')
   const [workerOrg, setWorkerOrg] = useState('')
+  // Whether the name came from Settings → Profile, to say where to change it (UX D-37)
+  const [nameFromProfile, setNameFromProfile] = useState(false)
   const [startDate, setStartDate] = useState(firstOfMonth)
   const [endDate, setEndDate] = useState(today)
   const [activePreset, setActivePreset] = useState<PresetKey>('this-month')
@@ -92,7 +94,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
           const name = map.get('profile_name')
           const title = map.get('profile_title')
           const org = map.get('profile_org')
-          if (name) setWorkerName(name)
+          if (name) { setWorkerName(name); setNameFromProfile(true) }
           if (title) setWorkerTitle(title)
           if (org) setWorkerOrg(org)
         }
@@ -182,15 +184,15 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
   }
 
   return (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="supervisor-report-title" aria-describedby="supervisor-report-intro">
       <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/40" onClick={onClose} />
       <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100" style={{ fontSize: 17 }}>
-              Summary report
+            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+            <h2 id="supervisor-report-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100" style={{ fontSize: 17 }}>
+              Report for my supervisor
             </h2>
           </div>
           <button
@@ -205,10 +207,14 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+          {/* What the PDF is, before any field (UX D-37) */}
+          <p id="supervisor-report-intro" className="text-base text-slate-600 dark:text-slate-300">
+            A PDF of your {t('list')} for the period: who you saw, what came due, and what's late — for your supervisor.
+          </p>
           {/* Worker name */}
           <div>
             <label htmlFor="supervisor-worker-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Coordinator / Worker Name
+              Your name
             </label>
             <input
               id="supervisor-worker-name"
@@ -218,7 +224,11 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
               value={workerName}
               onChange={e => setWorkerName(e.target.value)}
               placeholder="e.g. Jane Smith"
+              aria-describedby="supervisor-worker-hint"
             />
+            <p id="supervisor-worker-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {nameFromProfile ? 'Filled in from Settings → Profile.' : 'Put your name in Settings → Profile and it is filled in here each time.'}
+            </p>
             {/* Title & Org on same row */}
             <div className="flex gap-3 mt-2">
               <input
@@ -228,6 +238,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 value={workerTitle}
                 onChange={e => setWorkerTitle(e.target.value)}
                 placeholder="Title (e.g. Team Lead)"
+                aria-label="Your title"
               />
               <input
                 type="text"
@@ -236,6 +247,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 value={workerOrg}
                 onChange={e => setWorkerOrg(e.target.value)}
                 placeholder="Organization"
+                aria-label="Organization"
               />
             </div>
           </div>
@@ -243,7 +255,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
           {/* Date range */}
           <div>
             <label htmlFor="supervisor-date-range" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Date Range
+              Date range
             </label>
             {/* Preset pills */}
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -286,7 +298,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-base font-medium text-slate-700 dark:text-slate-300">
-                Columns to Include
+                Columns to include
               </label>
               <button
                 onClick={toggleAll}
@@ -295,7 +307,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 {selectedColumnIds.size === columns.length ? 'Deselect all' : 'Select all'}
               </button>
             </div>
-            <div className="border border-slate-200 dark:border-slate-700 rounded-lg divide-y divide-slate-100 dark:divide-slate-700 max-h-44 overflow-y-auto">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg divide-y divide-slate-100 dark:divide-slate-700">
               {columns.map(col => (
                 <label
                   key={col.id}
@@ -429,8 +441,8 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
             disabled={exporting || selectedColumnIds.size === 0 || !startDate || !endDate}
             title={selectedColumnIds.size === 0 ? 'Select at least one column' : !startDate || !endDate ? 'Enter a date range' : ''}
           >
-            <FileText className="w-4 h-4" />
-            {exporting ? 'Exporting…' : 'Export Report'}
+            <FileText className="w-4 h-4" aria-hidden="true" />
+            {exporting ? 'Saving…' : format === 'pdf' ? 'Save as PDF…' : 'Save as spreadsheet (CSV)…'}
           </button>
         </div>
       </motion.div>

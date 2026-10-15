@@ -1,26 +1,32 @@
 /**
- * UndoToast — bottom-center floating toast for undoable actions.
- * Shows an 8-second countdown bar and an [Undo] button.
+ * UndoToast — bottom-right floating toast for undoable actions, where the
+ * app's other toasts appear (not over the buttons in the middle: UX D-28).
+ * Shows a 5-second countdown bar and an [Undo] button; it waits while the
+ * pointer or focus is on it.
  */
 import React, { useEffect, useState } from 'react'
 import { RotateCcw, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { useUndoStore } from '../../stores/undoStore'
+import { useUndoStore, UNDO_TOAST_MS } from '../../stores/undoStore'
 
 export function UndoToast(): React.ReactElement | null {
-  const { toast, undo, dismissToast, undoStack } = useUndoStore(useShallow(s => ({
-    toast: s.toast, undo: s.undo, dismissToast: s.dismissToast, undoStack: s.undoStack,
+  const { toast, undo, dismissToast, holdToast, undoStack } = useUndoStore(useShallow(s => ({
+    toast: s.toast, undo: s.undo, dismissToast: s.dismissToast, holdToast: s.holdToast, undoStack: s.undoStack,
   })))
   const [progress, setProgress] = useState(100)
+  const [held, setHeld] = useState(false)
+  const hold = (on: boolean) => { setHeld(on); holdToast(on) }
 
   useEffect(() => {
-    if (!toast) {
+    if (!toast || held) {
       setProgress(100)
+      // A toast that went away while held leaves the next one free to count down
+      if (!toast) setHeld(false)
       return
     }
     setProgress(100)
     const start = Date.now()
-    const duration = 8000
+    const duration = UNDO_TOAST_MS
     const frame = () => {
       const elapsed = Date.now() - start
       const pct = Math.max(0, 100 - (elapsed / duration) * 100)
@@ -29,7 +35,7 @@ export function UndoToast(): React.ReactElement | null {
     }
     const id = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(id)
-  }, [toast])
+  }, [toast, held])
 
   if (!toast) return null
 
@@ -37,8 +43,12 @@ export function UndoToast(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex flex-col overflow-hidden rounded-xl shadow-2xl bg-slate-800 text-white"
+      className="fixed bottom-6 right-6 z-[300] flex flex-col overflow-hidden rounded-xl shadow-2xl bg-slate-800 text-white"
       style={{ minWidth: 300, maxWidth: 420 }}
+      onMouseEnter={() => hold(true)}
+      onMouseLeave={() => hold(false)}
+      onFocus={() => hold(true)}
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hold(false) }}
       role="status"
       aria-live="polite"
     >

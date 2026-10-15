@@ -788,7 +788,7 @@ export default function DashboardView(): React.ReactElement {
                   void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
                 }} />
             )}
-            {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
+            {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} title="Print reminder letters" preferTemplate="Reminder" onClose={() => setReminderLetters(false)} />}
             <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
               <LayoutGrid className="w-4 h-4" aria-hidden="true" />
               Customize

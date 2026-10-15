@@ -24,7 +24,7 @@ function nextMonth(): { from: string; to: string } {
   return { from: localDateString(new Date(now.getFullYear(), now.getMonth() + 1, 1)), to: localDateString(new Date(now.getFullYear(), now.getMonth() + 2, 0)) }
 }
 
-export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMode = 'documents', initialTemplateId, pickList = false, onClose }: {
+export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMode = 'documents', initialTemplateId, pickList = false, title = 'Print documents or labels', preferTemplate, onClose }: {
   gridId: number
   /** The selected records, if any */
   rowIds?: number[]
@@ -33,6 +33,10 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   initialTemplateId?: number
   /** Let the person choose the list (opened from outside a list) */
   pickList?: boolean
+  /** The heading, named after the button that opened it (UX D-11); the list's name follows */
+  title?: string
+  /** Start with the first template whose name contains this, when there's no initialTemplateId */
+  preferTemplate?: string
   onClose: () => void
 }): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
@@ -87,10 +91,15 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
 
   // The template asked for when the dialog opened; templates load once
   const openedWithTemplateRef = useRef(initialTemplateId)
+  const preferTemplateRef = useRef(preferTemplate?.toLowerCase())
   useEffect(() => {
     const wanted = openedWithTemplateRef.current
+    const prefer = preferTemplateRef.current
     void safeInvoke<Array<{ id: number; name: string }>>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
-      if (r.ok) { setTemplates(r.data); setTemplateId(r.data.some(x => x.id === wanted) ? wanted! : r.data[0]?.id ?? null) }
+      if (!r.ok) return
+      setTemplates(r.data)
+      const preferred = prefer ? r.data.find(x => x.name.toLowerCase().includes(prefer)) : undefined
+      setTemplateId(r.data.some(x => x.id === wanted) ? wanted! : preferred?.id ?? r.data[0]?.id ?? null)
     })
   }, [])
 
@@ -147,10 +156,12 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="batch-docs-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+        className="w-full max-w-lg max-h-[calc(100vh-2rem)] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        {/* The buttons stay in view however tall the form gets (UX D-11) */}
+        <div className="overflow-y-auto p-6 space-y-4 min-h-0">
         <div className="flex items-center justify-between">
           <h2 id="batch-docs-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels{listName ? `: ${listName}` : ''}
+            <FileStack className="w-5 h-5" aria-hidden="true" />{title}{listName ? `: ${listName}` : ''}
           </h2>
           <button type="button" aria-label="Close" onClick={onClose}
             className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -260,8 +271,9 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
           </p>
         )}
         <UnknownPlaceholders unknown={unknown.length ? unknown : mode === 'documents' ? preview?.unknown ?? [] : []} />
+        </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
           <button type="button" className="btn-secondary" onClick={onClose}>{unknown.length ? 'Close' : 'Cancel'}</button>
           <button type="button" className="btn-primary" disabled={busy || !ready} onClick={() => void make()}>Make PDF</button>
         </div>

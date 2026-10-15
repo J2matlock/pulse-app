@@ -114,7 +114,7 @@ export function DashboardCards({ summary, whatsDue, recentlyArchived, customizin
           {pinned.length > 0 && (
             <>
               <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 pt-2">Pinned reports</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300">These show at the end. Pin reports from the Reports page.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">These show at the end. Add one with Show on dashboard on a report.</p>
               <ul className="space-y-1" aria-label="Pinned reports">
                 {pinned.map(id => (
                   <li key={id} className="flex items-center gap-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3" style={{ minHeight: 44 }}>

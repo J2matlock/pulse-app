@@ -82,10 +82,14 @@ interface UndoState {
   redo: () => Promise<void>
   undoTo: (itemId: string) => Promise<void>
   dismissToast: () => void
+  /** Keep the toast up while the pointer or focus is on it; letting go starts its time again */
+  holdToast: (hold: boolean) => void
   clear: () => void
 }
 
 const MAX_STACK = 100
+/** How long the Undo toast stays up; the top bar's Undo works after that (UX D-28) */
+export const UNDO_TOAST_MS = 5000
 
 export interface PushOptions { evenWhileUndoing?: boolean }
 
@@ -168,13 +172,17 @@ export const useUndoStore = create<UndoState>((set, get) => {
   // Kept outside store to avoid serialization and simplify the debounce pattern.
   let toastTimeout: ReturnType<typeof setTimeout> | null = null
 
-  function showToast(description: string) {
+  function startToastTimer() {
     if (toastTimeout) clearTimeout(toastTimeout)
-    set({ toast: { description } })
     toastTimeout = setTimeout(() => {
       set({ toast: null })
       toastTimeout = null
-    }, 8000)
+    }, UNDO_TOAST_MS)
+  }
+
+  function showToast(description: string) {
+    set({ toast: { description } })
+    startToastTimer()
   }
 
   function clearToast() {
@@ -335,6 +343,12 @@ export const useUndoStore = create<UndoState>((set, get) => {
 
     dismissToast() {
       clearToast()
+    },
+
+    holdToast(hold: boolean) {
+      if (!get().toast) return
+      if (hold) { if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = null } }
+      else startToastTimer()
     },
 
     clear() {

@@ -11,7 +11,7 @@ const mockInvoke = vi.fn()
 let uuidCounter = 0
 vi.stubGlobal('crypto', { randomUUID: () => `uuid-${++uuidCounter}` })
 
-import { useUndoStore } from '../../../src/renderer/stores/undoStore'
+import { useUndoStore, UNDO_TOAST_MS } from '../../../src/renderer/stores/undoStore'
 import type { UndoItem } from '../../../src/renderer/stores/undoStore'
 
 function makeItem(overrides: Partial<UndoItem> = {}): UndoItem {
@@ -324,6 +324,26 @@ describe('undoStore', () => {
         newItem,
       )
       expect(useUndoStore.getState().undoStack).toHaveLength(2)
+    })
+  })
+
+  describe('toast timing (UX D-28)', () => {
+    it('goes after 5 seconds, but waits while held', () => {
+      vi.useFakeTimers()
+      try {
+        useUndoStore.getState().pushWithToast(makeItem({ description: 'Snoozed task' }))
+        vi.advanceTimersByTime(4000)
+        useUndoStore.getState().holdToast(true)
+        vi.advanceTimersByTime(20000)
+        expect(useUndoStore.getState().toast).toEqual({ description: 'Snoozed task' })
+        useUndoStore.getState().holdToast(false)
+        vi.advanceTimersByTime(UNDO_TOAST_MS - 1)
+        expect(useUndoStore.getState().toast).not.toBeNull()
+        vi.advanceTimersByTime(1)
+        expect(useUndoStore.getState().toast).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 

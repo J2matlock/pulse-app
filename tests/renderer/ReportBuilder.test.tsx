@@ -117,11 +117,11 @@ describe('report builder', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save changes$/ })) })
     expect(calls('reports:save')[0]![1]).toMatchObject({ id: 5, name: 'Jobs by make', gridId: 1 })
     expect(onSaved).toHaveBeenCalled()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Export PDF/ })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Save as PDF…/ })) })
     expect(calls('reports:export')[0]!.slice(1)).toEqual([1, saved.config, 'pdf', 'Jobs by make'])
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Pin to dashboard/ })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Show on dashboard/ })) })
     expect(settings.dashboard_reports).toBe('[5]')
-    expect(screen.getByRole('button', { name: /Unpin from dashboard/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Take off the dashboard/ })).toBeTruthy()
   })
 
   it('stays unpinned and says so when pinning did not save (A08-5)', async () => {
@@ -131,11 +131,11 @@ describe('report builder', () => {
     if (!base) throw new Error('the invoke mock has no implementation')
     invoke.mockImplementation(async (channel: string, ...args: unknown[]) =>
       channel === 'settings:update' ? { ok: false, error: 'READ_ONLY' } as never : base(channel, ...args))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Pin to dashboard/ })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Show on dashboard/ })) })
     invoke.mockImplementation(base)
     expect(toast.error).toHaveBeenCalled()
     expect(toast.success).not.toHaveBeenCalledWith('Pinned to the dashboard')
-    expect(screen.getByRole('button', { name: /Pin to dashboard/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Show on dashboard/ })).toBeTruthy()
   })
 
   it('shows the engine’s message when a report can’t run', async () => {

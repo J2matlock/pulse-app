@@ -30,8 +30,12 @@ describe('Today card', () => {
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     const list = screen.getByRole('list')
     expect(within(list).getAllByRole('listitem').map(li => li.textContent)).toEqual([expect.stringMatching(/^9:00 amIntake · Jane/)])
-    // The same actions everywhere (audit S-19): Done asks for an optional note
-    for (const name of ['No-show (Intake)', 'Mark cancelled (Intake)', 'Edit (Intake)', 'Delete (Intake)']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    // The same actions everywhere (audit S-19), in the dashboard's short form with Edit and Delete under ⋯ (UX D-26): Done asks for an optional note
+    for (const name of ['No-show (Intake)', 'Cancelled (Intake)', 'More (Intake)']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'More (Intake)' }))
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'More (Intake)' }))
     fireEvent.click(screen.getByRole('button', { name: 'Done… (Intake)' }))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mark done' })) })
     expect(invoke).toHaveBeenCalledWith('appointments:set-status', 1, 'done', {})
