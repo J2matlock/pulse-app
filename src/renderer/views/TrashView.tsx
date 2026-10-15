@@ -211,7 +211,7 @@ export default function TrashView() {
         <div className="flex-1 overflow-auto px-6 py-4">
           {search && (
             <p className="flex flex-wrap items-center gap-3 text-base text-slate-600 dark:text-slate-300 mb-2" data-testid="trash-search">
-              <span>{shownRows.length} of {rows.length} {t('record', { count: rows.length })} here match &ldquo;{search}&rdquo;.</span>
+              <span>Showing {t('record', { many: true })} matching &ldquo;{search}&rdquo; ({shownRows.length} of {rows.length}).</span>
               <SecondaryButton onClick={() => setParams({})}>Show all</SecondaryButton>
             </p>
           )}

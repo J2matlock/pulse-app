@@ -66,10 +66,24 @@ function onClickCapture(e: MouseEvent): void {
   e.stopPropagation()
 }
 
+/**
+ * The second press doesn't move focus either: the menu or dialog the first click opened
+ * keeps it, so the arrow keys and Escape still work there. Other mousedown listeners
+ * still hear it (a click outside a pop-up still counts).
+ */
+function onMouseDownCapture(e: MouseEvent): void {
+  if (e.detail < 2 || e.button !== 0 || !isRepeatClickGuarded(e.target)) return
+  e.preventDefault()
+}
+
 /** Mount once, at the app's root */
 export function useRepeatClickGuard(): void {
   useEffect(() => {
     document.addEventListener('click', onClickCapture, true)
-    return () => document.removeEventListener('click', onClickCapture, true)
+    document.addEventListener('mousedown', onMouseDownCapture, true)
+    return () => {
+      document.removeEventListener('click', onClickCapture, true)
+      document.removeEventListener('mousedown', onMouseDownCapture, true)
+    }
   }, [])
 }

@@ -268,7 +268,7 @@ describe('TrashView — opened from a search that found nothing in the list (per
     await flushEffects()
     expect(screen.getByText('Alice Johnson')).toBeTruthy()
     expect(screen.queryByText('Bob Williams')).toBeNull()
-    expect(screen.getByTestId('trash-search').textContent).toMatch(/1 of 3 clients here match “ali”/)
+    expect(screen.getByTestId('trash-search').textContent).toBe('Showing clients matching “ali” (1 of 3).Show all')
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }))
     expect(screen.getByText('Bob Williams')).toBeTruthy()
   })

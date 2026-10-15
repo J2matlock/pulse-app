@@ -119,6 +119,20 @@ describe('useRepeatClickGuard', () => {
     expect(isRepeatClickGuarded(screen.getByLabelText('Name'))).toBe(false)
   })
 
+  it('the second press keeps focus where the first click put it (in the menu it opened); a text box\'s is left alone', () => {
+    render(<Guarded><button type="button">Done</button><input type="text" aria-label="Name" /></Guarded>)
+    const press = (el: Element) => {
+      const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true, detail: 2, button: 0 })
+      el.dispatchEvent(ev)
+      return ev.defaultPrevented
+    }
+    expect(press(screen.getByRole('button'))).toBe(true)
+    expect(press(screen.getByLabelText('Name'))).toBe(false)
+    const first = new MouseEvent('mousedown', { bubbles: true, cancelable: true, detail: 1, button: 0 })
+    screen.getByRole('button').dispatchEvent(first)
+    expect(first.defaultPrevented).toBe(false)
+  })
+
   it('textareas and editable text are left alone', () => {
     render(<Guarded><textarea aria-label="Note" /><div contentEditable suppressContentEditableWarning data-testid="rich">x</div></Guarded>)
     expect(isRepeatClickGuarded(screen.getByLabelText('Note'))).toBe(false)
