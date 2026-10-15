@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Trash2, RotateCcw } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { DeletedRow } from '../../shared/types'
@@ -17,6 +18,7 @@ import { useGridStore } from '../stores/gridStore'
 import { useUndoStore } from '../stores/undoStore'
 import { friendlyError } from '../utils/friendlyError'
 import { DeletedColumnsSection } from '../components/grid/DeletedColumnsSection'
+import { SecondaryButton } from '../components/ui/Button'
 
 type DeletedList = { id: number; name: string; deleted_at: string; records: number }
 
@@ -44,6 +46,10 @@ export default function TrashView() {
   const grids = useGridStore(s => s.grids)
   const liveLists = useMemo(() => (Array.isArray(grids) ? grids : []).map(g => ({ id: g.id, name: g.name })), [grids])
   const [columnCount, setColumnCount] = useState(0)
+  // Opened from a list's search that found nothing there ("… is in the Trash · Show", R3)
+  const [params, setParams] = useSearchParams()
+  const search = (params.get('q') ?? '').trim()
+  const shownRows = search ? rows.filter(r => (r.client_name ?? '').toLowerCase().includes(search.toLowerCase())) : rows
   // Purging records takes their files with them: the Files list must reload
   const reloadFiles = () => setFilesReload(n => n + 1)
 
@@ -203,6 +209,12 @@ export default function TrashView() {
         />
       ) : (
         <div className="flex-1 overflow-auto px-6 py-4">
+          {search && (
+            <p className="flex flex-wrap items-center gap-3 text-base text-slate-600 dark:text-slate-300 mb-2" data-testid="trash-search">
+              <span>{shownRows.length} of {rows.length} {t('record', { count: rows.length })} here match &ldquo;{search}&rdquo;.</span>
+              <SecondaryButton onClick={() => setParams({})}>Show all</SecondaryButton>
+            </p>
+          )}
           {recordCount > rows.length && (
             <p className="text-base text-slate-600 dark:text-slate-300 mb-2">
               Showing the {rows.length} most recent of {recordCount} {t('record', { many: true })}. Empty the Trash removes all {recordCount}.
@@ -219,7 +231,7 @@ export default function TrashView() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => {
+              {shownRows.map(row => {
                 const remaining = daysRemaining(row.deleted_at)
                 return (
                   <tr

@@ -1047,3 +1047,48 @@ describe('IPC Row — ROW_DISCARD_IF_EMPTY (persona study R3)', () => {
     expect((await discard(-1)).ok).toBe(false)
   })
 })
+
+describe('IPC Row — ROW_SEARCH_ELSEWHERE (persona study R3)', () => {
+  function home(gridId: number, nameCol: number, name: string, state: 'live' | 'trashed' | 'archived', at = '2026-10-01 10:00:00') {
+    const rowId = Number(testDb.db.prepare('INSERT INTO rows (grid_id, position, display_name) VALUES (?, 0, ?)').run(gridId, name).lastInsertRowid)
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowId, nameCol, name)
+    if (state === 'trashed') testDb.db.prepare('UPDATE rows SET is_active = 0, deleted_at = ? WHERE id = ?').run(at, rowId)
+    if (state === 'archived') testDb.db.prepare('UPDATE rows SET is_active = 0, archived_at = ? WHERE id = ?').run(at, rowId)
+    return rowId
+  }
+  const search = async (gridId: number, q: string) => (await invoke(IPC.ROW_SEARCH_ELSEWHERE, gridId, q)) as { ok: boolean; data: { trashed: { count: number; firstRowId: number | null; firstName: string | null }; archived: { count: number; firstRowId: number | null; firstName: string | null } } }
+
+  it('counts matches in the Trash and in the archive, naming the newest, and never live ones', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { rowCount: 0, columnCount: 2 })
+    home(gridId, columnIds[0]!, 'Bergstrom live', 'live')
+    home(gridId, columnIds[0]!, 'Bergstrom home', 'trashed', '2026-10-01 10:00:00')
+    const newest = home(gridId, columnIds[0]!, 'Old Bergstrom place', 'trashed', '2026-10-05 10:00:00')
+    const olson = home(gridId, columnIds[0]!, 'Olson home', 'archived')
+    const res = await search(gridId, 'BERG')
+    expect(res.ok).toBe(true)
+    expect(res.data.trashed).toEqual({ count: 2, firstRowId: newest, firstName: 'Old Bergstrom place' })
+    expect(res.data.archived).toEqual({ count: 0, firstRowId: null, firstName: null })
+    expect((await search(gridId, 'olson')).data.archived).toEqual({ count: 1, firstRowId: olson, firstName: 'Olson home' })
+  })
+
+  it('matches other text columns too, and only in the list searched', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { rowCount: 0, columnCount: 2 })
+    const other = seedGrid(testDb.db, { rowCount: 0, columnCount: 1, name: 'Other' })
+    const r = home(gridId, columnIds[0]!, 'Nowak home', 'trashed')
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(r, columnIds[1], 'Karl & Jean')
+    home(other.gridId, other.columnIds[0]!, 'Karl elsewhere', 'trashed')
+    expect((await search(gridId, 'karl')).data.trashed.count).toBe(1)
+  })
+
+  it('treats % and _ as plain characters', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { rowCount: 0, columnCount: 1 })
+    home(gridId, columnIds[0]!, 'Plain name', 'trashed')
+    expect((await search(gridId, '%')).data.trashed.count).toBe(0)
+  })
+
+  it('rejects an empty or long search and an invalid list', async () => {
+    expect((await search(1, '')).ok).toBe(false)
+    expect((await search(1, 'x'.repeat(201))).ok).toBe(false)
+    expect((await search(-1, 'berg')).ok).toBe(false)
+  })
+})

@@ -5,7 +5,7 @@
  * away, left a nameless record that was counted (Karen, Mark, Candy).
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 ;(window as unknown as Record<string, unknown>).api = { invoke: mockInvoke }
@@ -56,7 +56,7 @@ afterEach(() => { vi.useRealTimers() })
 /** What DataGrid does 50 ms after an Add: opens the name and lets go of lastAddedRowId */
 function settleAdd() { useGridStore.setState({ lastAddedRowId: null }) }
 
-async function ticks() { await act(async () => { await new Promise(r => setTimeout(r, 5)) }) }
+async function ticks() { await act(async () => { await new Promise(r => setTimeout(r, 30)) }) }
 
 describe('one record per Add', () => {
   it('two Adds at once (a double-click, Ctrl+N twice) make one record', async () => {
@@ -96,9 +96,8 @@ describe('an untouched new record does not stay', () => {
     act(() => result.current.setEditingCell({ rowId: 100, columnId: 1 }))
     expect(useGridStore.getState().freshRow?.editing).toBe(true)
     act(() => result.current.setEditingCell(null))
-    await ticks()
+    await waitFor(() => expect(ids()).toEqual([1]))
     expect(calls(IPC.ROW_DISCARD_IF_EMPTY)).toEqual([[IPC.ROW_DISCARD_IF_EMPTY, 100]])
-    expect(ids()).toEqual([1])
     expect(useUndoStore.getState().undoStack).toEqual([])
     expect(useGridStore.getState().freshRow).toBeNull()
   })
@@ -157,9 +156,8 @@ describe('an untouched new record does not stay', () => {
     act(() => result.current.setEditingCell({ rowId: 100, columnId: 1 }))
     window.location.hash = '#/settings'
     unmount()
-    await ticks()
+    await waitFor(() => expect(ids()).toEqual([1]))
     expect(calls(IPC.ROW_DISCARD_IF_EMPTY)).toHaveLength(1)
-    expect(ids()).toEqual([1])
   })
 
   it('opening its own page keeps it (what is put in there is not in the grid yet)', async () => {

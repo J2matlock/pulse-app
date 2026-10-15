@@ -261,6 +261,19 @@ describe('TrashView — more records than the 500 shown (Q-029)', () => {
   })
 })
 
+describe('TrashView — opened from a search that found nothing in the list (persona study R3)', () => {
+  it('shows the records matching the search, and Show all brings back the rest', async () => {
+    mockTrash(sampleDeletedRows)
+    render(<MemoryRouter initialEntries={['/trash?q=ali']}><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText('Alice Johnson')).toBeTruthy()
+    expect(screen.queryByText('Bob Williams')).toBeNull()
+    expect(screen.getByTestId('trash-search').textContent).toMatch(/1 of 3 clients here match “ali”/)
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(screen.getByText('Bob Williams')).toBeTruthy()
+  })
+})
+
 describe('TrashView — deleted columns (persona study R3)', () => {
   const deletedAt = new Date(Date.now() - 2 * 86400000).toISOString().replace('T', ' ').slice(0, 19)
   let restored = false

@@ -14,7 +14,7 @@ import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
 import { forgetPurgedRows } from '../list-trash'
 import { purgeRecordLeftovers, pruneAfterPurge } from '../purge-hooks'
-import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
+import { LIVE_GRID, LIVE_ROW, archivedRow, notTrashedRow } from '../../shared/liveRecords'
 import { COLUMN_TYPES, COLUMN_TRAITS } from '../../shared/columnTraits'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -699,7 +699,37 @@ export function registerRowHandlers(): void {
     if (gone) pruneAfterPurge(db, [rowId])
     return ok(gone)
   }, { write: true })
+
+  // Search found nothing in the open list (persona study R3: "No clients found" for a home
+  // in the Trash, and for one archived). Reads the Trash and the archive on purpose, for this
+  // one list only, and sends back only how many match and the newest one's name.
+  define(IPC.ROW_SEARCH_ELSEWHERE, [idArg(), textArg('Invalid search', { min: 1, max: 200 })], (gridId, query) => {
+    const q = query.trim()
+    const none = { count: 0, firstRowId: null, firstName: null }
+    if (!q) return ok({ trashed: none, archived: none })
+    const like = `%${q.replace(/[\\%_]/g, c => `\\${c}`)}%`
+    const types = SEARCHED_TYPES.map(() => '?').join(', ')
+    const find = (where: string, newestFirst: string) => getDb().prepare(`
+      SELECT r.id, r.display_name AS name FROM rows r
+      WHERE r.grid_id = ? AND ${where} AND (
+        r.display_name LIKE ? ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id
+          WHERE c.row_id = r.id AND (col.is_name_column = 1 OR col.column_type IN (${types})) AND c.value LIKE ? ESCAPE '\\')
+        OR EXISTS (SELECT 1 FROM row_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.row_id = r.id AND t.name LIKE ? ESCAPE '\\')
+      )
+      ORDER BY ${newestFirst} DESC, r.id DESC LIMIT 50
+    `).all(gridId, like, ...SEARCHED_TYPES, like, like) as Array<{ id: number; name: string | null }>
+    const sum = (rows: Array<{ id: number; name: string | null }>) =>
+      ({ count: rows.length, firstRowId: rows[0]?.id ?? null, firstName: rows[0]?.name?.trim() || null })
+    return ok({
+      trashed: sum(find(`NOT (${notTrashedRow('r')})`, 'r.deleted_at')),
+      archived: sum(find(archivedRow('r'), 'r.archived_at')),
+    })
+  })
 }
+
+/** What the grid's search box looks in (renderer utils/searchMatch.ts), less links, whose values are ids */
+const SEARCHED_TYPES = ['text', 'number', 'dropdown', 'phone', 'email', 'url', 'notes', 'status', 'address', 'currency', 'tag', 'auto_number']
 
 /** Worked out by Pulse, never typed: an auto number or an age doesn't make a record "used" */
 const COMPUTED_TYPES = COLUMN_TYPES.filter(t => COLUMN_TRAITS[t].readOnly)
