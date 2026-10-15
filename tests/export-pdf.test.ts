@@ -29,6 +29,7 @@ vi.mock('electron', () => ({
 }))
 
 import { exportLetterPdf, exportPdfGrid, exportPdfProfile } from '../src/main/export-pdf'
+import { jsPDF } from '../src/main/export-shared'
 
 beforeEach(() => { testDb = createTestDb() })
 afterEach(() => { cleanupTestDb(testDb) })
@@ -169,6 +170,39 @@ describe('exportPdfGrid', () => {
     const plain = readFileSync(plainPath).toString('latin1')
     expect(plain).not.toContain('LiberationSans')
     expect(plain).toContain('(Jos\xe9 N\xfa\xf1ez)')
+  })
+
+  it('prints 11 pt and up in black, dates on the right, in the order it was given (persona study R7)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 2, columnTypes: ['text', 'date'] })
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    ;['Ann', 'Bea', 'Cal'].forEach((n, i) => insert.run(rowIds[i], columnIds[0], n))
+    insert.run(rowIds[0], columnIds[1], '2026-11-01')
+    type Doc = Record<string, (...a: unknown[]) => unknown>
+    type Hook = [string, (this: Doc) => void]
+    const colors: unknown[][] = [], sizes: number[] = [], texts: Array<{ text: string; x: number }> = []
+    const events = (jsPDF.API as unknown as { events: Hook[] }).events
+    const hook: Hook = ['initialized', function (this: Doc) {
+      const wrap = (name: string, log: (args: unknown[]) => void) => {
+        const original = this[name]!
+        this[name] = (...args: unknown[]) => { log(args); return original.apply(this, args) }
+      }
+      wrap('setTextColor', a => colors.push(a))
+      wrap('setFontSize', a => sizes.push(Number(a[0])))
+      wrap('text', a => texts.push({ text: Array.isArray(a[0]) ? a[0].join(' ') : String(a[0]), x: Number(a[1]) }))
+    }]
+    events.push(hook)
+    try {
+      await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [rowIds[2]!, rowIds[0]!, rowIds[1]!], destPath: join(testDb.tmpDir, 'legible.pdf') })
+    } finally { events.splice(events.indexOf(hook), 1) }
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11)
+    const black = (c: unknown[]) => c.every(v => v === 0 || v === '0' || v === undefined || v === '#000000' || (Array.isArray(v) && v.every(x => x === 0)))
+    expect(colors.filter(c => !black(c))).toEqual([])
+    const names = texts.map(t => t.text).filter(t => ['Ann', 'Bea', 'Cal'].includes(t))
+    expect(names).toEqual(['Cal', 'Ann', 'Bea'])
+    // Right-aligned: the date sits at its column's right edge, well past where the header starts
+    const date = texts.find(t => /Nov|11\/0?1\/2026|2026-11-01/.test(t.text))!
+    const header = texts.find(t => t.text === 'Column 2')!
+    expect(date.x).toBeGreaterThan(header.x + 50)
   })
 
   it('handles grid with zero rows', async () => {

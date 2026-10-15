@@ -34,6 +34,7 @@ import { loadDeadlines } from './deadlines'
 import { deadlineSummary } from '../shared/deadlineSummary'
 import { availabilityLabel } from '../shared/availability'
 import { normalizeHexColor } from '../shared/color'
+import { COLUMN_TRAITS } from '../shared/columnTraits'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Letter Template PDF Export
@@ -69,6 +70,12 @@ export async function exportLetterPdf(text: string, destPath: string): Promise<v
 // 4.6 — PDF Grid Export
 // ──────────────────────────────────────────────────────────────────────────────
 
+/** The smallest text on a list's PDF */
+export const GRID_PDF_MIN_PT = 11
+/** Dates, numbers and worked-out days (the numeric-text trait), but not a checkbox's Yes/No */
+const rightAligned = (type: string): boolean =>
+  type !== 'checkbox' && (COLUMN_TRAITS as Record<string, { numericText: boolean } | undefined>)[type]?.numericText === true
+
 export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const { gridId, columnIds, activeRowIds, destPath, title } = options
   const { grid, columns, rows } = loadGridData(gridId, { includeHidden: true })
@@ -92,11 +99,11 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const titleLines = doc.splitTextToSize(exportTitle, doc.internal.pageSize.width - 28) as string[]
   const titleExtra = (titleLines.length - 1) * lineHeight(doc)
   doc.text(titleLines, 14, 18)
-  doc.setFontSize(9)
+  // Black, and no smaller than the body: people read this on paper (persona study R7)
+  doc.setFontSize(GRID_PDF_MIN_PT)
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(100)
-  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24 + titleExtra)
   doc.setTextColor(0)
+  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24 + titleExtra)
 
   const head = [selectedColumns.map(c => c.name)]
   // Read the date format once, not once per cell
@@ -108,7 +115,7 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   // Compute column widths: Name gets more space
   const gridColCount = selectedColumns.length
   const gridUsable = 297 - 28 // A4 landscape minus margins
-  const gridColStyles: Record<number, { cellWidth?: number }> = {}
+  const gridColStyles: Record<number, { cellWidth?: number; halign?: 'right' }> = {}
   if (gridColCount > 1) {
     const nameW = Math.min(gridUsable * 0.25, 60)
     const otherW = (gridUsable - nameW) / (gridColCount - 1)
@@ -117,25 +124,29 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
       gridColStyles[i] = { cellWidth: otherW }
     }
   }
-  const gridFontSize = gridColCount > 16 ? 6 : gridColCount > 10 ? 7 : 8
+  // Dates, numbers and days-left line up on the right, like the table on screen
+  selectedColumns.forEach((c, i) => { if (i > 0 && rightAligned(c.column_type)) gridColStyles[i] = { ...gridColStyles[i], halign: 'right' } })
+  // 11 pt at the least, black on white with a black rule under the header (persona study R7):
+  // wide lists wrap onto more lines instead of shrinking the letters
+  const gridFontSize = gridColCount > 10 ? GRID_PDF_MIN_PT : 12
 
   autoTable(doc, {
     head,
     body,
-    startY: 28 + titleExtra,
-    styles: { fontSize: gridFontSize, cellPadding: 2 },
-    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    startY: 30 + titleExtra,
+    styles: { fontSize: gridFontSize, cellPadding: 1.8, textColor: 0, lineColor: 0, lineWidth: 0 },
+    headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold', lineColor: 0, lineWidth: { bottom: 0.35 } },
+    bodyStyles: { lineColor: 0, lineWidth: { bottom: 0.1 } },
+    alternateRowStyles: { fillColor: 255 },
     columnStyles: gridColStyles,
     margin: { left: 14, right: 14 },
     didDrawPage: () => {
       // Footer
       const pageNum = doc.getNumberOfPages()
-      doc.setFontSize(7)
-      doc.setTextColor(120)
+      doc.setFontSize(GRID_PDF_MIN_PT)
+      doc.setTextColor(0)
       doc.text('CONFIDENTIAL', 14, doc.internal.pageSize.height - 8)
       doc.text(`Page ${pageNum}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 8, { align: 'right' })
-      doc.setTextColor(0)
     }
   })
 
