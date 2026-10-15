@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, ChevronDown, Eye, BookOpen, Sparkles, ShieldCheck } from 'lucide-react'
-import { STEPS, tourSteps } from '../components/shared/TourOverlay'
+import { STEPS } from '../components/shared/TourOverlay'
 import { featureNow } from '../hooks/useFeature'
 import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
@@ -13,7 +13,6 @@ import type { FAQCategory, FAQItem } from './help/types'
 import { CATEGORY_LABELS, ALL_CATEGORIES } from './help/types'
 import { FAQ_ITEMS } from './help/faqData'
 import { SecuritySummaryDialog } from '../components/shared/SecuritySummaryDialog'
-import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { highlightText } from './help/highlightText'
 import { useVocab } from '../hooks/useVocab'
 import { PurposeLine } from '../components/shared/PurposeLine'
@@ -84,7 +83,6 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
   const [debouncedSearch, setDebouncedSearch] = useState(persisted.current?.search ?? '')
   const [activeCategory, setActiveCategory] = useState<FAQCategory | 'all'>(persisted.current?.category ?? 'all')
   const [showSecuritySummary, setShowSecuritySummary] = useState(false)
-  const [confirmTour, setConfirmTour] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set(persisted.current?.openIds ?? []))
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -265,7 +263,7 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
         {/* One slim row for the tour, what's new and the security summary, so the first
             question is on the first screen at 768 px (E-17) */}
         <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
-          <button type="button" className="hit-44 inline-flex items-center gap-2 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" onClick={() => setConfirmTour(true)}>
+          <button type="button" className="hit-44 inline-flex items-center gap-2 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" onClick={onStartTour}>
             <Sparkles className="w-4 h-4" aria-hidden="true" />
             Take the tour
           </button>
@@ -282,15 +280,6 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
           </Tooltip>
         </div>
         <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
-        {/* The tour leaves this page, so it asks first (E-43) */}
-        <ConfirmDialog
-          open={confirmTour}
-          title={`Start the ${tourSteps(STEPS).length}-step tour?`}
-          message="It walks through every part of Pulse you have switched on. You can stop any time."
-          confirmLabel="Start the tour"
-          onConfirm={() => { setConfirmTour(false); onStartTour() }}
-          onCancel={() => setConfirmTour(false)}
-        />
 
         {/* Category chips */}
         <div className="flex gap-2 flex-wrap">

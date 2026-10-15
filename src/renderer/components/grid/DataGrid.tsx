@@ -50,7 +50,7 @@ import { GroupHeaderItem, CollapseExpandBar, GroupContextMenuOverlay } from './G
 import { MoveToGridDialog, BulkMoveDialog } from './GridDialogs'
 import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
-import { GridHintBanner, GridLoadError, GridEmptyRecords } from './GridNotices'
+import { GridLoadError, GridEmptyRecords } from './GridNotices'
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
 import { useFeature } from '../../hooks/useFeature'
@@ -249,15 +249,6 @@ export function DataGrid(): React.ReactElement {
     const timer = setTimeout(() => setFlashColumnId(null), 1500)
     return () => clearTimeout(timer)
   }, [flashColumnId])
-
-  // Hint banner — dismissible via localStorage
-  const [hintDismissed, setHintDismissed] = useState(() =>
-    localStorage.getItem('pulse-grid-hints-dismissed') === '1'
-  )
-  const dismissHint = useCallback(() => {
-    localStorage.setItem('pulse-grid-hints-dismissed', '1')
-    setHintDismissed(true)
-  }, [])
 
   // Acuity sort: null → 'desc' (high first) → 'asc' (low first) → null
   const [acuitySortDir, setAcuitySortDir] = useState<'asc' | 'desc' | null>(null)
@@ -612,11 +603,8 @@ export function DataGrid(): React.ReactElement {
       data-tour="grid"
       className="h-full flex flex-col overflow-hidden"
     >
-      {/* Only rows sit inside the grid: the tip, the Collapse all bar, the empty-list
+      {/* Only rows sit inside the grid: the Collapse all bar, the empty-list
           message and the dialogs are outside it, so screen readers stay in table mode */}
-      {/* ── Hint banner for new users ─── */}
-      {!hintDismissed && tableRows.length > 0 && <GridHintBanner onDismiss={dismissHint} />}
-
       {/* Collapse/Expand All toolbar (grouped mode only, and only with something to fold, UX-B-41) */}
       {isGrouped && tableRows.length > 0 && (
         <div className="flex-shrink-0">

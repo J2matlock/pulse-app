@@ -24,6 +24,15 @@ describe('useModalManager', () => {
     expect(result.current.showTour).toBe(false)
   })
 
+  it('the first look starts closed and toggles (UX pass Q7)', () => {
+    const { result } = renderHook(() => useModalManager())
+    expect(result.current.firstLook).toBe(false)
+    act(() => { result.current.setFirstLook(true) })
+    expect(result.current.firstLook).toBe(true)
+    act(() => { result.current.setFirstLook(false) })
+    expect(result.current.firstLook).toBe(false)
+  })
+
   it('setCommandPaletteOpen toggles command palette', () => {
     const { result } = renderHook(() => useModalManager())
     act(() => { result.current.setCommandPaletteOpen(true) })

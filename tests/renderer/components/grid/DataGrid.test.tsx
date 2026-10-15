@@ -967,16 +967,13 @@ describe('DataGrid', () => {
       expect(rows.map(r => r.getAttribute('aria-rowindex'))).toEqual(rows.map((_, i) => String(i + 1)))
     })
 
-    it('holds only rows: the tip and the empty-list message sit outside the grid (AUDIT-042)', async () => {
+    it('holds only rows: the empty-list message sits outside the grid, and the old tip bar is gone (AUDIT-042, UX pass Q7)', async () => {
       localStorage.removeItem('pulse-grid-hints-dismissed')
       const { unmount } = renderDataGrid()
       await flushEffects()
-      const tip = screen.getByRole('button', { name: 'Dismiss tip' })
-      expect(screen.getByRole('grid').contains(tip)).toBe(false)
-      // Mouse-first words, no right-click or shortcut clauses (UX-B-02, UX-A-09)
-      const tipText = tip.parentElement!.textContent!
-      expect(tipText).toBe("Tip: click a column name to sort. The ⋯ next to it has deadline rules, hiding and more. The person icon opens a client's page.")
-      expect(tipText).not.toMatch(/right-click|Shift\+\?/i)
+      // The one-time grid hint (components/onboarding) replaced the blue tip bar
+      expect(screen.queryByRole('button', { name: 'Dismiss tip' })).toBeNull()
+      expect(screen.queryByText(/^Tip: click a column name/)).toBeNull()
       unmount()
       setupStores({ rows: [] })
       renderDataGrid()

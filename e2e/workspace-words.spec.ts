@@ -146,7 +146,7 @@ test.describe('Changing the workspace words', () => {
     // Profile
     await window.getByRole('button', { name: 'Add widget', exact: true }).click();
     await window.waitForTimeout(500);
-    await window.getByRole('button', { name: /open widget profile/i }).first().click();
+    await window.getByRole('button', { name: /open widget's page/i }).first().click();
     await expect(window.getByText(/jots?/i).first()).toBeVisible({ timeout: 10000 });
     // The list's own name ("Social Worker Caseload") is the user's data, not a word Pulse chose
     expect((await window.locator('main').innerText()).replace(/Social Worker Caseload/g, '')).not.toMatch(OLD_WORDS);

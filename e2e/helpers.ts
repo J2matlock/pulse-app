@@ -146,12 +146,30 @@ export async function startSetup(window: Page): Promise<boolean> {
   return true;
 }
 
-/** Leave the "Your workspace is ready" screen without the tour. */
+/**
+ * Count every one-time hint (and the first look after setup) as seen, so specs
+ * aren't interrupted by them. Written before setup ends, the app keeps it
+ * instead of turning hints on for a new user (src/renderer/stores/hintStore.ts).
+ */
+export async function silenceHints(window: Page): Promise<void> {
+  await window.evaluate(() => (globalThis as unknown as { api: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> } })
+    .api.invoke('settings:update', 'onboarding_hints_seen', 'all'));
+}
+
+/**
+ * Leave the "You're all set" screen ("Open my caseload"), with the one-time
+ * hints and the first look silenced; a first look that shows anyway is closed.
+ */
 export async function finishSetup(window: Page): Promise<void> {
-  const exploreBtn = window.getByText(/explore on my own/i);
-  await exploreBtn.waitFor({ state: 'visible', timeout: 10000 });
-  await exploreBtn.click();
+  const openBtn = window.getByRole('button', { name: /^open my /i });
+  await openBtn.waitFor({ state: 'visible', timeout: 10000 });
+  await silenceHints(window);
+  await openBtn.click();
   await window.waitForSelector('nav, [class*="sidebar"]', { timeout: 20000 });
+  const firstLook = window.getByRole('dialog', { name: /^here's your /i });
+  if (await firstLook.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) {
+    await firstLook.getByRole('button', { name: /^(close|got it)$/i }).click();
+  }
 }
 
 /**
@@ -173,7 +191,7 @@ export async function skipOnboarding(window: Page): Promise<void> {
   await addBtn.click();
   await window.waitForTimeout(3000); // List creation takes a moment
 
-  // Step 4: Done — click "No thanks, I'll explore on my own"
+  // Step 4: Done — click "Open my caseload"
   await finishSetup(window);
 }
 

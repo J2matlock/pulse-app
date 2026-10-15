@@ -28,7 +28,9 @@ import { HUMAN_SERVICES_VOCAB } from '../../../src/shared/vocab'
 import { setWords } from '../vocabFixture'
 
 const ws = { vocab: {}, features: {}, gridVocab: {} }
+let onComplete = vi.fn()
 beforeEach(() => {
+  onComplete = vi.fn()
   setWords({}, {}, {})
   mockInvoke.mockReset()
   mockInvoke.mockImplementation((channel: string) => {
@@ -44,7 +46,7 @@ beforeEach(() => {
 })
 
 function toStart() {
-  render(<SetupView onComplete={vi.fn()} onStartTour={vi.fn()} />)
+  render(<SetupView onComplete={onComplete} />)
   fireEvent.click(screen.getByRole('button', { name: /Get started/ }))
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Dana Lee' } })
   fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
@@ -151,7 +153,7 @@ describe('SetupView', () => {
     mockInvoke.mockImplementation((channel: string) => channel === IPC.ONBOARDING_CHECK
       ? Promise.resolve({ ok: true, data: { complete: false, progress: { step: 'sheet-rows', gridId: 7, listName: 'Customers' } } })
       : Promise.resolve({ ok: true, data: ws }))
-    render(<SetupView onComplete={vi.fn()} onStartTour={vi.fn()} />)
+    render(<SetupView onComplete={onComplete} />)
     await screen.findByRole('heading', { name: 'Each line of your spreadsheet is one…' })
     expect(screen.getByText('Picking up where you left off.')).toBeTruthy()
     expect((screen.getByRole('radio', { name: 'Customers' }) as HTMLInputElement).checked).toBe(true)
@@ -201,12 +203,26 @@ describe('SetupView', () => {
       const box = screen.getByRole('checkbox', { name: label }) as HTMLInputElement
       expect(box.checked).toBe(true)
       expect(screen.getByText(/reads a version number from GitHub and sends nothing about you or your data/)).toBeTruthy()
-      // Small print: after the tour choice, not the first thing under the headline (UX-A-18)
-      const tour = screen.getByRole('button', { name: /Show me around/ })
-      expect(tour.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      // Small print: after the one way on, not the first thing under the headline (UX-A-18)
+      const open = screen.getByRole('button', { name: /^Open my / })
+      expect(open.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      // One way on, and no tour question (UX pass Q7)
+      expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
+      expect(screen.queryByRole('button', { name: /Show me around|explore on my own/ })).toBeNull()
       fireEvent.click(box)
       await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, 'auto_update_check', 'false'))
       expect(box.checked).toBe(false)
+    })
+
+    it('ends with one button, "Open my caseload" in the example\'s words, which finishes setup (UX pass Q7)', async () => {
+      toStart()
+      setWords(HUMAN_SERVICES_VOCAB)
+      await paths[0]![1]()
+      await screen.findByText("You're all set")
+      const open = screen.getByRole('button', { name: 'Open my caseload' })
+      expect(screen.queryByText(/quick tour/)).toBeNull()
+      fireEvent.click(open)
+      expect(onComplete).toHaveBeenCalledTimes(1)
     })
 
     it('shows the setting as saved when it was already switched off', async () => {

@@ -36,7 +36,9 @@ const DATA_COLOUR = [
 const HERO = [/^views\/SetupView\.tsx$/, /^views\/setup\//, /^views\/PasswordSetupView\.tsx$/, /^views\/LockScreenView\.tsx$/, /^views\/FocusModeView\.tsx$/, /^views\/focus-mode\//]
 
 /** Full-screen or custom-keyboard surfaces that aren't a plain dialog */
-const DIALOG_ALLOWED = ['components/shared/CommandPalette.tsx', 'components/shared/TourOverlay.tsx', 'components/shared/MiniTour.tsx', 'views/FocusModeView.tsx']
+const DIALOG_ALLOWED = ['components/shared/CommandPalette.tsx', 'components/shared/TourOverlay.tsx', 'components/shared/MiniTour.tsx', 'views/FocusModeView.tsx',
+  // A spotlight card beside a lit-up row, like the tour's: not a centred dialog
+  'components/onboarding/FirstLook.tsx']
 
 export const RULES = {
   radius: 'Use rounded-lg (or rounded-full for pills, avatars, switches and dots); rounded-sm only on things 20 px or smaller',

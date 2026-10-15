@@ -1,5 +1,6 @@
 /**
- * TourOverlay — Rich interactive tour shown after onboarding.
+ * TourOverlay — the full tour, from Help ("Take the tour"). New users get the
+ * first look and one-time hints instead (components/onboarding, UX pass Q7).
  * Highlights key UI areas with spotlight cutout, icons, and friendly descriptions.
  * Designed for non-tech-savvy users (care coordinators, social workers).
  *
@@ -19,15 +20,15 @@ import {
 import { useVocab } from '../../hooks/useVocab'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { modHelp } from '../../utils/keys'
-import { STEPS, FIRST_RUN_TOUR, tourSteps } from './tourSteps'
+import { STEPS, tourSteps } from './tourSteps'
 import { computeTooltipPosition, type TourRect } from './tourPosition'
 
-export { STEPS, FIRST_RUN_TOUR, tourSteps, type TourStep } from './tourSteps'
+export { STEPS, tourSteps, type TourStep } from './tourSteps'
 
 interface Props {
   onComplete: () => void
-  /** Every step (Help's "Retake full tour"); otherwise the short first-run tour */
-  full?: boolean
+  /** Where skipping or finishing goes: back to where it started, so starting it needs no "Are you sure?" */
+  returnRoute?: string
 }
 
 /**
@@ -42,7 +43,7 @@ function columnRect(header: Element): TourRect {
   return { top: h.top, left: h.left, right: h.right, bottom, width: h.width, height: Math.max(h.height, bottom - h.top) }
 }
 
-export function TourOverlay({ onComplete, full = false }: Props): React.ReactElement {
+export function TourOverlay({ onComplete, returnRoute = '#/grid' }: Props): React.ReactElement {
   const { f } = useVocab(null)
   const [stepIndex, setStepIndex] = useState(0)
   const nextRef = useRef<HTMLButtonElement>(null)
@@ -52,8 +53,8 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
   const tooltipRef = useRef<HTMLDivElement>(null)
   const prevStepRef = useRef(0)
 
-  // The short tour (or every step), minus switched-off features and steps that don't apply
-  const activeSteps = tourSteps(full ? STEPS : STEPS.filter(s => FIRST_RUN_TOUR.includes(s.id)))
+  // Every step, minus switched-off features and steps that don't apply
+  const activeSteps = tourSteps(STEPS)
   const step = activeSteps[stepIndex]
 
   // Keyboard and screen-reader users land on Next at each step
@@ -116,8 +117,8 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
     if (stepIndex < activeSteps.length - 1) {
       goTo(stepIndex + 1)
     } else {
-      // Navigate back to grid before completing
-      window.location.hash = '#/grid'
+      // Back where the tour was started
+      window.location.hash = returnRoute
       onComplete()
     }
   }
@@ -129,7 +130,7 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
   }
 
   // Tab stays in the card, Escape skips the tour, and focus goes back where it was
-  useFocusTrap(tooltipRef, true, { onEscape: () => { window.location.hash = '#/grid'; onComplete() } })
+  useFocusTrap(tooltipRef, true, { onEscape: () => { window.location.hash = returnRoute; onComplete() } })
 
   // Handle keyboard nav
   useEffect(() => {
@@ -235,7 +236,7 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
               </h2>
             </div>
             <button
-              onClick={() => { window.location.hash = '#/grid'; onComplete() }}
+              onClick={() => { window.location.hash = returnRoute; onComplete() }}
               className="hit-44 w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
               title="Skip tour (Esc)"
               aria-label="Skip tour"
@@ -282,7 +283,7 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { window.location.hash = '#/grid'; onComplete() }}
+                  onClick={() => { window.location.hash = returnRoute; onComplete() }}
                   className="hit-44 px-3 py-2 text-base text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                 >
                   Skip tour

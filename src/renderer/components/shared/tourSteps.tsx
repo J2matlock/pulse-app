@@ -47,9 +47,6 @@ export interface TourStep {
   spotlight?: 'column'
 }
 
-/** The first-run tour: about seven steps, the core of the app (audit F-05) */
-export const FIRST_RUN_TOUR = ['sidebar', 'add-client', 'deadline-colors', 'open-profile', 'dashboard', 'calendar', 'help']
-
 /** Steps to play: switched-off features and steps that don't apply are left out */
 export function tourSteps(steps: TourStep[]): TourStep[] {
   return steps.filter(s => (!s.feature || featureNow(s.feature)) && (!s.skipIf || !s.skipIf()))

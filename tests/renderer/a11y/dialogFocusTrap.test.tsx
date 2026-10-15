@@ -14,6 +14,11 @@ Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, wr
 import { SecuritySummaryDialog } from '../../../src/renderer/components/shared/SecuritySummaryDialog'
 import { MoveComputerWizard } from '../../../src/renderer/components/settings/MoveComputerWizard'
 import { TourOverlay } from '../../../src/renderer/components/shared/TourOverlay'
+import { FirstLook } from '../../../src/renderer/components/onboarding/FirstLook'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
+import { useAlertStore } from '../../../src/renderer/stores/alertStore'
+import { useHintStore } from '../../../src/renderer/stores/hintStore'
+import type { Column, GridRow, ParsedAlertRule } from '../../../src/shared/types'
 import { setWords } from '../vocabFixture'
 
 type DialogProps = { open: boolean; onClose: () => void }
@@ -80,5 +85,35 @@ describe('tour', () => {
     expect(document.activeElement).toBe(controls[0])
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
     expect(onComplete).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('first look (UX pass Q7)', () => {
+  it('keeps Tab in the card, starts on Done, and Escape closes it', async () => {
+    const yearly = { id: 7, name: 'Every year', description: null, is_system: 0, thresholds: [], interval_days: null, interval_months: 12, created_at: '', kind: 'interval' } as ParsedAlertRule
+    const columns = [
+      { id: 1, name: 'Name', column_type: 'text', config: '{}', is_name_column: 1 },
+      { id: 3, name: 'Annual review', column_type: 'date', config: '{"alert_rule_id":7}', is_name_column: 0 },
+    ] as unknown as Column[]
+    const row = { row_id: 9, col_1: 'Robert', col_3: '2020-01-01' } as unknown as GridRow
+    useGridStore.setState({ activeGridId: 1, loadedGridId: 1, isLoading: false, rows: [row], columns, sampleRows: {} } as never)
+    useAlertStore.setState({ rules: [yearly], isLoaded: true })
+    useHintStore.setState({ seen: new Set() })
+    const list = document.createElement('div')
+    list.innerHTML = '<div role="grid"><div aria-rowindex="2"><div data-row-id="9" data-col-id="3"></div></div></div>'
+    document.body.appendChild(list)
+    const onClose = vi.fn()
+    render(<FirstLook onClose={onClose} />)
+    await act(async () => { vi.advanceTimersByTime(300) })
+    await act(async () => { vi.advanceTimersByTime(100) })
+    const dialog = screen.getByRole('dialog', { name: /^Here's your / })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Done' }))
+    const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled])'))
+    controls.at(-1)!.focus()
+    tab()
+    expect(document.activeElement).toBe(controls[0])
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    list.remove()
   })
 })

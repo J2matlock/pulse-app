@@ -7,6 +7,7 @@ import { useUndoStore } from '../stores/undoStore'
 import { useLinkStore } from '../stores/linkStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import { useGridStore } from '../stores/gridStore'
+import { startHintsForNewUser, useHintStore } from '../stores/hintStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { checkBackupReminder, checkWhatsNew } from './useBackupReminder'
@@ -21,7 +22,6 @@ interface UseAuthGatingReturn {
   /** Where setup starts: the welcome screen, or (shown again with no lists left) one of its starting points */
   setupStart: SetupStart
   setShowOnboarding: (v: boolean) => void
-  showTourAfterOnboarding: () => void
   completeOnboarding: () => void
 }
 
@@ -63,6 +63,7 @@ export function useAuthGating(): UseAuthGatingReturn {
     if (prevLockedRef.current && !isLocked && isPasswordSetup) {
       void useWorkspaceStore.getState().load()
       void useActivityTypeStore.getState().load()
+      void useHintStore.getState().load()
       void (async () => {
         try {
           const result = await safeInvoke(IPC.ONBOARDING_CHECK)
@@ -80,6 +81,7 @@ export function useAuthGating(): UseAuthGatingReturn {
     }
     if (isLocked) {
       setShowOnboarding(false)
+      useHintStore.getState().reset()
     }
     prevLockedRef.current = isLocked
   }, [isLocked, isPasswordSetup, loadRules])
@@ -87,22 +89,28 @@ export function useAuthGating(): UseAuthGatingReturn {
   // Setup made lists the main screen hasn't fetched yet: fetch them and open the first,
   // so the new list shows straight away instead of after a trip to another page.
   // An example added there also brings link types and list words, which load only once.
+  // Only a true first run (setup from the welcome screen) turns the one-time hints on;
+  // setup shown again after the last list was deleted is for someone who knows Pulse.
   const finishSetup = useCallback(() => {
+    const firstRun = setupStart === 'welcome'
     setShowOnboarding(false)
     setSetupStart('welcome')
     loadRules()
     void useLinkStore.getState().load()
     void useWorkspaceStore.getState().load()
     void (async () => {
+      if (firstRun) await startHintsForNewUser()
+      await useHintStore.getState().load()
+    })()
+    void (async () => {
       const store = useGridStore.getState()
       await store.loadGridList()
       const { grids, activeGridId, loadGrid } = useGridStore.getState()
       if (grids.length > 0 && !grids.some(g => g.id === activeGridId)) await loadGrid(grids[0]!.id)
     })()
-  }, [loadRules])
+  }, [loadRules, setupStart])
 
   const completeOnboarding = finishSetup
-  const showTourAfterOnboarding = finishSetup
 
   // Words or features changed elsewhere (another window, applying a starter)
   useEffect(() => window.api.on(IPC.WORKSPACE_CHANGED, () => { void useWorkspaceStore.getState().load() }), [])
@@ -131,7 +139,6 @@ export function useAuthGating(): UseAuthGatingReturn {
     authState,
     setupStart,
     setShowOnboarding,
-    showTourAfterOnboarding,
     completeOnboarding,
   }
 }
