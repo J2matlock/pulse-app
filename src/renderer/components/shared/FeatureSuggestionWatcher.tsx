@@ -131,14 +131,14 @@ export function FeatureSuggestionWatcher(): null {
     let quietUntil = Number.POSITIVE_INFINITY
 
     const refreshSample = () => {
-      void safeInvoke(IPC.SAMPLE_DATA_STATUS).then(r => { if (alive) sampleGridId = r.ok ? r.data.gridId : null })
+      void safeInvoke(IPC.SAMPLE_DATA_STATUS).then(r => { if (alive) sampleGridId = r.ok ? r.data?.gridId ?? null : null })
     }
     void Promise.all([
       safeInvoke(IPC.SAMPLE_DATA_STATUS),
       safeInvoke<string | null>(IPC.SETTINGS_GET, 'onboarding_completed_at'),
     ]).then(([sample, setupAt]) => {
       if (!alive) return
-      sampleGridId = sample.ok ? sample.data.gridId : null
+      sampleGridId = sample.ok ? sample.data?.gridId ?? null : null
       const at = setupAt.ok && setupAt.data ? parseDbTimestamp(setupAt.data) : null
       quietUntil = at && !Number.isNaN(at.getTime()) ? at.getTime() + QUIET_AFTER_SETUP_MS : 0
     })
