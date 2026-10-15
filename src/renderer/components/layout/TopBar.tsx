@@ -19,12 +19,25 @@ import type { FAQCategory } from '../../views/help/types'
 import { notePage } from '../../utils/navHistory'
 import { pulseEvents } from '../../events'
 
-/** The Help topic that goes with a page */
-export function helpCategoryFor(pathname: string): FAQCategory | 'all' {
+/** The Help topic that goes with each Settings tab (`?tab=`); six of the nine aren't about security (E-13) */
+const SETTINGS_TAB_HELP: Record<string, FAQCategory> = {
+  workspace: 'getting-started', profile: 'snippets-templates', appearance: 'tips-shortcuts', security: 'security-backups',
+  backup: 'security-backups', data: 'import-export', alerts: 'dashboard-deadlines', notes: 'client-profiles', about: 'tips-shortcuts',
+}
+
+/**
+ * The Help topic that goes with a page. `search` is the query string; with the
+ * HashRouter it lives in the hash ("#/settings?tab=alerts"), which is the default.
+ */
+export function helpCategoryFor(pathname: string, search: string = typeof window === 'undefined' ? '' : (window.location.hash.split('?')[1] ?? '')): FAQCategory | 'all' {
   const first = pathname.split('/')[1] ?? ''
+  if (first === 'settings') {
+    const tab = new URLSearchParams(search).get('tab') ?? 'workspace'
+    return SETTINGS_TAB_HELP[tab] ?? 'security-backups'
+  }
   const map: Record<string, FAQCategory> = {
     grid: 'caseload-grid', profile: 'client-profiles', dashboard: 'dashboard-deadlines', calendar: 'dashboard-deadlines',
-    tasks: 'tasks', contacts: 'contacts', reports: 'import-export', settings: 'security-backups', trash: 'caseload-grid',
+    tasks: 'tasks', contacts: 'contacts', reports: 'import-export', trash: 'caseload-grid',
     snippets: 'snippets-templates', templates: 'snippets-templates', 'letter-templates': 'snippets-templates',
   }
   return map[first] ?? (first === '' ? 'caseload-grid' : 'all')
