@@ -6,14 +6,35 @@ import { TOOLBAR_ICON } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore, type FilterOperator } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
-import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID } from '../../../shared/types'
+import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, type GridRow } from '../../../shared/types'
 import { Tooltip } from '../shared/Tooltip'
 import { useVocab } from '../../hooks/useVocab'
 import { useAlertStore } from '../../stores/alertStore'
 import { matchFilter } from '../../utils/filterMatch'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { localDateString } from '../../../shared/dates'
 import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, LinkFilterValue } from './filterOptions'
 
 const OVERDUE_FILTER = { columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status' as const, value: 'overdue' }
+const NO_ROWS: GridRow[] = []
+/** Records the Overdue count works out in the same render; more than this goes in slices */
+const ANSWER_AT_ONCE = 200
+const ANSWER_SLICE_MS = 8
+
+/**
+ * Each record's "is it overdue?", kept until something the answer depends on changes (the
+ * columns, the rules, counts and done flags, days off, today). An edit replaces one record's
+ * object, so only that one is worked out again; working all of them out on every change was
+ * most of the time between Add and the new row at 5,000 records (UX pass Q9b). Module-level,
+ * so coming back from a record's page (same records) doesn't work them all out again either.
+ */
+let overdueMemo: { deps: readonly unknown[]; byRow: WeakMap<GridRow, boolean> } | null = null
+function overdueAnswers(deps: readonly unknown[]): WeakMap<GridRow, boolean> {
+  if (!overdueMemo || overdueMemo.deps.length !== deps.length || overdueMemo.deps.some((d, i) => d !== deps[i])) {
+    overdueMemo = { deps, byRow: new WeakMap() }
+  }
+  return overdueMemo.byRow
+}
 
 // Export trigger controls to embed in GridToolbar
 export function FilterControls(): React.ReactElement {
@@ -33,13 +54,42 @@ export function FilterControls(): React.ReactElement {
   const rows = useGridStore(s => s.rows)
   const deadlineContext = useGridStore(s => s.deadlineContext)
   const alertRules = useAlertStore(s => s.rules)
-  const overdueCount = useMemo(() => {
-    void deadlineContext
-    if (!hasDeadlines) return 0
+  // Days off move due dates; today moves them all
+  const calendar = useWorkspaceStore(s => s.calendar)
+  const today = localDateString()
+  // A few records not yet known (an edit, an add) are worked out at once. A whole list just
+  // loaded is worked out a few milliseconds at a time after it's drawn, so the records show
+  // first, the page answers clicks meanwhile, and the number follows (UX pass Q9b)
+  const [answered, setAnswered] = useState(0)
+  const overdue = useMemo(() => {
+    void answered
+    if (!hasDeadlines) return { count: 0, unknown: NO_ROWS, check: null, known: null }
     const all = [...columns, ...hiddenColumns]
     const rules = new Map(alertRules.map(r => [r.id, r]))
-    return rows.filter(r => matchFilter(r, OVERDUE_FILTER, all, undefined, rules)).length
-  }, [rows, columns, hiddenColumns, alertRules, deadlineContext, hasDeadlines])
+    const check = (r: GridRow) => matchFilter(r, OVERDUE_FILTER, all, undefined, rules)
+    const known = overdueAnswers([columns, hiddenColumns, alertRules, deadlineContext, calendar, today])
+    const unknown = rows.filter(r => !known.has(r))
+    if (unknown.length <= ANSWER_AT_ONCE) for (const r of unknown) known.set(r, check(r))
+    let count = 0
+    for (const r of rows) if (known.get(r)) count++
+    return { count, unknown: unknown.length <= ANSWER_AT_ONCE ? NO_ROWS : unknown, check, known }
+  }, [rows, columns, hiddenColumns, alertRules, deadlineContext, calendar, today, hasDeadlines, answered])
+  useEffect(() => {
+    const { unknown, check, known } = overdue
+    if (!known || !check || unknown.length === 0) return
+    let i = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const step = () => {
+      const until = performance.now() + ANSWER_SLICE_MS
+      while (i < unknown.length && performance.now() < until) { const r = unknown[i++]!; known.set(r, check(r)) }
+      if (i < unknown.length) timer = setTimeout(step, 0)
+      else setAnswered(n => n + 1)
+    }
+    timer = setTimeout(step, 0)
+    return () => clearTimeout(timer)
+  }, [overdue])
+  // Still being worked out: no number yet, rather than a wrong one
+  const overdueCount = overdue.unknown.length > 0 ? 0 : overdue.count
   const [showPanel, setShowPanel] = useState(false)
   const filterBtnRef = useRef<HTMLButtonElement>(null)
 

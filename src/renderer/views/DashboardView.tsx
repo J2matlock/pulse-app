@@ -58,6 +58,8 @@ import { useLeavingItems } from './dashboard/useLeavingItems'
 import { EmptyState } from '../components/shared/EmptyState'
 
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
+/** Up to 2,000 items can come back; drawing them all took most of a second at 5,000 records (UX pass Q9b) */
+const FIRST_ITEMS_SHOWN = 100
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
@@ -105,6 +107,8 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [])
   useEffect(() => { setSelectedDeadlines(new Set()); setSelecting(false) }, [topTab])
+  // What's due and Overdue draw their first FIRST_ITEMS_SHOWN items until this is on
+  const [showAllItems, setShowAllItems] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -548,10 +552,12 @@ export default function DashboardView(): React.ReactElement {
 
   function renderList(items: PriorityItem[]): React.ReactElement {
     const seen = new Set<string>()
+    // The soonest first: a long list draws only its top, the rest a button away (UX pass Q9b)
+    const shown = showAllItems ? items : items.slice(0, FIRST_ITEMS_SHOWN)
     return (
       <div role="list">
-        {renderBulkBar(items)}
-        {items.map((item, i) => {
+        {renderBulkBar(shown)}
+        {shown.map((item, i) => {
           // The same record and column twice would share a key; the index only then
           let key = itemKey(item)
           if (seen.has(key)) key = `${key}-${i}`
@@ -562,6 +568,16 @@ export default function DashboardView(): React.ReactElement {
             </div>
           )
         })}
+        {shown.length < items.length && (
+          <div className="flex items-center gap-3 px-4 py-3 flex-wrap border-t border-slate-200 dark:border-slate-700">
+            <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
+              Showing the soonest {shown.length.toLocaleString()} of {items.length.toLocaleString()}.
+            </p>
+            <SecondaryButton size="compact" onClick={() => setShowAllItems(true)} data-testid="dashboard-show-all">
+              Show all {items.length.toLocaleString()}
+            </SecondaryButton>
+          </div>
+        )}
       </div>
     )
   }

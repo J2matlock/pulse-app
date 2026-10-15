@@ -251,6 +251,45 @@ describe('FilterControls (G-12, G-30)', () => {
     useGridStore.setState({ rows: [] })
   })
 
+  // Each record's answer is kept between changes (UX pass Q9b): an edit, an added record,
+  // and a changed rule all still change the number
+  it('the Overdue count follows edits, added records and rule changes', async () => {
+    const rule = { id: 4, name: 'Yearly', thresholds: [], interval_days: 365, interval_months: null, end_of_month: 0, kind: 'interval', rule_config: null, rule_condition: null, business_days: 0 } as unknown as ParsedAlertRule
+    useAlertStore.setState({ rules: [rule], isLoaded: true })
+    const columns = [makeColumn(1, 'Name'), { ...makeColumn(2, 'Review', 'date'), config: JSON.stringify({ alert_rule_id: 4 }) }]
+    const rows = [
+      { row_id: 1, col_1: 'Ann', col_2: '2020-01-05' }, { row_id: 2, col_1: 'Bo', col_2: localDateString() },
+    ] as unknown as GridRow[]
+    useGridStore.setState({ columns, rows, deadlineContext: null })
+    await renderSettled(<FilterControls />)
+    expect(screen.getByRole('button', { name: 'Overdue (1)' })).toBeTruthy()
+    // An edit makes Bo late
+    act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === 2 ? { ...r, col_2: '2021-06-01' } : r) })) })
+    expect(screen.getByRole('button', { name: 'Overdue (2)' })).toBeTruthy()
+    // A late record added
+    act(() => { useGridStore.setState(s => ({ rows: [...s.rows, { row_id: 3, col_1: 'Cy', col_2: '2019-02-02' } as unknown as GridRow] })) })
+    expect(screen.getByRole('button', { name: 'Overdue (3)' })).toBeTruthy()
+    // A ten-year rule: nobody is late any more
+    act(() => { useAlertStore.setState({ rules: [{ ...rule, interval_days: 3650 }] }) })
+    expect(screen.getByRole('button', { name: 'Overdue' })).toBeTruthy()
+    useAlertStore.setState({ rules: [] })
+    useGridStore.setState({ rows: [] })
+  })
+
+  it('a long list just loaded gets its Overdue number a moment after it shows, then keeps it through an edit', async () => {
+    const rule = { id: 4, name: 'Yearly', thresholds: [], interval_days: 365, interval_months: null, end_of_month: 0, kind: 'interval', rule_config: null, rule_condition: null, business_days: 0 } as unknown as ParsedAlertRule
+    useAlertStore.setState({ rules: [rule], isLoaded: true })
+    const columns = [makeColumn(1, 'Name'), { ...makeColumn(2, 'Review', 'date'), config: JSON.stringify({ alert_rule_id: 4 }) }]
+    const rows = Array.from({ length: 450 }, (_, i) => ({ row_id: i + 1, col_1: `P${i}`, col_2: i % 3 === 0 ? localDateString() : '2020-01-05' })) as unknown as GridRow[]
+    useGridStore.setState({ columns, rows, deadlineContext: null })
+    await renderSettled(<FilterControls />)
+    expect(await screen.findByRole('button', { name: 'Overdue (300)' })).toBeTruthy()
+    act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === 1 ? { ...r, col_2: '2020-01-05' } : r) })) })
+    expect(screen.getByRole('button', { name: 'Overdue (301)' })).toBeTruthy()
+    useAlertStore.setState({ rules: [] })
+    useGridStore.setState({ rows: [] })
+  })
+
   it('the Add filter panel takes focus, closes on Escape and gives focus back (AUDIT-044)', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
     await renderSettled(<FilterControls />)

@@ -21,11 +21,14 @@ export function localDateFromToday(days: number): string {
   return localDateString(d)
 }
 
-const SHORT_DATE: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
+// One formatter, made once: toLocaleDateString with options builds a new one on every call,
+// and the list asks for a date this way for every deadline cell it draws (UX pass Q9b)
+const SHORT_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 /** "Oct 14, 2026": the fixed US-English short date the app's labels use */
 export function shortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', SHORT_DATE)
+  // format() throws on an invalid date, where toLocaleDateString gave its own words
+  return isNaN(d.getTime()) ? String(d) : SHORT_DATE.format(d)
 }
 
 /**
