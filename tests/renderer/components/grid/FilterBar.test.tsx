@@ -41,6 +41,7 @@ vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-' + Math.random().toStrin
 
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { FilterBar, FilterControls } from '../../../../src/renderer/components/grid/FilterBar'
+import { OPERATOR_LABELS } from '../../../../src/renderer/components/grid/filterOptions'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 import { renderSettled } from '../../renderSettled'
@@ -148,7 +149,7 @@ describe('FilterBar', () => {
     expect(screen.queryByText('2026-10-10')).toBeNull()
   })
 
-  it('shows the Match all / any toggle when 2+ filters active', async () => {
+  it('shows a labelled "match all / any" choice when 2+ filters active (UX-B-17)', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'A' },
@@ -157,7 +158,11 @@ describe('FilterBar', () => {
       filterMode: 'and',
     })
     await renderSettled(<FilterBar />)
-    expect(screen.getByText('Match all')).toBeTruthy()
+    const choice = screen.getByLabelText(/Show clients that match/) as HTMLSelectElement
+    expect(choice.value).toBe('and')
+    expect([...choice.options].map(o => o.text)).toEqual(['all of these', 'any of these'])
+    fireEvent.change(choice, { target: { value: 'or' } })
+    expect(useGridStore.getState().filterMode).toBe('or')
   })
 
   it('does not show the Match all / any toggle with single filter', async () => {
@@ -167,8 +172,7 @@ describe('FilterBar', () => {
       ],
     })
     await renderSettled(<FilterBar />)
-    expect(screen.queryByText('Match all')).toBeNull()
-    expect(screen.queryByText('Match any')).toBeNull()
+    expect(screen.queryByTestId('filter-match-mode')).toBeNull()
   })
 
   it('does not show value for is_empty operator', async () => {
@@ -185,6 +189,17 @@ describe('FilterBar', () => {
     // The chip should not contain a font-mono span
     const monoSpans = chips?.querySelectorAll('.font-mono')
     expect(monoSpans?.length ?? 0).toBe(0)
+  })
+})
+
+describe('Filter wording (UX-B-36)', () => {
+  it('shows a value in plain text, and a deadline filter reads "deadline is"', async () => {
+    useGridStore.setState({
+      activeFilters: [{ columnId: 1, operator: 'contains', value: 'Housing' }],
+    })
+    await renderSettled(<FilterBar />)
+    expect(screen.getByText('Housing').className).not.toContain('font-mono')
+    expect(OPERATOR_LABELS.due_status).toBe('deadline is')
   })
 })
 
@@ -214,10 +229,10 @@ describe('FilterControls (G-12, G-30)', () => {
     const btn = screen.getByRole('button', { name: /^Filter/ })
     btn.focus()
     fireEvent.click(btn)
-    const panel = await screen.findByRole('dialog', { name: 'Add filter condition' })
+    const panel = await screen.findByRole('dialog', { name: 'Show only clients where…' })
     expect(panel.contains(document.activeElement)).toBe(true)
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
-    expect(screen.queryByRole('dialog', { name: 'Add filter condition' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Show only clients where…' })).toBeNull()
     expect(document.activeElement).toBe(btn)
   })
 
@@ -225,8 +240,8 @@ describe('FilterControls (G-12, G-30)', () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name'), makeColumn(2, 'Files', 'file_count'), makeColumn(3, 'Job no.', 'auto_number')] })
     await renderSettled(<FilterControls />)
     fireEvent.click(screen.getByRole('button', { name: /^Filter/ }))
-    await screen.findByRole('dialog', { name: 'Add filter condition' })
-    const conditions = () => [...(screen.getByLabelText('Condition') as HTMLSelectElement).options].map(o => o.value)
+    await screen.findByRole('dialog', { name: 'Show only clients where…' })
+    const conditions = () => [...(screen.getByLabelText('How it matches') as HTMLSelectElement).options].map(o => o.value)
     fireEvent.change(screen.getByLabelText('Column'), { target: { value: '2' } })
     expect(conditions()).toEqual(['gt', 'lt', 'equals', 'not_equals'])
     fireEvent.change(screen.getByLabelText('Column'), { target: { value: '3' } })
@@ -240,10 +255,10 @@ describe('FilterControls (G-12, G-30)', () => {
     await renderSettled(<FilterControls />)
     expect(screen.queryByRole('button', { name: /^Saved/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /^Filter/ }))
-    await screen.findByRole('dialog', { name: 'Add filter condition' })
+    await screen.findByRole('dialog', { name: 'Show only clients where…' })
     fireEvent.click(screen.getByRole('button', { name: 'Housing only' }))
     expect(applySavedFilter).toHaveBeenCalledWith(7)
-    expect(screen.queryByRole('dialog', { name: 'Add filter condition' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Show only clients where…' })).toBeNull()
   })
 
   it('has no Overdue button without deadlines', async () => {

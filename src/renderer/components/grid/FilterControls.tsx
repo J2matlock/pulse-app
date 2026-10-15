@@ -102,6 +102,8 @@ function FilterBarInline({
     applySavedFilter: s.applySavedFilter,
   })))
   const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string } | null>(null)
+  const { t } = useVocab()
+  const panelTitle = `Show only ${t('record', { many: true })} where…`
   // Pop-ups take focus, close on Escape and give focus back (AUDIT-044)
   const panelRef = useRef<HTMLDivElement>(null)
   const panelKeys = useMenuKeys(panelRef, showPanel && !!newFilter, onClosePanel, { kind: 'panel' })
@@ -154,7 +156,7 @@ function FilterBarInline({
               ref={panelRef}
               onKeyDown={panelKeys}
               role="dialog"
-              aria-label="Add filter condition"
+              aria-label={panelTitle}
               className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-4 w-80"
               style={panelBelow(filterBtnRef.current, 320)}
               variants={dropdownVariants}
@@ -180,7 +182,8 @@ function FilterBarInline({
                     <div className="border-t border-slate-200 dark:border-slate-700 mt-3" />
                   </div>
                 )}
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Add filter condition</p>
+                {/* A sentence, not "Add filter condition" (UX-B-36) */}
+                <p className="text-base font-semibold text-slate-700 dark:text-slate-200">{panelTitle}</p>
                 <div>
                   <label htmlFor="filter-inline-column" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Column</label>
                   <select id="filter-inline-column" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.columnId} onChange={e => handleColumnChange(parseInt(e.target.value, 10))}>
@@ -226,7 +229,7 @@ function FilterBarInline({
                 })()}
 
                 <div>
-                  <label htmlFor="filter-inline-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Condition</label>
+                  <label htmlFor="filter-inline-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">How it matches</label>
                   <select id="filter-inline-operator" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.operator} onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' ? '' : newFilter.value }) }}>
                     {ops.map(op => <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>)}
                   </select>
@@ -281,7 +284,7 @@ function FilterBarInline({
                     className="btn-primary flex-1 text-base disabled:opacity-40"
                     style={{ minHeight: 36 }}
                   >
-                    Add Filter
+                    Add filter
                   </button>
                   <button onClick={onClosePanel} className="btn-secondary text-base" style={{ minHeight: 36, padding: '0 12px' }}>Cancel</button>
                 </div>
