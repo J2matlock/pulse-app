@@ -12,7 +12,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import type { DateRuleAnswer } from '../../../shared/ipc-contract'
 import type { ColumnType, RecordKind } from '../../../shared/types'
 import { guessArticle } from '../../../shared/vocab'
-import { wordsFromListName } from '../../../shared/listWords'
+import { ownWordsProblem, wordsFromListName } from '../../../shared/listWords'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './DateRepeatPicker'
@@ -273,7 +273,8 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
               <input id="guided-many" className={field} maxLength={40} value={words.many} onChange={e => { setWordsTyped(true); setWords(w => ({ ...w, many: e.target.value })) }} />
             </div>
           </div>
-          {nav({ back: () => go(2), next: () => go(4) })}
+          {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
+          {nav({ back: () => go(2), next: () => { const problem = ownWordsProblem(one, many); if (problem) setError(problem); else go(4) } })}
         </>
       )}
 

@@ -140,15 +140,47 @@ describe('SetupView', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, 7, { record_kind: 'thing', vocab: { record: { one: 'hive', many: 'hives', article: 'a' } } }))
   })
 
-  it('spreadsheet: the rows question starts from the list name, not "Clients" (audit F-23)', async () => {
+  it('spreadsheet: the rows question suggests the list name\'s word, not "Clients", without ticking anything (audit F-23, UX-A-01)', async () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
     fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Tenants' } })
     fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-    expect((await screen.findByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(true)
-    expect((screen.getByLabelText('One of them') as HTMLInputElement).value).toBe('tenant')
+    expect((await screen.findByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(false)
     expect((screen.getByRole('radio', { name: 'Clients' }) as HTMLInputElement).checked).toBe(false)
+    expect(screen.getByText(/these look like tenants/)).toBeTruthy()
+    // Taking the suggestion fills "Something else" with it
+    fireEvent.click(screen.getByRole('button', { name: "Yes, they're tenants" }))
+    expect((screen.getByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('One of them') as HTMLInputElement).value).toBe('tenant')
+    expect((screen.getByLabelText('More than one') as HTMLInputElement).value).toBe('tenants')
+  })
+
+  it('spreadsheet: "My caseload" as the list name asks instead of making every word "caseload" (UX-A-01)', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'My caseload' } })
+    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+    await screen.findByRole('heading', { name: 'What are these rows?' })
+    for (const radio of screen.getAllByRole('radio')) expect((radio as HTMLInputElement).checked).toBe(false)
+    expect(screen.queryByText(/these look like/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Pick what each row/)
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.anything())
+  })
+
+  it('spreadsheet: refuses the same word for one and many (UX-A-32)', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+    fireEvent.click(await screen.findByRole('radio', { name: 'Something else' }))
+    fireEvent.change(screen.getByLabelText('One of them'), { target: { value: 'caseload' } })
+    fireEvent.change(screen.getByLabelText('More than one'), { target: { value: 'caseload' } })
+    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/same/)
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, expect.anything(), expect.anything())
   })
 
   it('picks up an interrupted setup where it stopped (audit F-02)', async () => {

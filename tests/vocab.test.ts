@@ -70,7 +70,31 @@ describe('wordsFromListName', () => {
     expect(wordsFromListName('Boxes')).toEqual({ one: 'box', many: 'boxes' })
     expect(wordsFromListName('Staff')).toEqual({ one: 'staff member', many: 'staff' })
     expect(wordsFromListName('Fleet vehicles')).toEqual({ one: 'fleet vehicle', many: 'fleet vehicles' })
-    expect(wordsFromListName('Glass')).toEqual({ one: 'glass', many: 'glass' })
     expect(wordsFromListName('  ')).toEqual({ one: 'record', many: 'records' })
+  })
+
+  it('a name that describes the container, not its rows, gets the neutral words (UX-A-01)', async () => {
+    const { wordsFromListName } = await import('../src/shared/listWords')
+    for (const name of ['My caseload', 'Caseloads', 'Roster', 'The panel', 'Cases', 'Client caseload', 'Housing list', 'My team', 'Spreadsheet']) {
+      expect(wordsFromListName(name), name).toEqual({ one: 'record', many: 'records' })
+    }
+  })
+
+  it('never guesses the same word for one and many, so counts stay readable (UX-A-32)', async () => {
+    const { wordsFromListName } = await import('../src/shared/listWords')
+    // No plural form: the neutral words instead of "4 glass"
+    expect(wordsFromListName('Glass')).toEqual({ one: 'record', many: 'records' })
+    for (const name of ['Housing', 'Customers', 'Staff', 'Equipment', 'People', 'Boxes', 'Fleet vehicles', 'Caseload', 'Tenants']) {
+      const w = wordsFromListName(name)
+      expect(w.one, name).not.toBe(w.many)
+    }
+  })
+
+  it('refuses typed words that are the same for one and many', async () => {
+    const { ownWordsProblem } = await import('../src/shared/listWords')
+    expect(ownWordsProblem('member', 'members')).toBeNull()
+    expect(ownWordsProblem('caseload', 'Caseload ')).toMatch(/same/)
+    expect(ownWordsProblem('', 'members')).toMatch(/one of them/)
+    expect(ownWordsProblem('member', ' ')).toMatch(/more than one/)
   })
 })

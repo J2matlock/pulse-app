@@ -17,7 +17,7 @@ import { PRODUCT_NAME } from '../../shared/constants'
 import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
 import type { Column, RecordKind } from '../../shared/types'
 import { guessArticle } from '../../shared/vocab'
-import { wordsFromListName } from '../../shared/listWords'
+import { NEUTRAL_WORDS, ownWordsProblem, wordsFromListName } from '../../shared/listWords'
 
 import { safeInvoke } from '../utils/safeInvoke'
 import { useWorkspaceStore } from '../stores/workspaceStore'
@@ -52,15 +52,27 @@ export const ROW_CHOICES: Array<{ one: string; many: string; kind: RecordKind }>
   { one: 'job', many: 'jobs', kind: 'job' },
 ]
 
-type RowsAnswer = { choice: number | 'other' | null; one: string; many: string; kind: RecordKind }
+type RowsAnswer = {
+  choice: number | 'other' | null
+  one: string
+  many: string
+  kind: RecordKind
+  /** A guess from the list's name, offered as a suggestion — never filled in silently (UX-A-01) */
+  suggested?: { one: string; many: string }
+}
 
-/** "What are these rows?" starts from the list's name ("Tenants" → other: tenant), or nothing for a generic name */
+const NO_ANSWER: RowsAnswer = { choice: null, one: '', many: '', kind: 'person' }
+
+/**
+ * "What are these rows?" starts from the list's name: a known word ("Customers") is ticked,
+ * an unknown one ("Tenants") is only suggested, and a generic name ("My caseload") asks.
+ */
 export function guessRows(listName: string): RowsAnswer {
   const g = wordsFromListName(listName)
-  if (['list', 'lists', 'record', 'records', 'sheet', 'spreadsheet'].includes(g.many)) return { choice: null, one: '', many: '', kind: 'person' }
+  if (g.one === NEUTRAL_WORDS.one) return NO_ANSWER
   const i = ROW_CHOICES.findIndex(c => c.one === g.one || c.many === g.many)
-  if (i >= 0) return { choice: i, one: '', many: '', kind: ROW_CHOICES[i]!.kind }
-  return { choice: 'other', one: g.one, many: g.many, kind: 'person' }
+  if (i >= 0) return { ...NO_ANSWER, choice: i, kind: ROW_CHOICES[i]!.kind }
+  return { ...NO_ANSWER, suggested: g }
 }
 
 /** Remember where setup is, so a lock or a closed window picks it up again */
@@ -188,9 +200,10 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
     if (gridId === null) return
     if (rows.choice === null) { setError('Pick what each row of your spreadsheet is, or choose "Something else".'); return }
     const chosen = rows.choice === 'other'
-      ? { one: rows.one.trim(), many: rows.many.trim() || rows.one.trim(), kind: rows.kind }
+      ? { one: rows.one.trim(), many: rows.many.trim(), kind: rows.kind }
       : ROW_CHOICES[rows.choice]!
-    if (!chosen.one) { setError('Type what you call one of them.'); return }
+    const problem = ownWordsProblem(chosen.one, chosen.many)
+    if (problem) { setError(problem); return }
     setBusy(true)
     try {
       const term = { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) }
@@ -346,6 +359,15 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                   Something else
                 </label>
               </fieldset>
+              {rows.suggested && rows.choice === null && (
+                <p className="text-base text-slate-600 dark:text-slate-300 flex flex-wrap items-center gap-2">
+                  From the list's name, these look like {rows.suggested.many}.
+                  <button type="button" className="btn-compact-secondary"
+                    onClick={() => setRows(r => ({ ...r, choice: 'other', one: r.suggested?.one ?? '', many: r.suggested?.many ?? '' }))}>
+                    Yes, they're {rows.suggested.many}
+                  </button>
+                </p>
+              )}
               {rows.choice === 'other' && (
                 <div className="space-y-3 pl-1">
                   <div className="grid grid-cols-2 gap-3">
