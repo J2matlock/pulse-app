@@ -1,6 +1,5 @@
 import React, { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
 import { useSettingsStore } from './stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
 import { ImportPreviewModal } from './components/shared/ImportPreviewModal'
@@ -28,7 +27,7 @@ const CalendarView = lazy(() => import('./views/CalendarView'))
 const ReportsView = lazy(() => import('./views/ReportsView'))
 import { CommandPalette } from './components/shared/CommandPalette'
 import { KeyboardShortcutsModal } from './components/shared/KeyboardShortcutsModal'
-import { UndoToast } from './components/shared/UndoToast'
+import { ToastHost } from './components/shared/ToastHost'
 import { TourOverlay } from './components/shared/TourOverlay'
 import { MiniTour } from './components/shared/MiniTour'
 import { WhatsNewModal } from './components/shared/WhatsNewModal'
@@ -138,7 +137,7 @@ export default function App(): React.ReactElement {
       <AppMotionConfig>
         <ErrorBoundary>
           <PasswordSetupView />
-          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+          <ToastHost />
         </ErrorBoundary>
       </AppMotionConfig>
     )
@@ -150,7 +149,7 @@ export default function App(): React.ReactElement {
       <AppMotionConfig>
         <ErrorBoundary>
           <LockScreenView />
-          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+          <ToastHost />
         </ErrorBoundary>
       </AppMotionConfig>
     )
@@ -162,7 +161,7 @@ export default function App(): React.ReactElement {
       <AppMotionConfig>
         <ErrorBoundary>
           <ResetPasswordAfterRecoveryDialog open={true} onComplete={() => setRecoverySession(false)} />
-          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+          <ToastHost />
         </ErrorBoundary>
       </AppMotionConfig>
     )
@@ -182,7 +181,7 @@ export default function App(): React.ReactElement {
               setShowTour(true)
             }}
           />
-          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+          <ToastHost />
         </ErrorBoundary>
       </AppMotionConfig>
     )
@@ -314,7 +313,6 @@ export default function App(): React.ReactElement {
           <AnchorChangeDialog />
           <MorningBriefing suppressed={!!showTour || !!miniTourSteps || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
           <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
-          <UndoToast />
           <GlobalTaskDialog open={globalTaskOpen} onClose={() => setGlobalTaskOpen(false)} />
           {showTour && (
             <TourOverlay full={showTour === 'full'} onComplete={() => {
@@ -363,7 +361,7 @@ export default function App(): React.ReactElement {
           </ErrorBoundary>
         )}
       </HashRouter>
-      <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+      <ToastHost withUndo />
     </AppMotionConfig>
   )
 }

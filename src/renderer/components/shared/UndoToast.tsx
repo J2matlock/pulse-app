@@ -1,13 +1,14 @@
 /**
- * UndoToast — bottom-right floating toast for undoable actions, where the
- * app's other toasts appear (not over the buttons in the middle: UX D-28).
- * Shows a 5-second countdown bar and an [Undo] button; it waits while the
- * pointer or focus is on it.
+ * UndoToast — the toast for undoable actions, at the bottom of the app's one
+ * toast column (ToastHost places it; other toasts stack above it), not over
+ * the buttons in the middle (UX D-28). Shows a countdown bar and an [Undo]
+ * button; it waits while the pointer or focus is on it.
  */
 import React, { useEffect, useState } from 'react'
 import { RotateCcw, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUndoStore, UNDO_TOAST_MS } from '../../stores/undoStore'
+import { PrimaryButton, IconButton } from '../ui/Button'
 
 export function UndoToast(): React.ReactElement | null {
   const { toast, undo, dismissToast, holdToast, undoStack } = useUndoStore(useShallow(s => ({
@@ -43,7 +44,7 @@ export function UndoToast(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed bottom-6 right-6 z-[300] flex flex-col overflow-hidden rounded-xl shadow-2xl bg-slate-800 text-white"
+      className="flex flex-col overflow-hidden rounded-lg shadow-2xl bg-slate-800 text-white"
       style={{ minWidth: 300, maxWidth: 420 }}
       onMouseEnter={() => hold(true)}
       onMouseLeave={() => hold(false)}
@@ -56,22 +57,11 @@ export function UndoToast(): React.ReactElement | null {
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="flex-1 text-sm break-words min-w-0">{toast.description}</span>
         {canUndo && (
-          <button
-            onClick={() => void undo()}
-            className="hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-base font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400"
-            style={{ minHeight: 36 }}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
+          <PrimaryButton size="compact" tone="inverse" icon={<RotateCcw className="w-4 h-4" />} onClick={() => void undo()}>
             Undo
-          </button>
+          </PrimaryButton>
         )}
-        <button
-          onClick={dismissToast}
-          className="hit-44 p-1.5 rounded-sm hover:bg-slate-700 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-slate-400"
-          aria-label="Dismiss"
-        >
-          <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-        </button>
+        <IconButton label="Dismiss" size="compact" tone="inverse" icon={<X className="w-4 h-4" />} onClick={dismissToast} />
       </div>
       {/* Countdown bar */}
       <div className="h-0.5 bg-slate-700">

@@ -6,6 +6,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { friendlyError } from '../utils/friendlyError'
 import { RestoreFromBackupForm } from '../components/shared/RestoreFromBackupForm'
+import { ToastIcon } from '../components/shared/ToastHost'
 import { usePlatform, cloudFolderAdvice, type Platform } from '../utils/platformText'
 import { PRODUCT_NAME } from '../../shared/constants'
 import { parseDbOpenFailure, type DbOpenFailureKind } from '../../shared/dbOpen'
@@ -118,11 +119,11 @@ export function LockScreenView(): React.ReactElement {
       if (result.ok) {
         if (result.data.cloudWarning) {
           // Same advice as after a restore, with a next step (AUDIT-161)
-          toast(cloudFolderAdvice(result.data.cloudWarning, platform), { duration: 20000, icon: '⚠️' })
+          toast(cloudFolderAdvice(result.data.cloudWarning, platform), { duration: 20000, icon: <ToastIcon kind="warning" /> })
         }
         const failed = result.data.failedAttempts ?? 0
         if (failed > 0) {
-          toast(`${failed} wrong password attempt${failed === 1 ? '' : 's'} since you last unlocked Pulse. If that wasn't you, change your password in Settings → Security.`, { duration: 12000, icon: '⚠️' })
+          toast(`${failed} wrong password attempt${failed === 1 ? '' : 's'} since you last unlocked Pulse. If that wasn't you, change your password in Settings → Security.`, { duration: 12000, icon: <ToastIcon kind="warning" /> })
         }
         setLocked(false)
       } else if (openKind) {

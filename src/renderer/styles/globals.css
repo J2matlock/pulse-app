@@ -118,6 +118,10 @@
     --accent: var(--color-accent);
     --accent-hover: var(--color-accent-hover);
     --ring-color: var(--color-accent);
+    /* Toasts (ToastHost) */
+    --toast-bg: #FFFFFF;
+    --toast-fg: #1E293B;         /* slate-800 */
+    --toast-border: #E2E8F0;     /* slate-200 */
   }
 
   .dark {
@@ -134,6 +138,9 @@
     --accent: var(--color-accent);
     --accent-hover: var(--color-accent-hover);
     --ring-color: var(--color-accent);
+    --toast-bg: #1E293B;         /* slate-800, a step up from the page */
+    --toast-fg: #F1F5F9;         /* slate-100 */
+    --toast-border: #475569;     /* slate-600 */
   }
 
   /* Base: 15px minimum for all body text (spec requirement) */

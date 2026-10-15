@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
 import { MS_PER_DAY } from '../../shared/constants'
@@ -8,6 +9,7 @@ import { safeInvoke } from '../utils/safeInvoke'
 import { localDateString } from '../../shared/dates'
 import { pulseEvents } from '../events'
 import { showRecoveryKeyReminder } from '../components/shared/RecoveryKeyReminderToast'
+import { ToastIcon } from '../components/shared/ToastHost'
 
 
 /**
@@ -28,15 +30,15 @@ export async function checkBackupReminder(): Promise<void> {
     const status = res.data
     useBackupStatusStore.setState({ status, loadedAt: Date.now() })
     if (status.scheduled.overdue) {
-      toast(`Your scheduled backup isn't working. ${status.scheduled.lastError ?? ''} Open Settings → Backup to fix it.`.replace(/\s+/g, ' '), { icon: '⚠️', duration: 10000 })
+      toast(`Your scheduled backup isn't working. ${status.scheduled.lastError ?? ''} Open Settings → Backup to fix it.`.replace(/\s+/g, ' '), { icon: createElement(ToastIcon, { kind: 'warning' }), duration: 10000 })
       return
     }
     if (status.offsiteOverdue) {
       if (status.lastOffsiteISO) {
         const days = Math.floor((Date.now() - parseDbTimestamp(status.lastOffsiteISO).getTime()) / MS_PER_DAY)
-        toast(`Your last backup to a USB drive or another folder was ${days} day${days !== 1 ? 's' : ''} ago. Use Settings → Backup → "Back up now".`, { icon: '⚠️', duration: 8000 })
+        toast(`Your last backup to a USB drive or another folder was ${days} day${days !== 1 ? 's' : ''} ago. Use Settings → Backup → "Back up now".`, { icon: createElement(ToastIcon, { kind: 'warning' }), duration: 8000 })
       } else {
-        toast('You haven\'t saved a backup to a USB drive or another folder yet. Use Settings → Backup → "Back up now".', { icon: '⚠️', duration: 8000 })
+        toast('You haven\'t saved a backup to a USB drive or another folder yet. Use Settings → Backup → "Back up now".', { icon: createElement(ToastIcon, { kind: 'warning' }), duration: 8000 })
       }
       // One reminder at a time: the recovery key's turn comes at the next unlock
       return
