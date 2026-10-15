@@ -690,6 +690,10 @@ export interface IPCContract {
   'app:flush-done':        { args: [];                                                         return: null }
   'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: null }
   'cell-history:series':   { args: [rowId: number, columnIds: number[]];                       return: Record<number, Array<{ at: string; value: number }>> }
+
+  // ── Persona study R3 ────────────────────────────────────────────────────
+  /** true: it was empty and is gone; false: something was put in it, so it stays */
+  'row:discard-if-empty':  { args: [rowId: number];                                            return: boolean }
 }
 
 /** Union of all typed channel names */

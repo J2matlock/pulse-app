@@ -133,6 +133,10 @@ export const useGridStore = create<GridState>((set, get) => ({
   loadGrid: async (gridId: number) => {
     // The undo stack survives switching lists (L-16): every step works by row and column id and
     // reloads only the list it belongs to. It's cleared on lock, restore and sample removal.
+    // A record Add just made and nobody filled goes before the list is read again: switching
+    // lists, coming back after a lock, any reload while none of its cells is open (R3)
+    const fresh = get().freshRow
+    if (fresh && (fresh.gridId !== gridId || !fresh.editing)) await get().discardIfUntouched(fresh.rowId)
     const version = get()._loadVersion + 1
     clearCellCoalescing()
     // Another list: put this one's filters, search and grouping away and bring back that one's (G-03)

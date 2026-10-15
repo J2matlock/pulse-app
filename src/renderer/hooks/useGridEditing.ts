@@ -3,7 +3,9 @@
  * Handles entering/exiting edit mode and saving cell values.
  * Extracted from DataGrid for reuse and testability.
  */
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
+import { useGridStore } from '../stores/gridStore'
+import { useSettingsStore } from '../stores/settingsStore'
 
 export type CellCoord = { rowId: number; columnId: number }
 
@@ -35,32 +37,75 @@ interface UseGridEditingReturn {
   isEditing: boolean
 }
 
+/** After the tick in which focus moves on (navigation and Esc focus their cell on a 0 ms timer) */
+function afterFocusMoves(fn: () => void): void {
+  setTimeout(() => setTimeout(fn, 0), 0)
+}
+
+/**
+ * Editing moved from `prev` to `next`. The record Add just made is removed if editing left it
+ * with nothing in it: Esc on its name, Enter on an empty name, a click somewhere else
+ * (persona study R3). Moving along the same record (Tab past the name) keeps it.
+ */
+function editingMoved(prev: CellCoord | null, next: CellCoord | null): void {
+  const fresh = useGridStore.getState().freshRow
+  if (!fresh) return
+  const onFresh = next?.rowId === fresh.rowId
+  if (fresh.editing !== onFresh) useGridStore.setState({ freshRow: { ...fresh, editing: onFresh } })
+  if (!prev || prev.rowId !== fresh.rowId || onFresh) return
+  afterFocusMoves(() => {
+    const active = document.activeElement
+    const cell = active instanceof HTMLElement ? active.closest('[data-row-id][data-col-id]') : null
+    if (cell && Number(cell.getAttribute('data-row-id')) === prev.rowId && Number(cell.getAttribute('data-col-id')) !== prev.columnId) return
+    void useGridStore.getState().discardIfUntouched(prev.rowId)
+  })
+}
+
 export function useGridEditing({ onCellUpdate }: UseGridEditingOptions): UseGridEditingReturn {
   const [editingCell, setEditingCellRaw] = useState<CellCoord | null>(null)
 
   const editingCellRef = useRef<CellCoord | null>(null)
   editingCellRef.current = editingCell
 
-  const setEditingCell = useCallback((c: CellCoord | null) => {
+  /** Every change of the open cell goes through here, so a record left empty is noticed */
+  const moveEditing = useCallback((c: CellCoord | null) => {
+    editingMoved(editingCellRef.current, c)
+    editingCellRef.current = c
     setEditingCellRaw(c)
   }, [])
 
+  const setEditingCell = useCallback((c: CellCoord | null) => {
+    moveEditing(c)
+  }, [moveEditing])
+
   const startEditing = useCallback((rowId: number, columnId: number) => {
-    setEditingCellRaw({ rowId, columnId })
-  }, [])
+    moveEditing({ rowId, columnId })
+  }, [moveEditing])
 
   const stopEditing = useCallback(() => {
-    setEditingCellRaw(null)
-  }, [])
+    moveEditing(null)
+  }, [moveEditing])
 
   const handleCellSave = useCallback(async (rowId: number, columnId: number, value: string) => {
     await onCellUpdate(rowId, columnId, value)
     // Only clear editing state if this cell is still the active one
     const cur = editingCellRef.current
     if (cur && cur.rowId === rowId && cur.columnId === columnId) {
-      setEditingCellRaw(null)
+      moveEditing(null)
     }
-  }, [onCellUpdate])
+  }, [onCellUpdate, moveEditing])
+
+  // The grid closes (another page, the record page, a lock): a record Add just made and left
+  // empty goes, unless its own page opened or the database is locking (the reload after unlock does it)
+  useEffect(() => () => {
+    const fresh = useGridStore.getState().freshRow
+    if (!fresh) return
+    if (fresh.editing) useGridStore.setState({ freshRow: { ...fresh, editing: false } })
+    afterFocusMoves(() => {
+      if (useSettingsStore.getState().isLocked) return
+      void useGridStore.getState().discardIfUntouched(fresh.rowId)
+    })
+  }, [])
 
   const isEditing = editingCell !== null
 

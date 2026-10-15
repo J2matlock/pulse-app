@@ -478,6 +478,10 @@ export const IPC = {
 
   // Logging
   LOG_FORWARD: 'log:forward',
+
+  // Persona study R3
+  /** Delete a record Add just made, only if nothing was put in it (no value, note, file, tag…) */
+  ROW_DISCARD_IF_EMPTY: 'row:discard-if-empty',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

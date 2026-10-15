@@ -988,3 +988,62 @@ describe('IPC Row — state guards on archive, delete and restore (AUDIT-101)', 
     expect(systemLogs(trashed)).toBe(1)
   })
 })
+
+describe('IPC Row — ROW_DISCARD_IF_EMPTY (persona study R3)', () => {
+  function fresh(columnTypes = ['text', 'auto_number']) {
+    const { gridId, columnIds } = seedGrid(testDb.db, { rowCount: 0, columnCount: columnTypes.length, columnTypes })
+    const rowId = Number(testDb.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))").run(gridId).lastInsertRowid)
+    return { gridId, columnIds, rowId }
+  }
+  const exists = (rowId: number) => !!testDb.db.prepare('SELECT 1 FROM rows WHERE id = ?').get(rowId)
+  const discard = async (rowId: number) => (await invoke(IPC.ROW_DISCARD_IF_EMPTY, rowId)) as { ok: boolean; data: boolean }
+
+  it('deletes a record nothing was put in, for good (not to the Trash)', async () => {
+    const { rowId } = fresh()
+    expect(await discard(rowId)).toEqual({ ok: true, data: true })
+    expect(exists(rowId)).toBe(false)
+  })
+
+  it("an auto number, a blank cell or Pulse's own log line don't count as something put in", async () => {
+    const { rowId, columnIds } = fresh()
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowId, columnIds[1], '17')
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowId, columnIds[0], '  ')
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Created', 'system')").run(rowId)
+    testDb.db.prepare("INSERT INTO scrap_notes (row_id, content) VALUES (?, '<p></p>')").run(rowId)
+    expect((await discard(rowId)).data).toBe(true)
+    expect(exists(rowId)).toBe(false)
+  })
+
+  const keeps: Array<[string, (rowId: number, columnIds: number[], gridId: number) => void]> = [
+    ['a typed value', (r, c) => { testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(r, c[0], 'Peterson home') }],
+    ['a note', r => { testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Visited', 'note')").run(r) }],
+    ['a scratch pad', r => { testDb.db.prepare("INSERT INTO scrap_notes (row_id, content) VALUES (?, '<p>Call back</p>')").run(r) }],
+    ['a checklist item', r => { testDb.db.prepare("INSERT INTO checklist_items (row_id, title) VALUES (?, 'Fire drill')").run(r) }],
+    ['a tag', (r, _c, g) => {
+      const tag = Number(testDb.db.prepare("INSERT INTO tags (grid_id, name) VALUES (?, 'Urgent')").run(g).lastInsertRowid)
+      testDb.db.prepare('INSERT INTO row_tags (row_id, tag_id) VALUES (?, ?)').run(r, tag)
+    }],
+    ['a star', r => { testDb.db.prepare('UPDATE rows SET is_starred = 1 WHERE id = ?').run(r) }],
+    ['a value typed and then cleared', (r, c) => {
+      const cell = Number(testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '')").run(r, c[0]).lastInsertRowid)
+      testDb.db.prepare("INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value) VALUES (?, ?, ?, 'Peterson', '')").run(cell, r, c[0])
+    }],
+    ['being in the Trash', r => { testDb.db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(r) }],
+  ]
+  for (const [what, put] of keeps) {
+    it(`keeps a record with ${what}`, async () => {
+      const { rowId, columnIds, gridId } = fresh()
+      put(rowId, columnIds, gridId)
+      expect(await discard(rowId)).toEqual({ ok: true, data: false })
+      expect(exists(rowId)).toBe(true)
+    })
+  }
+
+  it('a record that is already gone is just false', async () => {
+    expect(await discard(999999)).toEqual({ ok: true, data: false })
+  })
+
+  it('rejects an invalid id', async () => {
+    expect((await discard(-1)).ok).toBe(false)
+  })
+})
