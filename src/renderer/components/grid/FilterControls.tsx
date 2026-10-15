@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { AnimatePresence, motion } from 'motion/react'
 import { Filter, Star, Bookmark } from 'lucide-react'
@@ -9,7 +9,11 @@ import { dropdownVariants } from '../../utils/animations'
 import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID } from '../../../shared/types'
 import { Tooltip } from '../shared/Tooltip'
 import { useVocab } from '../../hooks/useVocab'
+import { useAlertStore } from '../../stores/alertStore'
+import { matchFilter } from '../../utils/filterMatch'
 import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, LinkFilterValue } from './filterOptions'
+
+const OVERDUE_FILTER = { columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status' as const, value: 'overdue' }
 
 // Export trigger controls to embed in GridToolbar
 export function FilterControls(): React.ReactElement {
@@ -24,6 +28,18 @@ export function FilterControls(): React.ReactElement {
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
   const hasDeadlines = [...columns, ...hiddenColumns].some(c => c.column_type === 'deadline' || opsForColumn(c)[0] === 'due_status')
   const overdueOn = activeFilters.some(f => f.columnId === ANY_DEADLINE_COLUMN_ID && f.operator === 'due_status' && f.value === 'overdue')
+  // "Overdue (3)": the grid's next step, one click away (Q2). Counted by the filter itself, so
+  // the number is the number of rows the click shows; again when counts and done flags land
+  const rows = useGridStore(s => s.rows)
+  const deadlineContext = useGridStore(s => s.deadlineContext)
+  const alertRules = useAlertStore(s => s.rules)
+  const overdueCount = useMemo(() => {
+    void deadlineContext
+    if (!hasDeadlines) return 0
+    const all = [...columns, ...hiddenColumns]
+    const rules = new Map(alertRules.map(r => [r.id, r]))
+    return rows.filter(r => matchFilter(r, OVERDUE_FILTER, all, undefined, rules)).length
+  }, [rows, columns, hiddenColumns, alertRules, deadlineContext, hasDeadlines])
   const [showPanel, setShowPanel] = useState(false)
   const filterBtnRef = useRef<HTMLButtonElement>(null)
 
@@ -58,9 +74,15 @@ export function FilterControls(): React.ReactElement {
           className={`btn-secondary flex items-center gap-1.5 ${overdueOn ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300' : ''}`}
           style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
           aria-pressed={overdueOn}
-          title={overdueOn ? `Showing overdue ${t('record', { many: true })} only. Click to show all.` : `Show ${t('record', { many: true })} with an overdue deadline`}
+          title={overdueOn
+            ? `Showing overdue ${t('record', { many: true })} only. Click to show all.`
+            : overdueCount > 0
+              ? `Show the ${overdueCount} ${t('record', { count: overdueCount })} with an overdue deadline`
+              : `Show ${t('record', { many: true })} with an overdue deadline`}
         >
-          Overdue
+          {overdueCount > 0
+            ? <span className={overdueOn ? undefined : 'text-red-700 dark:text-red-300'}>Overdue <span className="tabular-nums">({overdueCount})</span></span>
+            : 'Overdue'}
         </button>
       )}
       <Tooltip content={savedFilters.length > 0 ? 'Add a filter, or pick a saved one' : 'Add a filter condition'} placement="bottom">

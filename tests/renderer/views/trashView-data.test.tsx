@@ -112,7 +112,7 @@ describe('TrashView — data smoke tests', () => {
     await flushEffects()
 
     expect(screen.getByText('Trash')).toBeDefined()
-    expect(screen.getByText('Items are removed for good after 30 days')).toBeDefined()
+    expect(screen.getByText('Deleted clients and caseloads wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
   })
 
   it('shows Empty Trash button when items exist', async () => {

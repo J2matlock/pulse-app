@@ -38,6 +38,7 @@ import { CaseLog } from '../../../../src/renderer/components/profile/CaseLog'
 import type { CaseLogEntry } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 import { renderSettled } from '../../renderSettled'
+import { clearAllNoteDrafts, setNoteDraft } from '../../../../src/renderer/utils/noteDrafts'
 
 function makeEntry(overrides: Partial<CaseLogEntry> = {}): CaseLogEntry {
   return {
@@ -270,5 +271,69 @@ describe('CaseLog', () => {
     expect(box.getByText('Meeting')).toBeTruthy()
     expect(box.getByText('Email')).toBeTruthy()
     expect(box.getByText('Visit')).toBeTruthy()
+  })
+})
+
+describe('CaseLog — a late contact opens the note box with its kind (Q2)', () => {
+  const visit = { typeKey: 'visit', columnName: 'Last Face-to-Face', daysLate: 12 }
+  let lastType: string | null = null
+  beforeEach(() => {
+    vi.clearAllMocks()
+    clearAllNoteDrafts()
+    lastType = null
+    mockInvoke.mockImplementation((channel: string, key?: string) => {
+      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: [] })
+      if (channel === 'settings:get' && key === 'note_type_last') return Promise.resolve({ ok: true, data: lastType })
+      return Promise.resolve({ ok: true, data: null })
+    })
+  })
+  const pressed = (name: string, i = 0) => within(screen.getAllByTestId('note-composer')[i]!).getByRole('button', { name }).getAttribute('aria-pressed')
+
+  it('opens the box with the kind picked and says why, without moving focus or remembering the kind', async () => {
+    const focusRef = { current: null as (() => void) | null }
+    await renderSettled(<CaseLog rowId={70} focusRef={focusRef} suggestion={visit} />)
+    expect(screen.getByRole('region', { name: 'New case note' }).hidden).toBe(false)
+    expect(pressed('Visit')).toBe('true')
+    expect(screen.getByTestId('note-suggestion').textContent).toBe('Last Face-to-Face is 12 days overdue, so Visit is picked.')
+    expect(document.activeElement).toBe(document.body)
+    expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', 'note_type_last', expect.anything())
+  })
+
+  it('wins over the remembered kind, whichever loads first', async () => {
+    lastType = 'phone'
+    await renderSettled(<CaseLog rowId={71} suggestion={visit} />)
+    expect(pressed('Visit')).toBe('true')
+    // A suggestion arriving after the remembered kind loaded wins too
+    const { rerender } = await renderSettled(<CaseLog rowId={72} suggestion={null} />)
+    expect(pressed('Phone', 1)).toBe('true')
+    rerender(<CaseLog rowId={72} suggestion={visit} />)
+    expect(pressed('Visit', 1)).toBe('true')
+  })
+
+  it('with no kind to pick, opens the box with the reason only', async () => {
+    await renderSettled(<CaseLog rowId={73} focusRef={{ current: null }} suggestion={{ typeKey: null, columnName: 'Last Contact', daysLate: 1 }} />)
+    expect(screen.getByRole('region', { name: 'New case note' }).hidden).toBe(false)
+    expect(screen.getByTestId('note-suggestion').textContent).toBe('Last Contact is 1 day overdue.')
+    expect(pressed('Note')).toBe('true')
+  })
+
+  it('an unsaved draft wins over a suggestion', async () => {
+    setNoteDraft(74, { content: 'Half-written', fieldValues: [], followUp: '', minutes: '', miles: '', extra: {} })
+    await renderSettled(<CaseLog rowId={74} suggestion={visit} />)
+    expect((screen.getByPlaceholderText(/Add a note entry/) as HTMLTextAreaElement).value).toBe('Half-written')
+    expect(pressed('Note')).toBe('true')
+    expect(screen.queryByTestId('note-suggestion')).toBeNull()
+  })
+
+  it('applies once: a later suggestion does not re-pick, and a chip picked by hand works as always', async () => {
+    const { rerender } = await renderSettled(<CaseLog rowId={75} suggestion={visit} />)
+    // After the note is saved the deadline is met: the reason goes, nothing re-opens or re-picks
+    rerender(<CaseLog rowId={75} suggestion={null} />)
+    expect(screen.queryByTestId('note-suggestion')).toBeNull()
+    rerender(<CaseLog rowId={75} suggestion={{ typeKey: 'phone', columnName: 'Last Phone Call', daysLate: 2 }} />)
+    expect(pressed('Visit')).toBe('true')
+    fireEvent.click(within(screen.getByTestId('note-composer')).getByRole('button', { name: 'Email' }))
+    expect(pressed('Email')).toBe('true')
+    expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'note_type_last', 'email')
   })
 })

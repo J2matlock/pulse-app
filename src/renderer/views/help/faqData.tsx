@@ -464,7 +464,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'contacts-categories',
     question: 'How do I organize {contact:many} into categories?',
-    answer: 'Click "Categories" in the {ContactDirectory} toolbar. Make categories with colors, and give a category its own extra details (like a license number for one kind of {contact}) with its "Edit" button.',
+    answer: 'Click "More" in the {ContactDirectory} toolbar, then "Categories…". Make categories with colors, and give a category its own extra details (like a license number for one kind of {contact}) with its "Edit" button.',
     category: 'contacts',
     feature: 'contactsDirectory',
     demo: <DemoContactCategories />,
@@ -526,7 +526,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'st-letter-template',
     question: 'How do I create a letter template?',
-    answer: 'Click "Letters" in the sidebar, then "New". Type the letter in the box. Where a detail should go, click "Insert a detail" and pick it \u2014 the {record}\'s name, today\'s date, your name, or any column \u2014 and Pulse puts a placeholder like {{name}} there. The preview beside the box shows how it reads. Those placeholders are filled in for each {record} when you make a letter.',
+    answer: 'Click "Letters" in the sidebar, then "New letter". Type the letter in the box. Where a detail should go, click "Insert a detail" and pick it \u2014 the {record}\'s name, today\'s date, your name, or any column \u2014 and Pulse puts a placeholder like {{name}} there. The preview beside the box shows how it reads. Those placeholders are filled in for each {record} when you make a letter.',
     category: 'snippets-templates',
     feature: 'letters',
     keywords: ['new letter', 'form letter', 'mail merge', 'template'],

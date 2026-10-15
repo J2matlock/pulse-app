@@ -33,7 +33,7 @@ export function PageHeader({ title, description, primary, actions, breadcrumb, c
       <div className="min-w-0 flex-1">
         {breadcrumb && <div className="mb-1">{breadcrumb}</div>}
         <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{title}</h1>
-        {description && <p className="mt-1 max-w-prose text-base text-slate-600 dark:text-slate-300">{description}</p>}
+        {description && <p data-purpose className="mt-1 max-w-prose text-base text-slate-600 dark:text-slate-300">{description}</p>}
       </div>
       {(actions || primary) && (
         <div className="flex flex-wrap items-center gap-2">

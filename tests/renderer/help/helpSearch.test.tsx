@@ -94,7 +94,7 @@ describe('Help search', () => {
   it('the tour asks before it starts', async () => {
     const onStartTour = vi.fn()
     render(<HelpView onStartTour={onStartTour} onStartMiniTour={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /Retake the full tour/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Take the tour' }))
     expect(onStartTour).not.toHaveBeenCalled()
     expect(screen.getByText(/^Start the \d+-step tour\?$/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Start the tour' }))

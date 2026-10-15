@@ -20,12 +20,13 @@ import { useVocab } from '../hooks/useVocab'
 import { useGridStore } from '../stores/gridStore'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 import { PrimaryButton } from '../components/ui/Button'
+import { PurposeLine } from '../components/shared/PurposeLine'
 
 // The chip renderer lives beside the editor, which shows it as a live preview (E-26)
 export { TemplateText }
 
 export default function LetterTemplateView(): React.ReactElement {
-  const { t: w } = useVocab(null)
+  const { t: w, f } = useVocab(null)
   const [templates, setTemplates] = useState<LetterTemplate[]>([])
   const [grids, setGrids] = useState<Grid[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,17 +112,20 @@ export default function LetterTemplateView(): React.ReactElement {
         style={{ minWidth: 220 }}
       >
         {/* Panel header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-            Letters
-          </h1>
-          <PrimaryButton
-            onClick={() => { setEditTarget(null); setShowEdit(true) }}
-            aria-label="New letter template"
-            icon={<Plus className="w-4 h-4" />}
-          >
-            New
-          </PrimaryButton>
+        <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+              Letters
+            </h1>
+            <PrimaryButton
+              data-primary-action
+              onClick={() => { setEditTarget(null); setShowEdit(true) }}
+              icon={<Plus className="w-4 h-4" />}
+            >
+              New letter
+            </PrimaryButton>
+          </div>
+          <PurposeLine>{f("Letters fill in {a record}'s details for you. Print one from {a record}'s page: Make a letter…")}</PurposeLine>
         </div>
 
         {/* List */}

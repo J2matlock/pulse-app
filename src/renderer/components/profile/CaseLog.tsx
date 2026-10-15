@@ -29,6 +29,8 @@ import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
 import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
 import { localDateString, parseDbTimestamp, ymdLocalDate } from '../../../shared/dates'
 import { friendlyError } from '../../utils/friendlyError'
+import { daysOverdueLabel } from '../../../shared/deadlineTiles'
+import type { NoteSuggestion } from '../../utils/suggestedNote'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
 function applyDatesLocally(rowId: number, values: Array<[columnId: number, value: string | null]>): void {
@@ -84,6 +86,8 @@ interface Props {
   focusRef?: React.MutableRefObject<(() => void) | null>
   /** Shown between the note box and the list of past notes (the record page puts deadlines and details there) */
   between?: React.ReactNode
+  /** A late contact-like deadline: open the box with this kind picked, and say why (Q2) */
+  suggestion?: NoteSuggestion | null
 }
 
 /** Type chips shown before the rest go into "More…" */
@@ -100,7 +104,7 @@ export function offerFor(text: string, tracking: { trackTime: boolean; trackMile
 
 const NO_FILES: Attachment[] = []
 
-export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRef, between }: Props) {
+export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRef, between, suggestion }: Props) {
   const [offer, setOffer] = useState<'timeTracking' | 'mileage' | null>(null)
   const snippetsOn = useFeature('snippets')
   const { t } = useVocab()
@@ -137,10 +141,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     : [...firstFew, ...activity.active.filter(t => t.key === chosenType)]
   const moreTypes = activity.active.filter(t => !visibleTypes.includes(t))
 
+  // A suggested kind (below) wins over the remembered one, whichever arrives first
+  const suggestedTypeRef = useRef<string | null>(null)
   // Start with the type used last time
   useEffect(() => {
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_type_last').then(r => {
-      if (r.ok && typeof r.data === 'string' && r.data) setNewType(r.data)
+      if (r.ok && typeof r.data === 'string' && r.data && !suggestedTypeRef.current) setNewType(r.data)
     })
   }, [])
 
@@ -175,6 +181,19 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     setComposerOpen(true)
     setTimeout(() => contentRef.current?.focus(), 0)
   }, [])
+  // A late contact-like deadline opens the box with its kind picked (Q2): once per record, never
+  // over a draft, and without moving focus (the page shouldn't jump on load). The kind isn't saved
+  // as the remembered one: it's a guess, not a choice. A chip picked by hand works as always.
+  const suggestionFor = useRef<number | null>(null)
+  const [suggestionShown, setSuggestionShown] = useState(false)
+  useEffect(() => {
+    if (!suggestion || suggestionFor.current === rowId) return
+    suggestionFor.current = rowId
+    if (draft0) return
+    setComposerOpen(true)
+    if (suggestion.typeKey) { suggestedTypeRef.current = suggestion.typeKey; setNewType(suggestion.typeKey) }
+    setSuggestionShown(true)
+  }, [suggestion, rowId, draft0])
   useEffect(() => {
     if (!focusRef) return
     focusRef.current = openComposer
@@ -606,6 +625,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       )}
       {/* Quick-add form */}
       <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer">
+        {/* Why the box is open with this kind; gone once the deadline is met or another kind is picked */}
+        {suggestionShown && suggestion && (suggestion.typeKey === null || chosenType === suggestion.typeKey) && (
+          <p className="text-base text-slate-600 dark:text-slate-300" data-testid="note-suggestion">
+            {suggestion.columnName} is {daysOverdueLabel(suggestion.daysLate)}{suggestion.typeKey ? `, so ${activity.label(suggestion.typeKey)} is picked` : ''}.
+          </p>
+        )}
         {/* Type selector: the first few as chips, the rest under "More…" */}
         <div className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
           {visibleTypes.map(type => (

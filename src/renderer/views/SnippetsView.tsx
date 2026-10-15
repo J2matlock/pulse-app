@@ -13,6 +13,7 @@ import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../utils/friendlyError'
 import { PrimaryButton, DangerButton } from '../components/ui/Button'
+import { PurposeLine } from '../components/shared/PurposeLine'
 
 // ── Variable helper ───────────────────────────────────────────────────────────
 
@@ -212,7 +213,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
 // ── SnippetsView ──────────────────────────────────────────────────────────────
 
 export default function SnippetsView(): React.ReactElement {
-  const { t } = useVocab(null)
+  const { f } = useVocab(null)
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [loading, setLoading] = useState(true)
   const [showEditor, setShowEditor] = useState(false)
@@ -270,19 +271,20 @@ export default function SnippetsView(): React.ReactElement {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-wrap">
-        <Zap className="w-5 h-5 text-slate-500" />
-        <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1 min-w-0">Snippets</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
-          Type <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded-sm">/trigger</span> in any {t('activity')} or in scratch notes
-        </p>
-        <PrimaryButton
-          onClick={() => { setEditTarget(null); setShowEditor(true) }}
-          aria-label="Create a new snippet"
-          icon={<Plus className="w-4 h-4" />}
-        >
-          New snippet
-        </PrimaryButton>
+      <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 space-y-1">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Zap className="w-5 h-5 text-slate-500" />
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1 min-w-0">Snippets</h1>
+          <PrimaryButton
+            data-primary-action
+            onClick={() => { setEditTarget(null); setShowEditor(true) }}
+            aria-label="Create a new snippet"
+            icon={<Plus className="w-4 h-4" />}
+          >
+            New snippet
+          </PrimaryButton>
+        </div>
+        <PurposeLine>{f('Text you type often. Type / and its name in {a activity} or scratch notes to put it in.')}</PurposeLine>
       </div>
 
       {/* Search */}

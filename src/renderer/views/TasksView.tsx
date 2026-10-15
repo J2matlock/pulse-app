@@ -45,6 +45,8 @@ import { TaskGroup } from './tasks/TaskGroup'
 import { UrgentChecklistSection } from './tasks/UrgentChecklistSection'
 import { isMod, modHelp } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
+import { PurposeLine } from '../components/shared/PurposeLine'
 import { useFeature } from '../hooks/useFeature'
 import { useToday } from '../hooks/useToday'
 
@@ -55,7 +57,7 @@ const NOTES_OPEN_KEY = 'tasks_notes_open'
 
 export default function TasksView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
-  const { t: w } = useVocab(null)
+  const { t: w, f } = useVocab(null)
   const { tasks, loading, loadTasks, createTask, updateTask, deleteTask, deleteTasks, completeTask, snoozeTask, reorderTasks, sortMode, setSortMode } = useTaskStore(useShallow(s => ({
     tasks: s.tasks, loading: s.loading, loadTasks: s.loadTasks,
     createTask: s.createTask, updateTask: s.updateTask, deleteTask: s.deleteTask,
@@ -548,13 +550,9 @@ export default function TasksView(): React.ReactElement {
           {totalActive} active{shownUrgentCount > 0 && ` · ${shownUrgentCount} urgent`}{overdueTasks.length > 0 && ` · ${overdueTasks.length} overdue`}
         </span>
 
-        <button
-          onClick={() => setShowAddDialog(true)}
-          title={modHelp('Add a new task (Ctrl+Shift+T)')}
-          className="btn-compact-primary"
-        >
+        <PrimaryButton size="compact" data-primary-action onClick={() => setShowAddDialog(true)} title={modHelp('Add a new task (Ctrl+Shift+T)')}>
           + Add task
-        </button>
+        </PrimaryButton>
 
         {/* "Order", since "as I arranged" isn't a sort (UX D-43) */}
         <label className="flex items-center gap-1.5 text-base text-slate-600 dark:text-slate-300">
@@ -575,14 +573,11 @@ export default function TasksView(): React.ReactElement {
           Add a group
         </button>
 
-        <button
-          onClick={() => setShowTemplates(true)}
-          title="Add the tasks from a saved set"
-          className="btn-compact-soft"
-        >
+        <SecondaryButton size="compact" onClick={() => setShowTemplates(true)} title="Add the tasks from a saved set">
           Add a set of tasks…
-        </button>
+        </SecondaryButton>
         </div>
+        <PurposeLine>{f("Work that isn't about one {record}: reports, meetings, calls to make.")}</PurposeLine>
       </div>
 
       {/* Progress bar, once there's enough to measure (UX D-43) */}

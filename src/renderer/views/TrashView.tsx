@@ -10,6 +10,7 @@ import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { parseDbTimestamp } from '../../shared/dates'
 import { useVocab, useVocabByList } from '../hooks/useVocab'
+import { PurposeLine } from '../components/shared/PurposeLine'
 import { useFeature } from '../hooks/useFeature'
 import { TrashFiles } from '../components/shared/TrashFiles'
 import { useGridStore } from '../stores/gridStore'
@@ -20,7 +21,7 @@ type DeletedList = { id: number; name: string; deleted_at: string; records: numb
 
 export default function TrashView() {
   // Trash mixes lists: headings use workspace words, each row its own list's
-  const { t } = useVocab(null)
+  const { t, f } = useVocab(null)
   const filesOn = useFeature('attachments')
   const tFor = useVocabByList()
   const [rows, setRows] = useState<DeletedRow[]>([])
@@ -147,9 +148,7 @@ export default function TrashView() {
             <Trash2 className="w-5 h-5" />
             Trash
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Items are removed for good after 30 days
-          </p>
+          <PurposeLine className="mt-1">{f('Deleted {record:many} and {list:many} wait here for 30 days, then go for good. Restore brings one back.')}</PurposeLine>
         </div>
         {(rows.length > 0 || lists.length > 0 || files > 0) && (
           <button
