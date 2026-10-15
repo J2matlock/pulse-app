@@ -79,3 +79,4 @@ pulse-sweep-plan.md
 # Scratch folders agents and test runs leave behind
 .tmp/
 .r2tmp/
+.r4-e2e/
