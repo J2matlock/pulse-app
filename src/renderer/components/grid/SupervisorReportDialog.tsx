@@ -184,7 +184,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
   return (
     // The description says what the PDF is, before any field (UX D-37)
     <Dialog open onClose={onClose} size="lg" title="Report for my supervisor"
-      icon={<FileText className="w-5 h-5 mt-1.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<FileText className="w-5 h-5 mt-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       description={<>A PDF of your {t('list')} for the period: who you saw, what came due, and what's late — for your supervisor.</>}
       footer={<>
         <SecondaryButton onClick={onClose} disabled={exporting}>Cancel</SecondaryButton>

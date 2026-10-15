@@ -51,7 +51,7 @@ export function TotalsDialog({ gridId, onClose }: { gridId?: number; onClose: ()
   }
   return (
     <Dialog open onClose={onClose} size="xl" title="Totals"
-      icon={<Timer className="w-6 h-6 mt-1 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<Timer className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       footer={<>
         {report && report.entries.length > 0 && (
           <SecondaryButton icon={<Download className="w-4 h-4" />} onClick={() => void saveCsv()}>Save as CSV…</SecondaryButton>

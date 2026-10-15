@@ -145,7 +145,7 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
   return (
     <>
     <Dialog open onClose={onClose} size="lg" title={a ? `Edit ${noun}` : `New ${noun}`}
-      icon={<CalendarClock className="w-5 h-5 mt-1.5 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      icon={<CalendarClock className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
       footer={<>
         {/* Events open straight into this dialog, so it's where they're deleted */}
         {a && isEvent && (

@@ -29,7 +29,7 @@ export function MissingInfoDialog({ gridId, onClose }: { gridId?: number; onClos
 
   return (
     <Dialog open onClose={onClose} size="xl" title="Missing information"
-      icon={<FileWarning className="w-6 h-6 mt-1 text-amber-700 dark:text-amber-400" aria-hidden="true" />}
+      icon={<FileWarning className="w-6 h-6 mt-2 text-amber-700 dark:text-amber-400" aria-hidden="true" />}
       footer={<>
         <span className="flex-1 text-base text-slate-600 dark:text-slate-300">
           {data && data.length > 0 ? `${total} ${t('record', { count: total })} missing information` : ''}

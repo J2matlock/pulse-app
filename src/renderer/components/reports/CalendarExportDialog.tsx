@@ -41,7 +41,7 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
 
   return (
     <Dialog open onClose={onClose} size="lg" title="Add to your calendar"
-      icon={<CalendarPlus className="w-6 h-6 mt-1 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<CalendarPlus className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
         <PrimaryButton disabled={working} onClick={() => void save()}>{working ? 'Saving…' : 'Save calendar file…'}</PrimaryButton>

@@ -198,7 +198,7 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
   return (
     // Fits a 768px-high screen: the body scrolls, the title and Save stay in view (UX-B-16)
     <Dialog open onClose={onClose} size="xl"
-      icon={<Settings2 className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<Settings2 className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       title={<>{t('list', { cap: true })} settings{loaded ? `: ${loaded.grid.name}` : ''}</>}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>

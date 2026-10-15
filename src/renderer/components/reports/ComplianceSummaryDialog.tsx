@@ -67,7 +67,7 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
   return (
     // The same name as the button that opens it (UX D-10)
     <Dialog open onClose={onClose} size="xl" title="Monthly summary"
-      icon={<ShieldCheck className="w-6 h-6 mt-1 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<ShieldCheck className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       description={<>How the month is going: {t('requirement', { many: true })}, deadlines on time, missing information</>}
       footer={<>
         <SecondaryButton onClick={onClose}>Close</SecondaryButton>

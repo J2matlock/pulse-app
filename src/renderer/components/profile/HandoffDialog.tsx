@@ -61,7 +61,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
 
   return (
     <Dialog open onClose={onClose} size="xl"
-      icon={<Send className="w-6 h-6 mt-1 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<Send className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       title={<>{Packet}: {clientName}</>}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>

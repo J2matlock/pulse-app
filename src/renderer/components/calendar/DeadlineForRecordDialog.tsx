@@ -75,7 +75,7 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
 
   return (
     <Dialog open onClose={onClose} size="lg" title={<>Deadline for {t('record', { article: true })}</>}
-      icon={<CalendarCheck className="w-5 h-5 mt-1.5 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      icon={<CalendarCheck className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
         <PrimaryButton disabled={saving || !chosen} onClick={() => void save()}>Set deadline</PrimaryButton>

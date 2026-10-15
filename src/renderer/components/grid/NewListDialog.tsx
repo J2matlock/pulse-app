@@ -92,7 +92,7 @@ export function NewListDialog({ onClose, onCreated, onPickExample }: Props): Rea
   return (
     // Fits a 768px-high screen: the body scrolls, the title and Create stay in view (UX-B-16)
     <Dialog open onClose={onClose} size="xl"
-      icon={<Grid3X3 className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      icon={<Grid3X3 className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       title={<>New {t('list')}</>}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
