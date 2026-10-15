@@ -5,6 +5,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { modHelp } from '../../utils/keys'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { UI_SCALE_MIN, UI_SCALE_MAX } from '../../utils/uiScale'
+import { Toggle } from '../ui/Toggle'
 
 /** Three sizes to pick without reading a percentage; the slider stays for anything between */
 const TEXT_SIZE_PRESETS = [
@@ -37,36 +38,6 @@ interface AppearanceSectionProps {
   highContrast: boolean
   setHighContrast: (v: boolean) => void
   saveSetting: (key: string, value: string) => Promise<void>
-}
-
-/**
- * An on/off switch named by the visible label next to it (audit A06-13). The
- * off state is an outlined track with a grey knob so it reads at 3:1 against
- * the card, not a near-white blob (A06-30).
- */
-function SettingSwitch({ checked, onChange, labelId, descriptionId }: {
-  checked: boolean
-  onChange: (v: boolean) => void
-  labelId: string
-  descriptionId: string
-}): React.ReactElement {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-labelledby={labelId}
-      aria-describedby={descriptionId}
-      onClick={() => onChange(!checked)}
-      className={`switch-track hit-44 relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 transition-colors focus:outline-none focus:ring-3 focus:ring-slate-500 focus:ring-offset-3 ${checked
-        ? 'bg-slate-700 border-slate-700 dark:bg-slate-300 dark:border-slate-300'
-        : 'bg-white border-slate-500 dark:bg-transparent dark:border-slate-400'}`}
-    >
-      <span className={`switch-knob inline-block h-4 w-4 rounded-full transition-transform ${checked
-        ? 'translate-x-[22px] bg-white dark:bg-slate-900'
-        : 'translate-x-0.5 bg-slate-500 dark:bg-slate-400'}`} />
-    </button>
-  )
 }
 
 export function AppearanceSection({
@@ -219,7 +190,7 @@ export function AppearanceSection({
             <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Shade every other line</span>
             <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Makes a long line easier to follow across the screen</p>
           </div>
-          <SettingSwitch checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} descriptionId={`${ids}-striping-desc`} />
+          <Toggle checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} describedBy={`${ids}-striping-desc`} />
         </div>
 
         {/* Grid Lines */}
@@ -364,7 +335,7 @@ export function AppearanceSection({
             <p id={`${ids}-motion`} className="text-base text-slate-700 dark:text-slate-300">Less movement</p>
             <p id={`${ids}-motion-desc`} className="text-sm text-slate-500 dark:text-slate-400">Turn off animations</p>
           </div>
-          <SettingSwitch checked={reducedMotion} onChange={setReducedMotion} labelId={`${ids}-motion`} descriptionId={`${ids}-motion-desc`} />
+          <Toggle checked={reducedMotion} onChange={setReducedMotion} labelId={`${ids}-motion`} describedBy={`${ids}-motion-desc`} />
         </div>
 
         {/* High contrast */}
@@ -373,7 +344,7 @@ export function AppearanceSection({
             <p id={`${ids}-contrast`} className="text-base text-slate-700 dark:text-slate-300">Stronger contrast</p>
             <p id={`${ids}-contrast-desc`} className="text-sm text-slate-500 dark:text-slate-400">Darker lines and text</p>
           </div>
-          <SettingSwitch checked={highContrast} onChange={setHighContrast} labelId={`${ids}-contrast`} descriptionId={`${ids}-contrast-desc`} />
+          <Toggle checked={highContrast} onChange={setHighContrast} labelId={`${ids}-contrast`} describedBy={`${ids}-contrast-desc`} />
         </div>
       </div>
     </>

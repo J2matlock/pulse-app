@@ -40,6 +40,11 @@ describe('Windows High Contrast / forced colors (audit A06-20)', () => {
     expect(block).toMatch(/\[role="switch"\]\[aria-checked="true"\]\s*\{[^}]*background:\s*Highlight/)
   })
 
+  it('the shared Toggle is drawn the way those rules expect: role on the track, knob as its first span', () => {
+    const src = readFileSync(join(__dirname, '../../../src/renderer/components/ui/Toggle.tsx'), 'utf8')
+    expect(src).toMatch(/role="switch"[^]*?>\s*<span className=\{`inline-block h-4 w-4 rounded-full/)
+  })
+
   it('ticked custom checkboxes stay visible when fills are dropped', () => {
     expect(block).toMatch(/\[role="checkbox"\] > :is\(span, div\):first-child\s*\{[^}]*border:\s*2px solid ButtonText/)
     expect(block).toMatch(/\[role="checkbox"\]\[aria-checked="true"\] > :is\(span, div\):first-child\s*\{[^}]*background:\s*Highlight/)

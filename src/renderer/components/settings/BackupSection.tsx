@@ -8,6 +8,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { Dialog } from '../ui/Dialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { LoadingOverlay } from '../shared/LoadingSpinner'
 import { parseDbTimestamp } from '../../../shared/dates'
@@ -74,8 +75,6 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   const [restoreResult, setRestoreResult] = useState<{ safetyPath: string; otherPulse?: boolean } | null>(null)
   // A backup made by another Pulse, waiting for that Pulse's password or recovery key
   const [otherPulsePath, setOtherPulsePath] = useState<string | null>(null)
-  const otherPulseTrapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(otherPulseTrapRef, otherPulsePath != null)
   const [runningBackup, setRunningBackup] = useState(false)
   const [runningScheduled, setRunningScheduled] = useState(false)
   // Reminders are on unless the user switched them off
@@ -592,14 +591,8 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
 
       {/* Backup from another Pulse: unlock it with that Pulse's password or recovery key */}
       {otherPulsePath && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onKeyDown={e => { if (e.key === 'Escape') setOtherPulsePath(null) }}>
-          <div ref={otherPulseTrapRef} role="dialog" aria-modal="true" aria-labelledby="other-pulse-title"
-            className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-2xl max-w-lg w-full mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 id="other-pulse-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">This backup is from another Pulse</h3>
-            <p className="text-base text-slate-600 dark:text-slate-300">
-              It was made on another computer, or before Pulse was set up again here. Enter the password or recovery key it was made with to restore it.
-              Your current data is saved as a safety copy first.
-            </p>
+        <Dialog open onClose={() => setOtherPulsePath(null)} title="This backup is from another Pulse" size="lg"
+          description="It was made on another computer, or before Pulse was set up again here. Enter the password or recovery key it was made with to restore it. Your current data is saved as a safety copy first.">
             <RestoreFromBackupForm
               mode="replace"
               initialBackupPath={otherPulsePath}
@@ -610,8 +603,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 setRestoreResult({ safetyPath: info.safetyPath ?? '', otherPulse: true })
               }}
             />
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Restoring overlay */}

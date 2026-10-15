@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Copy, Printer } from 'lucide-react'
-import { motion } from 'motion/react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import toast from 'react-hot-toast'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { copyText } from '../../hooks/useCopyFeedback'
 import { PRODUCT_NAME } from '../../../shared/constants'
 
@@ -19,10 +18,7 @@ export function RecoveryKeyDisplayModal({ open, recoveryKey, onClose }: Recovery
   // button that does nothing (UX-A-05)
   const [needTick, setNeedTick] = useState(false)
   const printTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const trapRef = useRef<HTMLDivElement>(null)
   const savedRef = useRef<HTMLInputElement>(null)
-
-  useFocusTrap(trapRef, open)
 
   // Clean up print iframe timer on unmount
   useEffect(() => () => { clearTimeout(printTimerRef.current) }, [])
@@ -91,81 +87,54 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
     }, 5000)
   }
 
+  // Not dismissible: the only way out is Done, after ticking that the key is saved
   return (
-    <>
-      {open && (
-        <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
-          <motion.div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="recovery-key-title" variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-8">
-        <h2 id="recovery-key-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-          Your recovery key
-        </h2>
-        <p className="text-base text-slate-500 dark:text-slate-400 mb-6">
-          Write this down or print it. You'll need it if you forget your password.
-        </p>
-
-        <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-5 mb-4 text-center select-all">
-          <span className="font-mono text-2xl tracking-widest text-slate-900 dark:text-slate-100">
-            {recoveryKey}
-          </span>
-        </div>
-
-        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg p-3 mb-6">
-          <p className="text-amber-800 dark:text-amber-300 text-base leading-relaxed">
-            This key will not be shown again. Store it somewhere safe — a lockbox, a password manager, or a printed card in a secure location.
-          </p>
-        </div>
-
-        <div className="flex gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => void handleCopy()}
-            className="btn-secondary flex-1 flex items-center justify-center gap-2"
-            style={{ minHeight: 44 }}
-          >
-            <Copy className="w-4 h-4" />
-            Copy
-          </button>
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="btn-secondary flex-1 flex items-center justify-center gap-2"
-            style={{ minHeight: 44 }}
-          >
-            <Printer className="w-4 h-4" />
-            Print a recovery card
-          </button>
-        </div>
-
-        <label className="flex items-center gap-3 mb-4 cursor-pointer select-none">
-          <input
-            ref={savedRef}
-            type="checkbox"
-            checked={saved}
-            onChange={e => { setSaved(e.target.checked); if (e.target.checked) setNeedTick(false) }}
-            aria-describedby={needTick ? 'recovery-key-need-tick' : undefined}
-            className="w-5 h-5 accent-blue-600 flex-shrink-0"
-          />
-          <span className="text-base text-slate-700 dark:text-slate-300">
-            I have saved this recovery key somewhere safe
-          </span>
-        </label>
-
-        <button
-          type="button"
-          onClick={handleDone}
-          className="btn-primary w-full"
-          style={{ minHeight: 44 }}
-        >
+    <Dialog open={open} onClose={handleDone} dismissible={false} title="Your recovery key" size="lg"
+      description="Write this down or print it. You'll need it if you forget your password."
+      footer={<div className="w-full">
+        <PrimaryButton onClick={handleDone} className="w-full">
           Done
-        </button>
+        </PrimaryButton>
         {needTick && (
           <p id="recovery-key-need-tick" role="alert" className="mt-3 text-base text-red-700 dark:text-red-300">
             Tick “I have saved this recovery key somewhere safe” first.
           </p>
         )}
-          </motion.div>
-        </motion.div>
-      )}
-    </>
+      </div>}>
+      <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4 mb-4 text-center select-all">
+        <span className="font-mono text-2xl tracking-widest text-slate-900 dark:text-slate-100">
+          {recoveryKey}
+        </span>
+      </div>
+
+      <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg p-3 mb-6">
+        <p className="text-amber-800 dark:text-amber-300 text-base leading-relaxed">
+          This key will not be shown again. Store it somewhere safe — a lockbox, a password manager, or a printed card in a secure location.
+        </p>
+      </div>
+
+      <div className="flex gap-3 mb-6">
+        <SecondaryButton onClick={() => void handleCopy()} className="flex-1" icon={<Copy className="w-4 h-4" />}>
+          Copy
+        </SecondaryButton>
+        <SecondaryButton onClick={handlePrint} className="flex-1" icon={<Printer className="w-4 h-4" />}>
+          Print a recovery card
+        </SecondaryButton>
+      </div>
+
+      <label className="flex items-center gap-3 cursor-pointer select-none">
+        <input
+          ref={savedRef}
+          type="checkbox"
+          checked={saved}
+          onChange={e => { setSaved(e.target.checked); if (e.target.checked) setNeedTick(false) }}
+          aria-describedby={needTick ? 'recovery-key-need-tick' : undefined}
+          className="w-5 h-5 accent-blue-600 flex-shrink-0"
+        />
+        <span className="text-base text-slate-700 dark:text-slate-300">
+          I have saved this recovery key somewhere safe
+        </span>
+      </label>
+    </Dialog>
   )
 }

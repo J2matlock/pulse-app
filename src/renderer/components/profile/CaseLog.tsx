@@ -22,6 +22,7 @@ import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
+import { MenuButton } from '../ui/RowMenu'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
 import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
@@ -127,7 +128,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     return m
   }, [noteFiles])
   const [newType, setNewType] = useState<string>('note')
-  const [moreTypesOpen, setMoreTypesOpen] = useState(false)
   // A remembered or chosen type that was archived since falls back to the first one
   const chosenType = activity.active.some(t => t.key === newType) ? newType : activity.active[0]?.key ?? 'note'
   // The chosen type always shows as a chip, even when it lives under "More…"
@@ -627,31 +627,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             </button>
           ))}
           {moreTypes.length > 0 && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMoreTypesOpen(o => !o)}
-                aria-expanded={moreTypesOpen}
-                className="hit-44 px-2.5 py-1.5 rounded-full text-base bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              >
-                More…
-              </button>
-              {moreTypesOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setMoreTypesOpen(false)} />
-                  <div role="menu" className="absolute z-50 mt-1 min-w-44 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
-                    {moreTypes.map(type => (
-                      <button key={type.key} type="button" role="menuitem"
-                        onClick={() => { pickType(type.key); setMoreTypesOpen(false) }}
-                        className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-left text-base text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
-                        {type.icon && <span aria-hidden>{type.icon}</span>}
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <MenuButton label="More…" variant="pill" size="compact" chevron={false}
+              items={moreTypes.map(type => ({ label: type.label, icon: type.icon ?? undefined, onSelect: () => pickType(type.key) }))} />
           )}
         </div>
 

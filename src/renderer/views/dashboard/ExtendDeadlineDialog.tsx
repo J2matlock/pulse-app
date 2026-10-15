@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React, { useState } from 'react'
+import { Dialog } from '../../components/ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
 import { formatDue } from '../../../shared/deadlineEngine'
 import { addDays } from '../../../shared/ymd'
 import { useVocab } from '../../hooks/useVocab'
@@ -14,8 +15,6 @@ export function ExtendDeadlineDialog({ title, currentDue, gridId = null, onSave,
   onClose: () => void
 }): React.ReactElement {
   const { t } = useVocab(gridId)
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const [date, setDate] = useState('')
   const [reason, setReason] = useState('')
   // An extension moves the date later; an earlier one isn't an extension (D-36)
@@ -23,17 +22,13 @@ export function ExtendDeadlineDialog({ title, currentDue, gridId = null, onSave,
   const tooEarly = !!minDate && /^\d{4}-\d{2}-\d{2}$/.test(date) && date < minDate
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && reason.trim().length > 0 && !tooEarly
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="extend-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <h2 id="extend-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">Extend: {title}</h2>
+    <Dialog open onClose={onClose} title={`Extend: ${title}`} size="md"
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={!valid} onClick={() => onSave(date, reason.trim())}>Extend</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         {currentDue && <p className="text-base text-slate-600 dark:text-slate-300">Due now: {formatDue(currentDue)}</p>}
         <label className="block text-base text-slate-700 dark:text-slate-200">
           New due date
@@ -48,11 +43,7 @@ export function ExtendDeadlineDialog({ title, currentDue, gridId = null, onSave,
         </label>
         {/* What the row does next: it stops showing as late (UX D-22) */}
         <p className="text-base text-slate-600 dark:text-slate-300">Until the new date this deadline counts as on time. You can remove the extension later.</p>
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={!valid} onClick={() => onSave(date, reason.trim())}>Extend</button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

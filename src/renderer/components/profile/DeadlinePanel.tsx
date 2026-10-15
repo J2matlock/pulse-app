@@ -17,6 +17,7 @@ import { extendDeadline, removeExtension } from '../../views/dashboard/extendDea
 import { localDateString, shortDate } from '../../../shared/dates'
 import { useToday } from '../../hooks/useToday'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 
 /** Maps a bgClass to a solid (full-opacity) hex color for borders / progress bars. */
 function solidColor(bgClass: string): string {
@@ -399,15 +400,14 @@ export function DeadlinePanel({
                       className="text-sm border border-blue-400 rounded-sm px-2 py-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                       style={{ fontSize: 15 }}
                     />
-                    <button
+                    <PrimaryButton
+                      size="compact"
                       onMouseDown={e => e.preventDefault()} // prevent onBlur from firing first
                       onClick={() => void commitEdit()}
                       disabled={isSaving}
-                      className="hit-44 px-2 py-1 text-base bg-blue-600 text-white rounded-sm hover:bg-blue-700 disabled:opacity-50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                      style={{ minHeight: 32, fontSize: 15 }}
                     >
                       {isSaving ? '…' : 'Save'}
-                    </button>
+                    </PrimaryButton>
                     <button
                       onMouseDown={e => e.preventDefault()}
                       onClick={cancelEdit}
@@ -476,12 +476,10 @@ export function DeadlinePanel({
                       </button>
                     )}
                     {rule && daysUntil !== null && !result?.extended && (
-                      <button type="button" onClick={() => setExtendingCol({ col, due: engine?.due ?? null })}
-                        title="Give more time: pick a later due date and say why"
-                        className="hit-44 px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-base font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                        style={{ minHeight: 36 }}>
+                      <SecondaryButton size="compact" onClick={() => setExtendingCol({ col, due: engine?.due ?? null })}
+                        title="Give more time: pick a later due date and say why">
                         Extend…
-                      </button>
+                      </SecondaryButton>
                     )}
                   </div>
                 )}

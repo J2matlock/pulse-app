@@ -1,6 +1,7 @@
 import React from 'react'
 import toast from 'react-hot-toast'
 import { pulseEvents } from '../../events'
+import { ToastIcon } from './ToastHost'
 
 // The recovery-key reminder after unlock: a button to the control instead of a path to
 // follow, and a "Later" that closes it (UX-A-25). The Getting-started card stays the lasting reminder.
@@ -54,7 +55,7 @@ export function RecoveryKeyReminderToast({ id }: { id: string }): React.ReactEle
 
 /** Long enough to read and decide; gone when the app locks, so it never sits on the lock screen */
 export function showRecoveryKeyReminder(): void {
-  toast(t => <RecoveryKeyReminderToast id={t.id} />, { id: RECOVERY_TOAST_ID, icon: '🔑', duration: SHOW_FOR_MS })
+  toast(t => <RecoveryKeyReminderToast id={t.id} />, { id: RECOVERY_TOAST_ID, icon: <ToastIcon kind="key" />, duration: SHOW_FOR_MS })
   const off = pulseEvents.on('app:locked', () => toast.dismiss(RECOVERY_TOAST_ID))
   setTimeout(off, SHOW_FOR_MS)
 }

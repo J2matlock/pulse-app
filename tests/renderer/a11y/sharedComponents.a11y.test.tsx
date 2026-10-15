@@ -25,6 +25,11 @@ Element.prototype.scrollIntoView = function scrollIntoView() {}
 
 import { ConfirmDialog } from '../../../src/renderer/components/shared/ConfirmDialog'
 import { CommandPalette } from '../../../src/renderer/components/shared/CommandPalette'
+import { Dialog } from '../../../src/renderer/components/ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../../../src/renderer/components/ui/Button'
+import { EmptyState } from '../../../src/renderer/components/shared/EmptyState'
+import { Toggle, ToggleRow } from '../../../src/renderer/components/ui/Toggle'
+import { RowMenu } from '../../../src/renderer/components/ui/RowMenu'
 import { CategoryManager } from '../../../src/renderer/components/contacts/CategoryManager'
 import { UndoHistoryPanel } from '../../../src/renderer/components/shared/UndoHistoryPanel'
 import { useContactsStore } from '../../../src/renderer/stores/contactsStore'
@@ -47,6 +52,40 @@ describe('axe: shared dialogs', () => {
   it('confirm dialog has no accessibility problems', async () => {
     render(<ConfirmDialog open title="Delete Test Person" message="This can't be undone." confirmLabel="Delete" onConfirm={() => {}} onCancel={() => {}} />)
     await expectNoAxeViolations(document.body)
+  })
+
+  it('the shared Dialog shell has no accessibility problems', async () => {
+    render(
+      <Dialog open onClose={() => {}} title="Rename column" description="The new name shows everywhere."
+        footer={<><SecondaryButton>Cancel</SecondaryButton><PrimaryButton>Rename</PrimaryButton></>}>
+        <label>Name <input /></label>
+      </Dialog>,
+    )
+    await expectNoAxeViolations(document.body)
+  })
+
+  it('toggle rows, off and on, have no accessibility problems', async () => {
+    const { container } = render(<div>
+      <ToggleRow label="Less movement" description="Turn off animations" checked={false} onChange={() => {}} />
+      <ToggleRow label="Stronger contrast" checked onChange={() => {}} />
+      <Toggle checked={false} onChange={() => {}} label="Items repeat" showState={false} />
+    </div>)
+    await expectNoAxeViolations(container)
+  })
+
+  it('an open row menu has no accessibility problems', async () => {
+    render(<RowMenu label="More for Call insurance" items={[
+      { label: 'Edit', onSelect: () => {}, description: 'Change the title' },
+      { label: 'Delete', onSelect: () => {}, danger: true },
+    ]} />)
+    act(() => { screen.getByRole('button', { name: 'More for Call insurance' }).click() })
+    expect(screen.getByRole('menu')).toBeTruthy()
+    await expectNoAxeViolations(document.body)
+  })
+
+  it('a page-size empty state has no accessibility problems', async () => {
+    const { container } = render(<EmptyState title="No tasks yet" description="Tasks you add show here." icon={<svg />} action={{ label: 'Add task', onClick: () => {} }} secondaryAction={{ label: 'Import', onClick: () => {} }} />)
+    await expectNoAxeViolations(container)
   })
 
   it('command palette has no accessibility problems', async () => {

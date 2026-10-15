@@ -37,7 +37,7 @@ import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
 import { dashboardTileCounts, deadlinesMayBeCut, followUpsMayBeCut, isLateDeadline } from './dashboard/tileCounts'
 import { useListsChanged } from './dashboard/useDashboardRefresh'
-import { RuleColorKey } from '../components/alerts/RuleColorKey'
+import { ColorKeyPopover } from '../components/grid/ColorKeyPopover'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 import { useGridStore } from '../stores/gridStore'
@@ -51,8 +51,6 @@ import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
 
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
-/** Set once the color guide has been closed: it starts open until then (UX D-21) */
-const COLOR_GUIDE_SEEN = 'dashboard_color_guide_seen'
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
@@ -104,19 +102,6 @@ export default function DashboardView(): React.ReactElement {
   const [archiveSearch, setArchiveSearch] = useState('')
   const [debouncedArchiveSearch, setDebouncedArchiveSearch] = useState('')
   const [showSpinner, setShowSpinner] = useState(false)
-  // Open the first time, until closed once; a link reopens it (UX D-21)
-  const [showColorLegend, setShowColorLegend] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    void safeInvoke<string | null>(IPC.SETTINGS_GET, COLOR_GUIDE_SEEN).then(r => { if (!cancelled && !(r.ok && r.data === '1')) setShowColorLegend(true) })
-    return () => { cancelled = true }
-  }, [])
-  const toggleColorLegend = useCallback(() => {
-    setShowColorLegend(prev => {
-      if (prev) void safeInvoke(IPC.SETTINGS_UPDATE, COLOR_GUIDE_SEEN, '1')
-      return !prev
-    })
-  }, [])
   const [showCompliance, setShowCompliance] = useState(false)
   const closeCompliance = useCallback(() => setShowCompliance(false), [])
   const [showCalendar, setShowCalendar] = useState(false)
@@ -530,32 +515,12 @@ export default function DashboardView(): React.ReactElement {
               </button>
             ))}
             </div>
-            {/* The color guide opens from a link, not a caption-looking button (UX D-21) */}
-            <button type="button" onClick={toggleColorLegend} aria-expanded={showColorLegend}
-              className="ml-auto flex items-center gap-1.5 px-4 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline whitespace-nowrap focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              style={{ minHeight: 44 }}>
+            {/* The one color key, as a pop-up from a link: it doesn't push the due rows down (UX D-21) */}
+            <ColorKeyPopover rules={rulesInUse} label="What do the colors mean?" triggerVariant="link" buttonClassName="ml-auto px-4 whitespace-nowrap"
+              intro="The stripe on the left of each row: red = late or due today, orange = due this week, yellow = due this month.">
               What do the colors mean?
-            </button>
+            </ColorKeyPopover>
           </div>
-
-          {/* Deadline color legend: built from the rules in use, each sets its own colors (D-29) */}
-          {showColorLegend && (
-            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700" role="region" aria-label="What the colors mean">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-base text-slate-700 dark:text-slate-300 mb-2">
-                    The stripe on the left of each row: red = late or due today, orange = due this week, yellow = due this month.
-                  </p>
-                  <div className="space-y-2">
-                    {rulesInUse.length === 0
-                      ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet. Colors show here once a date column has a deadline rule: click the ⋯ on a date column and choose "Deadline rule…".</p>
-                      : rulesInUse.map(r => <RuleColorKey key={r.id} rule={r} />)}
-                  </div>
-                </div>
-                <button type="button" className="btn-compact-secondary" onClick={toggleColorLegend}>Got it</button>
-              </div>
-            </div>
-          )}
 
           {deadlinesCut && (
             <p className="px-4 py-2 text-base text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700" role="note">

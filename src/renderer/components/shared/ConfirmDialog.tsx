@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef, useId } from 'react'
-import { motion } from 'motion/react'
-import { AlertTriangle, X } from 'lucide-react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React, { useState, useEffect, useRef } from 'react'
+import { AlertTriangle } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton, DangerButton } from '../ui/Button'
 
 interface BaseProps {
   open: boolean
@@ -29,46 +28,28 @@ interface TypedProps extends BaseProps {
 export type ConfirmDialogProps = StandardProps | TypedProps
 
 /**
- * Modal confirmation dialog.
+ * Modal confirmation dialog, built on the shared Dialog (focus trap, Escape,
+ * nested-click guard, pinned buttons).
  * variant="standard" — simple yes/no
  * variant="typed"    — user must type requiredPhrase exactly to enable Confirm
+ * Enter confirms from the confirm button or a field, never from Cancel or the X.
  */
 export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | null {
   const { open, title, message, confirmLabel, onConfirm, onCancel, destructive = true, children } = props
   const [typed, setTyped] = useState('')
   const primaryRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const titleId = useId()
-  const messageId = useId()
 
-  // The shared trap: it goes on the stack of open dialogs, so a dialog underneath stops taking Tab
-  // and Escape, and it gives focus back when this closes, also when it's unmounted while open (Q-050)
-  useFocusTrap(panelRef, open, { onEscape: onCancel })
-
+  // A fresh start each time it opens. Focus goes to the typed field if there is one, otherwise the confirm button (D-020)
   useEffect(() => {
-    if (!open) return
-    setTyped('')
-    // Focus the typed input if present, otherwise the confirm button (D-020); after the trap's own first focus
-    const timer = setTimeout(() => {
-      if (props.variant === 'typed') inputRef.current?.focus()
-      else primaryRef.current?.focus()
-    }, 50)
-    return () => clearTimeout(timer)
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps -- runs when the dialog opens; the variant doesn't change while it's open
+    if (open) setTyped('')
+  }, [open])
 
   const canConfirm = props.variant === 'typed' ? typed === props.requiredPhrase : true
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') {
-      // preventDefault tells page-level Escape handlers (the record page) it's taken
-      e.preventDefault()
-      e.stopPropagation()
-      onCancel()
-    }
+    // Escape belongs to the Dialog (it cancels). Enter confirms, but never from Cancel or the X.
     if (e.key === 'Enter' && canConfirm) {
-      // Enter on Cancel, the X or any other control must do that control's
-      // job, never the (usually destructive) confirm.
       const target = e.target as HTMLElement
       if (target !== primaryRef.current && target.closest('button, a, select, textarea')) return
       e.stopPropagation()
@@ -78,122 +59,54 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
     }
   }
 
+  const typedField = props.variant === 'typed' && (
+    <div className={children ? 'mt-4' : ''}>
+      <label htmlFor="confirm-typed-phrase" className="block text-base text-slate-600 dark:text-slate-400 mb-2">
+        Type{' '}
+        <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+          {props.requiredPhrase}
+        </span>{' '}
+        to confirm
+      </label>
+      <input
+        id="confirm-typed-phrase"
+        ref={inputRef}
+        type="text"
+        className="input w-full"
+        value={typed}
+        onChange={e => setTyped(e.target.value)}
+        autoComplete="off"
+        spellCheck={false}
+      />
+    </div>
+  )
+
+  const ConfirmButton = destructive ? DangerButton : PrimaryButton
+
   return (
-    <>
-      {open && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          // A destructive confirmation interrupts the user, which is what alertdialog means
-          role={destructive ? 'alertdialog' : 'dialog'}
-          aria-modal="true"
-          aria-labelledby={titleId}
-          aria-describedby={message ? messageId : undefined}
-          onKeyDown={handleKeyDown}
-          // Opened inside another dialog, a click here must not reach that dialog's backdrop and close it (Q-051)
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Backdrop */}
-          <motion.div
-            className="fixed inset-0 bg-black/50"
-            variants={backdropVariants}
-            initial="hidden"
-            animate="visible"
-            onClick={onCancel}
-          />
-
-          {/* Panel: scrolls in a short window (200% zoom leaves ~380px) rather than losing its buttons (AUDIT-055) */}
-          <motion.div
-            ref={panelRef}
-            className="relative w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 mx-4"
-            variants={modalPanelVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {/* Close button */}
-            <button
-              onClick={onCancel}
-              className="hit-44 absolute top-4 right-4 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
-              aria-label="Close"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Header */}
-            <div className="flex items-start gap-3 mb-4">
-              {destructive && (
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                </div>
-              )}
-              <div className="min-w-0 flex-1 pt-1">
-                <h2
-                  id={titleId}
-                  className="text-base font-semibold text-slate-800 dark:text-slate-100"
-                >
-                  {title}
-                </h2>
-                {message && (
-                  <p id={messageId} className="mt-1 text-base text-slate-500 dark:text-slate-400">{message}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Optional extra content */}
-            {children}
-
-            {/* Typed confirmation input */}
-            {props.variant === 'typed' && (
-              <div className="mb-5">
-                <label htmlFor="confirm-typed-phrase" className="block text-base text-slate-600 dark:text-slate-400 mb-1.5">
-                  Type{' '}
-                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                    {props.requiredPhrase}
-                  </span>{' '}
-                  to confirm
-                </label>
-                <input
-                  id="confirm-typed-phrase"
-                  ref={inputRef}
-                  type="text"
-                  className="input w-full"
-                  style={{ minHeight: 44 }}
-                  value={typed}
-                  onChange={e => setTyped(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={onCancel}
-                className="btn-secondary"
-                style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
-                title="Cancel (Esc)"
-              >
-                Cancel
-              </button>
-              <button
-                ref={primaryRef}
-                onClick={onConfirm}
-                disabled={!canConfirm}
-                className={
-                  destructive
-                    ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-300 dark:disabled:bg-red-900/50 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500'
-                    : 'btn-primary'
-                }
-                style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
-                title={confirmLabel}
-              >
-                {confirmLabel}
-              </button>
-            </div>
-          </motion.div>
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      title={title}
+      description={message}
+      size="md"
+      // A destructive confirmation interrupts the user, which is what alertdialog means
+      role={destructive ? 'alertdialog' : 'dialog'}
+      initialFocus={props.variant === 'typed' ? inputRef : primaryRef}
+      onKeyDown={handleKeyDown}
+      icon={destructive ? (
+        <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+          <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" aria-hidden="true" />
         </div>
-      )}
-    </>
+      ) : undefined}
+      footer={<>
+        <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+        <ConfirmButton ref={primaryRef} onClick={onConfirm} disabled={!canConfirm}>
+          {confirmLabel}
+        </ConfirmButton>
+      </>}
+    >
+      {children || typedField ? <>{children}{typedField}</> : undefined}
+    </Dialog>
   )
 }

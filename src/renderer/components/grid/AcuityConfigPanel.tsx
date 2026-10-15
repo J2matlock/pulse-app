@@ -7,6 +7,7 @@ import { dropdownVariants } from '../../utils/animations'
 import type { AcuityLevel } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { Toggle } from '../ui/Toggle'
 
 const DEFAULT_LEVELS: Array<{ name: string; abbreviation: string; points: number; color: string }> = [
   { name: 'Low', abbreviation: 'L', points: 1, color: '#22c55e' },
@@ -93,20 +94,7 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
       {/* What it's for comes first, so the switch isn't a guess (UX-B-20) */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-base font-semibold text-slate-700 dark:text-slate-200">{t('priority', { many: true, cap: true })}</span>
-        <button
-          onClick={handleToggle}
-          className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-            ${acuityEnabled ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
-          role="switch"
-          aria-checked={acuityEnabled}
-          aria-label={t('priority', { many: true, cap: true })}
-          aria-describedby={aboutId}
-        >
-          <span
-            className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform
-              ${acuityEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-          />
-        </button>
+        <Toggle checked={acuityEnabled} onChange={() => void handleToggle()} label={t('priority', { many: true, cap: true })} describedBy={aboutId} />
       </div>
       <p id={aboutId} className="text-base text-slate-600 dark:text-slate-300 mb-3">
         Rate each {t('record')} Low, Medium or High (or levels of your own), so the ones who need the most stand out. Each level has points, and the {t('list')}'s total shows at the bottom.

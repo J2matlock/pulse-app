@@ -11,6 +11,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { BatchDocumentsDialog } from '../documents/BatchDocumentsDialog'
 import { ArchiveDialog } from './GridDialogs'
+import { PrimaryButton, DangerButton } from '../ui/Button'
 
 export interface BulkActionBarProps {
   selectedRowIds: Set<number>
@@ -160,19 +161,13 @@ export function BulkActionBar({
       >
         Change a column…
       </button>
-      <button
-        className="hit-44 text-base px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium"
-        onClick={() => { setBulkMoveTarget(true) }}
-      >
+      <PrimaryButton size="compact" tone="inverse" onClick={() => { setBulkMoveTarget(true) }}>
         Move to {t('list')}…
-      </button>
+      </PrimaryButton>
       {lettersOn && activeGridId != null && (
-        <button
-          className="hit-44 text-base px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium"
-          onClick={() => setBatchDocs(true)}
-        >
+        <PrimaryButton size="compact" tone="inverse" onClick={() => setBatchDocs(true)}>
           Letters and labels…
-        </button>
+        </PrimaryButton>
       )}
       {batchDocs && activeGridId != null && (
         <BatchDocumentsDialog gridId={activeGridId} rowIds={Array.from(selectedRowIds)} onClose={() => setBatchDocs(false)} />
@@ -234,12 +229,9 @@ export function BulkActionBar({
       />, document.body)}
       {/* Away from Archive, at the far end after a divider (UX-B-25) */}
       <div className="w-px h-6 bg-slate-600 flex-shrink-0" aria-hidden="true" />
-      <button
-        className="hit-44 text-base px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors font-medium"
-        onClick={() => setBulkDeleteTarget(true)}
-      >
+      <DangerButton size="compact" tone="inverse" onClick={() => setBulkDeleteTarget(true)}>
         Move to the Trash…
-      </button>
+      </DangerButton>
       <button
         className="hit-44 text-base px-2 py-1.5 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors text-slate-300"
         onClick={() => setSelectedRowIds(new Set())}

@@ -66,6 +66,25 @@ describe('confirmation buttons name their action', () => {
     expect(vague).toEqual([])
   })
 
+  it('a shared Dialog\'s main button names its action too', () => {
+    // Done and Close are fine for a dialog that only shows something; a question needs its verb
+    const VAGUE_ACTION = /^(OK|Okay|Yes|Confirm|Continue|Submit)$/i
+    const vague = sourceFiles(ROOT)
+      .filter(f => !f.includes(join('components', 'ui')))
+      .flatMap(file => {
+        const src = readFileSync(file, 'utf8')
+        if (!/<Dialog\b/.test(src)) return []
+        return [...src.matchAll(/<(?:PrimaryButton|DangerButton)\b/g)]
+          .filter(m => {
+            const tag = openingTag(src, m.index!)
+            const text = src.slice(m.index! + tag.length).match(/^\s*([^<{]*?)\s*<\//)?.[1]
+            return text !== undefined && VAGUE_ACTION.test(text)
+          })
+          .map(m => `${relative(ROOT, file)}:${src.slice(0, m.index).split('\n').length}`)
+      })
+    expect(vague).toEqual([])
+  })
+
   it('ConfirmDialog itself has no fallback label', () => {
     const src = readFileSync(join(ROOT, 'components/shared/ConfirmDialog.tsx'), 'utf8')
     expect(src).not.toMatch(/confirmLabel\s*=\s*['"]/)

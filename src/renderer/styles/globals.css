@@ -56,6 +56,19 @@
 
   /* Grid borders — use gray-300+ (chunky, visible — spec Section 10) */
   --color-border-grid: #D1D5DB;
+
+  /* The design system (plans Q5): one action colour, one corner radius.
+     Accent = buttons, links, selected things, focus rings: bg-accent, text-accent,
+     ring-accent, border-accent, bg-accent-soft. The dark values are in .dark below.
+     Deadline colours are for status only, never for an action. */
+  --color-accent: #2563EB;        /* blue-600 */
+  --color-accent-hover: #1D4ED8;  /* blue-700 */
+  --color-accent-soft: #EFF6FF;   /* blue-50 */
+
+  /* 8 px corners for buttons, inputs, dialogs, cards and menus (rounded-lg).
+     rounded-full is for pills, avatars, switches and dots; rounded-sm only for
+     things 20 px or smaller (swatches, checkboxes), where 8 px makes a circle. */
+  --radius-lg: 0.5rem;
 }
 
 @layer utilities {
@@ -101,9 +114,14 @@
     --text-secondary: #64748B;   /* slate-500 */
     --border: #E2E8F0;           /* slate-200 */
     --border-grid: #D1D5DB;      /* gray-300 — chunky, visible */
-    --accent: #2563EB;           /* blue-600 */
-    --accent-hover: #1D4ED8;
-    --ring-color: #2563EB;
+    /* Older names for the accent token, kept so there's one source */
+    --accent: var(--color-accent);
+    --accent-hover: var(--color-accent-hover);
+    --ring-color: var(--color-accent);
+    /* Toasts (ToastHost) */
+    --toast-bg: #FFFFFF;
+    --toast-fg: #1E293B;         /* slate-800 */
+    --toast-border: #E2E8F0;     /* slate-200 */
   }
 
   .dark {
@@ -114,9 +132,15 @@
     --text-secondary: #94A3B8;   /* slate-400 */
     --border: #334155;           /* slate-700 */
     --border-grid: #475569;      /* slate-600 */
-    --accent: #3B82F6;           /* blue-500 */
-    --accent-hover: #2563EB;
-    --ring-color: #3B82F6;
+    --color-accent: #3B82F6;        /* blue-500 */
+    --color-accent-hover: #2563EB;  /* blue-600 */
+    --color-accent-soft: rgb(30 58 138 / 0.4);
+    --accent: var(--color-accent);
+    --accent-hover: var(--color-accent-hover);
+    --ring-color: var(--color-accent);
+    --toast-bg: #1E293B;         /* slate-800, a step up from the page */
+    --toast-fg: #F1F5F9;         /* slate-100 */
+    --toast-border: #475569;     /* slate-600 */
   }
 
   /* Base: 15px minimum for all body text (spec requirement) */
@@ -175,7 +199,7 @@
   gap: 0.5rem;
   padding-left: 1rem;
   padding-right: 1rem;
-  border-radius: calc(var(--radius-sm, 0.25rem));
+  border-radius: var(--radius-lg);
   font-weight: 500;
   transition-property: color, background-color, border-color, transform;
   transition-duration: 150ms;
@@ -199,7 +223,7 @@
   height: 36px;
   padding-left: 0.75rem;
   padding-right: 0.75rem;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-lg);
   font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
@@ -226,8 +250,10 @@
     @apply outline-hidden ring-3 ring-offset-1 ring-blue-500;
   }
 
+  /* Filled accent buttons. In dark mode the fill is the deeper accent: white
+     text on the dark accent (blue-500) is only 3.7:1, on blue-600 it's 5.2:1. */
   .btn-primary {
-    @apply btn bg-blue-600 text-white hover:bg-blue-700;
+    @apply btn bg-accent text-white hover:bg-accent-hover dark:bg-accent-hover dark:hover:bg-blue-700;
   }
 
   .btn-secondary {
@@ -240,15 +266,15 @@
 
   /* Compact toolbar buttons (36px visual, 44px click area) */
   .btn-compact-primary {
-    @apply btn-compact bg-blue-600 text-white hover:bg-blue-700;
+    @apply btn-compact bg-accent text-white hover:bg-accent-hover dark:bg-accent-hover dark:hover:bg-blue-700;
   }
-  .btn-compact-secondary {
+  .btn-compact-danger {
+    @apply btn-compact bg-red-600 text-white hover:bg-red-700;
+  }
+  /* btn-compact-soft has the same look now: one secondary style (its last users go in Q8) */
+  .btn-compact-secondary, .btn-compact-soft {
     @apply btn-compact border border-slate-300 bg-white text-slate-700 hover:bg-slate-100
            dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
-  }
-  .btn-compact-soft {
-    @apply btn-compact bg-blue-50 text-blue-700 hover:bg-blue-100
-           dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60;
   }
 
   /* Grid cell — chunky borders, 15px text */
@@ -263,7 +289,7 @@
 
   /* Input base */
   .input {
-    @apply w-full rounded-sm border border-slate-300 px-3 py-2 text-base bg-white dark:bg-slate-800
+    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-base bg-white dark:bg-slate-800
            text-slate-900 dark:text-slate-100 dark:border-slate-600
            focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500;
     font-size: 15px;

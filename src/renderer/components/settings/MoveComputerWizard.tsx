@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Laptop, CheckCircle2, AlertTriangle, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Laptop, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { localDateString } from '../../../shared/dates'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton } from '../ui/Button'
 
 /**
  * "Move to a new computer": make sure a recovery key exists, save a portable
@@ -16,9 +17,6 @@ export function MoveComputerWizard({ open, onClose, onGoToSecurity }: { open: bo
   const [verified, setVerified] = useState<boolean | null>(null)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  // Tab stays inside, Escape closes, and focus goes back to the button that opened it
-  useFocusTrap(dialogRef, open, { onEscape: onClose })
 
   useEffect(() => {
     if (!open) return
@@ -60,17 +58,13 @@ export function MoveComputerWizard({ open, onClose, onGoToSecurity }: { open: bo
   )
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="move-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <Laptop className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-          <h2 id="move-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">Move Pulse to a new computer</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <ol className="px-6 py-5 space-y-5">
+    // The shared Dialog: Tab stays inside, Escape closes, and focus goes back to the button that opened it
+    <Dialog open onClose={onClose} title="Move Pulse to a new computer" size="xl"
+      icon={<Laptop className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      footer={<p className="text-sm text-slate-600 dark:text-slate-300">
+        The backup is encrypted. Once the move works, delete it from the USB drive or erase Pulse on the old computer (Settings → Data → Reset everything).
+      </p>}>
+        <ol className="space-y-6">
           {step(1, hasRecovery === true, 'Have your recovery key ready', hasRecovery === false ? (
             <div className="flex items-start gap-2 text-base text-amber-800 dark:text-amber-200">
               <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
@@ -84,7 +78,7 @@ export function MoveComputerWizard({ open, onClose, onGoToSecurity }: { open: bo
           ))}
           {step(2, !!savedPath && verified === true, 'Save your data to a USB drive or network folder', (
             <>
-              {!savedPath && <button type="button" className="btn-primary" disabled={working} onClick={() => void saveBackup()}>{working ? 'Saving…' : 'Save backup…'}</button>}
+              {!savedPath && <PrimaryButton disabled={working} onClick={() => void saveBackup()}>{working ? 'Saving…' : 'Save backup…'}</PrimaryButton>}
               {savedPath && (
                 <p className="text-base text-slate-700 dark:text-slate-200 break-all">
                   Saved to <span className="font-mono text-sm">{savedPath}</span>
@@ -104,10 +98,6 @@ export function MoveComputerWizard({ open, onClose, onGoToSecurity }: { open: bo
             </ul>
           ))}
         </ol>
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
-          The backup is encrypted. Once the move works, delete it from the USB drive or erase Pulse on the old computer (Settings → Data → Reset everything).
-        </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

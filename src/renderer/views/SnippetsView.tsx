@@ -12,6 +12,7 @@ import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../utils/friendlyError'
+import { PrimaryButton, DangerButton } from '../components/ui/Button'
 
 // ── Variable helper ───────────────────────────────────────────────────────────
 
@@ -275,17 +276,13 @@ export default function SnippetsView(): React.ReactElement {
         <p className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
           Type <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded-sm">/trigger</span> in any {t('activity')} or in scratch notes
         </p>
-        <button
+        <PrimaryButton
           onClick={() => { setEditTarget(null); setShowEditor(true) }}
-          title="Create a new snippet"
           aria-label="Create a new snippet"
-          className="hit-44 flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-base font-medium
-                     hover:bg-blue-700 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+          icon={<Plus className="w-4 h-4" />}
         >
-          <Plus className="w-4 h-4" />
           New snippet
-        </button>
+        </PrimaryButton>
       </div>
 
       {/* Search */}
@@ -355,15 +352,9 @@ export default function SnippetsView(): React.ReactElement {
 
                   {confirmDeleteId === s.id ? (
                     <>
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        title="Confirm delete"
-                        aria-label="Confirm delete snippet"
-                        className="hit-44 px-2 py-1 text-base text-white bg-red-600 hover:bg-red-700 rounded-sm
-                                   focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
-                      >
+                      <DangerButton size="compact" onClick={() => handleDelete(s.id)} aria-label="Confirm delete snippet">
                         Delete
-                      </button>
+                      </DangerButton>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
                         title="Cancel delete"

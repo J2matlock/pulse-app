@@ -75,6 +75,16 @@ describe('ColorKeyPopover', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('a link trigger shows its words without a native title, and an intro comes before the rules', () => {
+    render(<ColorKeyPopover rules={[review]} label="What do the colors mean?" triggerVariant="link" intro="The stripe on the left of each row.">What do the colors mean?</ColorKeyPopover>)
+    const btn = screen.getByRole('button', { name: 'What do the colors mean?' })
+    expect(btn.getAttribute('title')).toBeNull()
+    expect(btn.className).toMatch(/underline/)
+    fireEvent.click(btn)
+    const dialog = screen.getByRole('dialog', { name: 'What the colors mean' })
+    expect(dialog.textContent!.indexOf('The stripe on the left')).toBeLessThan(dialog.textContent!.indexOf('Due Soon'))
+  })
+
   it('says so when no column has a rule yet', () => {
     render(<ColorKeyPopover rules={[]} label="Colors">?</ColorKeyPopover>)
     fireEvent.click(screen.getByRole('button', { name: 'Colors' }))

@@ -32,6 +32,8 @@ import { friendlyError } from '../../utils/friendlyError'
 import { pulseEvents } from '../../events'
 import { resolveGroupDrop, groupAwareCollision } from '../../views/tasks/groupDrag'
 import { useVocab } from '../../hooks/useVocab'
+import { Toggle } from '../ui/Toggle'
+import { PrimaryButton } from '../ui/Button'
 
 interface Props {
   rowId: number
@@ -1111,12 +1113,9 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
                   <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
                     No templates yet. A template is a ready-made set of checklist items (like "New {t('record')} intake") you can add to any {t('record')} in one click. The Templates page in the sidebar shows the same list.
                   </p>
-                  <button
-                    onClick={openCreate}
-                    className="hit-44 px-4 py-2 rounded-lg bg-blue-500 text-white text-base font-medium hover:bg-blue-600 transition-colors"
-                  >
+                  <PrimaryButton onClick={openCreate} className="mx-auto">
                     Create your first template
-                  </button>
+                  </PrimaryButton>
                 </div>
               ) : (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -1168,14 +1167,9 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => onApply(tpl.id)}
-                            className="hit-44 ml-1 px-3 py-1.5 rounded-md text-base font-medium
-                                       bg-blue-500 text-white hover:bg-blue-600 transition-colors
-                                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                          >
+                          <PrimaryButton size="compact" onClick={() => onApply(tpl.id)} className="ml-1">
                             Apply
-                          </button>
+                          </PrimaryButton>
                         </div>
                       </li>
                     )
@@ -1231,18 +1225,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
 
               {/* Recurring */}
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setDraft(d => ({ ...d, isRecurring: !d.isRecurring }))}
-                  className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
-                  role="switch"
-                  aria-checked={draft.isRecurring}
-                  aria-label="Items repeat"
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
-                                   ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
+                <Toggle checked={draft.isRecurring} onChange={on => setDraft(d => ({ ...d, isRecurring: on }))} label="Items repeat" showState={false} />
                 <span className="text-base text-slate-700 dark:text-slate-300">
                   Items repeat
                 </span>
@@ -1334,15 +1317,9 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {footer}
               </p>
-              <button
-                onClick={openCreate}
-                className="hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-medium
-                           bg-blue-500 text-white hover:bg-blue-600 transition-colors
-                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              >
-                <Plus className="w-4 h-4" />
+              <PrimaryButton size="compact" onClick={openCreate} icon={<Plus className="w-4 h-4" />}>
                 New template
-              </button>
+              </PrimaryButton>
             </>
           ) : (
             <>
@@ -1353,16 +1330,9 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
               >
                 Cancel
               </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="hit-44 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-base font-medium
-                           bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors
-                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              >
-                <Check className="w-4 h-4" />
+              <PrimaryButton size="compact" onClick={handleSave} disabled={saving} icon={<Check className="w-4 h-4" />}>
                 {saving ? 'Saving…' : 'Save template'}
-              </button>
+              </PrimaryButton>
             </>
           )}
         </div>

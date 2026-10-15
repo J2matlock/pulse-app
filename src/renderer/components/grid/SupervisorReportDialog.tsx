@@ -234,7 +234,6 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
               <input
                 type="text"
                 className="input flex-1"
-                style={{ minHeight: 40, fontSize: 15 }}
                 value={workerTitle}
                 onChange={e => setWorkerTitle(e.target.value)}
                 placeholder="Title (like Team lead)"
@@ -243,7 +242,6 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
               <input
                 type="text"
                 className="input flex-1"
-                style={{ minHeight: 40, fontSize: 15 }}
                 value={workerOrg}
                 onChange={e => setWorkerOrg(e.target.value)}
                 placeholder="Organization"

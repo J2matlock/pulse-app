@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { GripVertical, Trash2, Calendar, RotateCw, X, AlertTriangle, MoreHorizontal } from 'lucide-react'
+import { GripVertical, Trash2, Calendar, RotateCw, X, AlertTriangle } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -8,7 +8,7 @@ import { localDateString } from '../../../shared/dates'
 import { parseRepeatRule } from '../../../shared/recurrence'
 import { dueDateBadge, isOverdue, isDueToday, isSnoozed } from '../../views/tasks/taskHelpers'
 import { snoozeDay } from '../../views/tasks/SnoozeDialog'
-import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { RowMenu, type MenuItem } from '../ui/RowMenu'
 
 // Chips say "High priority", not a bare "High" (UX D-42)
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; dot: string; badge: string }> = {
@@ -35,8 +35,6 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   const [dateDraft, setDateDraft] = useState(task.due_date ?? '')
   const [showPriorityMenu, setShowPriorityMenu] = useState(false)
   const [showRecurrenceMenu, setShowRecurrenceMenu] = useState(false)
-  // The row's "⋯" menu: Edit, Snooze…, Repeat…, Delete, always in view (UX D-12)
-  const [showMore, setShowMore] = useState(false)
   const [justChecked, setJustChecked] = useState(false)
 
   const titleRef = useRef<HTMLInputElement>(null)
@@ -44,10 +42,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   const clearDateRef = useRef<HTMLButtonElement>(null)
   const priorityMenuRef = useRef<HTMLDivElement>(null)
   const recurrenceMenuRef = useRef<HTMLDivElement>(null)
-  const moreWrapRef = useRef<HTMLDivElement>(null)
-  const moreMenuRef = useRef<HTMLDivElement>(null)
   const prevCompletedRef = useRef(task.is_completed)
-  const onMoreKey = useMenuKeys(moreMenuRef, showMore, () => setShowMore(false))
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -85,15 +80,6 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
     return () => document.removeEventListener('mousedown', onDown)
   }, [showRecurrenceMenu])
 
-  useEffect(() => {
-    if (!showMore) return
-    function onDown(e: MouseEvent) {
-      if (!moreWrapRef.current?.contains(e.target as Node)) setShowMore(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [showMore])
-
   function saveTitle() {
     const trimmed = titleDraft.trim()
     if (trimmed && trimmed !== task.title) onUpdate({ title: trimmed })
@@ -123,7 +109,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   const priorityCfg = PRIORITY_CONFIG[priority]
   const hasRecurrence = !!task.recurrence_rule
 
-  const moreItems: Array<{ label: string; onSelect: () => void; danger?: boolean }> = [
+  const moreItems: MenuItem[] = [
     { label: 'Edit', onSelect: onEdit },
     snoozed ? { label: 'Wake up', onSelect: () => onUpdate({ snoozed_until: null }) } : { label: 'Snooze…', onSelect: onSnooze },
     { label: 'Repeat…', onSelect: () => setShowRecurrenceMenu(true) },
@@ -383,33 +369,9 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
         </div>
       </div>
 
-      {/* The row's choices, always in view at low emphasis (UX D-12) */}
-      <div ref={moreWrapRef} className="relative flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => setShowMore(o => !o)}
-          aria-haspopup="menu"
-          aria-expanded={showMore}
-          aria-label={`More for ${task.title}`}
-          title="Edit, snooze, repeat or delete"
-          className="hit-44 p-1.5 rounded-sm text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-        >
-          <MoreHorizontal className="w-5 h-5" aria-hidden="true" />
-        </button>
-        {showMore && (
-          <div ref={moreMenuRef} role="menu" aria-label={`Choices for ${task.title}`} onKeyDown={onMoreKey}
-            className="absolute right-0 top-full mt-1 z-50 w-44 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
-            {moreItems.map(item => (
-              <button key={item.label} type="button" role="menuitem"
-                onClick={() => { setShowMore(false); item.onSelect() }}
-                className={`w-full text-left px-3 text-base hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:bg-slate-100 dark:focus-visible:bg-slate-700 focus-visible:ring-3 focus-visible:ring-blue-500 ${item.danger ? 'text-red-700 dark:text-red-400 border-t border-slate-200 dark:border-slate-700 mt-1' : 'text-slate-800 dark:text-slate-100'}`}
-                style={{ minHeight: 44 }}>
-                {item.label}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* The row's choices (Edit, Snooze…, Repeat…, Delete), always in view at low emphasis (UX D-12) */}
+      <div className="relative flex-shrink-0">
+        <RowMenu label={`More for ${task.title}`} menuLabel={`Choices for ${task.title}`} items={moreItems} />
       </div>
     </div>
   )
