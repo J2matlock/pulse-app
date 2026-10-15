@@ -318,8 +318,8 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
         />
       </button>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
+      {/* Content. A size container, so Edit/Delete show their words by the column's width, not the window's */}
+      <div className="@container flex-1 min-w-0">
         {/* Title */}
         {editingTitle ? (
           <input
@@ -348,8 +348,9 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           </span>
         )}
 
-        {/* Badges row */}
-        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+        {/* Badges row. A 4 px gap keeps "In 5 days · Oct 20" and both icons on one line in the
+            record page's narrow column (about 204 px at 1366 wide) */}
+        <div className="flex items-center gap-1 mt-1 flex-wrap">
           {/* Due date */}
           {editingDate ? (
             <div className="flex items-center gap-1">
@@ -413,8 +414,9 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             </span>
           )}
 
-          {/* Priority */}
-          <div className="relative" ref={priorityMenuRef}>
+          {/* Priority. Unset, it's a hover-only "+ Priority" that still takes room, so a narrow
+              column leaves it out (the Edit dialog sets priority too) and the row stays one line */}
+          <div className={`relative ${priority === 'normal' && !showPriorityMenu ? 'hidden @min-[26rem]:block' : ''}`} ref={priorityMenuRef}>
             <button
               onClick={() => setShowPriorityMenu(prev => !prev)}
               className={`hit-44 px-1.5 py-0.5 rounded-sm text-base font-medium whitespace-nowrap transition-opacity
@@ -444,7 +446,9 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           </div>
 
           {/* Edit and delete sit on this row, not beside the title, so the title keeps the full width (C-07).
-              They say what they do in words where there's room, not only in a tooltip (UX review F-04) */}
+              They say what they do in words where the column has room, not only in a tooltip (UX review F-04).
+              A container query, not the window's width: with "+ Priority" and both words the widest row
+              measured 384 px, so 26rem leaves room for longer date chips */}
           <button
             onClick={() => setShowEditDialog(true)}
             className="hit-44 ml-auto inline-flex items-center gap-1 p-1 text-base text-slate-500 dark:text-slate-400
@@ -454,7 +458,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             title="Edit item"
           >
             <Pencil className="w-4 h-4" aria-hidden="true" />
-            <span className="hidden min-[700px]:inline">Edit</span>
+            <span className="hidden @min-[26rem]:inline">Edit</span>
           </button>
           <button
             onClick={onDelete}
@@ -465,7 +469,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             title="Delete item"
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
-            <span className="hidden min-[700px]:inline">Delete</span>
+            <span className="hidden @min-[26rem]:inline">Delete</span>
           </button>
         </div>
       </div>
@@ -523,7 +527,7 @@ export function CompletedChecklistItem({ item, onUncheck, onDelete }: {
       {/* Delete */}
       <button
         onClick={onDelete}
-        className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
+        className="hit-44 flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
                    hover:text-red-500 dark:hover:text-red-400
                    opacity-0 group-hover:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm

@@ -14,7 +14,7 @@ interface GroupData {
   position: number
 }
 
-interface Props {
+export interface GroupHeaderProps {
   group: GroupData
   totalItems: number
   completedItems: number
@@ -25,6 +25,10 @@ interface Props {
   isDragDisabled: boolean
   /** The group was just made here: open its name for typing */
   autoEdit?: boolean
+  /** What the labels call it ("Rename heading"); "group" when left out (the Tasks page) */
+  noun?: string
+  /** Set, a just-made group opens with an empty name box showing this, so it asks for a name (C-19) */
+  placeholder?: string
 }
 
 export function ChecklistGroupHeader({
@@ -37,7 +41,9 @@ export function ChecklistGroupHeader({
   onDelete,
   isDragDisabled,
   autoEdit = false,
-}: Props) {
+  noun = 'group',
+  placeholder,
+}: GroupHeaderProps) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(group.name)
   const [hovering, setHovering] = useState(false)
@@ -74,7 +80,8 @@ export function ChecklistGroupHeader({
   useEffect(() => {
     if (autoEdit) {
       setEditing(true)
-      setEditValue(group.name)
+      // Empty, so the placeholder asks for a name; leaving it blank keeps the starting name
+      setEditValue(placeholder ? '' : group.name)
     }
   }, [autoEdit]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -111,7 +118,7 @@ export function ChecklistGroupHeader({
           className="hit-44 cursor-grab active:cursor-grabbing text-slate-500 opacity-30
                      hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:text-slate-600
                      dark:hover:text-slate-200 p-0.5 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          aria-label={`Reorder group ${group.name}`}
+          aria-label={`Reorder ${noun} ${group.name}`}
           title="Drag to reorder, or press Space and use the arrow keys"
         >
           <GripVertical className="w-4 h-4" />
@@ -146,8 +153,9 @@ export function ChecklistGroupHeader({
             if (e.key === 'Escape') { setEditValue(group.name); setEditing(false) }
           }}
           maxLength={200}
-          style={{ fontSize: 15 }}
-          className="flex-1 px-1.5 py-0.5 rounded border border-blue-400 dark:border-blue-500
+          placeholder={placeholder}
+          aria-label={`${noun.charAt(0).toUpperCase()}${noun.slice(1)} name`}
+          className="flex-1 px-1.5 py-0.5 text-base rounded border border-blue-400 dark:border-blue-500
                      bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200
                      focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-w-0"
         />
@@ -160,7 +168,7 @@ export function ChecklistGroupHeader({
           <button
             onClick={startEditing}
             className={`hit-44 text-left font-medium text-slate-700 dark:text-slate-300
-                       text-[15px] truncate min-w-0
+                       text-base truncate min-w-0
                        focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm px-1 cursor-text
                        border-b ${hovering
                          ? 'border-solid border-slate-400 dark:border-slate-500'
@@ -174,8 +182,8 @@ export function ChecklistGroupHeader({
             className={`hit-44 p-0.5 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
                        transition-opacity flex-shrink-0
                        ${hovering ? 'opacity-100' : 'opacity-0'}`}
-            title="Rename group"
-            aria-label="Rename group"
+            title={`Rename ${noun}`}
+            aria-label={`Rename ${noun}`}
             tabIndex={-1}
           >
             <Pencil className="w-3.5 h-3.5" />
@@ -186,7 +194,7 @@ export function ChecklistGroupHeader({
       {/* Progress badge */}
       {totalItems > 0 && (
         <span
-          className={`text-xs font-medium tabular-nums px-1.5 py-0.5 rounded-full flex-shrink-0
+          className={`text-sm font-medium tabular-nums px-1.5 py-0.5 rounded-full flex-shrink-0
                       ${progressPct === 100
                         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'
@@ -203,8 +211,8 @@ export function ChecklistGroupHeader({
                    hover:text-red-500 dark:hover:text-red-400 transition-all
                    focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400
                    focus-visible:opacity-100 flex-shrink-0"
-        title="Delete group (items become ungrouped)"
-        aria-label={`Delete group ${group.name}`}
+        title={`Delete ${noun} (its items stay)`}
+        aria-label={`Delete ${noun} ${group.name}`}
       >
         <Trash2 className="w-3.5 h-3.5" />
       </button>

@@ -209,6 +209,17 @@ describe('GridDataSummary', () => {
     expect(screen.getByRole('button', { name: 'Edit Fee' })).toBeTruthy()
   })
 
+  it('shows a date like the rest of the record page (Sep 25, 2026), and a non-date value as the list does (C-30)', async () => {
+    const cols = [
+      makeColumn({ id: 2, name: 'Last visit', column_type: 'date' }),
+      makeColumn({ id: 3, name: 'Start', column_type: 'date' }),
+    ]
+    render(<GridDataSummary row={makeRow({ col_2: '2026-09-25', col_3: 'next spring' })} columns={cols} alertRules={[]} gridId={1} onCellSave={onCellSave} />)
+    expect(await screen.findByText('Sep 25, 2026')).toBeTruthy()
+    expect(screen.queryByText('09/25/2026')).toBeNull()
+    expect(screen.getByText('next spring')).toBeTruthy()
+  })
+
   it('shows columns added after the picker was used, with no type words in the picker', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       // An older install saved the columns to show: 2 only (3 didn't exist yet)

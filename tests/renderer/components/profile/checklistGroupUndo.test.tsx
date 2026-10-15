@@ -88,13 +88,39 @@ describe('checklist group undo and redo track the current ids', () => {
   it('delete group → undo → redo deletes the group undo brought back', async () => {
     groups = [{ id: 5, row_id: 10, name: 'Housing', position: 0, is_collapsed: 0 }]
     render(<Checklist rowId={10} clientName="Test Client" />)
-    await waitFor(() => expect(screen.getByLabelText('Delete group Housing')).toBeTruthy())
-    fireEvent.click(screen.getByLabelText('Delete group Housing'))
+    await waitFor(() => expect(screen.getByLabelText('Delete heading Housing')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('Delete heading Housing'))
     fireEvent.click(screen.getByText('Confirm'))
     await waitFor(() => expect(pushed).toHaveLength(1))
     await act(async () => { await pushed[0]?.undo() })
     await act(async () => { await pushed[0]?.redo() })
     expect(calls('checklist:group-delete')).toEqual([[5], [100]])
+  })
+
+  it('a new heading asks for its name: empty box with a placeholder; leaving it blank keeps "New heading" (C-19)', async () => {
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByLabelText('More checklist actions')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('More checklist actions'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add a heading' }))
+    const box = await screen.findByRole('textbox', { name: 'Heading name' }) as HTMLInputElement
+    expect(box.value).toBe('')
+    expect(box.placeholder).toBe('Name, e.g. Paperwork')
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(await screen.findByText('New heading')).toBeTruthy()
+    expect(calls('checklist:group-update')).toEqual([])
+    expect(screen.getByLabelText('Rename heading')).toBeTruthy()
+    expect(screen.getByLabelText('Delete heading New heading')).toBeTruthy()
+  })
+
+  it('typing a new heading\'s name saves it (C-19)', async () => {
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByLabelText('More checklist actions')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('More checklist actions'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add a heading' }))
+    const box = await screen.findByRole('textbox', { name: 'Heading name' })
+    fireEvent.change(box, { target: { value: 'Paperwork' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await waitFor(() => expect(calls('checklist:group-update')).toEqual([[100, { name: 'Paperwork' }]]))
   })
 
   it('apply a template into a new group → undo → redo → undo removes what redo made', async () => {

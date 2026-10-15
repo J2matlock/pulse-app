@@ -8,6 +8,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { localDateFromToday } from '../src/shared/dates'
+import { HUMAN_SERVICES_VOCAB } from '../src/shared/vocab'
 
 let testDb: TestDb
 vi.mock('../src/main/database', async () => {
@@ -141,6 +142,57 @@ describe('profile PDF', () => {
     const pdf = text(dest)
     expect(pdf).toContain('/FontName /LiberationSans')
     expect(pdf).not.toMatch(/u\x00k\x00a\x00s\x00z/)
+  })
+
+  describe('the last 10 notes or all of them (C-21)', () => {
+    function seedNotes(rowId: number, n: number) {
+      const insert = testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at) VALUES (?, ?, 'note', ?)")
+      // Note 1 is the oldest, a day apart, so "the last 10" is notes 3–12 plus the seeded visit's day
+      for (let i = 1; i <= n; i++) insert.run(rowId, `Numbered note ${String(i).padStart(2, '0')}`, `${localDateFromToday(i - 40)} 12:00:00`)
+    }
+    const notesIn = (pdf: string) => (pdf.match(/Numbered note \d\d/g) ?? []).length
+
+    it('prints the 10 most recent by default, titled "(last 10)"', async () => {
+      const { gridId, rowId } = seedRecord()
+      seedNotes(rowId, 12)
+      const dest = join(testDb.tmpDir, 'last10.pdf')
+      await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: { ...ALL, scratchPad: false } })
+      const pdf = text(dest)
+      expect(pdf).toContain('Recent case notes \\(last 10\\)')
+      // The seeded visit is today, so it's one of the 10, leaving 9 numbered ones
+      expect(notesIn(pdf)).toBe(9)
+      expect(pdf).not.toContain('Numbered note 01')
+    })
+
+    it('prints every note with allNotes, titled with the count, in the workspace\'s words', async () => {
+      setDbWords(testDb.db, { ...HUMAN_SERVICES_VOCAB, activity: { one: 'visit', many: 'visits', article: 'a' } })
+      const { gridId, rowId } = seedRecord()
+      seedNotes(rowId, 12)
+      const dest = join(testDb.tmpDir, 'all.pdf')
+      await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: { ...ALL, scratchPad: false, allNotes: true } })
+      const pdf = text(dest)
+      expect(pdf).toContain('Visits \\(all 13\\)')
+      expect(notesIn(pdf)).toBe(12)
+      expect(pdf).toContain('Home visit went well')
+    })
+
+    it('the custom word is in the "last 10" title too', async () => {
+      setDbWords(testDb.db, { ...HUMAN_SERVICES_VOCAB, activity: { one: 'visit', many: 'visits', article: 'a' } })
+      const { gridId, rowId } = seedRecord()
+      const dest = join(testDb.tmpDir, 'words.pdf')
+      await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+      expect(text(dest)).toContain('Recent visits \\(last 10\\)')
+    })
+
+    it('the handoff packet still prints the last 10', async () => {
+      const { gridId, rowId } = seedRecord()
+      seedNotes(rowId, 12)
+      const dest = join(testDb.tmpDir, 'handoff.pdf')
+      await exportHandoffPacket({ rowId, gridId }, dest)
+      // (The packet lists notes in its other sections too, so check the profile part's title)
+      expect(text(dest)).toContain('Recent case notes \\(last 10\\)')
+      expect(text(dest)).not.toContain('\\(all 13\\)')
+    })
   })
 
   it('describes overdue, step and extended deadlines', () => {

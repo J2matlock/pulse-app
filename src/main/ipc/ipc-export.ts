@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonFatal, withCorrelation, pickSavePath } from './ipc-utils'
-import { handlersFor, idArg, idListArg, textArg } from './ipc-define'
+import { handlersFor, idArg, idListArg, schemaArg, textArg } from './ipc-define'
 import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey, latestSchemaVersion, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
 import { getProvider } from '../contacts'
@@ -445,11 +445,23 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
-  define(IPC.EXPORT_PDF_PROFILE, [z.custom<PdfProfileOptions>()], async (options) => {
+  // What a record's printout holds: every section answered, "all notes" optional (C-21)
+  const pdfProfileOptionsSchema: z.ZodType<PdfProfileOptions> = z.object({
+    rowId: z.custom<number>(validId),
+    gridId: z.custom<number>(validId),
+    destPath: z.string(),
+    includeSections: z.object({
+      deadlines: z.boolean(),
+      checklist: z.boolean(),
+      caseLog: z.boolean(),
+      scratchPad: z.boolean(),
+      contactInfo: z.boolean(),
+      gridData: z.boolean(),
+      allNotes: z.boolean().optional(),
+    }),
+  })
+  define(IPC.EXPORT_PDF_PROFILE, [schemaArg(pdfProfileOptionsSchema, 'Invalid export choice')], async (options) => {
     assertSafePath(options.destPath)
-    if (!validId(options.gridId)) return fail('Invalid grid ID')
-    if (!validId(options.rowId)) return fail('Invalid row ID')
-    if (!options.includeSections || typeof options.includeSections !== 'object') return fail('Invalid includeSections')
     const unavailable = refuseUnavailableRecord(options.rowId, options.gridId)
     if (unavailable) return unavailable
     await exportPdfProfile(options)

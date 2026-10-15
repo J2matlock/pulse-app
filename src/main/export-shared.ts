@@ -170,6 +170,8 @@ export interface PdfProfileOptions {
     scratchPad: boolean
     contactInfo: boolean
     gridData: boolean
+    /** Every note instead of the 10 most recent (C-21); left out = the last 10 */
+    allNotes?: boolean
   }
 }
 

@@ -3,7 +3,7 @@ import { Pin, PinOff, Pencil, Trash2, Check, X, CheckCircle, Ban, Copy } from 'l
 import type { CaseLogEntry as CaseLogEntryType } from '../../../shared/types'
 import { formatDateTime } from '../../utils/formatTime'
 import { relativeTime } from '../../utils/relativeTime'
-import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { localDateString, parseDbTimestamp, shortDate } from '../../../shared/dates'
 import { ymdToDate } from '../../../shared/ymd'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../../../shared/constants'
 import { formatMinutes, formatMiles, unitsFor } from '../../../shared/timeMileage'
@@ -56,11 +56,9 @@ export function noteDays(entry: Pick<CaseLogEntryType, 'created_at' | 'occurred_
   return { happened, written, backdated: happened !== written }
 }
 
-/** "Oct 31, 2026" for a YYYY-MM-DD day */
+/** "Oct 31, 2026" for a YYYY-MM-DD day, on any computer's language setting, like the deadline panel (C-30) */
 export function formatDate(dateStr: string): string {
-  return ymdToDate(dateStr).toLocaleDateString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric'
-  })
+  return shortDate(ymdToDate(dateStr))
 }
 
 export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onCompleteFollowUp, onRestore, tracking, onSetMeasures, onSetDay }: Props) {

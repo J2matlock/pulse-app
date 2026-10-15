@@ -30,7 +30,7 @@ interface Props {
   globalScope?: string
   /** Pre-loaded snippets from parent (avoids duplicate fetch when CaseLog also needs them) */
   snippets?: Snippet[]
-  /** The header's words; "Scratch notes" when left out (the Tasks page says whose they are, UX D-32) */
+  /** The header's words; "Scratch notes (just for you)" when left out (the Tasks page says whose they are, UX D-32) */
   heading?: string
 }
 
@@ -42,9 +42,13 @@ function persistPad(globalScope: string | undefined, rowId: number | undefined, 
   return Promise.resolve({ ok: true, data: null })
 }
 
-export function ScratchPad({ rowId, clientName, globalScope, snippets: externalSnippets, heading = 'Scratch notes' }: Props) {
+export function ScratchPad({ rowId, clientName, globalScope, snippets: externalSnippets, heading = 'Scratch notes (just for you)' }: Props) {
   const snippetsOn = useFeature('snippets')
-  const { t } = useVocab()
+  const { f } = useVocab()
+  // What the pad is for, on a record's page (C-09). Shown over an empty pad and read once as the editor's description
+  const hint = !globalScope && rowId != null
+    ? f('Reminders, numbers, things to ask. Not part of the {activityLog}, and left out of printouts unless you choose to include them.')
+    : null
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
@@ -197,6 +201,14 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // Keep editorRef in sync
   useEffect(() => { editorRef.current = editor }, [editor])
 
+  // Screen readers get the hint once, as the editor's description, not by reading the overlay
+  useEffect(() => {
+    const dom = editor?.view?.dom
+    if (!dom || typeof dom.setAttribute !== 'function') return
+    if (hint) dom.setAttribute('aria-description', hint)
+    else dom.removeAttribute('aria-description')
+  }, [editor, hint])
+
   // The editor doesn't re-render this component on every keystroke, so watch the
   // marks the toolbar shows as pressed (audit A06-18)
   const active = useEditorState({
@@ -338,9 +350,9 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       >
         <EditorContent editor={editor} />
         {/* What the pad is for, until something's written in it (C-9): only on a record's page */}
-        {!globalScope && loaded && !loadFailed && (active?.empty ?? true) && (
-          <p aria-hidden="true" className="absolute top-0 left-0 right-0 p-4 pointer-events-none text-base text-slate-500 dark:text-slate-400">
-            Private jottings for you — reminders, numbers, things to ask. Not part of the {t('activityLog')}, and left out of printouts unless you choose to include them.
+        {hint && loaded && !loadFailed && (active?.empty ?? true) && (
+          <p aria-hidden="true" data-scratchpad-hint className="absolute top-0 left-0 right-0 p-4 pointer-events-none text-base text-slate-500 dark:text-slate-400">
+            {hint}
           </p>
         )}
 
