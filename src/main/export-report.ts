@@ -57,6 +57,13 @@ export function buildReportPdf(title: string, subtitle: string, result: ReportRe
     footStyles: { fillColor: [226, 232, 240], textColor: 20, fontStyle: 'bold' },
     columnStyles: Object.fromEntries(result.columns.map((c, i) => [i, numeric(c.key) ? { halign: 'right' } : {}])),
     margin: { left: marginL, right: marginL },
+    // columnStyles reach only the body: the heading and the Total line take the same alignment,
+    // so the numbers line up under each other (persona study R7)
+    didParseCell: (data: { section: string; column: { index: number }; cell: { styles: Record<string, unknown> } }) => {
+      if (data.section === 'body') return
+      const c = result.columns[data.column.index]
+      if (c && numeric(c.key)) data.cell.styles.halign = 'right'
+    },
   })
   if (result.truncated) {
     const y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6

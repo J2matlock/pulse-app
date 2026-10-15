@@ -1,6 +1,6 @@
 /**
  * "Print & export ▾" on the dashboard (UX D-19): the occasional actions
- * (weekly planner, monthly summary, calendar file, reminder letters) under
+ * (printout, monthly summary, calendar file, reminder letters) under
  * one button, so only Customize stays beside the title.
  */
 import React from 'react'

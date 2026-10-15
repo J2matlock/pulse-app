@@ -24,7 +24,7 @@ const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof impor
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
 import { exportNotesCsv } from '../export-csv'
-import { exportWeeklyPlanner } from '../export-planner'
+import { exportWhatsDue } from '../export-planner'
 import { exportAuditReport, type AuditScope } from '../export-audit'
 import { exportHandoffPacket, type HandoffOptions } from '../export-handoff'
 import { exportIcs } from '../export-ics'
@@ -524,19 +524,21 @@ export function registerExportHandlers(): void {
     return ok(filePath)
   })
 
-  define(IPC.EXPORT_WEEKLY_PLANNER, [
-    z.string('Invalid week').regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid week'),
-  ], async (weekStart) => {
+  // Print what's due: overdue and the next N days, the dashboard's rows (persona study R7)
+  define(IPC.EXPORT_WHATS_DUE, [
+    schemaArg(z.number().int().min(1).max(366), 'Invalid number of days'),
+    schemaArg(z.object({ includeAppointments: z.boolean().optional() }).strict().optional(), 'Invalid print options'),
+  ], async (days, opts) => {
     const filePath = await pickSavePath({
-      title: 'Save Weekly Planner',
-      defaultPath: `weekly-planner-${weekStart}.pdf`,
+      title: "Save what's due",
+      defaultPath: `whats-due-${localDateString()}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
     if (!filePath) return ok(null)
     assertSafePath(filePath)
     const nameRow = getDb().prepare("SELECT value FROM settings WHERE key = 'profile_name'").get() as { value: string } | undefined
-    await exportWeeklyPlanner(weekStart, filePath, nameRow?.value || undefined)
-    return ok(filePath)
+    const count = await exportWhatsDue(days, filePath, nameRow?.value || undefined, { includeAppointments: opts?.includeAppointments === true })
+    return ok({ filePath, count })
   })
 
   // The scope's ids and dates are checked in the body, as before

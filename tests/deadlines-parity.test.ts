@@ -14,7 +14,7 @@ vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => '/tmp' } }
 vi.mock('../src/main/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 
 import { loadDeadlines, deadlineCounts } from '../src/main/deadlines'
-import { loadPlannerRows } from '../src/main/export-planner'
+import { loadDueRows } from '../src/main/export-planner'
 import { loadIcsItems } from '../src/main/export-ics'
 import { localDateFromToday } from '../src/shared/dates'
 import { createSampleCaseload } from '../src/main/sample-data'
@@ -93,15 +93,15 @@ describe('loader parity with the old SQL', () => {
     expect(deadlineCounts()).toEqual(t.db.prepare(OLD_BRIEFING).get())
   })
 
-  it('the planner lists the same deadlines on the same days', () => {
+  it("what's due lists the same deadlines on the same days", () => {
     const end = localDateFromToday(6)
     const oldDeadlines = (t.db.prepare(`SELECT * FROM (${OLD_DEADLINES.replace(/ORDER BY[^]*$/, '')}) WHERE effective_date IS NOT NULL AND effective_date <= ?`).all(end) as Array<{ effective_date: string; column_name: string }>)
       .map(d => `${d.effective_date}|${d.column_name}`).sort()
-    const { week, overdue } = loadPlannerRows(localDateFromToday(0), end)
-    const nowDeadlines = [...week, ...overdue].filter(r => r.kind === 'Deadline').map(r => `${r.due}|${r.what}`).sort()
+    const rows = loadDueRows(6)
+    const nowDeadlines = rows.filter(r => r.kind === 'Deadline').map(r => `${r.due}|${r.what}`).sort()
     expect(nowDeadlines).toEqual(oldDeadlines)
-    // still one list in date order
-    const all = [...overdue, ...week].map(r => r.due)
+    // still one list in date order (late first, then the soonest)
+    const all = rows.map(r => r.due)
     expect(all).toEqual([...all].sort())
   })
 

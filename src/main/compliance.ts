@@ -8,10 +8,12 @@
  */
 
 import { getDb } from './database'
-import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync } from './export-shared'
+import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync, lineHeight } from './export-shared'
 import { getRequirementStatus } from './contact-requirements'
 import { getMissingInfo, missingInfoText } from './missing-info'
-import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
+import { contactsComplete, contactsMissing, requirementPhrase } from '../shared/contactRequirements'
+import { getTotals } from './totals'
+import { formatMinutes } from '../shared/timeMileage'
 import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, extensionAnchor, buildRecordContext, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
 import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates, previousValues } from './deadlines'
 import { localDateString, shortDate } from '../shared/dates'
@@ -94,7 +96,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
     const contacts = contact ? {
       total: contact.clients.length,
       met: contact.clients.filter(c => contactsComplete(c.counts, contact.requirements)).length,
-      requirementLabels: contact.requirements.map((r, i) => `${r.per_month} ${r.label.toLowerCase()} per ${r.period ?? 'month'} (${contact.ranges[i]?.label ?? ''})`),
+      requirementLabels: contact.requirements.map((r, i) => `${requirementPhrase(r)} (${contact.ranges[i]?.label ?? ''})`),
       exceptions: contact.clients
         .filter(c => !contactsComplete(c.counts, contact.requirements))
         .map(c => ({ clientName: c.clientName, missing: contactsMissing(c.counts, contact.requirements) })),
@@ -189,16 +191,32 @@ export async function exportComplianceSummary(month: string, gridId: number | un
 
   let y0 = 34
   const ensure = (needed: number) => { if (y0 > pageH - needed) { doc.addPage(); y0 = 18 } }
-  const table = (head: string[], body: string[][]) => {
-    autoTable(doc, { startY: y0, head: [head], body, styles: { fontSize: 9, cellPadding: 1.6 }, headStyles: { fillColor: [100, 116, 139] }, margin: { left: marginL + 4, right: marginL } })
+  const table = (head: string[], body: string[][], columnStyles: Record<number, Record<string, unknown>> = {}, totalRow = false) => {
+    autoTable(doc, {
+      startY: y0, head: [head], body, styles: { fontSize: 9, cellPadding: 1.6 }, headStyles: { fillColor: [100, 116, 139] }, columnStyles, margin: { left: marginL + 4, right: marginL },
+      // A heading sits over its numbers (columnStyles reach only the body), and a Total line is bold
+      didParseCell: (data: { section: string; row: { index: number }; column: { index: number }; cell: { styles: Record<string, unknown> } }) => {
+        const halign = columnStyles[data.column.index]?.halign
+        if (data.section === 'head' && halign) data.cell.styles.halign = halign
+        if (totalRow && data.section === 'body' && data.row.index === body.length - 1) data.cell.styles.fontStyle = 'bold'
+      },
+    })
     y0 = lastTableY(doc) + 9
   }
+  // A long value (several requirements) wraps inside the page instead of running off it (persona study R7)
+  const valueX = marginL + 60
   const stat = (label: string, value: string) => {
     ensure(20)
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text(label, marginL + 4, y0)
-    doc.setFont('helvetica', 'normal'); doc.text(value, marginL + 60, y0)
-    y0 += 6
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold')
+    const labelLines = doc.splitTextToSize(label, valueX - marginL - 8) as string[]
+    doc.text(labelLines, marginL + 4, y0)
+    doc.setFont('helvetica', 'normal')
+    const valueLines = doc.splitTextToSize(value, pageW - marginL - valueX) as string[]
+    doc.text(valueLines, valueX, y0)
+    y0 += 6 + (Math.max(labelLines.length, valueLines.length) - 1) * lineHeight(doc)
   }
+  // Time on notes, per record, when it's switched on: the minutes the month's report needs
+  const timeOn = featureOn('timeTracking')
 
   for (const g of s.grids) {
     const gv = vocabFor(g.gridId)
@@ -212,6 +230,12 @@ export async function exportComplianceSummary(month: string, gridId: number | un
       if (g.contacts.exceptions.length > 0) table([Rec, 'Still needed'], g.contacts.exceptions.map(e => [e.clientName, e.missing.join(', ')]))
     } else if (s.requirementsOn) {
       stat(term(gv, 'requirement', { many: true, cap: true }), `Not set up for this ${term(gv, 'list')}`)
+    }
+    if (timeOn) {
+      const time = getTotals(month, g.gridId).byClient.filter(c => c.minutes > 0)
+      const total = time.reduce((n, c) => n + c.minutes, 0)
+      stat('Minutes this month', total === 0 ? `None logged on ${term(gv, 'activity', { many: true })}` : `${total.toLocaleString('en-US')} (${formatMinutes(total)})`)
+      if (time.length > 0) table([Rec, 'Minutes this month'], [...time.map(c => [c.clientName, c.minutes.toLocaleString('en-US')]), ['Total', total.toLocaleString('en-US')]], { 1: { halign: 'right' } }, true)
     }
     stat('Deadlines on time', g.deadlines.total === 0 ? 'No tracked deadlines' : `${pct(g.deadlines.onTime, g.deadlines.total)}  (${g.deadlines.onTime} of ${g.deadlines.total})${g.deadlines.extended ? `, ${g.deadlines.extended} extended` : ''}`)
     if (g.deadlines.exceptions.length > 0) {
