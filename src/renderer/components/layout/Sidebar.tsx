@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { Grid3X3, ChevronLeft, Lock, LayoutDashboard, Trash2, MoreHorizontal, ClipboardList, Zap, LayoutTemplate, FileText, Settings, Settings2, Pencil, GripVertical, ArrowUp, ArrowDown, Focus, BookUser, Plus, HelpCircle, CalendarCheck, CalendarDays, ClipboardPen, BarChart3 } from 'lucide-react'
@@ -224,7 +225,10 @@ function SortableGridItem({
         </button>
       )}
 
-      {/* Dropdown — fixed position to escape overflow-y-auto clipping */}
+      {/* Dropdown — rendered on document.body: the nav's mask-image (shown when there's more below)
+          makes the nav the containing block for position: fixed, so inside it the menu was clipped
+          and masked away on laptop screens (UX-D-01) */}
+      {createPortal(
       <AnimatePresence>
       {menuOpen && menuPos && (
         <>
@@ -309,7 +313,8 @@ function SortableGridItem({
           </motion.div>
         </>
       )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body)}
     </div>
   )
 }

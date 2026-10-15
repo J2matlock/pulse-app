@@ -212,6 +212,23 @@ describe('Sidebar', () => {
     } finally { height.mockRestore(); shown.mockRestore() }
   })
 
+  it('the list menu opens outside the nav, so the fade on a short screen cannot mask it (UX-D-01)', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(900)
+    const shown = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500)
+    try {
+      renderSidebar()
+      const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+      expect(nav.getAttribute('data-more-below')).toBe('true')
+      fireEvent.click(screen.getAllByRole('button', { name: /options$/ })[0]!)
+      const menu = screen.getByRole('menu')
+      expect(nav.contains(menu)).toBe(false)
+      expect(menu.closest('aside')).toBeNull()
+      // Clicking outside still closes it
+      fireEvent.click(menu.previousElementSibling as HTMLElement)
+      expect(screen.queryByRole('menu')).toBeNull()
+    } finally { height.mockRestore(); shown.mockRestore() }
+  })
+
   it('shows Lock button and calls lock on click', () => {
     renderSidebar()
     expect(screen.getByText('Lock')).toBeDefined()
