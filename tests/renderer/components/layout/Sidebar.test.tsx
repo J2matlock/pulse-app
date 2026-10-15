@@ -167,6 +167,39 @@ describe('Sidebar', () => {
     expect(screen.getByText('Caseloads')).toBeDefined()
   })
 
+  it('"New caseload" is a row in words under the lists, an icon only when collapsed (UX-D-15)', () => {
+    const { unmount } = renderSidebar()
+    expect(screen.getByText('New caseload')).toBeDefined()
+    unmount()
+    renderSidebar(true)
+    expect(screen.queryByText('New caseload')).toBeNull()
+    expect(screen.getByLabelText('New caseload')).toBeDefined()
+  })
+
+  it('has no headers naming a single item: Dashboard, Calendar and Tasks come first, Trash ends the tools (UX-D-14)', () => {
+    renderSidebar()
+    expect(screen.queryByText('Workspace')).toBeNull()
+    expect(screen.queryByText('System')).toBeNull()
+    expect(screen.getByText('Tools')).toBeDefined()
+    const labels = screen.getAllByRole('button').map(b => b.textContent?.trim()).filter(Boolean)
+    const order = ['Dashboard', 'Calendar', 'Tasks', 'My Caseload', 'Second Grid', 'New caseload', 'Reports', 'Contacts', 'Snippets', 'Templates', 'Letters', 'Trash', 'Focus Mode', 'Settings', 'Help', 'Lock']
+    expect(labels.filter(l => order.includes(l as string))).toEqual(order)
+  })
+
+  it('shows the drag handle only when there are two lists to reorder, and the "⋯" in full on the open list (UX-D-16)', () => {
+    mockGrids = [{ id: 1, name: 'Only One' }]
+    const { unmount } = renderSidebar(false, '/grid')
+    expect(screen.queryByLabelText('Drag to reorder')).toBeNull()
+    expect(screen.getByRole('button', { name: /options$/ }).className).not.toContain('opacity-40')
+    unmount()
+    mockGrids = [{ id: 1, name: 'My Caseload' }, { id: 2, name: 'Second Grid' }]
+    renderSidebar(false, '/grid')
+    expect(screen.getAllByLabelText('Drag to reorder')).toHaveLength(2)
+    const [active, other] = screen.getAllByRole('button', { name: /options$/ })
+    expect(active!.className).not.toContain('opacity-40')
+    expect(other!.className).toContain('opacity-40')
+  })
+
   it("uses the workspace's own words", () => {
     setWords({ list: { one: 'shop', many: 'shops', article: 'a' }, contactDirectory: { one: 'vendors', many: 'vendors', article: 'a', oneCap: 'Vendors', manyCap: 'Vendors' } })
     renderSidebar()
