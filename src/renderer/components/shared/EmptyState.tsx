@@ -21,6 +21,8 @@ interface EmptyStateProps {
    * panel: a card or side panel, 40 px icon; inline: a line of text in a list, no icon.
    */
   size?: EmptyStateSize
+  /** The title's element: h3 (default) under a section heading, h2 right under a page title, p where it isn't a heading at all */
+  heading?: 'h2' | 'h3' | 'p'
 }
 
 const WRAP: Record<EmptyStateSize, string> = {
@@ -37,7 +39,7 @@ const WRAP: Record<EmptyStateSize, string> = {
  * their due dates." · [Add task]). Words come from the caller through the
  * vocabulary layer; nothing here names a record or list.
  */
-export function EmptyState({ icon, title, description, action, secondaryAction, size = 'page' }: EmptyStateProps): React.ReactElement {
+export function EmptyState({ icon, title, description, action, secondaryAction, size = 'page', heading: Heading = 'h3' }: EmptyStateProps): React.ReactElement {
   const inline = size === 'inline'
   return (
     <div className={`flex flex-col ${inline ? 'items-start text-left' : 'items-center justify-center text-center'} ${WRAP[size]}`}>
@@ -51,9 +53,9 @@ export function EmptyState({ icon, title, description, action, secondaryAction, 
           {icon}
         </div>
       )}
-      <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
+      <Heading className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
         {title}
-      </h3>
+      </Heading>
       {description && (
         <p className="text-base text-slate-500 dark:text-slate-400 max-w-sm">
           {description}

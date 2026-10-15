@@ -20,7 +20,7 @@ export function SummaryCard({
   const inner = (
     <>
       <div className={`flex items-center gap-2 mb-1 ${colorClass}`}>
-        {icon}
+        <span className="flex-shrink-0" aria-hidden="true">{icon}</span>
         <span className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-tight">{label}</span>
       </div>
       <div className={`text-2xl font-bold leading-none ${colorClass}`}>{value}</div>

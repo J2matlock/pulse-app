@@ -98,7 +98,7 @@ export function GettingStartedCard({ state }: { state: GettingStarted }): React.
   if (compact) {
     const left = steps.filter(s => !s.done)
     return (
-      <section aria-labelledby="getting-started-title" className="mb-6 px-4 py-1 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <section aria-labelledby="getting-started-title" className="mb-6 px-4 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 id="getting-started-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
           Getting started: {left.length} {left.length === 1 ? 'step' : 'steps'} left
         </h2>
@@ -114,7 +114,7 @@ export function GettingStartedCard({ state }: { state: GettingStarted }): React.
   }
 
   return (
-    <section aria-labelledby="getting-started-title" className="mb-6 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+    <section aria-labelledby="getting-started-title" className="mb-6 p-6 rounded-lg bg-blue-50 dark:bg-blue-900/20">
       <div className="flex items-start gap-3 mb-3">
         <h2 id="getting-started-title" className="flex-1 text-lg font-semibold text-slate-900 dark:text-slate-100">Getting started</h2>
         {hideButton}

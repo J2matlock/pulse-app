@@ -237,26 +237,21 @@ export default function ContactsView() {
           {providers.length === 0 ? (
             <div className="flex-1 overflow-y-auto p-4">
               {hasActiveFilters ? (
+                // A search that finds nothing gets words, not the empty-state action (Q8)
                 <div className="text-center py-12">
-                  <p className="text-slate-700 dark:text-slate-300 font-semibold mb-1" style={{ fontSize: 15 }}>No {t('contact', { many: true })} match your search</p>
-                  <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>Clear the search and filters above, or try another name.</p>
+                  <p className="text-base text-slate-700 dark:text-slate-300 font-semibold mb-1">No {t('contact', { many: true })} match your search</p>
+                  <p className="text-base text-slate-600 dark:text-slate-300">Clear the search and filters above, or try another name.</p>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full py-16">
-                  <div className="flex flex-col items-center text-center">
-                    <EmptyState
-                      icon={<BookUser className="w-12 h-12 text-slate-500 dark:text-slate-400" />}
-                      title={`No ${t('contact', { many: true })} yet`}
-                      description={`Build your ${t('contact')} directory — the people and organizations you work with.`}
-                      action={{ label: `+ Add ${t('contact', { cap: true })}`, onClick: handleAddProvider }}
-                    />
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm" style={{ fontSize: 15 }}>
-                      Click &ldquo;Add {t('contact', { cap: true })}&rdquo; or press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-xs font-mono">N</kbd> to add your first {t('contact')}.
-                    </p>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-sm" style={{ fontSize: 15 }}>
-                      Tip: You can also import {t('contact', { many: true })} from vCard files.
-                    </p>
-                  </div>
+                <div className="flex items-center justify-center h-full">
+                  {/* Icon, one sentence, one action; importing is the quieter second way in (Q8) */}
+                  <EmptyState
+                    icon={<BookUser />}
+                    title={`No ${t('contact', { many: true })} yet`}
+                    description="The people and organizations you work with, in one place."
+                    action={{ label: `Add ${t('contact', { cap: true })}`, onClick: handleAddProvider }}
+                    secondaryAction={{ label: 'Import from a vCard file', onClick: () => setImportExportMode('import') }}
+                  />
                 </div>
               )}
             </div>
@@ -345,11 +340,10 @@ export default function ContactsView() {
               onDeleted={() => selectProvider(null)}
             />
           ) : (
+            // No action: the list on the left is the action (Q8)
             <div className="flex items-center justify-center h-full">
-              <div className="text-center text-slate-500 dark:text-slate-400">
-                <BookUser className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p style={{ fontSize: 15 }}>Select {t('contact', { article: true })} to view details</p>
-              </div>
+              <EmptyState size="panel" heading="p" icon={<BookUser />} title={`Select ${t('contact', { article: true })} to view details`}
+                description="Their details and history show here." />
             </div>
           )}
         </div>

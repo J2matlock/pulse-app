@@ -235,23 +235,24 @@ export default function TemplateManagerView(): React.ReactElement {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
 
       {/* Page header — fixed at top */}
-      <div className="flex-shrink-0 max-w-7xl w-full mx-auto px-6 pt-8 pb-4">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Templates</h1>
+      <div className="flex-shrink-0 max-w-7xl w-full mx-auto px-6 pt-6 pb-4">
+        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Templates</h1>
         {/* One name per thing: layouts are whole-{list} setups, checklists are to-do lists (E-28) */}
         <PurposeLine className="mt-1">{f("Reuse {a list}'s columns and rules (layouts), or a standard to-do list for {a record}'s page (checklists).")}</PurposeLine>
       </div>
 
       <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-6 pb-8">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full items-start" style={{ gridTemplateRows: '1fr' }}>
+        {/* Two sections side by side, told apart by space and their headings, not boxes (Q8) */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 h-full items-start" style={{ gridTemplateRows: '1fr' }}>
 
         {/* ── Caseload Templates (left) ──────────────────────────────────── */}
-        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 overflow-y-auto max-h-full">
+        <section className="overflow-y-auto max-h-full">
           <div className="flex items-center gap-3 mb-1">
-            <FileText className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+            <FileText className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
               {w('list', { cap: true })} layouts
             </h2>
           </div>
@@ -342,11 +343,11 @@ export default function TemplateManagerView(): React.ReactElement {
 
         {checklistsOn && (<>
           {/* ── Checklist templates (right) ─────────────────────────────────── */}
-          <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 overflow-y-auto max-h-full">
+          <section className="overflow-y-auto max-h-full">
             <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
               <div className="flex items-center gap-3 min-w-0">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 truncate">
+                <Check className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" aria-hidden="true" />
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 truncate">
                   Checklists
                 </h2>
               </div>

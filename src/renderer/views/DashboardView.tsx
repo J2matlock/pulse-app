@@ -723,8 +723,9 @@ export default function DashboardView(): React.ReactElement {
 
   // Recently archived is a card people can hide or move, not a tab among the deadlines (UX D-20)
   const recentlyArchived = (
-    <section aria-labelledby="recently-archived-title" className="mb-6 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-      <h2 id="recently-archived-title" className="flex items-center gap-2 px-4 pt-3 text-base font-semibold text-slate-700 dark:text-slate-200">
+    // A heading on the page, not a card (Q8)
+    <section aria-labelledby="recently-archived-title" className="mb-8">
+      <h2 id="recently-archived-title" className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100">
         <Archive className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
         Recently archived
       </h2>
