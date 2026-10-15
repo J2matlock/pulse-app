@@ -81,7 +81,7 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
 
         <div className="px-6 py-5 space-y-4">
           <p className="text-base text-slate-700 dark:text-slate-200">
-            How many {t('activity', { many: true })} does each {t('record')} need every calendar month? Pulse counts the {t('activity', { many: true })} you log and shows who is behind on the Dashboard.
+            How many {t('activity', { many: true })} does each {t('record')} need in a period: a week, a month, a quarter or a year? Pulse counts the {t('activity', { many: true })} you log and shows who is behind on the Dashboard.
           </p>
 
           {drafts === null && <p className="text-base text-slate-500 dark:text-slate-400">Loading…</p>}

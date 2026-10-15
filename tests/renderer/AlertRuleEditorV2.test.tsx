@@ -60,6 +60,26 @@ describe('the rule editor', () => {
     expect(onClose).toHaveBeenCalledWith(11)
   })
 
+  // E-30: a kind the list's columns can't support is greyed out with the reason, not a dead end
+  it('greys out "By usage" and the visit limit when the list lacks the columns they need, with the reason', () => {
+    render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    const usage = screen.getByRole('radio', { name: /By usage/ }) as HTMLButtonElement
+    expect(usage.disabled).toBe(true)
+    expect(usage.textContent).toContain('Needs two number columns in this caseload')
+    // Two date columns exist (one is the rule's own), so the visit limit stays available
+    const quota = screen.getByRole('radio', { name: /A limited number of case notes/ }) as HTMLButtonElement
+    expect(quota.disabled).toBe(false)
+    expect(quota.textContent).toContain('12 case notes until the authorization ends')
+    expect(screen.getByRole('radio', { name: /From another date/ })).toBeTruthy()
+  })
+
+  it('asks which list to preview with only when there is more than one (E-16)', () => {
+    useGridStore.setState({ activeGridId: 1, columns, rows, grids: [{ id: 1, name: 'Only list' }], deadlineContext: null } as never)
+    useAlertStore.setState({ usage: [] } as never)
+    render(<AlertRuleEditor onClose={vi.fn()} />)
+    expect(screen.queryByLabelText(/Preview and columns from/)).toBeNull()
+  })
+
   it('color steps can be changed and removed from the keyboard (D-27)', () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
     const swatches = screen.getAllByRole('button', { name: /^Change color for / })

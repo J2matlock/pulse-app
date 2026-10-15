@@ -394,10 +394,11 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
             </p>
           )}
 
-          {ruleList.choices.length > 0 && (
+          {/* With one list there's nothing to choose, so the question isn't asked (E-16) */}
+          {ruleList.choices.length > 1 && (
             <div>
               <label htmlFor="alert-rule-list" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                {ruleList.uses.length > 0 ? `Used in more than one ${w('list')}. Show the columns of` : `Columns from which ${w('list')}?`}
+                {ruleList.uses.length > 0 ? `Used in more than one ${w('list')}. Preview and columns from` : `Preview and columns from which ${w('list')}?`}
               </label>
               <select id="alert-rule-list" className="input" value={ruleList.gridId ?? ''} onChange={e => ruleList.setGridId(Number(e.target.value))}>
                 {ruleList.choices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -408,7 +409,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           {/* How it's worked out */}
           <div>
             <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-2">How is this deadline worked out?</h3>
-            <KindCards value={draft.kind} onChange={k => patchDraft({ kind: k })} disabled={isSystem} />
+            <KindCards value={draft.kind} onChange={k => patchDraft({ kind: k })} disabled={isSystem} columns={ruleList.loading ? undefined : otherColumns} />
           </div>
 
           {ruleList.loading ? <p className="text-base text-slate-500 dark:text-slate-400">Loading the {w('list')}'s columns…</p>
