@@ -299,7 +299,7 @@ test.describe('Import CSV', () => {
 
     // Check if the mock worked — dialog should advance past "Select File"
     // If it didn't advance (mock didn't work), close and verify dialog opened successfully
-    const previewVisible = await window.getByText(/preview|rows found|column mapping/i)
+    const previewVisible = await window.getByText(/ready to bring in|preview|rows found|column mapping/i)
       .isVisible({ timeout: 5000 }).catch(() => false);
 
     if (previewVisible) {

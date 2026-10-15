@@ -12,7 +12,7 @@ vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.
 // The import wizard and example dialog have their own tests; here they just finish
 vi.mock('../../../src/renderer/components/grid/ImportWizard', () => ({
   ImportWizard: ({ onImported, onClose }: { onImported: (r: { imported: number; undone?: boolean }) => void; onClose: () => void }) => <>
-    <button onClick={() => onImported({ imported: 3 })}>finish import</button>
+    <button onClick={() => { onImported({ imported: 3 }); onClose() }}>finish import</button>
     <button onClick={onClose}>cancel import</button>
     <button onClick={() => { onImported({ imported: 3, undone: true }); onClose() }}>undo and close</button>
   </>,
@@ -74,116 +74,77 @@ describe('SetupView', () => {
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_COMPLETE)
   })
 
-  it('spreadsheet: import, then what the rows are, then which dates repeat', async () => {
+  it('spreadsheet: no name screen; the list is made at once and finishing the import finishes setup (Q1a)', async () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Fleet' } })
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_CREATE, 'Fleet'))
-    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_CREATE, 'My list'))
+    expect(screen.queryByLabelText('List name')).toBeNull()
     // Its place is saved, so a lock or a closed window resumes here
-    expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SAVE_PROGRESS, { step: 'sheet-import', gridId: 7, listName: 'Fleet' })
-    expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SAVE_PROGRESS, { step: 'sheet-rows', gridId: 7, listName: 'Fleet' })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SAVE_PROGRESS, { step: 'sheet-import', gridId: 7, listName: 'My list' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+    await screen.findByText("You're all set")
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_COMPLETE)
+    // The rows and dates questions are on the import summary now
+    expect(screen.queryByRole('heading', { name: 'Each line of your spreadsheet is one…' })).toBeNull()
+    expect(screen.queryByText('Which of these dates repeat?')).toBeNull()
+  })
 
+  it('spreadsheet: cancelling removes the empty list for good, rather than leaving it in the Trash', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'cancel import' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_PURGE, 7))
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7)
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SAVE_PROGRESS, null)
+    expect(screen.getByText('How do you want to start?')).toBeTruthy()
+  })
+
+  it('spreadsheet: an undone import goes back to the start, and its records stay in the Trash', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'undo and close' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7))
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_PURGE, 7)
+    expect(screen.queryByText("You're all set")).toBeNull()
+    expect(screen.getByText('How do you want to start?')).toBeTruthy()
+  })
+
+  it('spreadsheet: an interrupted import reopens on the list it made', async () => {
+    mockInvoke.mockImplementation((channel: string) => channel === IPC.ONBOARDING_CHECK
+      ? Promise.resolve({ ok: true, data: { complete: false, progress: { step: 'sheet-import', gridId: 7, listName: 'Caseload export' } } })
+      : Promise.resolve({ ok: true, data: ws }))
+    render(<SetupView onComplete={vi.fn()} onStartTour={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+    await screen.findByText("You're all set")
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_CREATE, expect.anything())
+  })
+
+  it('spreadsheet (setup saved by an older version): the rows question, then which dates repeat', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      switch (channel) {
+        case IPC.ONBOARDING_CHECK: return Promise.resolve({ ok: true, data: { complete: false, progress: { step: 'sheet-rows', gridId: 7, listName: 'Fleet' } } })
+        case IPC.GRID_GET: return Promise.resolve({ ok: true, data: { columns: [
+          { id: 70, name: 'Truck', column_type: 'text' }, { id: 71, name: 'Last inspection', column_type: 'date' }], hiddenColumns: [] } })
+        default: return Promise.resolve({ ok: true, data: ws })
+      }
+    })
+    render(<SetupView onComplete={vi.fn()} onStartTour={vi.fn()} />)
     fireEvent.click(await screen.findByRole('radio', { name: 'Vehicles' }))
     fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
     await screen.findByText('Which of these dates repeat?')
     const term = { one: 'vehicle', many: 'vehicles', article: 'a' }
-    // The list keeps its own words, as the guided start does
     expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, 7, { record_kind: 'thing', vocab: { record: term } })
     expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: term } })
-    // Back to the rows question from the dates
     fireEvent.click(screen.getByRole('button', { name: /Back/ }))
     expect(screen.getByRole('heading', { name: 'Each line of your spreadsheet is one…' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
     await screen.findByText('Which of these dates repeat?')
-
     fireEvent.change(screen.getByLabelText('Last inspection'), { target: { value: 'every' } })
     fireEvent.change(screen.getByLabelText('How many'), { target: { value: '6' } })
     fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'months' } })
     fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
     await screen.findByText("You're all set")
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_DATE_RULES, 7, [{ columnId: 71, repeat: 'every', n: 6, unit: 'months' }])
-  })
-
-  it('spreadsheet: cancelling removes the empty list for good, rather than leaving it in the Trash', async () => {
-    toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'cancel import' }))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_PURGE, 7))
-    expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7)
-    expect(screen.getByLabelText('List name')).toBeTruthy()
-  })
-
-  it('spreadsheet: an undone import goes back to naming the list, and its records stay in the Trash', async () => {
-    toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'undo and close' }))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7))
-    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_PURGE, 7)
-    expect(screen.queryByRole('heading', { name: 'Each line of your spreadsheet is one…' })).toBeNull()
-    expect(screen.getByLabelText('List name')).toBeTruthy()
-  })
-
-  it('spreadsheet: "something else" asks for both words and what kind of thing', async () => {
-    toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-    fireEvent.click(await screen.findByRole('radio', { name: 'Something else' }))
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
-    expect(await screen.findByRole('alert')).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('One of them'), { target: { value: 'hive' } })
-    fireEvent.change(screen.getByLabelText('More than one'), { target: { value: 'hives' } })
-    fireEvent.click(screen.getByRole('radio', { name: /Things/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, 7, { record_kind: 'thing', vocab: { record: { one: 'hive', many: 'hives', article: 'a' } } }))
-  })
-
-  it('spreadsheet: the rows question suggests the list name\'s word, not "Clients", without ticking anything (audit F-23, UX-A-01)', async () => {
-    toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Tenants' } })
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-    expect((await screen.findByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(false)
-    expect((screen.getByRole('radio', { name: 'Clients' }) as HTMLInputElement).checked).toBe(false)
-    expect(screen.getByText(/these look like tenants/)).toBeTruthy()
-    // Taking the suggestion fills "Something else" with it
-    fireEvent.click(screen.getByRole('button', { name: "Yes, they're tenants" }))
-    expect((screen.getByRole('radio', { name: 'Something else' }) as HTMLInputElement).checked).toBe(true)
-    expect((screen.getByLabelText('One of them') as HTMLInputElement).value).toBe('tenant')
-    expect((screen.getByLabelText('More than one') as HTMLInputElement).value).toBe('tenants')
-  })
-
-  it('spreadsheet: "My caseload" as the list name asks instead of making every word "caseload" (UX-A-01)', async () => {
-    toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'My caseload' } })
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-    await screen.findByRole('heading', { name: 'Each line of your spreadsheet is one…' })
-    for (const radio of screen.getAllByRole('radio')) expect((radio as HTMLInputElement).checked).toBe(false)
-    expect(screen.queryByText(/these look like/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
-    expect((await screen.findByRole('alert')).textContent).toMatch(/Pick what each row/)
-    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.anything())
-  })
-
-  it('spreadsheet: refuses the same word for one and many (UX-A-32)', async () => {
-    toStart()
-    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-    fireEvent.click(await screen.findByRole('radio', { name: 'Something else' }))
-    fireEvent.change(screen.getByLabelText('One of them'), { target: { value: 'caseload' } })
-    fireEvent.change(screen.getByLabelText('More than one'), { target: { value: 'caseload' } })
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
-    expect((await screen.findByRole('alert')).textContent).toMatch(/same/)
-    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_SETTINGS_UPDATE, expect.anything(), expect.anything())
   })
 
   it('picks up an interrupted setup where it stopped (audit F-02)', async () => {
@@ -222,13 +183,7 @@ describe('SetupView', () => {
       }],
       ['spreadsheet', async () => {
         fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
-        fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Fleet' } })
-        fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
         fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
-        fireEvent.click(await screen.findByRole('radio', { name: 'Vehicles' }))
-        fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
-        await screen.findByText('Which of these dates repeat?')
-        fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
       }],
       ['blank', async () => {
         fireEvent.click(await screen.findByRole('button', { name: /Start blank/ }))

@@ -84,7 +84,7 @@ test.describe('Three ways to start', () => {
     expect(await window.locator('body').innerText()).not.toMatch(OLD_WORDS);
   });
 
-  test('spreadsheet: rows are named in the "What are these rows?" step', async () => {
+  test('spreadsheet: rows are named on the import summary', async () => {
     ctx = await launchApp();
     const { window, electronApp, dataDir } = ctx;
     await setupPassword(window, TEST_PASSWORD);
@@ -92,33 +92,20 @@ test.describe('Three ways to start', () => {
 
     await mockFileDialog(electronApp, [createTestCsv(dataDir)]);
     await window.getByRole('button', { name: /bring in a spreadsheet/i }).click();
-    await window.getByLabel('List name').fill('Members');
-    await window.getByRole('button', { name: /choose file/i }).click();
 
-    // Import dialog: pick the file and click through to the end
+    // Import dialog: pick the file; the summary shows the list name and "Each line is one…"
     const importDialog = window.locator('[role="dialog"]');
     await expect(importDialog).toBeVisible({ timeout: 5000 });
     await importDialog.getByRole('button', { name: /browse.*file|drop.*file/i }).click();
-    // The wizard has grown steps (sheet, header row, columns, review, import, done): allow plenty
-    for (let i = 0; i < 12; i++) {
-      // Whole names only: the last screen also has "Undo this import"
-      const next = importDialog.getByRole('button', { name: /^\s*(next|import|finish|done|confirm)\s*$/i });
-      // isVisible() doesn't wait; the button is briefly gone between steps
-      if (!await next.first().waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) break;
-      await next.first().click();
-      await window.waitForTimeout(1000);
-    }
-
-    await window.getByRole('heading', { name: /what are these rows/i }).waitFor({ timeout: 10000 });
-    await window.getByText('Something else', { exact: true }).click();
-    await window.getByLabel('One of them').fill('member');
-    await window.getByLabel('More than one', { exact: true }).fill('members');
-    await window.getByRole('button', { name: /continue/i }).click();
-
-    const dates = window.getByRole('heading', { name: /which of these dates repeat/i });
-    await dates.or(window.getByText(/explore on my own/i)).first().waitFor({ timeout: 10000 });
-    if (await dates.isVisible()) {
-      await window.getByRole('button', { name: /finish/i }).click();
+    await importDialog.getByLabel('Each line of your spreadsheet is one…').selectOption('other');
+    await importDialog.getByLabel('One of them').fill('member');
+    await importDialog.getByLabel('More than one', { exact: true }).fill('members');
+    await importDialog.getByLabel('List name').fill('Members');
+    // Import, then Done (whole names only: the last screen also has "Undo this import")
+    for (const name of [/^\s*import\s*$/i, /^\s*done\s*$/i]) {
+      const button = importDialog.getByRole('button', { name });
+      await button.first().waitFor({ state: 'visible', timeout: 10000 });
+      await button.first().click();
     }
     await finishSetup(window);
     await window.evaluate(() => { window.location.hash = '#/grid' })

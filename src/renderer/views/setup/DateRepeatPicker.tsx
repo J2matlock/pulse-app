@@ -1,38 +1,8 @@
 import React, { useState } from 'react'
 
-export type DateAnswer = { repeat: 'no' } | { repeat: 'due' } | { repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
-
-/**
- * The likely answer from a column's name, so most people can just click on:
- * "Due date", "Expires" → it's the due date; "Last contact", "Next visit" →
- * due again every month; "Last service", "Annual review" → every year; a
- * birthday or anything else → no reminder. A contact column guessed as yearly
- * showed no colour for eleven months (UX-A-08), so contacts come first.
- */
-export function suggestRepeat(name: string): DateAnswer {
-  const n = name.toLowerCase()
-  if (/birth|\bdob\b|born/.test(n)) return { repeat: 'no' }
-  if (/\bdue\b|expir|deadline|\bends?\b|renew/.test(n)) return { repeat: 'due' }
-  if (/contact|visit|\bcall|check[- ]?in|touch/.test(n)) return { repeat: 'every', n: 1, unit: 'months' }
-  if (/annual|yearly|review|assess|\blast\b|service|inspect/.test(n)) return { repeat: 'every', n: 1, unit: 'years' }
-  return { repeat: 'no' }
-}
-
-/**
- * How many days before it's due the cell turns yellow. Mirrors the standard rules
- * setup makes (src/main/builtin-templates.ts): short cycles up to a month warn a
- * week ahead, 90 days two weeks ahead, half a year or more a month ahead.
- */
-export function yellowDaysBefore(answer: DateAnswer): number {
-  if (answer.repeat === 'no') return 0
-  if (answer.repeat === 'due') return 14
-  const months = answer.unit === 'years' ? answer.n * 12 : answer.unit === 'months' ? answer.n : null
-  if (months === 6 || months === 12) return 30
-  if (months === null && (answer.n === 30 || answer.n === 60)) return 7
-  if (months === null && answer.n === 90) return 14
-  const days = months !== null ? months * 30 : answer.n
-  return days <= 31 ? 7 : days <= 120 ? 14 : 30
-}
+// Moved to utils/repeatGuess.ts so the import summary shares them; re-exported for setup and its tests
+import { yellowDaysBefore, type DateAnswer } from '../../utils/repeatGuess'
+export { suggestRepeat, yellowDaysBefore, type DateAnswer } from '../../utils/repeatGuess'
 
 /** A colored chip like the ones the list shows, so the choice has a visible result */
 function SampleChip({ answer }: { answer: DateAnswer }): React.ReactElement | null {

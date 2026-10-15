@@ -87,7 +87,7 @@ export function ImportMappingStep({
                     )}
                     {isNotesColumn(col.originalName) && mapping.action !== 'skip' && (
                       <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-                        Notes come in as a text column, so nothing is lost.
+                        Notes come in as a notes column, so long text is kept whole.
                       </p>
                     )}
                   </td>

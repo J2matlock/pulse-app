@@ -13,9 +13,11 @@ export interface ImportPreview {
   detectedColumns: Array<{
     index: number
     originalName: string
-    detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox'
+    detectedType: typeof COLUMN_TYPES[number]
     samples: string[]
     lastFirstNames?: boolean
+    /** A date column's cells that say "TBD", "n/a" and the like, in the whole file */
+    placeholders?: { count: number; example: string }
   }>
   detectedHeaderRow: number
   headerDetectionConfidence: 'high' | 'medium' | 'low'
@@ -24,6 +26,8 @@ export interface ImportPreview {
   warnings?: string[]
   hiddenRowCount?: number
   hiddenColumns?: string[]
+  /** Data rows below the column names (blank lines and a "Total" line left out) */
+  dataRowCount?: number
 }
 
 export interface ColumnMapping {
@@ -57,6 +61,13 @@ export interface ImportResult {
   newRowIds?: number[]
   /** The user pressed "Undo this import" before closing: the imported records are in the Trash */
   undone?: boolean
+  /** Where each file column went (main's ImportResult) */
+  columns?: Array<{ sourceIndex: number; id: number; name: string; type: string; created: boolean }>
+  combinedNames?: boolean
+  flippedColumns?: string[]
+  placeholderDates?: Array<{ column: string; count: number; example: string }>
+  sheetName?: string
+  headerRow?: number
 }
 
 export type Step = 1 | 2 | 3 | 4 | 5 | 6
@@ -68,11 +79,11 @@ export const STEP_LABELS: Record<Step, string> = {
   3: 'Preview',
   4: 'Match columns',
   5: 'Options',
-  6: 'Results',
+  6: 'Summary',
 }
 
 export const COLUMN_TYPES = [
-  'text', 'date', 'number', 'phone', 'email', 'currency', 'checkbox',
+  'text', 'notes', 'date', 'number', 'phone', 'email', 'currency', 'checkbox',
 ] as const
 
 const TYPE_BADGE_CLASSES: Record<typeof COLUMN_TYPES[number], string> = {
@@ -83,6 +94,7 @@ const TYPE_BADGE_CLASSES: Record<typeof COLUMN_TYPES[number], string> = {
   currency: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
   checkbox: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
   text: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+  notes: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,9 +118,10 @@ export function isNotesColumn(name: string): boolean {
   return /^(notes?|comments?|remarks?)$/i.test(name.trim())
 }
 
-const FIRST_NAME = /^(first|first[ _]?name|given[ _]?name|fname|forename)$/i
+// A merged group cell above the headers can put a word in front ("Client First Name")
+const FIRST_NAME = /^([a-z]+ )?(first|first[ _]?name|given[ _]?name|fname|forename)$/i
 // The same names the default record name adds as a last name (src/main/display-names.ts)
-const LAST_NAME = /^(last|last[ _]?name|surname|family[ _]?name|lname)$/i
+const LAST_NAME = /^([a-z]+ )?(last|last[ _]?name|surname|family[ _]?name|lname)$/i
 
 /** A first-name and a last-name column in the file, to offer putting them together (UX-A-07) */
 export function findNameParts(preview: ImportPreview): { firstIndex: number; lastIndex: number; first: string; last: string; example: string | null } | null {
