@@ -15,6 +15,7 @@ Object.defineProperty(window, 'api', { value: { invoke: vi.fn(), on: () => () =>
 
 import { FAQ_ITEMS } from '../../../src/renderer/views/help/faqData'
 import { STEPS } from '../../../src/renderer/components/shared/tourSteps'
+import { HINT_IDS, HINTS } from '../../../src/renderer/components/onboarding/screenHints'
 
 /**
  * Quoted things that aren't labels in this app's source: names of OS dialogs
@@ -50,7 +51,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 const SRC_DIRS = [join(__dirname, '../../../src/renderer'), join(__dirname, '../../../src/shared')]
-const HELP_FILES = ['views/help/faqData.tsx', 'components/shared/tourSteps.tsx', 'components/shared/HelpDemos.tsx', 'components/shared/WhatsNewModal.tsx', 'shared/featurePlaces.ts']
+const HELP_FILES = ['views/help/faqData.tsx', 'components/shared/tourSteps.tsx', 'components/shared/HelpDemos.tsx', 'components/shared/WhatsNewModal.tsx', 'shared/featurePlaces.ts', 'components/onboarding/screenHints.ts']
 
 /** Every renderer and shared source file, comments stripped, except the help text itself */
 const corpus = SRC_DIRS.flatMap(sourceFiles)
@@ -80,6 +81,7 @@ describe('help text names controls that exist', () => {
   const texts = [
     ...FAQ_ITEMS.flatMap(i => [i.question, i.answer]),
     ...STEPS.flatMap(s => [s.title, s.subtitle, s.description, s.tip ?? '']),
+    ...HINT_IDS.map(id => HINTS[id]?.text ?? ''),
   ]
   const labels = [...new Set(texts.flatMap(quotedLabels))]
 
@@ -87,7 +89,7 @@ describe('help text names controls that exist', () => {
     expect(labels.length).toBeGreaterThan(60)
   })
 
-  it('every quoted label in the FAQ and the tour is somewhere in the renderer', () => {
+  it('every quoted label in the FAQ, the tour and the screen hints is somewhere in the renderer', () => {
     const missing = labels.filter(l => !ALLOWED.has(l) && !PENDING.has(l) && !existsInApp(l))
     expect(missing).toEqual([])
   })

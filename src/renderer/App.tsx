@@ -30,6 +30,7 @@ import { KeyboardShortcutsModal } from './components/shared/KeyboardShortcutsMod
 import { ToastHost } from './components/shared/ToastHost'
 import { TourOverlay } from './components/shared/TourOverlay'
 import { MiniTour } from './components/shared/MiniTour'
+import { ScreenHint } from './components/onboarding/ScreenHint'
 import { WhatsNewModal } from './components/shared/WhatsNewModal'
 import { GlobalTaskDialog } from './components/shared/GlobalTaskDialog'
 import { ResetPasswordAfterRecoveryDialog } from './components/shared/ResetPasswordAfterRecoveryDialog'
@@ -314,6 +315,7 @@ export default function App(): React.ReactElement {
           <MorningBriefing suppressed={!!showTour || !!miniTourSteps || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
           <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
           <GlobalTaskDialog open={globalTaskOpen} onClose={() => setGlobalTaskOpen(false)} />
+          <ScreenHint blocked={!!showTour || !!miniTourSteps || focusModeOpen} />
           {showTour && (
             <TourOverlay full={showTour === 'full'} onComplete={() => {
               setShowTour(false)

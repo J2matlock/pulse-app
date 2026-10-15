@@ -146,10 +146,21 @@ export async function startSetup(window: Page): Promise<boolean> {
   return true;
 }
 
-/** Leave the "Your workspace is ready" screen without the tour. */
+/**
+ * Count every one-time hint (and the first look after setup) as seen, so specs
+ * aren't interrupted by them. Written before setup ends, the app keeps it
+ * instead of turning hints on for a new user (src/renderer/stores/hintStore.ts).
+ */
+export async function silenceHints(window: Page): Promise<void> {
+  await window.evaluate(() => (globalThis as unknown as { api: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> } })
+    .api.invoke('settings:update', 'onboarding_hints_seen', 'all'));
+}
+
+/** Leave the "Your workspace is ready" screen, with the one-time hints silenced. */
 export async function finishSetup(window: Page): Promise<void> {
   const exploreBtn = window.getByText(/explore on my own/i);
   await exploreBtn.waitFor({ state: 'visible', timeout: 10000 });
+  await silenceHints(window);
   await exploreBtn.click();
   await window.waitForSelector('nav, [class*="sidebar"]', { timeout: 20000 });
 }
