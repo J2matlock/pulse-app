@@ -76,6 +76,8 @@ vi.mock('react-hot-toast', () => ({
 
 import { useAuthGating } from '../../../src/renderer/hooks/useAuthGating'
 import { IPC } from '../../../src/shared/ipc-channels'
+import { HINTS_SEEN_KEY, useHintStore } from '../../../src/renderer/stores/hintStore'
+import { pulseEvents } from '../../../src/renderer/events'
 
 describe('useAuthGating', () => {
   beforeEach(() => {
@@ -216,5 +218,63 @@ describe('useAuthGating', () => {
     act(() => { result.current.setShowOnboarding(true) })
     act(() => { result.current.showTourAfterOnboarding() })
     expect(mockLoadRules).toHaveBeenCalled()
+  })
+
+  describe('one-time hints (UX pass Q7)', () => {
+    function answers(hintsSeen: string | null) {
+      mockSettingsState = { isLocked: false, isPasswordSetup: true, recoverySession: false }
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === IPC.AUTH_IS_SETUP) return Promise.resolve({ ok: true, data: true })
+        if (channel === IPC.ONBOARDING_CHECK) return Promise.resolve({ ok: true, data: { complete: true } })
+        if (channel === IPC.SETTINGS_GET) return Promise.resolve({ ok: true, data: hintsSeen })
+        return Promise.resolve({ ok: true, data: true })
+      })
+    }
+    const wroteHints = () => mockInvoke.mock.calls.some(c => c[0] === IPC.SETTINGS_UPDATE && c[1] === HINTS_SEEN_KEY)
+
+    it('loads the seen list on unlock', async () => {
+      answers('["grid"]')
+      renderHook(() => useAuthGating())
+      await act(async () => {})
+      expect(useHintStore.getState().seen).toEqual(new Set(['grid']))
+    })
+
+    it('a true first run (from the welcome screen) turns hints on, only when the setting is absent', async () => {
+      answers(null)
+      const { result } = renderHook(() => useAuthGating())
+      await act(async () => {})
+      act(() => { result.current.setShowOnboarding(true) })
+      await act(async () => { result.current.completeOnboarding() })
+      expect(mockInvoke).toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, HINTS_SEEN_KEY, '[]')
+    })
+
+    it('a setting already there is left alone at the end of the first run', async () => {
+      answers('all')
+      const { result } = renderHook(() => useAuthGating())
+      await act(async () => {})
+      act(() => { result.current.setShowOnboarding(true) })
+      await act(async () => { result.current.completeOnboarding() })
+      expect(wroteHints()).toBe(false)
+    })
+
+    it('setup shown again after the last list was deleted doesn\'t turn hints on', async () => {
+      answers(null)
+      const { result } = renderHook(() => useAuthGating())
+      await act(async () => {})
+      act(() => { pulseEvents.emit('setup:open', { step: 'start' }) })
+      expect(result.current.setupStart).toBe('start')
+      await act(async () => { result.current.completeOnboarding() })
+      expect(wroteHints()).toBe(false)
+    })
+
+    it('lock resets the seen list', async () => {
+      answers('[]')
+      const { rerender } = renderHook(() => useAuthGating())
+      await act(async () => {})
+      expect(useHintStore.getState().seen).toEqual(new Set())
+      mockSettingsState = { ...mockSettingsState, isLocked: true }
+      rerender()
+      expect(useHintStore.getState().seen).toBeNull()
+    })
   })
 })
