@@ -15,7 +15,7 @@ function setup(settings: Record<string, string | null>) {
   mockInvoke.mockImplementation((channel: string, key?: string) => {
     if (channel === 'settings:get') return Promise.resolve({ ok: true, data: settings[key!] ?? null })
     if (channel === 'settings:update') return Promise.resolve({ ok: true, data: true })
-    if (channel === 'dashboard:get-briefing') return Promise.resolve({ ok: true, data: { overdue: 2, dueToday: 1, dueThisWeek: 4, followUpsDue: 3, tasksDue: 1, checklistDue: 1 } })
+    if (channel === 'dashboard:get-briefing') return Promise.resolve({ ok: true, data: { overdue: 2, dueToday: 1, dueThisWeek: 4, followUpsDue: 3, tasksDue: 1, checklistDue: 1, needsOutcome: 1 } })
     return Promise.resolve({ ok: false })
   })
 }
@@ -32,8 +32,11 @@ describe('MorningBriefing', () => {
     expect(screen.getByText('deadline due today', { exact: false })).toBeTruthy()
     expect(screen.getByText('more due in the next 7 days', { exact: false })).toBeTruthy()
     expect(screen.getByText('follow-ups due', { exact: false })).toBeTruthy()
-    expect(screen.getByText('tasks due', { exact: false })).toBeTruthy()
+    // Tasks and checklist items are counted apart, each with its name (UX D-05)
+    expect(screen.getByText('task due', { exact: false })).toBeTruthy()
+    expect(screen.getByText('checklist item due', { exact: false })).toBeTruthy()
     expect(screen.queryByText(/todays|dayss|due\s*s\b/)).toBeNull()
+    expect(screen.getByText(/past appointment still needs marking done, no-show or cancelled/)).toBeTruthy()
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'briefing_last_shown', localDateString())
   })
 
@@ -45,7 +48,7 @@ describe('MorningBriefing', () => {
   })
 
   it.each([
-    ['Start Focus Mode'],
+    ['Work through them one by one'],
     ['Open dashboard'],
   ])('unticking "show each day" is saved when leaving with %s', async (button) => {
     setup({})
@@ -56,7 +59,7 @@ describe('MorningBriefing', () => {
     fireEvent.click(screen.getByRole('button', { name: button }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'briefing_enabled', 'false'))
     expect(screen.queryByRole('dialog')).toBeNull()
-    if (button === 'Start Focus Mode') expect(onFocusMode).toHaveBeenCalled()
+    if (button === 'Work through them one by one') expect(onFocusMode).toHaveBeenCalled()
   })
 
   it('closes on Escape and marks the key as handled', async () => {

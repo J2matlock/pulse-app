@@ -35,10 +35,9 @@ const settle = () => act(async () => { await new Promise(r => setTimeout(r, 0)) 
 async function show(mode: 'Month' | 'Week' = 'Month') {
   render(<MemoryRouter><Routes><Route path="*" element={<><CalendarView /><Where /></>} /></Routes></MemoryRouter>)
   await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-  if (mode === 'Month') {
-    fireEvent.click(screen.getByRole('button', { name: 'Month' }))
-    await settle()
-  }
+  // Month is the default (UX D-29); Week is a click away
+  fireEvent.click(screen.getByRole('button', { name: mode }))
+  await settle()
 }
 
 beforeEach(() => {
@@ -62,7 +61,7 @@ describe('the calendar', () => {
     expect(within(cell).getByRole('button', { name: /9:00 am to|Intake with Jane, scheduled/ })).toBeTruthy()
     expect(within(cell).getByText('+2 more')).toBeTruthy()
     // Turning off appointments leaves the deadline and task
-    fireEvent.click(screen.getByRole('button', { name: 'Appointments' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Appointments' }))
     expect(within(cell).queryByText(/Intake/)).toBeNull()
     expect(within(cell).getByText('Jane: Review')).toBeTruthy()
   })
@@ -100,7 +99,7 @@ describe('the calendar', () => {
       return { ok: true, data: null }
     })
     await show()
-    expect(screen.getByText('Show:')).toBeTruthy()
+    expect(screen.getByText('Showing:')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
     await settle()
     const done = screen.getByText('✓ 3:00 pm Session with Jane')
@@ -110,7 +109,7 @@ describe('the calendar', () => {
     expect(screen.getByTestId('where').textContent).toBe('/tasks?task=7')
   })
 
-  it('agenda lists the day; an appointment opens its panel, a deadline its record', async () => {
+  it('agenda lists the day; an appointment opens its panel, a deadline its own panel (UX D-08)', async () => {
     await show()
     fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
     await settle()
@@ -120,7 +119,40 @@ describe('the calendar', () => {
     expect(screen.getByRole('heading', { name: 'Intake' })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Done/ })).toBeTruthy()
     fireEvent.click(within(day).getByText('Jane: Review'))
+    await settle()
+    // The page stays; the panel says what it is, when, and offers the dashboard's choices
+    expect(screen.getByTestId('where').textContent).toBe('/')
+    const panel = screen.getByRole('complementary')
+    expect(within(panel).getByRole('heading', { name: 'Review' })).toBeTruthy()
+    expect(within(panel).getByText(/^Due .* · 1 day overdue$/)).toBeTruthy()
+    expect(invoke).toHaveBeenCalledWith('deadlines:get', { rowIds: [4] })
+    fireEvent.click(within(panel).getByRole('button', { name: 'Open client' }))
     expect(screen.getByTestId('where').textContent).toBe('/profile/4?gridId=2')
+  })
+
+  it('the deadline panel marks done through the engine, with Done on… and Extend… beside it (UX D-08)', async () => {
+    const row = { row_id: 4, grid_id: 2, grid_name: 'Clients', column_id: 9, column_name: 'Review', column_config: '{}', date_value: '2025-10-01', client_name: 'Jane',
+      interval_days: 365, interval_months: null, end_of_month: 0, rule_kind: 'interval', due: today, daysUntil: -1, state: 'overdue', estimated: false, detail: 'Due yesterday' }
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'appointments:list') return { ok: true, data: appointments }
+      if (channel === 'calendar:items') return { ok: true, data: [{ kind: 'deadline', key: 'deadline-4-9', date: today, title: 'Review', rowId: 4, gridId: 2, recordName: 'Jane', state: 'overdue', daysUntil: -1, columnId: 9 }] }
+      if (channel === 'deadlines:get') return { ok: true, data: [row] }
+      if (channel === 'deadlines:mark-done') return { ok: true, data: { previous: '2025-10-01', newValue: today, finishedFor: null, sysLogId: 3, checklistItemIds: [] } }
+      return { ok: true, data: null }
+    })
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    await settle()
+    fireEvent.click(screen.getByText('Jane: Review'))
+    await settle()
+    const panel = screen.getByRole('complementary')
+    expect(within(panel).getByText('Last done Oct 1, 2025')).toBeTruthy()
+    expect(within(panel).getByRole('button', { name: 'Done on another day: Review for Jane' })).toBeTruthy()
+    expect(within(panel).getByRole('button', { name: 'Extend…' })).toBeTruthy()
+    await act(async () => { fireEvent.click(within(panel).getByRole('button', { name: 'Mark Review done for Jane' })) })
+    expect(invoke).toHaveBeenCalledWith('deadlines:mark-done', 4, 9, { kind: 'repeat' }, null, null)
+    // Done closes the panel and the calendar loads again
+    expect(screen.queryByRole('complementary')).toBeNull()
   })
 
   it('shows only the weeks the month needs, so the last row is not cut off', async () => {
@@ -142,7 +174,7 @@ describe('the calendar', () => {
 })
 
 describe('week view', () => {
-  it('opens by default with appointments on, placing them by time; clicking a slot starts a new one there', async () => {
+  it('places appointments by time; clicking a slot starts a new one there', async () => {
     await show('Week')
     expect(screen.getByRole('button', { name: 'Week' }).getAttribute('aria-pressed')).toBe('true')
     const day = screen.getByRole('group', { name: new RegExp(`^${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())}`) })

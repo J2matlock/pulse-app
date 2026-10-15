@@ -22,7 +22,7 @@ import type { ApptStatus } from '../shared/appointments'
 import type { DeadlineState } from '../shared/deadlineEngine'
 import { unhandledCase } from '../shared/assertNever'
 import {
-  REPORT_LIMITS, bucketDate, isFilterActive, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
+  REPORT_LIMITS, bucketDate, isFilterActive, isNoValue, noValueLabel, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
   type ReportCell, type ReportColumn, type ReportConfig, type ReportField, type ReportFieldKind, type ReportResult, type ReportSource, type SavedReport,
 } from '../shared/reports'
 import { LIVE_GRID, liveGrid } from '../shared/liveRecords'
@@ -364,7 +364,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     const values = config.values.length ? config.values : [{ fn: 'count' as const }]
     rows = [...groups.values()].map(g => {
       const row: Record<string, ReportCell> = {}
-      g.keys.forEach((k, i) => { row[`g${i}`] = k === null ? '(blank)' : k })
+      g.keys.forEach((k, i) => { row[`g${i}`] = k === null ? noValueLabel(groupCols[i]!.label) : k })
       values.forEach((v, i) => { row[valueKey(i)] = aggregate(g.items, v) })
       return row
     })
@@ -404,7 +404,7 @@ function round(n: number): number { return Math.round(n * 100) / 100 }
 /** In the order of a field's choices when it has them; values that aren't a choice follow, then blanks */
 function compareIn(order: string[] | undefined, a: ReportCell, b: ReportCell): number {
   if (!order) return compare(a, b)
-  const blank = (v: ReportCell) => v === null || v === '' || v === '(blank)'
+  const blank = isNoValue
   if (blank(a) || blank(b)) return blank(a) === blank(b) ? 0 : blank(a) ? 1 : -1
   const ia = order.indexOf(String(a)), ib = order.indexOf(String(b))
   if (ia === -1 && ib === -1) return compare(a, b)
@@ -414,7 +414,7 @@ function compareIn(order: string[] | undefined, a: ReportCell, b: ReportCell): n
 
 /** Blanks last; numbers as numbers; text without regard to case */
 function compare(a: ReportCell, b: ReportCell): number {
-  const blank = (v: ReportCell) => v === null || v === '' || v === '(blank)'
+  const blank = isNoValue
   if (blank(a) || blank(b)) return blank(a) === blank(b) ? 0 : blank(a) ? 1 : -1
   if (typeof a === 'number' && typeof b === 'number') return a - b
   return String(a).localeCompare(String(b), 'en-US', { numeric: true, sensitivity: 'base' })

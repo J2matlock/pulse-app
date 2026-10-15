@@ -85,8 +85,8 @@ vi.mock('../../../src/renderer/stores/taskStore', () => {
 // ── Mock sub-components ──────────────────────────────────────────────────────
 
 vi.mock('../../../src/renderer/views/dashboard/SummaryCard', () => ({
-  SummaryCard: ({ label, value }: { label: string; value: string | number }) => (
-    <div data-testid="summary-card" data-label={label} data-value={String(value)}>{label}: {String(value)}</div>
+  SummaryCard: ({ label, value, onClick }: { label: string; value: string | number; onClick?: () => void }) => (
+    <div data-testid="summary-card" data-label={label} data-value={String(value)} onClick={onClick}>{label}: {String(value)}</div>
   ),
 }))
 vi.mock('../../../src/renderer/views/dashboard/DeadlineRow', () => ({
@@ -182,12 +182,14 @@ describe('DashboardView — interactions', () => {
     expect(activeCard?.getAttribute('data-value')).toBe('15')
   })
 
-  it('renders Priority List tab as active by default', async () => {
+  it('renders the What\'s due tab as active by default, with a count (D-20)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
 
-    const priorityTab = screen.getByRole('tab', { name: /Priority List/i })
+    const priorityTab = screen.getByRole('tab', { name: /What's due/i })
     expect(priorityTab.getAttribute('aria-selected')).toBe('true')
+    // 2 deadlines with a rule + 1 task + 1 follow-up
+    expect(priorityTab.textContent).toContain('(4)')
   })
 
   it('switches to This Week tab and shows WeekViewTab content', async () => {
@@ -198,7 +200,7 @@ describe('DashboardView — interactions', () => {
     const tablists = screen.getAllByRole('tablist')
     const topTablist = tablists[0]
     const weekTab = Array.from(topTablist.querySelectorAll('[role="tab"]'))
-      .find(t => t.textContent?.includes('This Week'))! as HTMLElement
+      .find(t => t.textContent?.includes('This week'))! as HTMLElement
     fireEvent.click(weekTab)
     expect(weekTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByTestId('week-view')).toBeDefined()
@@ -211,20 +213,62 @@ describe('DashboardView — interactions', () => {
     const tablists = screen.getAllByRole('tablist')
     const topTablist = tablists[0]
     const monthTab = Array.from(topTablist.querySelectorAll('[role="tab"]'))
-      .find(t => t.textContent?.includes('This Month'))! as HTMLElement
+      .find(t => t.textContent?.includes('This month'))! as HTMLElement
     fireEvent.click(monthTab)
     expect(monthTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByTestId('month-view')).toBeDefined()
   })
 
-  it('switches to Recently Archived tab and shows archived content', async () => {
+  it('Recently archived is a card at the end, not a tab (D-20)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
 
-    const archivedLink = screen.getByRole('button', { name: /Recently archived/i })
-    fireEvent.click(archivedLink)
-    expect(archivedLink.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: /Recently archived/i })).toBeNull()
+    expect(screen.getByRole('heading', { name: /Recently archived/ })).toBeDefined()
     expect(screen.getByTestId('archived-tab')).toBeDefined()
+  })
+
+  it('the count tiles open their tab (D-06)', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const tile = screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Due in the next 7 days')!
+    fireEvent.click(tile)
+    expect(screen.getByTestId('week-view')).toBeDefined()
+    fireEvent.click(screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Overdue deadlines')!)
+    expect(screen.getByRole('tab', { name: /Overdue/ }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('Done explains itself in a line, and the checkboxes wait behind "Select several…" (D-04, D-25)', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/Done puts today's date in and starts the next cycle/)).toBeDefined()
+    expect(screen.queryByLabelText('Select all shown')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Select several…' }))
+    expect(screen.getByLabelText('Select all shown')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Done selecting' })).toBeDefined()
+  })
+
+  it('the occasional actions sit under one Print & export menu (D-19)', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.queryByRole('button', { name: /Print this week/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Print & export/ }))
+    const items = screen.getAllByRole('menuitem').map(m => m.textContent)
+    expect(items.some(x => x?.startsWith('Print this week'))).toBe(true)
+    expect(items.some(x => x?.startsWith('Monthly summary'))).toBe(true)
+    expect(items.some(x => x?.startsWith('Add to my calendar…'))).toBe(true)
+    expect(screen.getByRole('button', { name: /Customize/ })).toBeDefined()
+  })
+
+  it('the color guide opens from a link and starts open until closed once (D-21)', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.queryByText('Deadline Colors')).toBeNull()
+    const link = screen.getByRole('button', { name: 'What do the colors mean?' })
+    expect(link.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
+    expect(link.getAttribute('aria-expanded')).toBe('false')
+    expect(mockSafeInvoke).toHaveBeenCalledWith('settings:update', 'dashboard_color_guide_seen', '1')
   })
 
   it('renders deadline rows from IPC data on priority tab', async () => {

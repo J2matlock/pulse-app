@@ -341,25 +341,25 @@ describe('TasksView — interactions', () => {
     )
   })
 
-  it('renders Templates button', async () => {
+  it('renders the Add a set of tasks button (UX D-33)', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Templates')).toBeDefined()
+    expect(screen.getByText('Add a set of tasks…')).toBeDefined()
   })
 
-  it('sorts by due date or priority from the Sort menu (audit S-20)', async () => {
+  it('sorts by due date or priority from the Order menu (audit S-20, UX D-43)', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getAllByTestId('task-item').map(e => e.textContent)).toEqual(['Call insurance company', 'Review case notes'])
-    fireEvent.change(screen.getByLabelText('Sort:'), { target: { value: 'priority' } })
+    fireEvent.change(screen.getByLabelText('Order:'), { target: { value: 'priority' } })
     expect(taskStoreData().setSortMode).toHaveBeenCalledWith('priority')
   })
 
-  it('shows progress bar with completion info', async () => {
+  it('leaves the progress bar out until there are 5 tasks (UX D-43)', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
 
-    // 1 completed out of 3 total = "1 of 3 completed"
-    expect(screen.getByText(/1 of 3 completed/)).toBeDefined()
+    // 1 completed out of 3 total: too few to be worth a bar
+    expect(screen.queryByText(/1 of 3 completed/)).toBeNull()
   })
 })

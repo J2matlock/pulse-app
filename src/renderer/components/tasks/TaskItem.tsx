@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { GripVertical, Trash2, Calendar, Pencil, Bell, BellOff, RotateCw, X, AlertTriangle } from 'lucide-react'
+import { GripVertical, Trash2, Calendar, RotateCw, X, AlertTriangle, MoreHorizontal } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -8,12 +8,14 @@ import { localDateString } from '../../../shared/dates'
 import { parseRepeatRule } from '../../../shared/recurrence'
 import { dueDateBadge, isOverdue, isDueToday, isSnoozed } from '../../views/tasks/taskHelpers'
 import { snoozeDay } from '../../views/tasks/SnoozeDialog'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 
+// Chips say "High priority", not a bare "High" (UX D-42)
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; dot: string; badge: string }> = {
-  urgent: { label: 'Urgent', dot: '!!!!', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-  high:   { label: 'High',   dot: '!!!',  badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
-  normal: { label: 'Normal', dot: '',      badge: 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-300' },
-  low:    { label: 'Low',    dot: '',      badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  urgent: { label: 'Urgent',          dot: '!!!!', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+  high:   { label: 'High priority',   dot: '!!!',  badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+  normal: { label: 'Normal priority', dot: '',     badge: 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-300' },
+  low:    { label: 'Low priority',    dot: '',     badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
 }
 
 interface Props {
@@ -33,6 +35,8 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   const [dateDraft, setDateDraft] = useState(task.due_date ?? '')
   const [showPriorityMenu, setShowPriorityMenu] = useState(false)
   const [showRecurrenceMenu, setShowRecurrenceMenu] = useState(false)
+  // The row's "⋯" menu: Edit, Snooze…, Repeat…, Delete, always in view (UX D-12)
+  const [showMore, setShowMore] = useState(false)
   const [justChecked, setJustChecked] = useState(false)
 
   const titleRef = useRef<HTMLInputElement>(null)
@@ -40,7 +44,10 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   const clearDateRef = useRef<HTMLButtonElement>(null)
   const priorityMenuRef = useRef<HTMLDivElement>(null)
   const recurrenceMenuRef = useRef<HTMLDivElement>(null)
+  const moreWrapRef = useRef<HTMLDivElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
   const prevCompletedRef = useRef(task.is_completed)
+  const onMoreKey = useMenuKeys(moreMenuRef, showMore, () => setShowMore(false))
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -78,6 +85,15 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
     return () => document.removeEventListener('mousedown', onDown)
   }, [showRecurrenceMenu])
 
+  useEffect(() => {
+    if (!showMore) return
+    function onDown(e: MouseEvent) {
+      if (!moreWrapRef.current?.contains(e.target as Node)) setShowMore(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [showMore])
+
   function saveTitle() {
     const trimmed = titleDraft.trim()
     if (trimmed && trimmed !== task.title) onUpdate({ title: trimmed })
@@ -106,6 +122,13 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   const priority = task.priority ?? 'normal'
   const priorityCfg = PRIORITY_CONFIG[priority]
   const hasRecurrence = !!task.recurrence_rule
+
+  const moreItems: Array<{ label: string; onSelect: () => void; danger?: boolean }> = [
+    { label: 'Edit', onSelect: onEdit },
+    snoozed ? { label: 'Wake up', onSelect: () => onUpdate({ snoozed_until: null }) } : { label: 'Snooze…', onSelect: onSnooze },
+    { label: 'Repeat…', onSelect: () => setShowRecurrenceMenu(true) },
+    { label: 'Delete', onSelect: onDelete, danger: true },
+  ]
 
   return (
     <div
@@ -158,13 +181,14 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Title */}
+        {/* Title: looks clickable, since a click edits it (UX D-12) */}
         {editingTitle ? (
           <input
             ref={titleRef}
             type="text"
             value={titleDraft}
             maxLength={500}
+            aria-label="Task title"
             onChange={e => setTitleDraft(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter') saveTitle()
@@ -178,8 +202,9 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
         ) : (
           <span
             onClick={() => { setEditingTitle(true); setTitleDraft(task.title) }}
-            className="text-base cursor-text break-words leading-snug select-text
-                       text-slate-800 dark:text-slate-200"
+            title="Click to change the title"
+            className="text-base cursor-pointer break-words leading-snug select-text
+                       text-slate-800 dark:text-slate-200 hover:underline decoration-dotted underline-offset-2"
             style={{ fontSize: 15 }}
           >
             {task.title}
@@ -200,6 +225,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                 ref={dateRef}
                 type="date"
                 value={dateDraft}
+                aria-label="Due date"
                 onChange={e => setDateDraft(e.target.value)}
                 // Moving to the Clear button keeps the editor open, so its click lands (bug sweep S2)
                 onBlur={e => { if (e.relatedTarget !== clearDateRef.current) saveDate() }}
@@ -225,6 +251,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
           ) : dueDate ? (
             <button
               onClick={() => { setDateDraft(task.due_date ?? ''); setEditingDate(true) }}
+              title="Change the due date"
               className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity ${dueDate.className}`}
             >
               {/* A shape as well as a color for late and due-today dates (A06-12), like the grid's warning icon */}
@@ -240,7 +267,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                          text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity"
             >
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3 h-3" aria-hidden="true" />
               Add date
             </button>
           )}
@@ -249,6 +276,9 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
           <div className="relative" ref={priorityMenuRef}>
             <button
               onClick={() => setShowPriorityMenu(prev => !prev)}
+              aria-haspopup="menu"
+              aria-expanded={showPriorityMenu}
+              aria-label={`Priority: ${priorityCfg.label}. Change`}
               className={`hit-44 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
                          ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100' : ''}`}
@@ -256,12 +286,13 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
               {priority !== 'normal' ? priorityCfg.label : '+ Priority'}
             </button>
             {showPriorityMenu && (
-              <div className="absolute top-full mt-1 left-0 bg-white dark:bg-slate-800
+              <div role="menu" aria-label="Priority" className="absolute top-full mt-1 left-0 bg-white dark:bg-slate-800
                              border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg
-                             p-1 z-50 w-28">
+                             p-1 z-50 w-40">
                 {(Object.keys(PRIORITY_CONFIG) as TaskPriority[]).map(p => (
                   <button
                     key={p}
+                    role="menuitem"
                     onClick={() => { onUpdate({ priority: p }); setShowPriorityMenu(false) }}
                     className={`hit-44 w-full text-left px-2 py-1.5 rounded-sm text-base
                                hover:bg-slate-50 dark:hover:bg-slate-700
@@ -274,21 +305,24 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
             )}
           </div>
 
-          {/* Recurrence quick-toggle */}
+          {/* Repeats: a chip only when it does (a state, not a button to set one); the menu opens from "Repeat…" too */}
           <div className="relative" ref={recurrenceMenuRef}>
-            <button
-              onClick={() => setShowRecurrenceMenu(prev => !prev)}
-              className={`hit-44 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
-                         ${hasRecurrence
-                           ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                           : 'text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
-              title={hasRecurrence ? 'Change recurrence' : 'Set recurrence'}
-            >
-              <RotateCw className="w-3 h-3" />
-              {!hasRecurrence && <span className="text-sm">Repeat</span>}
-            </button>
+            {hasRecurrence && (
+              <button
+                onClick={() => setShowRecurrenceMenu(prev => !prev)}
+                aria-haspopup="menu"
+                aria-expanded={showRecurrenceMenu}
+                aria-label="Repeats. Change how"
+                className="hit-44 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base font-medium
+                           text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                title="Repeats: change how"
+              >
+                <RotateCw className="w-3 h-3" aria-hidden="true" />
+                <span className="text-sm">Repeats</span>
+              </button>
+            )}
             {showRecurrenceMenu && (
-              <div className="absolute top-full mt-1 left-0 bg-white dark:bg-slate-800
+              <div role="menu" aria-label="Repeat" className="absolute top-full mt-1 left-0 bg-white dark:bg-slate-800
                              border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg
                              p-1 z-50 w-32">
                 {([
@@ -305,6 +339,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                   return (
                     <button
                       key={opt.label}
+                      role="menuitem"
                       onClick={() => {
                         // A repeating task repeats from its due date, so it starts today when it has none (audit S-12)
                         onUpdate(opt.rule && !task.due_date ? { recurrence_rule: opt.rule, due_date: localDateString() } : { recurrence_rule: opt.rule })
@@ -320,6 +355,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                 })}
                 <div className="border-t border-slate-200 dark:border-slate-700 mt-1 pt-1">
                   <button
+                    role="menuitem"
                     onClick={() => { setShowRecurrenceMenu(false); onEdit() }}
                     className="hit-44 w-full text-left px-2 py-1.5 rounded-sm text-base
                                text-blue-600 dark:text-blue-400
@@ -347,47 +383,33 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
         </div>
       </div>
 
-      {/* Hover actions */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0">
-        {snoozed ? (
-          <button
-            onClick={() => onUpdate({ snoozed_until: null })}
-            title="Wake up (remove snooze)"
-            className="hit-44 p-1.5 rounded-sm text-amber-600 hover:text-amber-800 hover:bg-slate-100
-                       dark:hover:bg-slate-700 transition-colors
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          >
-            <BellOff className="w-4 h-4" />
-          </button>
-        ) : (
-          <button
-            onClick={onSnooze}
-            title="Snooze"
-            className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-amber-500 hover:bg-slate-100
-                       dark:hover:bg-slate-700 transition-colors
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          >
-            <Bell className="w-4 h-4" />
-          </button>
+      {/* The row's choices, always in view at low emphasis (UX D-12) */}
+      <div ref={moreWrapRef} className="relative flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowMore(o => !o)}
+          aria-haspopup="menu"
+          aria-expanded={showMore}
+          aria-label={`More for ${task.title}`}
+          title="Edit, snooze, repeat or delete"
+          className="hit-44 p-1.5 rounded-sm text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
+                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+        >
+          <MoreHorizontal className="w-5 h-5" aria-hidden="true" />
+        </button>
+        {showMore && (
+          <div ref={moreMenuRef} role="menu" aria-label={`Choices for ${task.title}`} onKeyDown={onMoreKey}
+            className="absolute right-0 top-full mt-1 z-50 w-44 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
+            {moreItems.map(item => (
+              <button key={item.label} type="button" role="menuitem"
+                onClick={() => { setShowMore(false); item.onSelect() }}
+                className={`w-full text-left px-3 text-base hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:bg-slate-100 dark:focus-visible:bg-slate-700 focus-visible:ring-3 focus-visible:ring-blue-500 ${item.danger ? 'text-red-700 dark:text-red-400 border-t border-slate-200 dark:border-slate-700 mt-1' : 'text-slate-800 dark:text-slate-100'}`}
+                style={{ minHeight: 44 }}>
+                {item.label}
+              </button>
+            ))}
+          </div>
         )}
-        <button
-          onClick={onEdit}
-          title="Edit (full dialog)"
-          className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-blue-500 hover:bg-slate-100
-                     dark:hover:bg-slate-700 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onDelete}
-          title="Delete"
-          className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-red-500 hover:bg-slate-100
-                     dark:hover:bg-slate-700 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
       </div>
     </div>
   )
@@ -440,7 +462,7 @@ export function CompletedTaskItem({ task, onUncheck, onDelete }: {
                    opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
                    transition-opacity"
-        aria-label="Delete item"
+        aria-label={`Delete ${task.title}`}
       >
         <Trash2 className="w-4 h-4" />
       </button>

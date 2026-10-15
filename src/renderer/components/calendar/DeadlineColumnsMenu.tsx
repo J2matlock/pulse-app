@@ -12,10 +12,12 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 export interface DeadlineColumnsMenuProps {
   hidden: Set<number>
+  /** The Deadlines layer is off: the button stays, greyed, so the choice isn't lost (UX D-09) */
+  disabled?: boolean
   onChange: (hidden: Set<number>) => void
 }
 
-export function DeadlineColumnsMenu({ hidden, onChange }: DeadlineColumnsMenuProps): React.ReactElement {
+export function DeadlineColumnsMenu({ hidden, disabled = false, onChange }: DeadlineColumnsMenuProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const [columns, setColumns] = useState<AlertRuleUse[] | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -57,8 +59,9 @@ export function DeadlineColumnsMenu({ hidden, onChange }: DeadlineColumnsMenuPro
 
   return (
     <div className="relative">
-      <button ref={buttonRef} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(o => !o)}
-        className="hit-44 px-3 rounded-full border text-sm border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-1 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" style={{ minHeight: 32 }}>
+      <button ref={buttonRef} type="button" aria-haspopup="dialog" aria-expanded={open} disabled={disabled} onClick={() => setOpen(o => !o)}
+        title={disabled ? 'Turn Deadlines on to choose which show' : undefined}
+        className="hit-44 px-3 rounded-full border text-sm border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-1 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent" style={{ minHeight: 32 }}>
         Which deadlines{hidden.size > 0 ? ` (${hidden.size} hidden)` : ''}…<ChevronDown className="w-4 h-4" aria-hidden="true" />
       </button>
       {open && (

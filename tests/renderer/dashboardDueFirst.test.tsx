@@ -2,7 +2,7 @@
 /** Dashboard: what's due comes first (D-08, S-09, S-27). */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
@@ -34,11 +34,14 @@ describe('Today card', () => {
     ] }))
     render(<MemoryRouter><TodayCard /></MemoryRouter>)
     await flush()
-    const list = screen.getByRole('list', { name: 'Needs an outcome' })
+    const list = screen.getByRole('list', { name: 'Still open from earlier' })
     expect(list.textContent).toContain('Home visit')
     expect(list.textContent).not.toContain('Call')
-    // The same actions as everywhere else (Done…, No-show, Mark cancelled)
-    expect(screen.getByRole('button', { name: 'Mark cancelled (Home visit)' })).toBeTruthy()
+    // The short form of the calendar's actions: Done…, No-show, Cancelled, and Edit/Delete under ⋯ (UX D-26)
+    expect(screen.getByRole('button', { name: 'Cancelled (Home visit)' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Edit (Home visit)' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More (Home visit)' }))
+    expect(screen.getAllByRole('menuitem').map(m => m.textContent)).toEqual(['Edit', 'Delete'])
   })
 })
 

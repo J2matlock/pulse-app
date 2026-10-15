@@ -83,8 +83,10 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
     [b.dueToday, ['deadline due today', 'deadlines due today'], 'text-orange-700 dark:text-orange-300'],
     [b.dueThisWeek, ['more due in the next 7 days', 'more due in the next 7 days'], 'text-slate-800 dark:text-slate-100'],
     [b.followUpsDue, ['follow-up due', 'follow-ups due'], 'text-slate-800 dark:text-slate-100'],
-    [b.tasksDue + b.checklistDue, ['task due', 'tasks due'], 'text-slate-800 dark:text-slate-100'],
-    [b.needsOutcome ?? 0, [`past ${t('appointment')} without an outcome`, `past ${t('appointment', { many: true })} without an outcome`], 'text-amber-800 dark:text-amber-200'],
+    // Each line says what it counts, so the dashboard tile and the Tasks badge add up (UX D-05)
+    [b.tasksDue, ['task due', 'tasks due'], 'text-slate-800 dark:text-slate-100'],
+    [b.checklistDue, ['checklist item due', 'checklist items due'], 'text-slate-800 dark:text-slate-100'],
+    [b.needsOutcome ?? 0, [`past ${t('appointment')} still needs marking done, no-show or cancelled`, `past ${t('appointment', { many: true })} still need marking done, no-show or cancelled`], 'text-amber-800 dark:text-amber-200'],
   ]
 
   return (
@@ -127,15 +129,16 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
             ))}
           </ul>
         )}
+        {/* The dashboard is the usual next step; Focus mode is the one-by-one way through the same list (UX D-07) */}
         <div className="flex flex-wrap gap-3">
-          {!nothingUrgent && showFocus && (
-            <button type="button" className="btn-primary" onClick={() => void close(onFocusMode)}>
-              Start Focus Mode
-            </button>
-          )}
-          <button type="button" className="btn-secondary" onClick={() => void close(() => navigate('/dashboard'))}>
+          <button type="button" className="btn-primary" onClick={() => void close(() => navigate('/dashboard'))}>
             Open dashboard
           </button>
+          {!nothingUrgent && showFocus && (
+            <button type="button" className="btn-secondary" onClick={() => void close(onFocusMode)}>
+              Work through them one by one
+            </button>
+          )}
         </div>
         <label className="mt-5 flex items-center gap-2 text-base text-slate-600 dark:text-slate-300 cursor-pointer select-none" style={{ minHeight: 44 }}>
           <input type="checkbox" checked={keepShowing} onChange={e => setKeepShowing(e.target.checked)}

@@ -4,11 +4,11 @@
  */
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
 import { seriesRuleText, type Appointment } from '../../../shared/appointments'
 import { formatTime, longDay } from '../../../shared/calendar'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { AppointmentActions } from './AppointmentActions'
+import { CalendarPanel } from './CalendarPanel'
 
 const STATUS_TEXT: Record<Appointment['status'], string> = { scheduled: 'Scheduled', done: 'Done', no_show: 'No-show', cancelled: 'Cancelled' }
 
@@ -19,12 +19,7 @@ export function AppointmentPanel({ appointment: a, onClose }: { appointment: App
   const when = a.all_day ? `${longDay(a.start_at)}, all day` : `${longDay(a.start_at)}, ${formatTime(a.start_at, clock)}${a.end_at ? ` to ${formatTime(a.end_at, clock)}` : ''}`
 
   return (
-    <aside aria-labelledby="appt-panel-title" className="w-full sm:w-80 flex-shrink-0 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3 overflow-y-auto">
-      <div className="flex items-start gap-2">
-        <h2 id="appt-panel-title" className="flex-1 text-lg font-semibold text-slate-900 dark:text-slate-100 break-words">{a.title}</h2>
-        <button type="button" aria-label="Close" onClick={onClose}
-          className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"><X className="w-5 h-5 text-slate-500" /></button>
-      </div>
+    <CalendarPanel title={a.title} onClose={onClose}>
       <p className="text-base text-slate-700 dark:text-slate-200">{when}</p>
       {a.record_name && (
         <button type="button" className="text-base text-blue-700 dark:text-blue-300 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
@@ -36,6 +31,6 @@ export function AppointmentPanel({ appointment: a, onClose }: { appointment: App
       {seriesRuleText(a) && <p className="text-base text-slate-600 dark:text-slate-300">{seriesRuleText(a)}</p>}
 
       <AppointmentActions appointment={a} onChanged={onClose} showEndSeries />
-    </aside>
+    </CalendarPanel>
   )
 }

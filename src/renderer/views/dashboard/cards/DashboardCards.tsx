@@ -20,11 +20,13 @@ import { TodayCard } from './TodayCard'
 import { SavedReportCard } from './SavedReportCard'
 import { loadPinnedReports, setReportPinned } from '../../../utils/pinnedReports'
 
-export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizing }: {
+export function DashboardCards({ summary, whatsDue, recentlyArchived, customizing, onDoneCustomizing }: {
   /** The summary tiles, which use the dashboard's own counts */
   summary: React.ReactNode
-  /** The deadline tabs: Priority List, Overdue, This Week, This Month */
+  /** The deadline tabs: What's due, Overdue, This week, This month */
   whatsDue: React.ReactNode
+  /** Archived records with Reactivate, from the dashboard's own load */
+  recentlyArchived: React.ReactNode
   customizing: boolean
   onDoneCustomizing: () => void
 }): React.ReactElement {
@@ -79,6 +81,7 @@ export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizi
     dueForService: () => <DueForServiceCard />,
     quotas: () => <QuotasCard />,
     recentActivity: () => <RecentActivityCard />,
+    recentlyArchived: () => recentlyArchived,
   }
 
   if (saved === undefined) return <>{summary}{whatsDue}</>
@@ -98,6 +101,8 @@ export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizi
                 <label className="flex-1 flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
                   <input type="checkbox" className="w-5 h-5" checked={c.on} onChange={e => save(cards.map(x => x === c ? { ...x, on: e.target.checked } : x))} />
                   {f(c.def.title)}
+                  {/* An unticked row is a card you can add, not one that's missing (UX D-46) */}
+                  {!c.on && <span className="text-sm text-slate-500 dark:text-slate-400">(off)</span>}
                 </label>
                 <button type="button" aria-label={`Move ${f(c.def.title)} up`} disabled={i === 0} onClick={() => move(i, -1)}
                   className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"><ArrowUp className="w-4 h-4" /></button>
@@ -109,7 +114,7 @@ export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizi
           {pinned.length > 0 && (
             <>
               <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 pt-2">Pinned reports</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300">These show at the end. Pin reports from the Reports page.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">These show at the end. Add one with Show on dashboard on a report.</p>
               <ul className="space-y-1" aria-label="Pinned reports">
                 {pinned.map(id => (
                   <li key={id} className="flex items-center gap-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3" style={{ minHeight: 44 }}>

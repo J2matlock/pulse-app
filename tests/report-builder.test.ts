@@ -10,7 +10,7 @@ vi.mock('../src/main/database', async () => {
 })
 
 import { reportFields, runReport, validateReportConfig, saveReport, listReports, deleteReport, getReport, ReportError } from '../src/main/report-builder'
-import { bucketDate, presetRange, matchReportFilter, valueLabel, formatReportCell, defaultFilterField, defaultGroupField, defaultValueField, suggestReportName, describeReport, explainReport, chartableReport } from '../src/shared/reports'
+import { bucketDate, presetRange, matchReportFilter, valueLabel, formatReportCell, isNoValue, defaultFilterField, defaultGroupField, defaultValueField, suggestReportName, describeReport, explainReport, chartableReport } from '../src/shared/reports'
 import { up as migration043 } from '../src/main/migrations/043_report_definitions'
 
 let gridId: number
@@ -116,11 +116,19 @@ describe('records', () => {
     expect(r.columns[0]).toMatchObject({ kind: 'date', bucket: 'month' })
   })
 
+  it('names the group with nothing in the field after the field, and puts it last (UX D-44)', () => {
+    cell(rows[3]!, makeCol, '')
+    const r = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${makeCol}` }] }, NOW)
+    const groups = r.rows.map(x => x.g0)
+    expect(groups.at(-1)).toBe('(no make)')
+    expect(groups).not.toContain('(blank)')
+  })
+
   it('starts week groups on the day chosen in Settings (A21a-10)', () => {
     cell(rows[0]!, dueCol, '2026-10-11') // a Sunday
     cell(rows[1]!, dueCol, '2026-10-12') // the Monday after
     const weeks = () => runReport(gridId, { source: 'records', groupBy: [{ field: `col:${dueCol}`, bucket: 'week' }] }, NOW)
-      .rows.map(x => x.g0).filter(g => g !== '(blank)' && g !== null).sort()
+      .rows.map(x => x.g0).filter(g => !isNoValue(g ?? null)).sort()
     expect(weeks()).toEqual(['2026-10-11'])
     t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('week_start', 'monday')").run()
     expect(weeks()).toEqual(['2026-10-05', '2026-10-12'])
@@ -259,7 +267,8 @@ describe('helpers', () => {
     expect(formatReportCell('2026-10', 'date', 'month')).toBe('Oct 2026')
     expect(formatReportCell('2026-10-11', 'date', 'week')).toBe('Week of Oct 11, 2026')
     expect(formatReportCell('2026 Q4', 'date', 'quarter')).toBe('Q4 2026')
-    expect(formatReportCell('(blank)', 'date', 'month')).toBe('(blank)')
+    expect(formatReportCell('(no due date)', 'date', 'month')).toBe('(no due date)')
+    expect(formatReportCell('(no due date)', 'date')).toBe('(no due date)')
     expect(formatReportCell('Honda', 'text')).toBe('Honda')
   })
 

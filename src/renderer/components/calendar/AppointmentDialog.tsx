@@ -168,10 +168,10 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
           <input className="input w-full" autoFocus maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder={isEvent ? 'e.g. Staff meeting, Training, Day off' : 'e.g. Session, Drop-off, Home visit'} />
         </label>
 
-        {/* An event can be about someone (then it's an appointment), but only while appointments are switched on */}
+        {/* An event can be about someone (then it's an appointment), but only while appointments are switched on; the field says so (UX D-13) */}
         {(!isEvent || apptsOn || who) && <div>
-          <span className={label}>With{isEvent && <span className="font-normal text-slate-500 dark:text-slate-400"> (optional)</span>}</span>
-          <RecordSearchField value={who} onChange={setWho} placeholder={`Search ${t('record', { many: true })}, or leave empty`} />
+          <span className={label}>With{isEvent && <span className="font-normal text-slate-500 dark:text-slate-400"> (optional — usually nobody; with {t('record', { article: true })} it becomes {t('appointment', { article: true })})</span>}</span>
+          <RecordSearchField value={who} onChange={setWho} placeholder={isEvent ? 'Leave empty for a plain event' : `Search ${t('record', { many: true })}, or leave empty`} />
         </div>}
 
         <div className="flex flex-wrap items-end gap-3">
@@ -202,11 +202,11 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
           <input className="input w-full" maxLength={300} value={location} onChange={e => setLocation(e.target.value)} />
         </label>
 
-        {/* Only a record gets a note when it's done */}
+        {/* Only a record gets a note when it's done; said in her words, not "log it as" (UX D-13, C-24) */}
         {!asEvent && <label className="block">
-          <span className={label}>When it's done, log it as</span>
+          <span className={label}>When you mark it done, add {t('activity', { article: true })} of this kind</span>
           <select className="input w-full" value={kind} onChange={e => setKind(e.target.value)}>
-            <option value="">Usual: {(noteTypes.find(nt => nt.key === 'visit') ?? noteTypes[0])?.label ?? 'a note'}</option>
+            <option value="">{(noteTypes.find(nt => nt.key === 'visit') ?? noteTypes[0])?.label ?? 'A note'} (the usual)</option>
             {noteTypes.map(nt => <option key={nt.key} value={nt.key}>{nt.label}</option>)}
           </select>
         </label>}

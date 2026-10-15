@@ -1,21 +1,15 @@
-import React, { useState } from 'react'
-import { CheckCircle2, ChevronDown } from 'lucide-react'
+import React from 'react'
+import { CheckCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
 import { classifyDeadline, daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
 import { TIER_TEXT } from '../../utils/dueTiers'
 import { resolveAlertColor } from '../../utils/alertColors'
-import { completeDeadlines, startsNextCycle, isOneOffDeadline } from './completeDeadline'
-import { OneOffDoneDialog, type OneOffChoice } from './OneOffDoneDialog'
-import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 import type { ExtendedDeadlineInfo } from './types'
-import { MeterReadingDialog } from './MeterReadingDialog'
-import { DoneOnDayDialog } from './DoneOnDayDialog'
-import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
-import { extendDeadline, removeExtension } from './extendDeadline'
 import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
 import { useVocab } from '../../hooks/useVocab'
 import { shortDate } from '../../../shared/dates'
+import { useDeadlineActions } from './useDeadlineActions'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -27,18 +21,10 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
 }): React.ReactElement {
   const navigate = useNavigate()
   const { t } = useVocab(deadline.gridId)
-  const [marking, setMarking] = useState(false)
-  const [askReading, setAskReading] = useState(false)
-  const [askOneOff, setAskOneOff] = useState(false)
-  const [askDay, setAskDay] = useState(false)
-  const [extending, setExtending] = useState(false)
-  const { daysUntil, threshold, clientName, columnName, gridName, dateValue, intervalDays, interval, rowId, columnId, gridId } = deadline
-  const ruleInterval = interval ?? toRuleInterval(intervalDays)
-  const ruleKind = deadline.ruleKind ?? 'interval'
-  // A date that doesn't repeat: Done asks Renewed or Finished (Decision E1)
-  const oneOff = isOneOffDeadline({ ruleKind, interval: ruleInterval })
-  // "Based on <date>" only makes sense when the due date counts from the date in this column
-  const recurring = ruleKind === 'interval' && hasInterval(ruleInterval)
+  const { daysUntil, threshold, clientName, columnName, gridName, dateValue, rowId, gridId } = deadline
+  // Done, Done on…, Extend… and their dialogs, shared with the Calendar's panel (UX D-08)
+  const act = useDeadlineActions(deadline, { onMarkDone, onChanged: onUndoneMarkDone })
+  const { ruleKind, ruleInterval, oneOff, recurring, stepName } = act
   const usedUp = isUsedUp({ state: deadline.state, daysUntil })
   const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
 
@@ -72,20 +58,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
     } catch { return storedDateFormatted }
   })()
 
-  // "IFSP meeting (step 1 of 4)" → "IFSP meeting"
-  const stepName = ruleKind === 'sequence' && deadline.label ? deadline.label.replace(/ \((step|repeat) [^)]*\)$/, '') : null
   // The engine's own words, for every kind: they include a working-day move and an extension
   const tooltip = deadline.detail || formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
-
-  async function markDone(reading?: number, doneOn?: string, oneOff?: OneOffChoice) {
-    setMarking(true)
-    try {
-      const done = await completeDeadlines([{ rowId, columnId, columnName, clientName, dateValue, interval: ruleInterval, checklistTemplateId: deadline.checklistTemplateId, ruleKind, reading, step: deadline.step, doneOn, oneOff }], { onUndone: onUndoneMarkDone })
-      if (done.length > 0) onMarkDone?.(rowId, columnId)
-    } finally {
-      setMarking(false)
-    }
-  }
 
   return (
     <div
@@ -121,7 +95,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
         {/* slate-600: rows can carry a tinted alert background, where slate-500 drops below 4.5:1 */}
         <div className="text-sm text-slate-600 dark:text-slate-300 truncate">
           {gridName}
-          {recurring ? <span className="ml-2">· based on {storedDateFormatted}</span> : null}
+          {/* Her words, not the engine's "based on" (UX D-04) */}
+          {recurring ? <span className="ml-2">· last done {storedDateFormatted}</span> : null}
           {/* Which step, how many are used, how much use is left (D-08) */}
           {ruleKind !== 'interval' && deadline.label && !usedUp ? <span className="ml-2">· {deadline.label}</span> : null}
         </div>
@@ -132,7 +107,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
       </div>
       {onMarkDone && (deadline.extensionId ? (
         <button
-          onClick={() => void removeExtension(deadline.extensionId!, columnName, onUndoneMarkDone)}
+          onClick={() => void act.removeExtension()}
           title={deadline.detail}
           className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ minHeight: 44 }}
@@ -141,7 +116,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
         </button>
       ) : (
         <button
-          onClick={() => setExtending(true)}
+          onClick={act.startExtend}
           title="Give it a new due date, with a reason"
           className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ minHeight: 44 }}
@@ -161,14 +136,9 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
       )}
       {onMarkDone && ruleKind !== 'quota' && (
         <button
-          onClick={() => { if (ruleKind === 'meter') setAskReading(true); else if (oneOff) setAskOneOff(true); else void markDone() }}
-          disabled={marking}
-          title={ruleKind === 'meter' ? 'Mark done: asks for the current reading'
-            : ruleKind === 'sequence' ? 'Mark this step done; the next step comes due'
-            : ruleKind !== 'interval' ? 'Mark done: saves today as the day it was done'
-            : startsNextCycle(ruleInterval)
-            ? 'Mark done: sets the date to today, which starts the next cycle'
-            : 'Mark done: asks whether it was renewed (a new date) or finished'}
+          onClick={act.startDone}
+          disabled={act.marking}
+          title={act.doneTitle}
           aria-label={`Mark ${stepName ?? columnName} done for ${clientName}`}
           className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 text-sm font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
           style={{ minHeight: 44 }}
@@ -177,35 +147,20 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           {stepName ? `Mark ${stepName} done` : 'Done'}
         </button>
       )}
-      {/* The work happened on an earlier day (meter readings ask for the day in their dialog) */}
-      {onMarkDone && ruleKind !== 'quota' && ruleKind !== 'meter' && !oneOff && (
+      {/* The work happened on an earlier day (meter readings ask for the day in their dialog); words, not a chevron (UX D-04) */}
+      {onMarkDone && act.canPickDay && !oneOff && (
         <button
-          onClick={() => setAskDay(true)}
-          disabled={marking}
-          title="Done on another day…"
-          aria-label={`${columnName} for ${clientName} was done on another day…`}
-          className="hit-44 flex-shrink-0 -ml-3 px-1.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
+          onClick={act.startDoneOnDay}
+          disabled={act.marking}
+          title="It happened on an earlier day: choose which"
+          aria-label={`Done on another day: ${columnName} for ${clientName}`}
+          className="flex-shrink-0 -ml-2 px-2.5 py-1.5 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
           style={{ minHeight: 44 }}
         >
-          <ChevronDown className="w-4 h-4" />
+          Done on…
         </button>
       )}
-      {extending && (
-        <ExtendDeadlineDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} onClose={() => setExtending(false)}
-          onSave={(newDue, reason) => { setExtending(false); void extendDeadline(rowId, columnId, columnName, newDue, reason, onUndoneMarkDone) }} />
-      )}
-      {askOneOff && (
-        <OneOffDoneDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} onClose={() => setAskOneOff(false)}
-          onSave={choice => { setAskOneOff(false); void markDone(undefined, undefined, choice) }} />
-      )}
-      {askReading && (
-        <MeterReadingDialog title={`${columnName}: ${clientName}`} info={deadline.meter} onClose={() => setAskReading(false)}
-          onSave={(reading, doneOn) => { setAskReading(false); void markDone(reading, doneOn) }} />
-      )}
-      {askDay && (
-        <DoneOnDayDialog title={`${columnName}: ${clientName}`} onClose={() => setAskDay(false)}
-          onSave={day => { setAskDay(false); void markDone(undefined, day) }} />
-      )}
+      {act.dialogs}
     </div>
   )
 }

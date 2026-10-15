@@ -18,13 +18,14 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
 })
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
-import { GettingStartedCard } from '../../../../src/renderer/views/dashboard/GettingStartedCard'
+import { GettingStartedCard, useGettingStarted } from '../../../../src/renderer/views/dashboard/GettingStartedCard'
 import { checkWhatsNew, checkRecoveryKeyReminder, snoozeUntil } from '../../../../src/renderer/hooks/useBackupReminder'
 import { pulseEvents } from '../../../../src/renderer/events'
 import { setWords } from '../../vocabFixture'
 
 const tick = () => act(async () => { await new Promise(r => setTimeout(r, 0)) })
-const renderCard = () => render(<MemoryRouter><GettingStartedCard /></MemoryRouter>)
+function Card() { return <GettingStartedCard state={useGettingStarted()} /> }
+const renderCard = () => render(<MemoryRouter><Card /></MemoryRouter>)
 
 beforeEach(() => {
   setWords()
@@ -63,6 +64,16 @@ describe('GettingStartedCard', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Remind me in a week' })) })
     expect(invoke).toHaveBeenCalledWith('settings:update', 'onboarding_recovery_snooze_until', snoozeUntil())
     expect(screen.queryByRole('button', { name: 'Save a recovery key' })).toBeNull()
+  })
+
+  it('shrinks to one line with the steps left once three are done (UX D-02)', async () => {
+    progress = { show: true, record: true, reminder: true, note: true, recoverySnoozedUntil: null }
+    renderCard()
+    await tick()
+    expect(screen.getByRole('heading', { name: 'Getting started: 1 step left' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save a recovery key' })).toBeTruthy()
+    expect(screen.queryByText(/Add your first client/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Hide getting started' })).toBeTruthy()
   })
 
   it('stays away for existing installs (no setup finished here)', async () => {

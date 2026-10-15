@@ -45,6 +45,9 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [working, setWorking] = useState(false)
   const scopeGrid = scopeAll ? undefined : gridId
+  // A few days into this month, low numbers are expected, not a failing grade (UX D-10)
+  const monthJustStarted = month === months[0]!.key && new Date().getDate() < 7
+  const started = monthJustStarted ? ' (month just started)' : ''
 
   useEffect(() => {
     setSummary(null)
@@ -62,7 +65,7 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
     try {
       const res = await safeInvoke<string | null>(IPC.EXPORT_COMPLIANCE_SUMMARY, month, scopeGrid)
       if (!res.ok) toast.error("We couldn't create the summary. Try again.")
-      else if (res.data) { toast.success(`Saved the ${t('requirement', { many: true })} summary`); onClose() }
+      else if (res.data) { toast.success('Saved the monthly summary'); onClose() }
     } finally {
       setWorking(false)
     }
@@ -70,11 +73,15 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="compliance-title" onClick={e => e.stopPropagation()}
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="compliance-title" aria-describedby="compliance-sub" onClick={e => e.stopPropagation()}
         className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-          <h2 id="compliance-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">{t('requirement', { many: true, cap: true })} summary</h2>
+          {/* The same name as the button that opens it (UX D-10) */}
+          <div className="flex-1">
+            <h2 id="compliance-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">Monthly summary</h2>
+            <p id="compliance-sub" className="text-base text-slate-600 dark:text-slate-300">How the month is going: {t('requirement', { many: true })}, deadlines on time, missing information</p>
+          </div>
           <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5" />
           </button>
@@ -114,8 +121,8 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
                 {summary.grids.map(g => (
                   <tr key={g.gridId} className="border-b border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100">
                     <td className="py-2 pr-3">{g.gridName}</td>
-                    {summary.requirementsOn && <td className="py-2 pr-3 tabular-nums">{g.contacts ? `${pct(g.contacts.met, g.contacts.total)} (${g.contacts.met}/${g.contacts.total})` : 'Not set up'}</td>}
-                    <td className="py-2 pr-3 tabular-nums">{g.deadlines.total ? `${pct(g.deadlines.onTime, g.deadlines.total)} (${g.deadlines.onTime}/${g.deadlines.total})${g.deadlines.extended ? ` · ${g.deadlines.extended} extended` : ''}` : 'None tracked'}</td>
+                    {summary.requirementsOn && <td className="py-2 pr-3 tabular-nums">{g.contacts ? `${pct(g.contacts.met, g.contacts.total)} (${g.contacts.met}/${g.contacts.total})${started}` : 'Not set up'}</td>}
+                    <td className="py-2 pr-3 tabular-nums">{g.deadlines.total ? `${pct(g.deadlines.onTime, g.deadlines.total)} (${g.deadlines.onTime}/${g.deadlines.total})${g.deadlines.extended ? ` · ${g.deadlines.extended} extended` : ''}${started}` : 'None tracked'}</td>
                     <td className="py-2 tabular-nums">{g.missingInfo.clients === 0 ? 'None' : `${g.missingInfo.clients} ${tFor(g.gridId)('record', { count: g.missingInfo.clients })}`}</td>
                   </tr>
                 ))}
@@ -123,12 +130,12 @@ export function ComplianceSummaryDialog({ gridId, gridName, onClose }: {
             </table>
           )}
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Deadlines are checked as of the last day of the month (or today, for this month). The PDF lists every exception by {t('record')}.
+            Deadlines are checked as of the last day of the month (or today, for this month). The PDF lists who is behind, by {t('record')}.
           </p>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
-          <button type="button" className="btn-primary" disabled={working || summary === null} onClick={() => void save()}>{working ? 'Creating…' : 'Save PDF…'}</button>
+          <button type="button" className="btn-primary" disabled={working || summary === null} onClick={() => void save()}>{working ? 'Creating…' : 'Save as PDF…'}</button>
         </div>
       </div>
     </div>

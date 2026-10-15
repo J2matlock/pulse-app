@@ -36,6 +36,7 @@ vi.mock('../../../../src/renderer/utils/safeInvoke', () => ({
 import { SupervisorReportDialog, getPresetRange } from '../../../../src/renderer/components/grid/SupervisorReportDialog'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
 
 function makeColumn(id: number, name: string): Column {
   return {
@@ -53,7 +54,9 @@ describe('SupervisorReportDialog', () => {
 
   it('renders dialog with title', () => {
     render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
-    expect(screen.getByText('Summary report')).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Report for my supervisor' })).toBeTruthy()
+    // Says what the PDF is before any field (UX D-37)
+    expect(screen.getByText(/who you saw, what came due, and what's late/)).toBeTruthy()
   })
 
   it('renders date range preset buttons', () => {
@@ -76,9 +79,17 @@ describe('SupervisorReportDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('renders Export Report button', () => {
+  it('fills the name in from Settings → Profile, and says so (UX D-37)', async () => {
+    vi.mocked(safeInvoke).mockImplementation(async (ch: string) => (ch === 'settings:get-all' ? { ok: true, data: { profile_name: 'Linda Park' } } : { ok: true, data: {} }) as never)
     render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
-    expect(screen.getByText('Export Report')).toBeTruthy()
+    expect(await screen.findByDisplayValue('Linda Park')).toBeTruthy()
+    expect(screen.getByText('Filled in from Settings → Profile.')).toBeTruthy()
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: true, data: {} } as never)
+  })
+
+  it('names the save button after what it makes (UX D-37)', () => {
+    render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
+    expect(screen.getByText('Save as PDF…')).toBeTruthy()
   })
 })
 

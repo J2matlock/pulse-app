@@ -181,29 +181,34 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
         {/* Category + list row */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="task-category" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+            {/* A label to group by, not a required "category" (UX D-31) */}
+            <label htmlFor="task-category" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Label <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span></label>
             <input
               id="task-category"
               value={category}
               onChange={e => setCategory(e.target.value)}
               onKeyDown={onKey}
               className="input w-full"
-              placeholder="e.g. Admin, Reporting..."
+              placeholder="e.g. Admin, Reporting…"
+              aria-describedby="task-category-hint"
               style={{ fontSize: 15 }}
             />
+            <p id="task-category-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">A word to sort and group by.</p>
           </div>
           <div>
-            <label htmlFor="task-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">{t('list', { cap: true })}</label>
+            <label htmlFor="task-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">{t('list', { cap: true })} <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span></label>
             <select
               id="task-grid"
               value={gridId ?? ''}
               onChange={e => setGridId(e.target.value ? parseInt(e.target.value) : null)}
               className="input w-full"
+              aria-describedby="task-grid-hint"
               style={{ fontSize: 15 }}
             >
-              <option value="">-- All {t('list', { many: true })} --</option>
+              <option value="">Any</option>
               {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
+            <p id="task-grid-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">Shown with that {t('list')}; leave as Any for your own to-dos.</p>
           </div>
         </div>
 

@@ -21,7 +21,9 @@ export function SnoozeDialog({ onClose, onSnooze }: { onClose: () => void; onSno
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="snooze-dialog-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-64 p-4 space-y-2">
-        <h3 id="snooze-dialog-title" className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-3">Snooze until...</h3>
+        <h3 id="snooze-dialog-title" className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-1">Snooze until…</h3>
+        {/* Where it goes meanwhile (UX D-34) */}
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">It's hidden until then; find it under Snoozed below.</p>
         {[
           { label: 'Tomorrow', date: tomorrow },
           { label: 'In 3 days', date: in3Days },

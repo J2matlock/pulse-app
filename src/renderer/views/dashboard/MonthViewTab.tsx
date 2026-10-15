@@ -4,6 +4,7 @@ import { LoadingOverlay } from '../../components/shared/LoadingSpinner'
 import type { ExtendedDeadlineInfo } from './types'
 import { getEffectiveDate } from './getEffectiveDate'
 import { DeadlineRow } from './DeadlineRow'
+import { deadlineInMonthTab } from './tabCounts'
 
 export function MonthViewTab({ deadlines, isLoading, onMarkDone, onUndone }: {
   deadlines: ExtendedDeadlineInfo[]; isLoading: boolean
@@ -15,11 +16,9 @@ export function MonthViewTab({ deadlines, isLoading, onMarkDone, onUndone }: {
   const year = now.getFullYear()
   const month = now.getMonth()
 
+  // The same test the tab's count uses (tabCounts.ts)
   const monthDeadlines = useMemo(() => {
-    return deadlines.filter(d => {
-      const effDate = getEffectiveDate(d)
-      return effDate !== null && effDate.getFullYear() === year && effDate.getMonth() === month
-    }).sort((a, b) => a.daysUntil - b.daysUntil)
+    return deadlines.filter(d => deadlineInMonthTab(d, year, month)).sort((a, b) => a.daysUntil - b.daysUntil)
   }, [deadlines, year, month])
 
   const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })

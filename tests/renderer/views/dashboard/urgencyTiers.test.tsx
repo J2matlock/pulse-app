@@ -266,42 +266,42 @@ describe('dashboard urgency tiers', () => {
         "-1": {
           "bar": "",
           "label": "1 day overdue",
-          "text": "text-sm text-red-400 tabular-nums",
+          "text": "text-sm text-red-600 dark:text-red-400 font-semibold tabular-nums",
         },
         "-3": {
           "bar": "",
           "label": "3 days overdue",
-          "text": "text-sm text-red-400 tabular-nums",
+          "text": "text-sm text-red-600 dark:text-red-400 font-semibold tabular-nums",
         },
         "0": {
           "bar": "",
           "label": "Due today",
-          "text": "text-sm text-red-400 tabular-nums",
+          "text": "text-sm text-red-600 dark:text-red-400 font-semibold tabular-nums",
         },
         "1": {
           "bar": "",
           "label": "1 day",
-          "text": "text-sm text-orange-400 tabular-nums",
+          "text": "text-sm text-orange-700 dark:text-orange-400 tabular-nums",
         },
         "30": {
           "bar": "",
           "label": "30 days",
-          "text": "text-sm text-yellow-400 tabular-nums",
+          "text": "text-sm text-yellow-700 dark:text-yellow-400 tabular-nums",
         },
         "31": {
           "bar": "",
           "label": "31 days",
-          "text": "text-sm text-slate-500 tabular-nums",
+          "text": "text-sm text-slate-500 dark:text-slate-400 tabular-nums",
         },
         "7": {
           "bar": "",
           "label": "7 days",
-          "text": "text-sm text-orange-400 tabular-nums",
+          "text": "text-sm text-orange-700 dark:text-orange-400 tabular-nums",
         },
         "8": {
           "bar": "",
           "label": "8 days",
-          "text": "text-sm text-yellow-400 tabular-nums",
+          "text": "text-sm text-yellow-700 dark:text-yellow-400 tabular-nums",
         },
       }
     `)

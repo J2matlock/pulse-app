@@ -251,9 +251,9 @@ describe('TasksView — data smoke tests (5 tasks, 2 overdue)', () => {
     expect(screen.getByText(/1 of 5 completed/)).toBeDefined()
   })
 
-  it('renders Templates button', async () => {
+  it('renders the Add a set of tasks button (UX D-33)', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Templates')).toBeDefined()
+    expect(screen.getByText('Add a set of tasks…')).toBeDefined()
   })
 })

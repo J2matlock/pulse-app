@@ -6,8 +6,8 @@ export type OneOffChoice = { kind: 'renewed'; newDate: string } | { kind: 'finis
 
 /**
  * Done on a date that doesn't repeat (Decision E1): was it renewed (a new
- * expiry date, the usual case) or finished for good (the date stays, marked
- * done)?
+ * expiry date, the usual case) or finished for good (the date stays, and
+ * it's recorded as done)?
  */
 export function OneOffDoneDialog({ title, currentDue, onSave, onClose }: {
   title: string
@@ -54,7 +54,7 @@ export function OneOffDoneDialog({ title, currentDue, onSave, onClose }: {
           )}
           <label className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
             <input type="radio" name="oneoff" className="w-5 h-5" checked={mode === 'finished'} onChange={() => setMode('finished')} />
-            Finished: nothing more is due (the date stays, marked done)
+            Finished — nothing more is due for this
           </label>
         </fieldset>
         <div className="flex justify-end gap-2">

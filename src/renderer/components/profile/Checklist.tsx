@@ -952,9 +952,12 @@ function templateToDraft(tpl: ChecklistTemplate): TemplateDraft {
   }
 }
 
-export function TemplateManager({ onApply, onClose }: {
+export function TemplateManager({ onApply, onClose, title = 'Checklist Templates', footer = 'Templates add items to the existing checklist without replacing them.' }: {
   onApply: (templateId: number) => void
   onClose: () => void
+  /** The Tasks page calls them a set of tasks (UX D-33) */
+  title?: string
+  footer?: string
 }) {
   const { t } = useVocab(null)
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
@@ -1083,7 +1086,7 @@ export function TemplateManager({ onApply, onClose }: {
               </button>
             )}
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              {view === 'list' ? 'Checklist Templates' : view === 'create' ? 'New Template' : 'Edit Template'}
+              {view === 'list' ? title : view === 'create' ? 'New Template' : 'Edit Template'}
             </h3>
           </div>
           <button
@@ -1327,7 +1330,7 @@ export function TemplateManager({ onApply, onClose }: {
           {view === 'list' ? (
             <>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Templates add items to the existing checklist without replacing them.
+                {footer}
               </p>
               <button
                 onClick={openCreate}

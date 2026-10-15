@@ -456,10 +456,11 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
           </div>
           {dirty && initial && <p className="text-sm text-amber-700 dark:text-amber-300" role="status">You have changes that aren't saved yet.</p>}
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-secondary" onClick={() => void exportAs('pdf')}><FileDown className="w-4 h-4" />Export PDF</button>
-            <button type="button" className="btn-secondary" onClick={() => void exportAs('csv')}><FileDown className="w-4 h-4" />Export CSV</button>
-            <button type="button" className="btn-secondary" aria-pressed={pinned} onClick={() => void togglePin()}>
-              {pinned ? <><PinOff className="w-4 h-4" />Unpin from dashboard</> : <><Pin className="w-4 h-4" />Pin to dashboard</>}
+            {/* Say what each makes, in the app's words (UX D-45) */}
+            <button type="button" className="btn-secondary" onClick={() => void exportAs('pdf')}><FileDown className="w-4 h-4" aria-hidden="true" />Save as PDF…</button>
+            <button type="button" className="btn-secondary" onClick={() => void exportAs('csv')}><FileDown className="w-4 h-4" aria-hidden="true" />Save as spreadsheet (CSV)…</button>
+            <button type="button" className="btn-secondary" onClick={() => void togglePin()}>
+              {pinned ? <><PinOff className="w-4 h-4" aria-hidden="true" />Take off the dashboard</> : <><Pin className="w-4 h-4" aria-hidden="true" />Show on dashboard</>}
             </button>
             {initial && <button type="button" className="btn-danger" onClick={() => setConfirmDelete(true)}><Trash2 className="w-4 h-4" />Delete</button>}
           </div>

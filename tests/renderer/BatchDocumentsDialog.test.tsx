@@ -8,8 +8,9 @@ vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 vi.mock('../../src/renderer/utils/exportNotice', () => ({ noteUnencryptedExport: vi.fn() }))
 const preview = vi.hoisted(() => ({ value: null as null | { count: number; unknown: string[]; error?: string } }))
+const templates = vi.hoisted(() => ({ value: [{ id: 3, name: 'Service reminder' }] }))
 const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
-  if (channel === 'letter-template:get-all') return { ok: true, data: [{ id: 3, name: 'Service reminder' }] }
+  if (channel === 'letter-template:get-all') return { ok: true, data: templates.value }
   if (channel === 'documents:batch') return { ok: true, data: { filePath: '/tmp/x.pdf', count: 2, unknown: ['{{oops}}'] } }
   if (channel === 'documents:labels') return { ok: true, data: { filePath: '/tmp/l.pdf', count: 2, skipped: 0 } }
   if (channel === 'documents:batch-preview') return { ok: true, data: preview.value }
@@ -28,6 +29,7 @@ import { setWords } from './vocabFixture'
 
 beforeEach(() => {
   setWords(); invoke.mockClear(); preview.value = null
+  templates.value = [{ id: 3, name: 'Service reminder' }]
   useGridStore.setState({ columns: [
     { id: 1, grid_id: 7, name: 'Vehicle', column_type: 'text', config: '{}' },
     { id: 2, grid_id: 7, name: 'Address', column_type: 'address', config: '{}' },
@@ -45,6 +47,14 @@ describe('printing documents', () => {
     expect(invoke).toHaveBeenCalledWith('documents:batch', 3, { gridId: 7, rowIds: [11, 12] }, 'postcard')
     expect(screen.getByRole('status').textContent).toMatch(/\{\{oops\}\}/)
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('opened as reminder letters: named so, and starts on the reminder template (UX D-11)', async () => {
+    templates.value = [{ id: 1, name: 'Introduction Letter' }, { id: 3, name: 'Service reminder' }]
+    render(<BatchDocumentsDialog gridId={7} title="Print reminder letters" preferTemplate="Reminder" onClose={vi.fn()} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.getByRole('heading', { name: /^Print reminder letters/ })).toBeTruthy()
+    expect((screen.getByLabelText('Template') as HTMLSelectElement).value).toBe('3')
   })
 
   it('makes address labels for everyone', async () => {

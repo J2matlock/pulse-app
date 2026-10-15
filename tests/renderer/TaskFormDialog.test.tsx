@@ -45,7 +45,7 @@ describe('TaskFormDialog', () => {
     const onSave = vi.fn()
     render(<TaskFormDialog onSave={onSave} onClose={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/Title/), { target: { value: 'Timesheet' } })
-    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Admin' } })
+    fireEvent.change(screen.getByLabelText(/^Label/), { target: { value: 'Admin' } })
     fireEvent.change(document.getElementById('task-grid')!, { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText('Repeat'), { target: { value: 'weekly' } })
     expect((screen.getByLabelText('Due date') as HTMLInputElement).value).toBe(localDateString())

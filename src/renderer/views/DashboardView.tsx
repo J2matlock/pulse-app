@@ -1,9 +1,10 @@
 /**
- * DashboardView — Four tabs: Priority List, This Month, Completion, Recently Archived
+ * DashboardView — count tiles, then the tabs What's due, Overdue, This week,
+ * This month, then the cards people chose (Recently archived among them).
  */
 import { onTabListKeyDown } from '../utils/tabListKeys'
-import React, { useEffect, useState, useMemo, useCallback } from 'react'
-import { AlertTriangle, Calendar, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Info, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { AlertTriangle, Calendar, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
 import { ComplianceSummaryDialog } from '../components/reports/ComplianceSummaryDialog'
 import toast from 'react-hot-toast'
@@ -24,7 +25,9 @@ import { rlog } from '../utils/rendererLogger'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 import { pulseEvents } from '../events'
 import { useVocab, useVocabByList } from '../hooks/useVocab'
-import { GettingStartedCard } from './dashboard/GettingStartedCard'
+import { GettingStartedCard, useGettingStarted } from './dashboard/GettingStartedCard'
+import { PrintExportMenu } from './dashboard/PrintExportMenu'
+import { daysLeftInWeek, monthTabCount, weekTabCount } from './dashboard/tabCounts'
 import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
 
@@ -48,11 +51,16 @@ import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
 
 const LOAD_ERROR = 'We couldn\u2019t load the dashboard \u2014 try again.'
+/** Set once the color guide has been closed: it starts open until then (UX D-21) */
+const COLOR_GUIDE_SEEN = 'dashboard_color_guide_seen'
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
   const showChecklists = useFeature('checklists')
   const [customizing, setCustomizing] = useState(false)
+  const gettingStarted = useGettingStarted()
+  const weekStart = useSettingsStore(s => s.weekStart)
+  const tabsRef = useRef<HTMLDivElement>(null)
   const lettersOn = useFeature('letters')
   const openGridId = useGridStore(s => s.activeGridId)
   const allGrids = useGridStore(s => s.grids)
@@ -76,7 +84,9 @@ export default function DashboardView(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [topTab, setTopTab] = useState<TopTab>('priority')
-  // Bulk "mark done" selection, keyed rowId:columnId
+  // Bulk "mark done" selection, keyed rowId:columnId; the checkboxes only show
+  // once "Select several…" is on, so the everyday list stays plain (UX D-25)
+  const [selecting, setSelecting] = useState(false)
   const [selectedDeadlines, setSelectedDeadlines] = useState<Set<string>>(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const deadlineKey = (d: ExtendedDeadlineInfo) => `${d.rowId}:${d.columnId}`
@@ -88,13 +98,25 @@ export default function DashboardView(): React.ReactElement {
       return next
     })
   }, [])
-  useEffect(() => { setSelectedDeadlines(new Set()) }, [topTab])
+  useEffect(() => { setSelectedDeadlines(new Set()); setSelecting(false) }, [topTab])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
   const [debouncedArchiveSearch, setDebouncedArchiveSearch] = useState('')
   const [showSpinner, setShowSpinner] = useState(false)
+  // Open the first time, until closed once; a link reopens it (UX D-21)
   const [showColorLegend, setShowColorLegend] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    void safeInvoke<string | null>(IPC.SETTINGS_GET, COLOR_GUIDE_SEEN).then(r => { if (!cancelled && !(r.ok && r.data === '1')) setShowColorLegend(true) })
+    return () => { cancelled = true }
+  }, [])
+  const toggleColorLegend = useCallback(() => {
+    setShowColorLegend(prev => {
+      if (prev) void safeInvoke(IPC.SETTINGS_UPDATE, COLOR_GUIDE_SEEN, '1')
+      return !prev
+    })
+  }, [])
   const [showCompliance, setShowCompliance] = useState(false)
   const closeCompliance = useCallback(() => setShowCompliance(false), [])
   const [showCalendar, setShowCalendar] = useState(false)
@@ -379,12 +401,30 @@ export default function DashboardView(): React.ReactElement {
     )
   }, [archivedRows, debouncedArchiveSearch])
 
+  // Each tab says how many rows are behind it (UX D-20); the counts use the tabs' own filters
+  const tabCounts = useMemo<Record<TopTab, number>>(() => {
+    const todayStart = new Date(today + 'T00:00:00')
+    return {
+      priority: deadlines.filter(d => d.threshold !== null).length + tasksWithDays.length + checklistWithDays.length + followUpsWithDays.length,
+      overdue: overdueItems.length,
+      week: weekTabCount({ deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, daysLeft: daysLeftInWeek(todayStart, weekStart) }),
+      month: monthTabCount(deadlines, todayStart),
+    }
+  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, overdueItems, today, weekStart])
+
   const TOP_TABS = useMemo<{ key: TopTab; label: string; icon: React.ReactNode }[]>(() => [
-    { key: 'priority',   label: 'Priority List',       icon: <AlertTriangle className="w-4 h-4" /> },
-    { key: 'overdue',    label: 'Overdue',              icon: <AlertTriangle className="w-4 h-4" /> },
-    { key: 'week',       label: 'This Week',            icon: <Clock className="w-4 h-4" /> },
-    { key: 'month',      label: 'This Month',           icon: <Calendar className="w-4 h-4" /> },
+    { key: 'priority',   label: "What's due",   icon: <AlertTriangle className="w-4 h-4" /> },
+    { key: 'overdue',    label: 'Overdue',      icon: <AlertTriangle className="w-4 h-4" /> },
+    { key: 'week',       label: 'This week',    icon: <Clock className="w-4 h-4" /> },
+    { key: 'month',      label: 'This month',   icon: <Calendar className="w-4 h-4" /> },
   ], [])
+
+  // A count tile opens its tab and brings the tabs into view (UX D-06)
+  const openTab = useCallback((tab: TopTab) => {
+    setTopTab(tab)
+    const el = tabsRef.current
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [])
 
   if (loadError) return (
     <div className="max-w-4xl mx-auto px-6 py-16">
@@ -433,12 +473,30 @@ export default function DashboardView(): React.ReactElement {
     if (res.data) { toast.success('Weekly planner saved.'); noteUnencryptedExport() }
   }
 
-  function renderBulkBar(visible: PriorityItem[]) {
-    if (selectedDeadlines.size === 0) return null
+  // "Select several…" in the toolbar row; the checkboxes and this bar follow
+  function renderSelectToggle() {
     return (
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/40 border-b border-blue-200 dark:border-blue-800">
+      <button type="button" aria-pressed={selecting} onClick={() => { setSelecting(s => !s); setSelectedDeadlines(new Set()) }}
+        className="hit-44 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-sm focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+        style={{ minHeight: 44 }}>
+        {selecting ? 'Done selecting' : 'Select several…'}
+      </button>
+    )
+  }
+
+  function renderBulkBar(visible: PriorityItem[]) {
+    if (!selecting) return null
+    const selectable = visible.filter((it): it is Extract<PriorityItem, { kind: 'deadline' }> => it.kind === 'deadline')
+    const allShown = selectable.length > 0 && selectable.every(it => selectedDeadlines.has(deadlineKey(it.data)))
+    return (
+      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/40 border-b border-blue-200 dark:border-blue-800 flex-wrap">
+        <label className="flex items-center gap-2 text-base text-blue-900 dark:text-blue-100 cursor-pointer" style={{ minHeight: 44 }}>
+          <input type="checkbox" className="w-5 h-5" checked={allShown} disabled={selectable.length === 0}
+            onChange={e => setSelectedDeadlines(e.target.checked ? new Set(selectable.map(it => deadlineKey(it.data))) : new Set())} />
+          Select all shown
+        </label>
         <span className="text-base font-medium text-blue-900 dark:text-blue-100 flex-1">{selectedDeadlines.size} selected</span>
-        <button type="button" className="btn-compact-primary" disabled={bulkBusy} onClick={() => void markSelectedDone(visible)}>
+        <button type="button" className="btn-compact-primary" disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
           {bulkBusy ? 'Marking…' : 'Mark done'}
         </button>
         <button type="button" className="btn-compact-secondary" onClick={() => setSelectedDeadlines(new Set())}>Clear</button>
@@ -448,49 +506,18 @@ export default function DashboardView(): React.ReactElement {
 
   // "What's due" is a card like the others, second by default (D-21)
   const whatsDue = (
-      <div className="mb-6">
-        {/* Utilities row: color legend toggle */}
-        <div className="flex items-center mb-4">
-          <button
-            onClick={() => setShowColorLegend(prev => !prev)}
-            className="hit-44 flex items-center gap-1.5 text-base text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded px-2 py-1"
-            title="Toggle deadline color guide"
-            aria-label="Toggle deadline color guide"
-            aria-expanded={showColorLegend}
-            style={{ minHeight: 44 }}
-          >
-            <Info className="w-4 h-4" />
-            Deadline Colors
-          </button>
-        </div>
-
-        {/* Deadline color legend */}
-        {showColorLegend && (
-          <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Deadline Color Guide</h3>
-            {/* Built from the rules in use: each sets its own colors (D-29) */}
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-              The stripe on the left of each row: red = late or due today, orange = due this week, yellow = due this month.
-            </p>
-            <div className="space-y-2">
-              {rulesInUse.length === 0
-                ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet.</p>
-                : rulesInUse.map(r => <RuleColorKey key={r.id} rule={r} />)}
-            </div>
-          </div>
-        )}
-
+      <div className="mb-6" ref={tabsRef}>
         {/* Top tab bar */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
           <div data-tour="dashboard-tabs" className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden">
-            {/* Only tabs inside the tablist; the archive link sits beside it */}
+            {/* Only tabs inside the tablist; the color guide link sits beside it */}
             <div className="flex" role="tablist" aria-label="Dashboard views" onKeyDown={onTabListKeyDown}>
             {TOP_TABS.map(tab => (
               <button
                 key={tab.key}
                 role="tab"
                 aria-selected={topTab === tab.key}
-                tabIndex={topTab === tab.key || (topTab === 'archived' && tab.key === 'priority') ? 0 : -1}
+                tabIndex={topTab === tab.key ? 0 : -1}
                 onClick={() => setTopTab(tab.key)}
                 className={`flex items-center gap-2 px-4 py-3 text-base font-medium border-b-2 whitespace-nowrap transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                   ${topTab === tab.key
@@ -499,26 +526,54 @@ export default function DashboardView(): React.ReactElement {
                 style={{ minHeight: 44 }}
               >
                 {tab.icon}
-                {tab.label}
+                {tab.label}{!isLoading && <span className="tabular-nums">({tabCounts[tab.key]})</span>}
               </button>
             ))}
             </div>
-            {/* Recently archived sits behind a link, not among the deadline tabs (D-21) */}
-            <button type="button" onClick={() => setTopTab(topTab === 'archived' ? 'priority' : 'archived')} aria-pressed={topTab === 'archived'}
+            {/* The color guide opens from a link, not a caption-looking button (UX D-21) */}
+            <button type="button" onClick={toggleColorLegend} aria-expanded={showColorLegend}
               className="ml-auto flex items-center gap-1.5 px-4 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline whitespace-nowrap focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
               style={{ minHeight: 44 }}>
-              <Archive className="w-4 h-4" aria-hidden="true" />
-              {topTab === 'archived' ? 'Back to what\'s due' : 'Recently archived'}
+              What do the colors mean?
             </button>
           </div>
 
-          {deadlinesCut && topTab !== 'archived' && (
+          {/* Deadline color legend: built from the rules in use, each sets its own colors (D-29) */}
+          {showColorLegend && (
+            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700" role="region" aria-label="What the colors mean">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-base text-slate-700 dark:text-slate-300 mb-2">
+                    The stripe on the left of each row: red = late or due today, orange = due this week, yellow = due this month.
+                  </p>
+                  <div className="space-y-2">
+                    {rulesInUse.length === 0
+                      ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet.</p>
+                      : rulesInUse.map(r => <RuleColorKey key={r.id} rule={r} />)}
+                  </div>
+                </div>
+                <button type="button" className="btn-compact-secondary" onClick={toggleColorLegend}>Got it</button>
+              </div>
+            </div>
+          )}
+
+          {deadlinesCut && (
             <p className="px-4 py-2 text-base text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700" role="note">
               Showing the soonest {QUERY_LIMITS.DASHBOARD_PRIORITY.toLocaleString()} deadlines. The numbers above count all of them.
             </p>
           )}
 
-          {/* Priority List tab */}
+          {/* Done explains itself here, not only in a hover tooltip (UX D-04) */}
+          {(topTab === 'priority' || topTab === 'overdue') && (
+            <div className="flex items-center gap-3 px-4 py-1 border-b border-slate-200 dark:border-slate-700 flex-wrap">
+              <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
+                Done puts today's date in and starts the next cycle. Use Done on… if it happened earlier.
+              </p>
+              {renderSelectToggle()}
+            </div>
+          )}
+
+          {/* What's due tab */}
           {topTab === 'priority' && (
             <>
               <div className="flex items-center justify-end px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
@@ -563,7 +618,7 @@ export default function DashboardView(): React.ReactElement {
                         key={`dl-${item.data.rowId}-${item.data.columnId}-${i}`}
                         deadline={item.data}
                         selected={selectedDeadlines.has(deadlineKey(item.data))}
-                        onToggleSelect={() => toggleDeadline(item.data)}
+                        onToggleSelect={selecting ? () => toggleDeadline(item.data) : undefined}
                         onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
                           void deadlinesChanged()
@@ -628,7 +683,7 @@ export default function DashboardView(): React.ReactElement {
                       key={`dl-${item.data.rowId}-${item.data.columnId}-${i}`}
                       deadline={item.data}
                       selected={selectedDeadlines.has(deadlineKey(item.data))}
-                      onToggleSelect={() => toggleDeadline(item.data)}
+                      onToggleSelect={selecting ? () => toggleDeadline(item.data) : undefined}
                       onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
                           void deadlinesChanged()
@@ -686,20 +741,34 @@ export default function DashboardView(): React.ReactElement {
             <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
 
-          {/* Recently Archived tab */}
-          {topTab === 'archived' && (
-            <RecentlyArchivedTab
-              rows={filteredArchived}
-              isLoading={showSpinner}
-              search={archiveSearch}
-              onSearchChange={setArchiveSearch}
-              // The tab announces it, and useListsChanged reloads the rest
-              onReactivated={(id) => setArchivedRows(prev => prev.filter(r => r.id !== id))}
-            />
-          )}
         </div>
       </div>
   )
+
+  // Recently archived is a card people can hide or move, not a tab among the deadlines (UX D-20)
+  const recentlyArchived = (
+    <section aria-labelledby="recently-archived-title" className="mb-6 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+      <h2 id="recently-archived-title" className="flex items-center gap-2 px-4 pt-3 text-base font-semibold text-slate-700 dark:text-slate-200">
+        <Archive className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+        Recently archived
+      </h2>
+      <RecentlyArchivedTab
+        rows={filteredArchived}
+        isLoading={showSpinner}
+        search={archiveSearch}
+        onSearchChange={setArchiveSearch}
+        // The tab announces it, and useListsChanged reloads the rest
+        onReactivated={(id) => setArchivedRows(prev => prev.filter(r => r.id !== id))}
+      />
+    </section>
+  )
+
+  const printExportItems = [
+    { label: 'Print this week', hint: 'A one-page PDF of everything due this week, to print or carry', icon: <Printer className="w-4 h-4" />, onSelect: () => void printWeeklyPlanner() },
+    { label: 'Monthly summary', hint: `How the month is going: ${t('requirement', { many: true })}, deadlines on time, missing information. A PDF.`, icon: <ShieldCheck className="w-4 h-4" />, onSelect: () => setShowCompliance(true) },
+    { label: 'Add to my calendar…', hint: 'Save deadlines and follow-ups to Outlook or Google Calendar', icon: <CalendarPlus className="w-4 h-4" />, onSelect: () => setShowCalendar(true) },
+    ...(lettersOn && allGrids.length > 0 ? [{ label: 'Print reminder letters', hint: 'Letters or postcards for everyone with a deadline next month', icon: <Mail className="w-4 h-4" />, onSelect: () => setPickingLettersList(true) }] : []),
+  ]
 
   return (
     <div className="h-full overflow-auto bg-white dark:bg-slate-900">
@@ -708,24 +777,8 @@ export default function DashboardView(): React.ReactElement {
         <div className="flex items-start gap-3 mb-6">
           <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
           <div className="flex flex-1 min-w-0 flex-wrap justify-end gap-3">
-            <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
-              <Printer className="w-4 h-4" aria-hidden="true" />
-              Print this week
-            </button>
-            <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
-              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-              Monthly summary
-            </button>
-            <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
-              <CalendarPlus className="w-4 h-4" aria-hidden="true" />
-              Add to calendar
-            </button>
-            {lettersOn && allGrids.length > 0 && (
-              <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
-                <Mail className="w-4 h-4" aria-hidden="true" />
-                Print reminder letters
-              </button>
-            )}
+            {/* The occasional actions share one menu; Customize stays out (UX D-19) */}
+            <PrintExportMenu items={printExportItems} />
             {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
             {pickingLettersList && (
               <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
@@ -735,7 +788,7 @@ export default function DashboardView(): React.ReactElement {
                   void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
                 }} />
             )}
-            {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
+            {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} title="Print reminder letters" preferTemplate="Reminder" onClose={() => setReminderLetters(false)} />}
             <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
               <LayoutGrid className="w-4 h-4" aria-hidden="true" />
               Customize
@@ -745,16 +798,20 @@ export default function DashboardView(): React.ReactElement {
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
         </div>
 
-        <GettingStartedCard />
+        {/* The full card while a workspace is new; one line under the counts once most steps are done (UX D-02) */}
+        {!gettingStarted.compact && <GettingStartedCard state={gettingStarted} />}
 
         {/* Cards, in the order people chose (W10 §4) */}
-        <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} summary={
-        <div className="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-3 xl:grid-cols-5">
+        <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} recentlyArchived={recentlyArchived} summary={
+        <>
+        {/* One row of tiles; each opens what it counts (UX D-06) */}
+        <div className="flex flex-wrap gap-3 mb-6 [&>*]:flex-1 [&>*]:min-w-[150px]">
           <SummaryCard
             label={activeLabel}
             value={stats?.totalActive ?? '—'}
             icon={<Users className="w-5 h-5" />}
             colorClass="text-blue-600 dark:text-blue-400"
+            href="/grid"
           />
           <SummaryCard
             label="Overdue deadlines"
@@ -762,22 +819,25 @@ export default function DashboardView(): React.ReactElement {
             icon={<AlertTriangle className="w-5 h-5" />}
             colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500'}
             urgent={derivedCounts.overdue > 0}
+            onClick={() => openTab('overdue')}
           />
           <SummaryCard
             label="Due in the next 7 days"
             value={isLoading ? '—' : derivedCounts.dueThisWeek}
             icon={<Clock className="w-5 h-5" />}
             colorClass="text-orange-700 dark:text-orange-400"
+            onClick={() => openTab('week')}
           />
           <SummaryCard
             label="Due in the next 30 days"
             value={isLoading ? '—' : derivedCounts.dueThisMonth}
             icon={<Calendar className="w-5 h-5" />}
             colorClass="text-yellow-700 dark:text-yellow-400"
+            onClick={() => openTab('month')}
           />
           {(showTasks || showChecklists) && (<>
             <SummaryCard
-              label="Tasks & follow-ups due or late"
+              label="Tasks, checklist items and follow-ups due or late"
               value={isLoading ? '—' : derivedCounts.otherDue}
               icon={<ClipboardList className="w-5 h-5" />}
               colorClass={derivedCounts.otherDue > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
@@ -786,6 +846,8 @@ export default function DashboardView(): React.ReactElement {
             />
           </>)}
         </div>
+        {gettingStarted.compact && <GettingStartedCard state={gettingStarted} />}
+        </>
         } />
 
       </div>

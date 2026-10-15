@@ -116,7 +116,7 @@ describe('FocusModeView', () => {
     const { container } = render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
     await flushEffects()
     expect(container.innerHTML.length).toBeGreaterThan(0)
-    expect(screen.getByRole('dialog', { name: 'Focus Mode' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Focus mode' })).toBeTruthy()
   })
 
   it('does not call onClose on initial render', async () => {
@@ -134,10 +134,10 @@ describe('FocusModeView', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('renders the Focus Mode heading', async () => {
+  it('renders the Focus mode heading', async () => {
     render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Focus Mode')).toBeDefined()
+    expect(screen.getByText('Focus mode')).toBeDefined()
   })
 
   it('loads again at midnight so "due today" moves on (AUDIT-025)', async () => {
