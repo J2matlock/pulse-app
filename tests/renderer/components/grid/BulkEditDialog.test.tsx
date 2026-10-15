@@ -113,7 +113,22 @@ describe('BulkEditDialog', () => {
       />
     )
     expect(screen.getByLabelText('Column to update')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Column to update'), { target: { value: '1' } })
     expect(screen.getByLabelText('New value')).toBeTruthy()
+  })
+
+  it('starts on "Choose a column…" with Apply off, and lists the name column last with a warning (UX-B-11)', () => {
+    const rows = [makeRow(1), makeRow(2)]
+    const name = { ...makeColumn(1, 'Name'), is_name_column: 1 as const }
+    render(<BulkEditDialog open onClose={vi.fn()} selectedRowIds={new Set([1, 2])} columns={[name, makeColumn(2, 'City')]} rowById={new Map(rows.map(r => [r.row_id, r]))} />)
+    const select = screen.getByLabelText('Column to update') as HTMLSelectElement
+    expect(select.value).toBe('')
+    expect([...select.options].map(o => o.text)).toEqual(['Choose a column…', 'City', 'Name (this renames them all)'])
+    expect((screen.getByRole('button', { name: 'Apply to all' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByLabelText('New value')).toBeNull()
+    fireEvent.change(select, { target: { value: '1' } })
+    expect(screen.getByRole('alert').textContent).toBe('All 2 clients will get this same name.')
+    expect((screen.getByRole('button', { name: 'Apply to all' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('renders Apply and Cancel buttons', () => {
@@ -151,6 +166,7 @@ describe('BulkEditDialog', () => {
     const status = { ...makeColumn(2, 'Stage', 'status'), config: JSON.stringify({ options: [{ label: 'Estimate', color: '#000' }, { label: 'Done', color: '#111' }] }) }
     const rows = [makeRow(1)]
     render(<BulkEditDialog open onClose={vi.fn()} selectedRowIds={new Set([1])} columns={[status]} rowById={new Map(rows.map(r => [r.row_id, r]))} />)
+    fireEvent.change(screen.getByLabelText('Column to update'), { target: { value: '2' } })
     const select = document.getElementById('bulk-edit-value') as HTMLSelectElement
     expect([...select.options].map(o => o.text)).toEqual(['— None —', 'Estimate', 'Done'])
   })

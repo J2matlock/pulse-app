@@ -65,10 +65,10 @@ describe('AcuityBadge', () => {
     expect(badge.title).toContain('1 pts')
   })
 
-  it('renders + button when no level assigned', () => {
+  it('says "Set…" when no level is assigned, not a dashed + (UX-B-21)', () => {
     render(<AcuityBadge levels={levels} currentLevelId={null} onSetLevel={onSetLevel} />)
-    expect(screen.getByText('+')).toBeTruthy()
-    expect(screen.getByTitle('Assign acuity level')).toBeTruthy()
+    expect(screen.getByText('Set…')).toBeTruthy()
+    expect(screen.getByTitle('Set acuity level')).toBeTruthy()
   })
 
   it('opens dropdown on click and shows all levels', () => {
@@ -96,7 +96,7 @@ describe('AcuityBadge', () => {
 
   it('does not show None option when no level assigned', () => {
     render(<AcuityBadge levels={levels} currentLevelId={null} onSetLevel={onSetLevel} />)
-    fireEvent.click(screen.getByText('+'))
+    fireEvent.click(screen.getByText('Set…'))
     expect(screen.queryByText('None')).toBeNull()
   })
 
@@ -135,7 +135,7 @@ describe('AcuityBadge', () => {
     expect(document.activeElement).toBe(badge)
   })
 
-  it('gives focus back to the badge after a pick, even from the unset "+"', () => {
+  it('gives focus back to the badge after a pick, even from the unset "Set…"', () => {
     function Host() {
       const [id, setId] = React.useState<number | null>(null)
       return <AcuityBadge levels={levels} currentLevelId={id} onSetLevel={setId} />

@@ -609,6 +609,10 @@ export function registerExportHandlers(): void {
     for (const flag of ['cleanData', 'flipLastFirst', 'createMissingLinks', 'skipHiddenRows'] as const) {
       if (options[flag] !== undefined && typeof options[flag] !== 'boolean') return fail('Invalid import options')
     }
+    const combine = options.combineNames
+    if (combine !== undefined && (!combine || typeof combine !== 'object'
+      || ![combine.firstIndex, combine.lastIndex].every(i => Number.isInteger(i) && i >= 0 && i < 1000)
+      || combine.firstIndex === combine.lastIndex)) return fail('Invalid import options')
     assertSafePath(options.filePath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!Array.isArray(options.columnMappings) || options.columnMappings.length > 200) return fail('Invalid or too many column mappings (max 200)')

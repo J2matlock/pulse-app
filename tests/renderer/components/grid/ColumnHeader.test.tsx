@@ -179,12 +179,19 @@ describe('ColumnHeader', () => {
   it('keeps the menu short, with the rest under Column settings (G-21, G-42)', () => {
     render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
     fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
-    expect(screen.queryByText('Log changes in timeline')).toBeNull()
-    expect(screen.getByText('Keep columns up to here in view')).toBeTruthy()
+    expect(screen.queryByText('Keep a history of changes')).toBeNull()
+    expect(screen.getByText('Freeze columns up to here')).toBeTruthy()
+    expect(screen.getByText('Change what it holds (Text, Date…)')).toBeTruthy()
     fireEvent.click(screen.getByText('Column settings…'))
     expect(screen.getByRole('dialog', { name: /Phone.*settings/ })).toBeTruthy()
-    expect(screen.getByText('Log changes in timeline')).toBeTruthy()
     expect(screen.getByText('Color rules for this column…')).toBeTruthy()
+    // The on/off settings are real switches, each with a line on what it does (B-10)
+    const history = screen.getByRole('switch', { name: 'Keep a history of changes' })
+    expect(history.getAttribute('aria-checked')).toBe('false')
+    expect(history.getAttribute('aria-describedby')).toBeTruthy()
+    expect(screen.getByText("Write every change to this column into the client's notes.")).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Required column' })).toBeTruthy()
+    expect(screen.queryByText('Log changes in timeline')).toBeNull()
   })
 
   describe('"Show only the date" for a date with a deadline rule', () => {
@@ -195,26 +202,48 @@ describe('ColumnHeader', () => {
       fireEvent.click(screen.getByText('Column settings…'))
     }
 
-    it('is on by default, and turning it off saves date_only: false in the column config, keeping the rest', () => {
-      const updateColumn = vi.fn()
+    it('is on by default; turning it off saves date_only: false, keeping the rest, and fits the column to the words (B-05)', async () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
       setupStores({ updateColumn })
       useAlertStore.setState({ rules: [rule] } as never)
+      const heard: unknown[] = []
+      const off = pulseEvents.on('column:resize', p => { heard.push(p) })
       openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, log_changes: true })))
       const toggle = screen.getByRole('switch', { name: 'Show only the date' })
       expect(toggle.getAttribute('aria-checked')).toBe('true')
       fireEvent.click(toggle)
       expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5, log_changes: true, date_only: false }) })
+      await waitFor(() => expect(heard).toEqual([{ columnId: 3, change: 'fit' }]))
+      off()
     })
 
-    it('turning it back on removes the key, so the config is as it was', () => {
-      const updateColumn = vi.fn()
+    it('turning it back on removes the key, so the config is as it was, and leaves the width alone', async () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
       setupStores({ updateColumn })
       useAlertStore.setState({ rules: [rule] } as never)
+      const heard: unknown[] = []
+      const off = pulseEvents.on('column:resize', p => { heard.push(p) })
       openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, date_only: false })))
       const toggle = screen.getByRole('switch', { name: 'Show only the date' })
       expect(toggle.getAttribute('aria-checked')).toBe('false')
       fireEvent.click(toggle)
       expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5 }) })
+      await act(async () => { await Promise.resolve() })
+      expect(heard).toEqual([])
+      off()
+    })
+
+    it('does not fit the column when the change could not be saved', async () => {
+      const updateColumn = vi.fn().mockResolvedValue(false)
+      setupStores({ updateColumn })
+      useAlertStore.setState({ rules: [rule] } as never)
+      const heard: unknown[] = []
+      const off = pulseEvents.on('column:resize', p => { heard.push(p) })
+      openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5 })))
+      fireEvent.click(screen.getByRole('switch', { name: 'Show only the date' }))
+      await act(async () => { await Promise.resolve() })
+      expect(heard).toEqual([])
+      off()
     })
 
     it('is not offered on a date column without a rule', () => {
@@ -222,6 +251,75 @@ describe('ColumnHeader', () => {
       openSettings(makeColumn(3, 'Review', 'date', '{}'))
       expect(screen.queryByRole('switch', { name: 'Show only the date' })).toBeNull()
     })
+  })
+
+  describe('"Deadline rule…" dialog (B-12)', () => {
+    const yearly = { id: 5, name: 'Yearly review', description: null, is_system: 0, interval_days: null, interval_months: 12, created_at: '', thresholds: [{ daysBefore: 30, bgClass: '#facc15', label: 'Due Soon' }, { daysBefore: -1, bgClass: '#dc2626', label: 'Overdue' }] }
+    const monthly = { ...yearly, id: 6, name: 'Monthly contact', interval_months: 1 }
+
+    it('opens from the column menu with the current rule, its colors, the other rules as a choice, and Remove', () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
+      setupStores({ updateColumn, columns: [makeColumn(3, 'Review', 'date')] })
+      useAlertStore.setState({ rules: [yearly, monthly] } as never)
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5 }))} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+      fireEvent.click(screen.getByRole('button', { name: /^Deadline rule…/ }))
+      // The menu closed and a dialog opened
+      expect(screen.queryByText('Rename')).toBeNull()
+      const dialog = screen.getByRole('dialog', { name: 'Deadline rule for “Review”' })
+      expect(dialog.textContent).toContain('This column uses')
+      expect(screen.getByRole('list', { name: 'Colors for Yearly review' })).toBeTruthy()
+      // No edit or delete of the rules themselves here; that lives in Settings
+      expect(screen.queryByRole('button', { name: /Delete rule/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Edit rule/ })).toBeNull()
+      expect(dialog.textContent).toContain('Settings → Deadlines & reminders')
+      fireEvent.click(screen.getByRole('radio', { name: /Monthly contact/ }))
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 6 }) })
+    })
+
+    it('"Remove from this column" clears the rule', () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
+      setupStores({ updateColumn, columns: [makeColumn(3, 'Review', 'date')] })
+      useAlertStore.setState({ rules: [yearly] } as never)
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, log_changes: true }))} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+      fireEvent.click(screen.getByRole('button', { name: /^Deadline rule…/ }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove from this column' }))
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ log_changes: true }) })
+    })
+
+    it('a column without a rule explains and offers the rules; a "Choose a deadline rule" cell opens it too (G-20)', () => {
+      setupStores({ columns: [makeColumn(3, 'Review', 'date')] })
+      useAlertStore.setState({ rules: [yearly] } as never)
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', '{}')} />)
+      act(() => { pulseEvents.emit('column:choose-rule', { columnId: 3 }) })
+      const dialog = screen.getByRole('dialog', { name: 'Deadline rule for “Review”' })
+      expect(dialog.textContent).toContain('no deadline rule')
+      expect(screen.getByRole('radio', { name: /Yearly review/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'New rule…' })).toBeTruthy()
+      fireEvent.keyDown(dialog, { key: 'Escape' })
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('says when there are no rules yet', () => {
+      setupStores({ columns: [makeColumn(3, 'Review', 'date')] })
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', '{}')} />)
+      act(() => { pulseEvents.emit('column:choose-rule', { columnId: 3 }) })
+      expect(screen.getByText('No deadline rules yet. Make one below.')).toBeTruthy()
+    })
+  })
+
+  it('the clock in a rule column\'s header opens that rule\'s color key (B-04)', () => {
+    const rule = { id: 5, name: 'Promised', description: null, is_system: 0, interval_days: null, created_at: '', thresholds: [{ daysBefore: 7, bgClass: '#facc15', label: 'Soon' }, { daysBefore: -1, bgClass: '#dc2626', label: 'Late' }] }
+    useAlertStore.setState({ rules: [rule] } as never)
+    render(<ColumnHeader column={makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5 }))} />)
+    const clock = screen.getByRole('button', { name: /^Deadline rule: Promised.*What do the colors mean\?$/ })
+    fireEvent.click(clock)
+    expect(screen.getByRole('dialog', { name: 'What the colors mean' })).toBeTruthy()
+    expect(screen.getByText('Soon')).toBeTruthy()
+    expect(screen.getByText('Late')).toBeTruthy()
+    // The header's own menu stayed shut
+    expect(screen.queryByText('Rename')).toBeNull()
   })
 
   it('column settings takes focus, keeps Tab inside, closes on Escape and gives focus back (AUDIT-047)', async () => {
@@ -325,17 +423,46 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Form "Intake"')).toBeTruthy()
   })
 
-  it('offers "Use as name" on other columns, not the name column (1.8)', () => {
+  it('offers "Use this as each client\'s name" on other columns, not the name column (1.8, B-28)', () => {
     const setNameColumn = vi.fn()
     setupStores({ setNameColumn })
     const { unmount } = render(<ColumnHeader column={makeColumn(3, 'Nickname')} />)
     fireEvent.contextMenu(screen.getByText('Nickname').closest('div')!)
-    fireEvent.click(screen.getByText('Use as name'))
+    fireEvent.click(screen.getByRole('button', { name: "Use this as each client's name" }))
     expect(setNameColumn).toHaveBeenCalledWith(3)
     unmount()
     render(<ColumnHeader column={{ ...makeColumn(1, 'Name'), is_name_column: 1 }} />)
     fireEvent.contextMenu(screen.getByText('Name').closest('div')!)
-    expect(screen.queryByText('Use as name')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Use this as each/ })).toBeNull()
+  })
+
+  it('"Keep a history of changes" and "Required column" flip from their switches', () => {
+    const updateColumn = vi.fn().mockResolvedValue(true)
+    setupStores({ updateColumn })
+    render(<ColumnHeader column={makeColumn(4, 'Phone', 'text', JSON.stringify({ log_changes: true }))} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+    fireEvent.click(screen.getByText('Column settings…'))
+    const history = screen.getByRole('switch', { name: 'Keep a history of changes' })
+    expect(history.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(history)
+    expect(updateColumn).toHaveBeenCalledWith(4, { config: JSON.stringify({ log_changes: false }) })
+    fireEvent.click(screen.getByRole('switch', { name: 'Required column' }))
+    expect(updateColumn).toHaveBeenLastCalledWith(4, { config: JSON.stringify({ log_changes: true, required: true }) })
+  })
+
+  it('names the frozen state plainly: Freeze columns up to here / Unfreeze these columns (B-13)', () => {
+    const setFrozenColumnCount = vi.fn()
+    setupStores({ setFrozenColumnCount, columns: [makeColumn(1, 'Name'), makeColumn(2, 'Phone')], frozenColumnCount: 0 })
+    const { unmount } = render(<ColumnHeader column={makeColumn(2, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByText('Freeze columns up to here'))
+    expect(setFrozenColumnCount).toHaveBeenCalledWith(2)
+    unmount()
+    setupStores({ setFrozenColumnCount, columns: [makeColumn(1, 'Name'), makeColumn(2, 'Phone')], frozenColumnCount: 2 })
+    render(<ColumnHeader column={makeColumn(2, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByText('Unfreeze these columns'))
+    expect(setFrozenColumnCount).toHaveBeenLastCalledWith(1)
   })
 
   it('shows column name as clickable sort button', () => {

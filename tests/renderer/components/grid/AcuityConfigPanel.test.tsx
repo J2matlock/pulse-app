@@ -111,10 +111,16 @@ describe('AcuityConfigPanel', () => {
 
   it('does not show levels when disabled', () => {
     render(<AcuityConfigPanel onClose={vi.fn()} />)
-    expect(screen.queryByText('Add Level')).toBeNull()
+    expect(screen.queryByText('Add a level')).toBeNull()
   })
 
-  it('shows levels and Add Level button when enabled', () => {
+  it('says what levels are for above the switch, before they are on (UX-B-20)', () => {
+    render(<AcuityConfigPanel onClose={vi.fn()} />)
+    const about = screen.getByText(/Rate each client Low, Medium or High/)
+    expect(screen.getByRole('switch').getAttribute('aria-describedby')).toBe(about.id)
+  })
+
+  it('shows levels and Add a level button when enabled', () => {
     setupStore({
       acuityEnabled: true,
       acuityLevels: [
@@ -123,7 +129,7 @@ describe('AcuityConfigPanel', () => {
       ],
     })
     render(<AcuityConfigPanel onClose={vi.fn()} />)
-    expect(screen.getByText('Add Level')).toBeTruthy()
+    expect(screen.getByText('Add a level')).toBeTruthy()
     expect(screen.getByDisplayValue('Low')).toBeTruthy()
     expect(screen.getByDisplayValue('High')).toBeTruthy()
   })

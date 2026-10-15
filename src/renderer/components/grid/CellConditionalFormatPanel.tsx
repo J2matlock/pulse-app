@@ -1,5 +1,5 @@
 /**
- * CellConditionalFormatPanel — Per-cell and per-column conditional formatting editor.
+ * CellConditionalFormatPanel — "Color rules" for a cell or a whole column (one name everywhere, UX-B-23).
  * Cell rules stored in cell_formats keyed by (row_id, column_id).
  * Column rules stored in columns.conditional_format JSON.
  * Priority: Alert rules > Cell formats > Column formats > Row highlights
@@ -115,7 +115,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
     try {
       if (isColumnMode) {
         await updateColumn(columnId, { conditional_format: JSON.stringify(rules) })
-        toast.success('Column highlight rules saved')
+        toast.success('Color rules saved')
       } else if (applyScope === 'all_rows') {
         // A column rule, so records added later are highlighted too (L-19)
         let current: CellFormatRule[] = []
@@ -126,12 +126,12 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
         await updateColumn(columnId, { conditional_format: JSON.stringify(merged) })
         // This cell's own copy would show twice
         if (rowId != null && (cellFormats.get(`${rowId}_${columnId}`) ?? []).length > 0) await setCellFormat(rowId, columnId, [])
-        toast.success(`Highlight saved for every ${t('record')} in "${thisColumn?.name ?? 'this column'}"`)
+        toast.success(`Color rules saved for every ${t('record')} in "${thisColumn?.name ?? 'this column'}"`)
       } else if (applyScope === 'selected' && selectedRowIds && selectedRowIds.size > 0) {
         const stamped = rules.map(r => ({ ...r, originRowId: r.originRowId ?? rowId ?? undefined }))
         const entries = Array.from(selectedRowIds).map(rid => ({ rowId: rid, columnId, rules: stamped }))
         await batchSetCellFormat(entries)
-        toast.success(`Formatting applied to ${selectedRowIds.size} ${t('record', { count: selectedRowIds.size })}`)
+        toast.success(`Color rules saved for ${selectedRowIds.size} ${t('record', { count: selectedRowIds.size })}`)
       } else {
         if (rowId != null) await setCellFormat(rowId, columnId, rules)
       }
@@ -155,13 +155,13 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <div>
             <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              {isColumnMode ? 'Auto-Highlight Column' : 'Auto-Highlight Cell'}
+              {isColumnMode ? `Color rules for "${thisColumn?.name ?? 'this column'}"` : 'Color rules for this cell'}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              {isColumnMode
-                ? thisColumn?.name ?? 'column'
-                : `${thisRowLabel} — ${thisColumn?.name ?? 'column'}`}
-            </p>
+            {!isColumnMode && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {`${thisRowLabel} · ${thisColumn?.name ?? 'column'}`}
+              </p>
+            )}
           </div>
           <button onClick={onClose} title="Close" aria-label="Close" className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5 text-slate-500" />
@@ -169,8 +169,8 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-            Automatically color cells based on their value (e.g., highlight overdue dates in red).
+          <p className="text-base text-slate-600 dark:text-slate-300">
+            Color a cell by what's in it, for example a date that has passed in red.
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {isColumnMode
@@ -179,7 +179,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
           </p>
 
           {rules.length === 0 && (
-            <div className="py-6 text-center text-slate-500 dark:text-slate-400 text-sm">No highlight rules yet. Click "Add rule" below to get started.</div>
+            <div className="py-6 text-center text-slate-500 dark:text-slate-400 text-base">No color rules yet. Add one below.</div>
           )}
 
           {rules.map((rule, i) => (
@@ -201,9 +201,9 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
             />
           ))}
 
-          <button onClick={addRule} title="Add a new highlight rule" aria-label="Add a new highlight rule"
+          <button onClick={addRule}
             className="hit-44 flex items-center gap-2 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
-            <Plus className="w-4 h-4" />Add highlight rule
+            <Plus className="w-4 h-4" />Add a color rule
           </button>
         </div>
 
@@ -211,6 +211,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
           {/* Scope selector — cell mode only */}
           {!isColumnMode && (
             <select
+              aria-label="Which cells it's for"
               className="input py-1 text-base mr-auto"
               style={{ minHeight: 36, maxWidth: 220 }}
               value={applyScope}
@@ -225,7 +226,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
           )}
           <button onClick={onClose} className="btn-secondary">Cancel</button>
           <button onClick={handleSave} disabled={isSaving} className="btn-primary">
-            {isSaving ? 'Saving…' : 'Apply'}
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

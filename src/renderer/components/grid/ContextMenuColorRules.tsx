@@ -29,7 +29,7 @@ export interface ContextMenuColorRulesProps {
 
 /**
  * The cell menu's color rules: this cell's own rules (with the other records sharing
- * them), and the highlight rules from any column that color this whole record
+ * them), and the color rules from any column that color this whole record
  */
 export function ContextMenuColorRules({
   contextMenu, columns, rows, filteredRows, cmRow, cmRules, rowMap, cellFormats, parsedColumnConfigs,
@@ -106,20 +106,22 @@ export function ContextMenuColorRules({
               <button
                 className="hit-44 flex-1 text-left px-1 py-1.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm truncate"
                 onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: contextMenu.colId }); onClose() }}
-                title="Edit rule"
+                title="Change this color rule"
               >
                 {rule.name || `Rule ${idx + 1}`}
               </button>
               <button
                 className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-blue-500 rounded-sm flex-shrink-0"
-                title="Edit"
+                title="Change this color rule"
+                aria-label="Change this color rule"
                 onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: contextMenu.colId }); onClose() }}
               >
                 <Pencil className="w-3 h-3" />
               </button>
               <button
                 className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
-                title={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} ${t('record', { many: true })}` : 'Delete this rule'}
+                title={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} ${t('record', { many: true })}` : 'Delete this color rule'}
+                aria-label={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} ${t('record', { many: true })}` : 'Delete this color rule'}
                 onClick={async () => {
                   const newRules = cmRules.filter((_, i) => i !== idx)
                   const allIds = [contextMenu.rowId, ...siblingRowIds]
@@ -148,7 +150,7 @@ export function ContextMenuColorRules({
             }}
           >
             <Palette className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            Clear all formatting
+            Remove this cell's color rules
           </button>
           <hr className="my-1 border-slate-200 dark:border-slate-700" />
         </>
@@ -174,7 +176,7 @@ export function ContextMenuColorRules({
               }
             }
             const originLabel = src.isColumnLevel
-              ? `From ${src.colName} column rule`
+              ? `From the color rules of "${src.colName}"`
               : clientName
                 ? `From ${clientName}'s ${src.colName} cell`
                 : `From ${src.colName} column`
@@ -193,20 +195,22 @@ export function ContextMenuColorRules({
                   <button
                     className="hit-44 flex-1 text-left px-1 py-1.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm truncate"
                     onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: src.colId }); onClose() }}
-                    title={`Edit rules on ${src.colName} column`}
+                    title={`Change the color rules of "${src.colName}"`}
                   >
-                    {src.matchedRule.name || 'Highlight'}
+                    {src.matchedRule.name || 'Color rule'}
                   </button>
                   <button
                     className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-blue-500 rounded-sm flex-shrink-0"
-                    title={`Edit rules on ${src.colName}`}
+                    title={`Change the color rules of "${src.colName}"`}
+                    aria-label={`Change the color rules of "${src.colName}"`}
                     onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: src.colId }); onClose() }}
                   >
                     <Pencil className="w-3 h-3" />
                   </button>
                   <button
                     className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
-                    title="Delete this rule"
+                    title="Delete this color rule"
+                    aria-label="Delete this color rule"
                     onClick={async () => {
                       const matchIdx = src.rules.indexOf(src.matchedRule)
                       const newRules = src.rules.filter((_, i) => i !== matchIdx)

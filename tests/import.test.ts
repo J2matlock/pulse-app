@@ -877,6 +877,45 @@ describe('executeImport', () => {
     })
   })
 
+  describe('first and last name put together (UX-A-07)', () => {
+    const names = (gridId: number) => (testDb.db.prepare('SELECT display_name FROM rows WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ display_name: string }>).map(r => r.display_name)
+
+    it('writes "Alice Johnson" into the name column, and leaves the last name out when asked', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+      const filePath = writeImportCsv('names.csv', 'First Name,Last Name\nAlice,Johnson\nBob,\n')
+      const preview = await parseImportFile(filePath)
+      await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', combineNames: { firstIndex: 0, lastIndex: 1 },
+        columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: 'skip' }] }, preview)
+      const rows = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ id: number }>
+      expect(getCellValue(rows[0].id, columnIds[0])).toBe('Alice Johnson')
+      expect(getCellValue(rows[1].id, columnIds[0])).toBe('Bob')
+      expect(names(gridId)).toEqual(['Alice Johnson', 'Bob'])
+    })
+
+    it('keeps the last name as its own column too, without saying it twice in the name', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+      const filePath = writeImportCsv('names2.csv', 'First Name,Last Name\nAlice,Johnson\n')
+      const preview = await parseImportFile(filePath)
+      await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', combineNames: { firstIndex: 0, lastIndex: 1 },
+        columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: 'create', newName: 'Last Name' }] }, preview)
+      expect(names(gridId)).toEqual(['Alice Johnson'])
+      const last = testDb.db.prepare("SELECT c.value FROM cells c JOIN columns col ON col.id = c.column_id WHERE col.grid_id = ? AND col.name = 'Last Name'").get(gridId) as { value: string }
+      expect(last.value).toBe('Johnson')
+    })
+
+    it('keeps them apart, and says why, in a list that already adds a last-name column to its names', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Last Name' }])
+      testDb.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))").run(gridId)
+      const filePath = writeImportCsv('names3.csv', 'First Name,Last Name\nAlice,Johnson\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', combineNames: { firstIndex: 0, lastIndex: 1 },
+        columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: columnIds[1] }] }, preview)
+      const row = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ? ORDER BY position DESC LIMIT 1').get(gridId) as { id: number }
+      expect(getCellValue(row.id, columnIds[0])).toBe('Alice')
+      expect(result.warnings.join(' ')).toMatch(/First and last names were kept apart/)
+    })
+  })
+
   describe('two-digit birth years (audit L-21)', () => {
     it('reads them as 19xx when they would otherwise be in the future, and says so', async () => {
       const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'DOB', type: 'date' }])
@@ -890,7 +929,7 @@ describe('executeImport', () => {
       const rows = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ id: number }>
       expect(getCellValue(rows[0].id, columnIds[1])).toBe(expected)
       expect(getCellValue(rows[1].id, columnIds[1])).toBe('2020-01-05')
-      expect(result.warnings.join(' ')).toMatch(/two-digit year and was read as 19xx/)
+      expect(result.warnings.join(' ')).toMatch(/1 date in "DOB" read as 19xx\. It had a two-digit year/)
     })
 
     it('reads two-digit years up to 20 years ahead as this century, later ones as the last', () => {

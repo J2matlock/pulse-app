@@ -27,17 +27,17 @@ export function ImportOptionsStep({
   const { t } = useVocab(gridId)
   return (
     <div className="px-6 py-6 space-y-6 max-w-xl">
-      {/* Duplicate detection */}
+      {/* Someone already here: plain choices, not "duplicate detection" (UX-B-34, A-22) */}
       <fieldset>
         <legend className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-3">
-          Duplicate detection
+          If a name is already in this {t('list')}
         </legend>
         <div className="space-y-3">
           {(
             [
-              { value: 'none', label: 'None — import all rows' },
-              { value: 'by_name', label: 'Skip duplicates matching by Name column' },
-              { value: 'name_and_dob', label: 'Skip duplicates matching by Name + Date of Birth' },
+              { value: 'none', label: 'Import it anyway' },
+              { value: 'by_name', label: 'Skip it' },
+              { value: 'name_and_dob', label: 'Skip it only if the date of birth matches too' },
             ] as const
           ).map(opt => (
             <label
@@ -58,10 +58,10 @@ export function ImportOptionsStep({
         </div>
       </fieldset>
 
-      {/* Clean data */}
+      {/* Tidy up */}
       <div>
         <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-3">
-          Data cleanup
+          Tidy up
         </h3>
         <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
           <input
@@ -72,10 +72,10 @@ export function ImportOptionsStep({
           />
           <div>
             <span className="text-base text-slate-700 dark:text-slate-200">
-              Clean data before import
+              Tidy the data as it comes in
             </span>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Trims extra spaces, normalizes dates and phone numbers
+              Removes extra spaces, and writes dates and phone numbers the same way
             </p>
           </div>
         </label>

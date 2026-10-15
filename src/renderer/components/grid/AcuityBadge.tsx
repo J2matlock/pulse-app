@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import type { AcuityLevel } from '../../../shared/types'
 import { dropdownVariants } from '../../utils/animations'
 import { useVocab } from '../../hooks/useVocab'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 
-const BADGE_WIDTH = 36
+// Wide enough for "Set…" in a record with no level yet (UX-B-21)
+const BADGE_WIDTH = 52
 
 function luminance(hex: string): number {
   const ch = (i: number) => {
@@ -53,8 +54,6 @@ export { BADGE_WIDTH }
 
 export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: AcuityBadgeProps): React.ReactElement {
   const { t } = useVocab()
-  // Settings → Reduce motion or the computer's setting, via AppMotionConfig
-  const reduceMotion = useReducedMotionConfig() ?? false
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
@@ -118,10 +117,8 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
           ? `hit-44 rounded-full px-1.5 py-0.5 text-base font-semibold leading-none cursor-pointer select-none
              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
              hover:opacity-80 transition-opacity`
-          : `hit-44 w-6 h-6 rounded-full border-2 border-dashed border-blue-400 dark:border-blue-500
-             flex items-center justify-center
-             text-blue-500 dark:text-blue-400 text-sm font-bold leading-none
-             cursor-pointer ${reduceMotion ? '' : 'motion-safe:animate-pulse hover:animate-none'}
+          : `hit-44 rounded-sm px-1 py-0.5 text-base leading-none whitespace-nowrap
+             text-blue-700 dark:text-blue-300 hover:underline cursor-pointer
              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
         style={currentLevel ? {
           backgroundColor: currentLevel.color,
@@ -129,9 +126,9 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
           minWidth: 20,
           textAlign: 'center',
         } : undefined}
-        title={currentLevel ? `${currentLevel.name} (${currentLevel.points} pts) — click to change` : `Assign ${t('priority')}`}
+        title={currentLevel ? `${currentLevel.name} (${currentLevel.points} pts) — click to change` : `Set ${t('priority')}`}
       >
-        {currentLevel ? currentLevel.abbreviation : '+'}
+        {currentLevel ? currentLevel.abbreviation : 'Set…'}
       </button>
 
       {createPortal(

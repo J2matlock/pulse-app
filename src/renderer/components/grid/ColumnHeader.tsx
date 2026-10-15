@@ -5,18 +5,18 @@ import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, 
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
-import type { Column, ParsedAlertRule } from '../../../shared/types'
+import type { Column } from '../../../shared/types'
 import { takesDeadlineRule, canNameRecords } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
-import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { splitRulesByFit } from '../alerts/ruleFit'
 import { ruleSummary } from '../../../shared/ruleSummary'
 import { pulseEvents } from '../../events'
 import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
-import { ColumnRulePicker } from './ColumnRulePicker'
+import { ColumnRuleDialog } from './ColumnRulePicker'
+import { ColorKeyPopover } from './ColorKeyPopover'
 import { ColumnSettingsDialog } from './ColumnSettingsDialog'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
@@ -58,18 +58,16 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const [renameName, setRenameName] = useState(column.name)
   const [showMenu, setShowMenu] = useState(false)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
-  const [showAlertPicker, setShowAlertPicker] = useState(false)
+  const [showRuleDialog, setShowRuleDialog] = useState(false)
   const [showAlertEditor, setShowAlertEditor] = useState(false)
   const [showLinkSettings, setShowLinkSettings] = useState(false)
   const [showStageSettings, setShowStageSettings] = useState(false)
   const { t } = useVocab()
-  const [editingRule, setEditingRule] = useState<ParsedAlertRule | undefined>(undefined)
   const [showDeleteColConfirm, setShowDeleteColConfirm] = useState(false)
   const [showColumnSettings, setShowColumnSettings] = useState(false)
   const [showChangeType, setShowChangeType] = useState(false)
   // What uses this column (rules, forms, views…), listed before a delete
   const [dependents, setDependents] = useState<string[]>([])
-  const [deleteAlertRuleTarget, setDeleteAlertRuleTarget] = useState<ParsedAlertRule | null>(null)
   const [showEditOptions, setShowEditOptions] = useState(false)
   const [showColFormat, setShowColFormat] = useState(false)
   const renameRef = useRef<HTMLInputElement>(null)
@@ -92,7 +90,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   // Freeze/pin column state
   const colIndex = allColumns.findIndex(c => c.id === column.id)
   const menuRef = useRef<HTMLDivElement>(null)
-  const onMenuKeyDown = useMenuKeys(menuRef, showMenu, () => { setShowMenu(false); setShowAlertPicker(false) })
+  const onMenuKeyDown = useMenuKeys(menuRef, showMenu, () => setShowMenu(false))
 
   // Move left / right among the shown columns, so columns can be reordered without dragging (G-32)
   const shownColumns = allColumns.filter(c => c.is_visible !== 0)
@@ -127,8 +125,16 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     } else {
       await updateColumn(column.id, { config: newConfig })
     }
-    setShowAlertPicker(false)
+    setShowRuleDialog(false)
     setShowMenu(false)
+  }
+
+  // "Show only the date" off: the words ("due Oct 25 · in 11 days") need room, so the
+  // column is fitted to them once they're saved; otherwise they'd be cut off (B-05)
+  async function handleToggleDateOnly() {
+    const showWords = dateOnlyOn(colConfig)
+    const saved = await updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: showWords ? false : undefined }) })
+    if (saved && showWords) pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })
   }
 
   async function handleSetDoneChecklist(templateId: number | null) {
@@ -168,6 +174,13 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     e.preventDefault()
     const name = renameName.trim()
     if (name && name !== column.name) {
+      // Another column already called this (hidden ones too): keep editing (B-14)
+      const taken = [...allColumns, ...hiddenColumns].find(c => c.id !== column.id && c.name.trim().toLowerCase() === name.toLowerCase())
+      if (taken) {
+        toast.error(`There's already a column called "${taken.name}". Give this one a different name.`)
+        renameRef.current?.focus()
+        return
+      }
       await updateColumn(column.id, { name })
     }
     setIsRenaming(false)
@@ -190,14 +203,10 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     setShowEditOptions(true)
   }
 
-  // A "Choose a deadline rule" cell opens this column's rule picker (G-20)
+  // A "Choose a deadline rule" cell opens this column's rule dialog (G-20)
   const rootRef = useRef<HTMLDivElement>(null)
   useEffect(() => pulseEvents.on('column:choose-rule', ({ columnId }) => {
-    if (columnId !== column.id) return
-    const rect = rootRef.current?.getBoundingClientRect()
-    setMenuPos({ x: rect?.left ?? 0, y: rect?.bottom ?? 0 })
-    setShowMenu(true)
-    setShowAlertPicker(true)
+    if (columnId === column.id) setShowRuleDialog(true)
   }), [column.id])
 
   // The menu is taller than the room below a header near the bottom of the window, so the
@@ -273,18 +282,20 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         </Tooltip>
       )}
 
-      {/* Log changes indicator */}
+      {/* "Keep a history of changes" is on */}
       {colConfig.log_changes && (
-        <span title="Log changes in timeline"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
+        <span title="Keeps a history of changes"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
       )}
 
-      {/* Deadline rule badge: a clock, with what the rule does in the tooltip (D-15) */}
+      {/* Deadline rule badge: a clock that opens the rule's color key, with what the rule does in the tooltip (D-15, B-04) */}
       {takesDeadlineRule(column.column_type) && currentAlertRule && (
-        <span title={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}`}
-          aria-label={`Deadline rule: ${currentAlertRule.name}`} role="img"
-          className="flex-shrink-0 inline-flex items-center rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5">
+        <ColorKeyPopover
+          rules={[currentAlertRule]}
+          label={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}. What do the colors mean?`}
+          buttonClassName="hit-44 flex-shrink-0 inline-flex items-center rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5 hover:bg-blue-200 dark:hover:bg-blue-800"
+        >
           <Clock className="w-3.5 h-3.5" />
-        </span>
+        </ColorKeyPopover>
       )}
 
       {/* Sort indicator */}
@@ -323,7 +334,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         {showMenu && createPortal(
             <>
               {/* Click-away backdrop */}
-              <div className="fixed inset-0 z-[9998]" onClick={() => { setShowMenu(false); setShowAlertPicker(false) }} />
+              <div className="fixed inset-0 z-[9998]" onClick={() => setShowMenu(false)} />
               <div
                 ref={menuRef}
                 onKeyDown={onMenuKeyDown}
@@ -376,7 +387,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   onClick={() => { setShowMenu(false); setShowChangeType(true) }}
                 >
                   <Shapes className="w-4 h-4" />
-                  Change type…
+                  Change what it holds (Text, Date…)
                 </button>
               )}
               <button
@@ -398,21 +409,26 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   Move right
                 </button>
               )}
-              {/* Width without dragging (AUDIT-150): the menu stays open, so it can be pressed again */}
-              <div className="flex items-center gap-1 px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width">
-                <span className="flex-1" aria-hidden="true">Width</span>
-                <button type="button" className="hit-44 min-w-11 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
-                  aria-label="Narrower" title="Narrower"
-                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'narrower' })}>−</button>
-                <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                  aria-label="Fit to content" title="Fit to content"
-                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })}>Fit</button>
-                <button type="button" className="hit-44 min-w-11 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
-                  aria-label="Wider" title="Wider"
-                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'wider' })}>+</button>
+              {/* Width without dragging (AUDIT-150): the menu stays open, so it can be pressed again. Worded, not −/+ (B-28) */}
+              <div className="px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width">
+                <span className="block text-sm text-slate-600 dark:text-slate-300" aria-hidden="true">Column width</span>
+                <div className="flex items-center gap-1">
+                  <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Narrower" title="Make the column narrower"
+                    onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'narrower' })}>Narrower</button>
+                  <span aria-hidden="true" className="text-slate-400">·</span>
+                  <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Fit to content" title="Fit the column to what it holds"
+                    onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })}>Fit</button>
+                  <span aria-hidden="true" className="text-slate-400">·</span>
+                  <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Wider" title="Make the column wider"
+                    onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'wider' })}>Wider</button>
+                </div>
               </div>
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+                title={isColumnFrozen ? 'Let these columns scroll with the rest again' : 'Keep this column and the ones before it in view while the rest scroll sideways'}
                 onClick={() => {
                   if (isColumnFrozen) {
                     // Unpin: set frozen count to this column's index (exclude it)
@@ -425,16 +441,16 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 }}
               >
                 {isColumnFrozen ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-                {isColumnFrozen ? 'Stop keeping these columns in view' : 'Keep columns up to here in view'}
+                {isColumnFrozen ? 'Unfreeze these columns' : 'Freeze columns up to here'}
               </button>
               {column.is_name_column !== 1 && canNameRecords(column.column_type) && (
                 <button
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
                   onClick={() => { setShowMenu(false); void setNameColumn(column.id) }}
                   title={`Show this column as each ${t('record')}'s name everywhere`}
                 >
                   <IdCard className="w-4 h-4" />
-                  Use as name
+                  Use this as each {t('record')}'s name
                 </button>
               )}
               {/* Everything else lives in one dialog, so the menu stays short (G-21) */}
@@ -446,34 +462,20 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 Column settings…
               </button>
 
-              {/* Alert rule picker — only for date columns */}
+              {/* Deadline rule — only for date columns; opens its own dialog (B-12) */}
               {takesDeadlineRule(column.column_type) && (
                 <>
                   <hr className="my-1 border-slate-200 dark:border-slate-700" />
                   <button
                     className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                    onClick={() => setShowAlertPicker(v => !v)}
+                    onClick={() => { setShowMenu(false); setShowRuleDialog(true) }}
                   >
                     <Bell className="w-4 h-4 text-blue-500" />
-                    <span className="flex-1 text-left whitespace-nowrap">Deadline rule</span>
+                    <span className="flex-1 text-left whitespace-nowrap">Deadline rule…</span>
                     {currentAlertRule && (
                       <span className="text-sm text-blue-600 dark:text-blue-400 truncate max-w-28" title={currentAlertRule.name}>{currentAlertRule.name}</span>
                     )}
                   </button>
-
-                  {showAlertPicker && (
-                    <ColumnRulePicker
-                      currentAlertRule={currentAlertRule}
-                      currentAlertRuleId={currentAlertRuleId}
-                      hasAnyRule={alertRules.length > 0}
-                      fittingRules={fittingRules}
-                      otherListRules={otherListRules}
-                      onSetRule={ruleId => void handleSetAlertRule(ruleId)}
-                      onEditRule={rule => { setEditingRule(rule); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
-                      onDeleteRule={rule => { setDeleteAlertRuleTarget(rule); setShowAlertPicker(false) }}
-                      onNewRule={() => { setEditingRule(undefined); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
-                    />
-                  )}
                 </>
               )}
 
@@ -500,7 +502,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             onClose={() => setShowColumnSettings(false)}
             onToggleLogChanges={() => void handleToggleLogChanges()}
             onToggleRequired={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
-            onToggleDateOnly={() => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: dateOnlyOn(colConfig) ? false : undefined }) })}
+            onToggleDateOnly={() => void handleToggleDateOnly()}
             onOpenColorRules={() => { setShowColFormat(true); setShowMenu(false) }}
             onOpenEditOptions={handleOpenEditOptions}
             onOpenStageSettings={() => { setShowMenu(false); setShowStageSettings(true) }}
@@ -512,10 +514,24 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
         {showChangeType && <ChangeTypeDialog column={column} onClose={() => setShowChangeType(false)} />}
 
-        {/* Alert rule editor modal (create or edit) */}
+        {/* Deadline rule dialog (B-12): the current rule with its colors, the others, new, or none */}
+        {showRuleDialog && createPortal(
+          <ColumnRuleDialog
+            column={column}
+            allColumns={[...allColumns, ...hiddenColumns]}
+            currentAlertRule={currentAlertRule}
+            fittingRules={fittingRules}
+            otherListRules={otherListRules}
+            onSetRule={ruleId => void handleSetAlertRule(ruleId)}
+            onNewRule={() => { setShowRuleDialog(false); setShowAlertEditor(true) }}
+            onClose={() => setShowRuleDialog(false)}
+          />, document.body
+        )}
+
+        {/* Alert rule editor modal: a new rule for this column (changing a rule lives in Settings) */}
         {showAlertEditor && (
           <AlertRuleEditor
-            rule={editingRule}
+            rule={undefined}
             columnId={column.id}
             onClose={async (createdRuleId?: number) => {
               setShowAlertEditor(false)
@@ -523,7 +539,6 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
               if (createdRuleId) {
                 await handleSetAlertRule(createdRuleId)
               }
-              setEditingRule(undefined)
             }}
           />
         )}
@@ -566,9 +581,6 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             </div>
           )}
         </ConfirmDialog>
-
-        {/* Delete alert rule confirmation: unlinks it from every column that uses it */}
-        <DeleteRuleConfirm rule={deleteAlertRuleTarget} onDone={() => setDeleteAlertRuleTarget(null)} />
 
         {/* Column-level conditional format panel */}
         {showColFormat && (

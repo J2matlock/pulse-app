@@ -21,7 +21,7 @@ import { zipUncompressedSize } from './zip-size'
 import { getDb } from './database'
 import { logger } from './logger'
 import type { Column } from '../shared/types'
-import { hasDisplayFormat, refreshDisplayNames } from './display-names'
+import { hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from './display-names'
 import { assignAutoNumbers, bumpAutoNumbersPastValues } from './auto-number'
 import { addLink, createLinkedRecord, getLinkType, otherGridOf } from './links'
 import { holdsOne, linkColumnSpecs, type LinkDirection } from '../shared/links'
@@ -102,6 +102,12 @@ export interface ImportOptions {
   createMissingLinks?: boolean
   /** Leave out rows hidden in the spreadsheet (AUDIT-127) */
   skipHiddenRows?: boolean
+  /**
+   * Put a first-name and a last-name column together (UX-A-07): wherever the
+   * first-name column goes, it holds "Alice Johnson". The last-name column is
+   * imported or left out by its own mapping.
+   */
+  combineNames?: { firstIndex: number; lastIndex: number }
 }
 
 export interface ImportResult {
@@ -349,11 +355,13 @@ export function dateOrderWarning(column: string, a: DateOrderAnalysis): string |
   const n = `${a.ambiguous} date${a.ambiguous === 1 ? '' : 's'}`
   const were = a.ambiguous === 1 ? 'was' : 'were'
   // Dates only one order can read are read that way; the either-way ones follow the majority
+  // A short first sentence, then why: the import results show the first and keep the rest behind "Why?" (UX-B-35)
   if (a.dayFirst > 0 && a.monthFirst > 0) {
-    return `"${column}" has dates written both day first (like ${a.examples.dayFirst}) and month first (like ${a.examples.monthFirst}). ${n} that could be read either way (like ${a.examples.ambiguous}) ${were} read ${how}. Check ${a.ambiguous === 1 ? 'it' : 'them'} in the list.`
+    return `"${column}" has dates written both ways. Some are day first (like ${a.examples.dayFirst}) and some month first (like ${a.examples.monthFirst}), so ${n} that could be read either way (like ${a.examples.ambiguous}) ${were} read ${how}. Check ${a.ambiguous === 1 ? 'it' : 'them'} in the list.`
   }
   if (a.settledBy === 'fallback') {
-    return `${n} in "${column}" (like ${a.examples.ambiguous}) could be read either way and ${were} read ${how}, as Settings → Appearance → Date Format says. If your dates are written ${other}, change Date Format and import again.`
+    const readAs = a.order === 'dmy' ? 'day/month' : 'month/day'
+    return `"${column}": ${n} read as ${readAs}, like ${a.examples.ambiguous}. ${a.ambiguous === 1 ? 'It' : 'They'} could be read either way, so Pulse followed Settings → Appearance → Date format. If yours are written ${other}, change Date format and import again.`
   }
   return null
 }
@@ -1097,6 +1105,28 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
   const nameColId = setupColumns()
 
+    // First + last name into one (UX-A-07). A list's default name already adds a shown
+    // "Last name" column to the name, which would read "Alice Johnson Johnson"
+    const askedCombine = options.combineNames
+    let combine = askedCombine && Number.isInteger(askedCombine.firstIndex) && Number.isInteger(askedCombine.lastIndex)
+      && askedCombine.firstIndex >= 0 && askedCombine.lastIndex >= 0 && askedCombine.firstIndex !== askedCombine.lastIndex
+      && colMap.has(askedCombine.firstIndex) ? askedCombine : null
+    if (combine && nameColId && colMap.get(combine.firstIndex)!.columnId === nameColId && !hasDisplayFormat(gridId)) {
+      const lastCol = (db.prepare('SELECT name FROM columns WHERE grid_id = ? AND is_visible = 1 AND id != ?').all(gridId, nameColId) as Array<{ name: string }>)
+        .find(c => isLastNameColumnName(c.name))
+      if (lastCol) {
+        const nameColName = (db.prepare('SELECT name FROM columns WHERE id = ?').get(nameColId) as { name: string }).name.trim()
+        const hadRows = (db.prepare('SELECT COUNT(*) AS c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c > 0
+        if (!hadRows && nameColName && !/[{}]/.test(nameColName)) {
+          // A new list: its names come from the name column alone
+          db.prepare('UPDATE grids SET display_format = ? WHERE id = ?').run(`{${nameColName}}`, gridId)
+        } else {
+          combine = null
+          warnings.push(`First and last names were kept apart, because "${lastCol.name}" already adds the last name to each name.`)
+        }
+      }
+    }
+
     // Find the name column mapping (source index for the name column in import)
     let nameSourceIndex: number | null = null
     for (const [srcIdx, info] of colMap.entries()) {
@@ -1200,6 +1230,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     const cutCells = new Map<number, { n: number; firstRow: number }>()
     const cellValue = (row: string[], srcIdx: number): string => {
       const raw = String(row[srcIdx] || '').trim()
+      if (combine && srcIdx === combine.firstIndex) return [raw, String(row[combine.lastIndex] || '').trim()].filter(Boolean).join(' ')
       return flipCols.has(srcIdx) ? flipLastFirst(raw) : raw
     }
     const birthAs1900s = new Map<number, number>()
@@ -1370,17 +1401,17 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
   warnings.push(...dateOrderWarnings)
   for (const [srcIdx, n] of birthAs1900s) {
-    warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" had a two-digit year and ${n === 1 ? 'was' : 'were'} read as 19xx. Check ${n === 1 ? 'it' : 'them'}.`)
+    warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" read as 19xx. ${n === 1 ? 'It' : 'They'} had a two-digit year; check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
   for (const [srcIdx, n] of unreadableDates) {
-    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the list.`)
+    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'}, so ${n === 1 ? 'it was' : 'they were'} kept as typed; check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
 
   for (const [srcIdx, { n, firstRow }] of cutCells) {
     warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'was' : 'were'} longer than ${MAX_CELL_VALUE_LENGTH.toLocaleString('en-US')} characters and ${n === 1 ? 'was' : 'were'} cut short${n === 1 ? ` (row ${firstRow})` : `, starting at row ${firstRow}`}.`)
   }
   for (const [srcIdx, n] of unclearChecks) {
-    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'wasn\'t' : 'weren\'t'} clearly yes or no and ${n === 1 ? 'was' : 'were'} left unticked. Check ${n === 1 ? 'it' : 'them'} in the list.`)
+    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'wasn\'t' : 'weren\'t'} clearly yes or no, so ${n === 1 ? 'it was' : 'they were'} left unticked; check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
   for (const [srcIdx, lc] of linkCols) {
     if (lc.unmatched.size === 0) continue

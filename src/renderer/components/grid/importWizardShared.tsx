@@ -45,6 +45,8 @@ export interface ImportOptions {
   flipLastFirst?: boolean
   createMissingLinks?: boolean
   skipHiddenRows?: boolean
+  /** First + last name into one name (UX-A-07), by the columns' places in the file */
+  combineNames?: { firstIndex: number; lastIndex: number }
 }
 
 export interface ImportResult {
@@ -59,6 +61,7 @@ export interface ImportResult {
 
 export type Step = 1 | 2 | 3 | 4 | 5 | 6
 
+/** Step names; the circles number only the steps shown (a CSV has no Sheet step, UX-B-33) */
 export const STEP_LABELS: Record<Step, string> = {
   1: 'Choose a file',
   2: 'Sheet',
@@ -101,4 +104,29 @@ export const OLD_SPREADSHEET_MESSAGE = 'This is an older spreadsheet file. Open 
 /** Notes, comments and remarks columns */
 export function isNotesColumn(name: string): boolean {
   return /^(notes?|comments?|remarks?)$/i.test(name.trim())
+}
+
+const FIRST_NAME = /^(first|first[ _]?name|given[ _]?name|fname|forename)$/i
+// The same names the default record name adds as a last name (src/main/display-names.ts)
+const LAST_NAME = /^(last|last[ _]?name|surname|family[ _]?name|lname)$/i
+
+/** A first-name and a last-name column in the file, to offer putting them together (UX-A-07) */
+export function findNameParts(preview: ImportPreview): { firstIndex: number; lastIndex: number; first: string; last: string; example: string | null } | null {
+  const first = preview.detectedColumns.find(c => FIRST_NAME.test(c.originalName.trim()))
+  const last = preview.detectedColumns.find(c => LAST_NAME.test(c.originalName.trim()))
+  if (!first || !last) return null
+  const row = preview.rows.find(r => (r[first.index] ?? '').trim() && (r[last.index] ?? '').trim())
+  return {
+    firstIndex: first.index, lastIndex: last.index, first: first.originalName, last: last.originalName,
+    example: row ? `${row[first.index]!.trim()} ${row[last.index]!.trim()}` : null,
+  }
+}
+
+/**
+ * An import warning as one short line and the reason behind it (UX-B-35): the
+ * first sentence, then the rest. Main writes warnings that way round.
+ */
+export function splitWarning(text: string): { line: string; why: string | null } {
+  const m = text.match(/^(.+?\.)\s+(?=["A-Z])([\s\S]+)$/)
+  return m ? { line: m[1]!, why: m[2]! } : { line: text, why: null }
 }

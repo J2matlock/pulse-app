@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useId } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Trash2, ChevronUp, ChevronDown, Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
@@ -34,6 +34,7 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
     deleteAcuityLevel: s.deleteAcuityLevel, reorderAcuityLevels: s.reorderAcuityLevels,
   })))
   const panelRef = useRef<HTMLDivElement>(null)
+  const aboutId = useId()
   // Focus goes in, Escape closes, focus goes back (AUDIT-044)
   const panelKeys = useMenuKeys(panelRef, true, onClose, { kind: 'panel' })
 
@@ -80,7 +81,7 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
 
   async function handleAddLevel() {
     await createAcuityLevel({
-      name: 'New Level',
+      name: 'New level',
       abbreviation: 'N',
       points: 1,
       color: '#6b7280',
@@ -88,9 +89,10 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
   }
 
   return (
-    <div ref={panelRef} onKeyDown={panelKeys} role="dialog" aria-label={t('priority', { many: true, cap: true })} className="absolute right-0 top-full mt-1 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('priority', { many: true, cap: true })}</span>
+    <div ref={panelRef} onKeyDown={panelKeys} role="dialog" aria-label={t('priority', { many: true, cap: true })} className="absolute right-0 top-full mt-1 w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 p-4">
+      {/* What it's for comes first, so the switch isn't a guess (UX-B-20) */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-base font-semibold text-slate-700 dark:text-slate-200">{t('priority', { many: true, cap: true })}</span>
         <button
           onClick={handleToggle}
           className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
@@ -98,6 +100,7 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
           role="switch"
           aria-checked={acuityEnabled}
           aria-label={t('priority', { many: true, cap: true })}
+          aria-describedby={aboutId}
         >
           <span
             className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform
@@ -105,12 +108,12 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
           />
         </button>
       </div>
+      <p id={aboutId} className="text-base text-slate-600 dark:text-slate-300 mb-3">
+        Rate each {t('record')} Low, Medium or High (or levels of your own), so the ones who need the most stand out. Each level has points, and the {t('list')}'s total shows at the bottom.
+      </p>
 
       {acuityEnabled && (
         <>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-            Give each {t('record')} {t('priority', { article: true })}. Points are totaled in the status bar.
-          </p>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {acuityLevels.map((level, i) => (
@@ -132,7 +135,7 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
             className="hit-44 flex items-center gap-1.5 mt-3 text-base text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Level
+            Add a level
           </button>
         </>
       )}
@@ -203,6 +206,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
           className="hit-44 w-6 h-6 rounded-sm border border-slate-300 dark:border-slate-600 flex-shrink-0 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ backgroundColor: level.color }}
           title="Change color"
+          aria-label={`Color of ${level.name}`}
         />
         <AnimatePresence>
           {showColorPicker && (
@@ -236,9 +240,9 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onChange={e => setLocalName(e.target.value)}
         onBlur={commitName}
         onKeyDown={e => { if (e.key === 'Enter') commitName() }}
-        className="flex-1 min-w-0 text-base bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-1 py-0.5 text-slate-700 dark:text-slate-200"
-        style={{ maxWidth: 80 }}
+        className="flex-1 min-w-[6rem] text-base bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-1 py-0.5 text-slate-700 dark:text-slate-200"
         title="Level name"
+        aria-label="Level name"
       />
 
       {/* Abbreviation */}
@@ -249,7 +253,8 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onBlur={commitAbbr}
         onKeyDown={e => { if (e.key === 'Enter') commitAbbr() }}
         className="w-10 text-base text-center bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-0.5 py-0.5 text-slate-700 dark:text-slate-200"
-        title="Abbreviation (1-4 chars)"
+        title="Short form shown in the list (1 to 4 letters)"
+        aria-label="Short form (1 to 4 letters)"
         maxLength={4}
       />
 
@@ -262,6 +267,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onKeyDown={e => { if (e.key === 'Enter') commitPoints() }}
         className="w-12 text-base text-center bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-0.5 py-0.5 text-slate-700 dark:text-slate-200"
         title="Points"
+        aria-label="Points"
         min={0}
       />
       <span className="text-sm text-slate-500 dark:text-slate-400">pts</span>
@@ -273,6 +279,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
           disabled={index === 0}
           className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30 disabled:cursor-default"
           title="Move up"
+          aria-label={`Move ${level.name} up`}
         >
           <ChevronUp className="w-3 h-3" />
         </button>
@@ -281,6 +288,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
           disabled={index >= total - 1}
           className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30 disabled:cursor-default"
           title="Move down"
+          aria-label={`Move ${level.name} down`}
         >
           <ChevronDown className="w-3 h-3" />
         </button>
@@ -291,6 +299,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onClick={() => onDelete(level.id)}
         className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0"
         title="Delete level"
+        aria-label={`Delete ${level.name}`}
       >
         <Trash2 className="w-3.5 h-3.5" />
       </button>

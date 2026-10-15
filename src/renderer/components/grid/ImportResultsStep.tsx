@@ -1,7 +1,21 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Check, AlertTriangle } from 'lucide-react'
+import type { Column } from '../../../shared/types'
+import type { DeadlineChoice } from '../alerts/plainRule'
 import { useVocab } from '../../hooks/useVocab'
-import type { ImportResult } from './importWizardShared'
+import { DeadlineQuestion } from './DeadlineQuestion'
+import { splitWarning, type ImportResult } from './importWizardShared'
+
+/** "Set up deadlines" on the results (UX-B-06): one question per new date column */
+export interface ImportDeadlines {
+  columns: Column[]
+  choices: Record<number, DeadlineChoice>
+  setChoice: (columnId: number, choice: DeadlineChoice) => void
+  state: 'idle' | 'busy' | 'done'
+  /** Columns that now have a rule, after saving */
+  savedCount: number
+  onSave: () => Promise<void>
+}
 
 export interface ImportResultsStepProps {
   gridId: number
@@ -13,11 +27,33 @@ export interface ImportResultsStepProps {
   onUndo: () => Promise<void>
   warningsExpanded: boolean
   setWarningsExpanded: React.Dispatch<React.SetStateAction<boolean>>
+  deadlines: ImportDeadlines
+}
+
+/** One warning: a short line, and the reason behind "Why?" (UX-B-35) */
+function WarningLine({ text }: { text: string }): React.ReactElement {
+  const [open, setOpen] = useState(false)
+  const { line, why } = splitWarning(text)
+  return (
+    <li className="text-base text-amber-800 dark:text-amber-200">
+      <span>{line}</span>
+      {why && (
+        <>
+          {' '}
+          <button type="button" aria-expanded={open} onClick={() => setOpen(v => !v)}
+            className="hit-44 text-base text-amber-800 dark:text-amber-200 underline rounded-sm focus:outline-hidden focus:ring-3 focus:ring-amber-400">
+            {open ? 'Hide why' : 'Why?'}
+          </button>
+          {open && <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">{why}</p>}
+        </>
+      )}
+    </li>
+  )
 }
 
 /** Step 6: progress while importing, then what came in, what was skipped, and Undo */
 export function ImportResultsStep({
-  gridId, loading, importProgress, error, importResult, undo, onUndo, warningsExpanded, setWarningsExpanded,
+  gridId, loading, importProgress, error, importResult, undo, onUndo, warningsExpanded, setWarningsExpanded, deadlines,
 }: ImportResultsStepProps): React.ReactElement {
   const { t } = useVocab(gridId)
   return (
@@ -55,7 +91,7 @@ export function ImportResultsStep({
       )}
 
       {!loading && importResult && (
-        <div className="w-full max-w-md space-y-4">
+        <div className="w-full max-w-xl space-y-4">
           <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700">
             <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
               <Check className="w-5 h-5 text-white" />
@@ -92,6 +128,38 @@ export function ImportResultsStep({
             </div>
           )}
 
+          {undo !== 'done' && deadlines.columns.length > 0 && (
+            <section aria-labelledby="import-deadlines-title" className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+              <h3 id="import-deadlines-title" className="text-base font-semibold text-slate-800 dark:text-slate-100">Set up deadlines</h3>
+              {deadlines.state === 'done' ? (
+                <p role="status" className="text-base text-slate-700 dark:text-slate-200">
+                  {deadlines.savedCount === 0
+                    ? 'No deadlines set up. You can add one later from a column\'s ⋯ menu → Deadline rule.'
+                    : `Saved. ${deadlines.savedCount === 1 ? 'That date column now colors' : `Those ${deadlines.savedCount} date columns now color`} as ${deadlines.savedCount === 1 ? 'it comes' : 'they come'} due.`}
+                </p>
+              ) : (
+                <>
+                  <p className="text-base text-slate-600 dark:text-slate-300">
+                    Pulse can color a date green, then yellow, orange and red as it comes due.
+                  </p>
+                  {deadlines.columns.map(col => (
+                    <div key={col.id} className="border-t border-slate-100 dark:border-slate-700 pt-2">
+                      <DeadlineQuestion type="date" name={`import-deadline-${col.id}`}
+                        legend={`"${col.name}": does this date come due again?`}
+                        value={deadlines.choices[col.id] ?? { mode: 'none' }}
+                        onChange={c => deadlines.setChoice(col.id, c)}
+                        allowMore={false} />
+                    </div>
+                  ))}
+                  <button type="button" className="btn-primary" style={{ minHeight: 44 }}
+                    disabled={deadlines.state === 'busy'} onClick={() => void deadlines.onSave()}>
+                    {deadlines.state === 'busy' ? 'Saving…' : 'Save deadlines'}
+                  </button>
+                </>
+              )}
+            </section>
+          )}
+
           {importResult.warnings.length > 0 && (
             <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3">
@@ -110,9 +178,7 @@ export function ImportResultsStep({
               {warningsExpanded && (
                 <ul className="px-4 pb-3 space-y-1">
                   {importResult.warnings.slice(0, 10).map((w, i) => (
-                    <li key={i} className="text-sm text-amber-700 dark:text-amber-300">
-                      {w}
-                    </li>
+                    <WarningLine key={i} text={w} />
                   ))}
                   {importResult.warnings.length > 10 && (
                     <li className="text-sm text-amber-700 dark:text-amber-400">

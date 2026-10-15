@@ -320,7 +320,7 @@ describe('GridToolbar', () => {
     fireEvent.click(screen.getByText('Add a column…'))
     fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Lease end' } })
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
-    fireEvent.click(screen.getByLabelText("It's the due date"))
+    fireEvent.click(screen.getByLabelText("It's a one-off due date (color it as it gets close)"))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
     expect(createRule).toHaveBeenCalledWith(expect.objectContaining({ name: 'The date entered is the deadline', interval_days: null, interval_months: null }))
     expect(addColumn).toHaveBeenCalledWith('Lease end', 'date', JSON.stringify({ alert_rule_id: 21 }), expect.anything())

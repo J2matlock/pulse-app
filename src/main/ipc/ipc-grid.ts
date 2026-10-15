@@ -204,6 +204,9 @@ export function registerGridHandlers(): void {
     if (!VALID_COLUMN_TYPES.has(columnType as never)) return fail(`Invalid column type: ${columnType}`)
     if (columnType === 'link') return fail(`Use "Link to another ${word('list', {}, gridId)}" to add a link column.`)
     const db = getDb()
+    // Two columns with one name can't be told apart in filters, reports or an import (B-14)
+    const taken = db.prepare('SELECT name FROM columns WHERE grid_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))').get(gridId, name) as { name: string } | undefined
+    if (taken) return fail(`There's already a column called "${taken.name}". Give the new one a different name.`)
     const createColumn = db.transaction(() => {
       const maxPos = (db.prepare('SELECT MAX(position) as p FROM columns WHERE grid_id = ?').get(gridId) as { p: number | null }).p ?? -1
       const result = db.prepare(`
