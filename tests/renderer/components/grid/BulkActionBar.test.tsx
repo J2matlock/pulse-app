@@ -110,8 +110,7 @@ describe('BulkActionBar', () => {
   it('clear selection button calls setSelectedRowIds with empty set', () => {
     const setSelectedRowIds = vi.fn()
     render(<BulkActionBar {...makeProps({ setSelectedRowIds })} />)
-    // The clear button has title "Clear selection (Escape)"
-    const clearBtn = screen.getByTitle('Clear selection (Escape)')
+    const clearBtn = screen.getByRole('button', { name: 'Clear selection' })
     fireEvent.click(clearBtn)
     expect(setSelectedRowIds).toHaveBeenCalled()
     const arg = setSelectedRowIds.mock.calls[0]![0]

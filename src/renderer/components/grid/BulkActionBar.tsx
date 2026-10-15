@@ -12,7 +12,9 @@ import { BatchDocumentsDialog } from '../documents/BatchDocumentsDialog'
 import { trashRows } from './GridDialogs'
 import { archiveReasonAction, voidReasonNotes } from '../../stores/archiveReasonStore'
 import type { ArchiveReasonState } from '../../stores/archiveReasonStore'
-import { PrimaryButton, DangerButton } from '../ui/Button'
+import { Trash2, X } from 'lucide-react'
+import { SecondaryButton, IconButton } from '../ui/Button'
+import { Tooltip } from '../shared/Tooltip'
 
 export interface BulkActionBarProps {
   selectedRowIds: Set<number>
@@ -111,15 +113,16 @@ export function BulkActionBar({
     // Above the list's footer line, so its counts and "Saved" stay readable (UX-B-25)
     <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] overflow-x-auto
                     flex items-center gap-3 px-4 py-3 whitespace-nowrap
-                    bg-slate-900 dark:bg-slate-700 text-white rounded-xl shadow-2xl
+                    bg-slate-900 dark:bg-slate-700 text-white rounded-lg shadow-2xl
                     border border-slate-700 dark:border-slate-500">
-      <span className="text-sm font-medium flex-shrink-0">
+      <span className="text-base font-medium flex-shrink-0">
         {selectedRowIds.size} {t('record', { count: selectedRowIds.size })} selected
       </span>
-      <div className="w-px h-4 bg-slate-600" />
+      <div className="w-px h-6 bg-slate-600 flex-shrink-0" aria-hidden="true" />
       {allArchived && (
-        <button
-          className="hit-44 text-base px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 transition-colors font-medium"
+        <SecondaryButton
+          size="compact"
+          tone="inverse"
           onClick={async () => {
             const ids = Array.from(selectedRowIds)
             const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
@@ -148,42 +151,34 @@ export function BulkActionBar({
           }}
         >
           Unarchive
-        </button>
+        </SecondaryButton>
       )}
       {noneArchived && (
-        <button
-          className="hit-44 text-base px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 transition-colors font-medium"
-          onClick={() => void archive(Array.from(selectedRowIds))}
-        >
+        <SecondaryButton size="compact" tone="inverse" onClick={() => void archive(Array.from(selectedRowIds))}>
           Archive
-        </button>
+        </SecondaryButton>
       )}
-      <button
-        className="hit-44 text-base px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 transition-colors font-medium"
-        onClick={() => setBulkEditOpen(true)}
-        title={`Give the selected ${t('record', { many: true })} the same value in one column`}
-      >
-        Change a column…
-      </button>
-      <PrimaryButton size="compact" tone="inverse" onClick={() => { setBulkMoveTarget(true) }}>
+      <Tooltip content={`Give the selected ${t('record', { many: true })} the same value in one column`}>
+        <SecondaryButton size="compact" tone="inverse" onClick={() => setBulkEditOpen(true)}>
+          Change a column…
+        </SecondaryButton>
+      </Tooltip>
+      <SecondaryButton size="compact" tone="inverse" onClick={() => { setBulkMoveTarget(true) }}>
         Move to {t('list')}…
-      </PrimaryButton>
+      </SecondaryButton>
       {lettersOn && activeGridId != null && (
-        <PrimaryButton size="compact" tone="inverse" onClick={() => setBatchDocs(true)}>
+        <SecondaryButton size="compact" tone="inverse" onClick={() => setBatchDocs(true)}>
           Letters and labels…
-        </PrimaryButton>
+        </SecondaryButton>
       )}
       {batchDocs && activeGridId != null && (
         <BatchDocumentsDialog gridId={activeGridId} rowIds={Array.from(selectedRowIds)} onClose={() => setBatchDocs(false)} />
       )}
       {acuityEnabled && (
         <div className="relative">
-          <button
-            className="hit-44 text-base px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 transition-colors font-medium"
-            onClick={() => setBulkAcuityOpen(v => !v)}
-          >
+          <SecondaryButton size="compact" tone="inverse" aria-expanded={bulkAcuityOpen} onClick={() => setBulkAcuityOpen(v => !v)}>
             Set {t('priority')}
-          </button>
+          </SecondaryButton>
           {bulkAcuityOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setBulkAcuityOpen(false)} />
@@ -191,8 +186,7 @@ export function BulkActionBar({
                 {acuityLevels.map(level => (
                   <button
                     key={level.id}
-                    className="flex items-center gap-2.5 w-full px-3 text-left text-base text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
-                    style={{ minHeight: 44 }}
+                    className="flex items-center gap-2 w-full min-h-11 px-3 text-left text-base text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
                     onClick={() => {
                       void bulkSetRowAcuityLevel(Array.from(selectedRowIds), level.id)
                       setBulkAcuityOpen(false)
@@ -205,8 +199,7 @@ export function BulkActionBar({
                 ))}
                 <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
                 <button
-                  className="flex items-center gap-2.5 w-full px-3 text-left text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
-                  style={{ minHeight: 44 }}
+                  className="flex items-center gap-2 w-full min-h-11 px-3 text-left text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
                   onClick={() => {
                     void bulkSetRowAcuityLevel(Array.from(selectedRowIds), null)
                     setBulkAcuityOpen(false)
@@ -221,17 +214,11 @@ export function BulkActionBar({
       )}
       {/* Away from Archive, at the far end after a divider (UX-B-25) */}
       <div className="w-px h-6 bg-slate-600 flex-shrink-0" aria-hidden="true" />
-      <DangerButton size="compact" tone="inverse" onClick={() => void trash()}>
+      {/* Red words, not a red fill: a filled red button is only for a confirmation (Q8) */}
+      <SecondaryButton size="compact" tone="inverse" icon={<Trash2 className="w-4 h-4" />} className="text-red-200! dark:text-red-200!" onClick={() => void trash()}>
         Move {selectedRowIds.size} to the Trash
-      </DangerButton>
-      <button
-        className="hit-44 text-base px-2 py-1.5 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors text-slate-300"
-        onClick={() => setSelectedRowIds(new Set())}
-        title="Clear selection (Escape)"
-        aria-label="Clear selection"
-      >
-        ✕
-      </button>
+      </SecondaryButton>
+      <IconButton size="compact" tone="inverse" label="Clear selection" shortcut="Escape" icon={<X className="w-4 h-4" />} onClick={() => setSelectedRowIds(new Set())} />
     </div>
   )
 }

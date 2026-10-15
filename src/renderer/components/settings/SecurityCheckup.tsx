@@ -7,6 +7,7 @@ import { detectCloudSyncService } from '../../../shared/cloudSync'
 import { SecuritySummaryDialog } from '../shared/SecuritySummaryDialog'
 import { useFeature } from '../../hooks/useFeature'
 import { formatBytes } from '../../../shared/attachments'
+import { SecondaryButton } from '../ui/Button'
 
 interface Check {
   ok: boolean
@@ -102,7 +103,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
       <div className="flex items-center gap-2">
         <ShieldCheck className="w-5 h-5 text-green-600 dark:text-green-400" aria-hidden="true" />
         <p className="text-base font-semibold text-slate-800 dark:text-slate-100 flex-1">Security checkup: {passed} of {checks.length}</p>
-        <button type="button" className="btn-compact-soft" onClick={() => setShowSummary(true)}>Security summary to share</button>
+        <SecondaryButton size="compact" onClick={() => setShowSummary(true)}>Security summary to share</SecondaryButton>
       </div>
       <ul className="space-y-2">
         {checks.map(c => (

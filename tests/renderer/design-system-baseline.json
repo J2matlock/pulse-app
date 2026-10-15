@@ -179,12 +179,6 @@
     "raw-button": 2,
     "text-size": 2
   },
-  "components/grid/BulkActionBar.tsx": {
-    "action-colour": 4,
-    "inline-size": 2,
-    "native-title": 2,
-    "spacing": 7
-  },
   "components/grid/BulkEditDialog.tsx": {
     "radius": 1,
     "spacing": 4,
@@ -224,7 +218,6 @@
     "spacing": 3
   },
   "components/grid/CustomGroupEditor.tsx": {
-    "action-colour": 1,
     "inline-size": 4,
     "native-title": 3,
     "radius": 5,
@@ -300,7 +293,6 @@
     "text-size": 1
   },
   "components/grid/GroupingBar.tsx": {
-    "action-colour": 5,
     "inline-size": 6,
     "native-title": 1,
     "radius": 3,
@@ -324,7 +316,6 @@
     "spacing": 2
   },
   "components/grid/SavedViewsDropdown.tsx": {
-    "action-colour": 1,
     "inline-size": 5,
     "native-title": 3,
     "radius": 2,
@@ -383,10 +374,10 @@
     "spacing": 1
   },
   "components/profile/CaseLogEntry.tsx": {
-    "native-title": 5,
-    "radius": 10,
+    "native-title": 4,
+    "radius": 9,
     "raw-button": 3,
-    "spacing": 4,
+    "spacing": 3,
     "text-size": 2
   },
   "components/profile/Checklist.tsx": {
@@ -529,7 +520,7 @@
   "components/settings/BackupSection.tsx": {
     "inline-size": 6,
     "radius": 5,
-    "raw-button": 7,
+    "raw-button": 6,
     "spacing": 6,
     "text-size": 4
   },
@@ -564,9 +555,6 @@
     "spacing": 1
   },
   "components/settings/RemindersSection.tsx": {
-    "raw-button": 1
-  },
-  "components/settings/SecurityCheckup.tsx": {
     "raw-button": 1
   },
   "components/settings/SecuritySection.tsx": {
@@ -729,17 +717,13 @@
   },
   "views/DashboardView.tsx": {
     "inline-size": 2,
-    "native-title": 1,
     "radius": 1,
-    "raw-button": 4,
+    "raw-button": 1,
     "spacing": 6
   },
   "views/FocusModeView.tsx": {
-    "action-colour": 1,
-    "inline-size": 2,
     "radius": 1,
-    "spacing": 6,
-    "text-size": 1
+    "spacing": 5
   },
   "views/GridView.tsx": {
     "inline-size": 2,
@@ -820,19 +804,11 @@
     "spacing": 9,
     "text-size": 10
   },
-  "views/dashboard/ChecklistDueRow.tsx": {
-    "action-colour": 1,
-    "native-title": 1,
-    "radius": 1,
-    "spacing": 2
-  },
   "views/dashboard/DeadlineRow.tsx": {
     "radius": 2
   },
   "views/dashboard/FollowUpDashRow.tsx": {
-    "native-title": 1,
-    "radius": 2,
-    "spacing": 2
+    "radius": 1
   },
   "views/dashboard/GettingStartedCard.tsx": {
     "inline-size": 1,
@@ -873,12 +849,6 @@
   "views/dashboard/SummaryCard.tsx": {
     "inline-size": 1
   },
-  "views/dashboard/TaskRow.tsx": {
-    "action-colour": 1,
-    "native-title": 1,
-    "radius": 1,
-    "spacing": 2
-  },
   "views/dashboard/WeekViewTab.tsx": {
     "radius": 3,
     "spacing": 4
@@ -909,17 +879,13 @@
     "text-size": 1
   },
   "views/focus-mode/ChecklistFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 1,
     "radius": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "views/focus-mode/ClientFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 4,
-    "native-title": 5,
+    "native-title": 1,
     "radius": 1,
-    "spacing": 6
+    "spacing": 1
   },
   "views/focus-mode/FocusSection.tsx": {
     "inline-size": 1,
@@ -927,16 +893,12 @@
     "spacing": 1
   },
   "views/focus-mode/FollowUpFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 1,
     "native-title": 1,
     "radius": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "views/focus-mode/TaskFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "views/help/highlightText.tsx": {
     "radius": 1
@@ -985,9 +947,6 @@
   },
   "views/template-manager/Badge.tsx": {
     "radius": 1
-  },
-  "views/template-manager/ChecklistTemplateRow.tsx": {
-    "native-title": 3
   },
   "views/template-manager/SetupTemplateCard.tsx": {
     "native-title": 2,

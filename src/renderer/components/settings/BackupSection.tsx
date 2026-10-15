@@ -19,6 +19,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
 import { friendlyError } from '../../utils/friendlyError'
 import { saveBackupArchive } from '../../utils/saveBackupArchive'
+import { SecondaryButton } from '../ui/Button'
 
 interface BackupPreviewData {
   gridCount: number
@@ -269,7 +270,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
     <>
       <div className="flex items-center gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Backup</h2>
-        <button type="button" className="btn-compact-soft" onClick={() => setShowMove(true)}>Move to a new computer…</button>
+        <SecondaryButton size="compact" onClick={() => setShowMove(true)}>Move to a new computer…</SecondaryButton>
       </div>
       <MoveComputerWizard open={showMove} onClose={() => setShowMove(false)} onGoToSecurity={onGoToSection ? () => onGoToSection('security') : undefined} />
 
