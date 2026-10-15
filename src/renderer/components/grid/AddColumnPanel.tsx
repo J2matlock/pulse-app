@@ -7,7 +7,8 @@ import { AUTO_NUMBER_PREFIX_MAX, DEFAULT_AUTO_NUMBER, formatAutoNumber, parseAut
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
 import { useVocab } from '../../hooks/useVocab'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { FEATURE_SUGGESTIONS } from '../../../shared/featureSuggestions'
 import { DeadlineQuestion } from './DeadlineQuestion'
@@ -138,9 +139,7 @@ export function sameNamedColumn(name: string, allColumns: Column[]): Column | un
  */
 export function AddColumnForm({ draft, allColumns, rowCount, gridCount, linksOn, filesOn, onLinkColumn, onCancel }: AddColumnFormProps): React.ReactElement {
   const { t, f } = useVocab()
-  const titleId = useId()
-  const dialogRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(dialogRef, true, { onEscape: onCancel })
+  const formId = useId()
   // The name field takes focus at once, before the trap's own first-field focus
   const nameRef = draft.colNameInputRef
   useLayoutEffect(() => { nameRef.current?.focus() }, [nameRef])
@@ -156,155 +155,141 @@ export function AddColumnForm({ draft, allColumns, rowCount, gridCount, linksOn,
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div className="fixed inset-0 bg-black/50" onClick={onCancel} />
-      <div ref={dialogRef} className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6">
-        <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Add a column</h2>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label htmlFor="new-col-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Column name
-            </label>
-            <input
-              id="new-col-name"
-              ref={draft.colNameInputRef}
-              type="text"
-              className="input"
-              style={{ minHeight: 36 }}
-              value={draft.newColName}
-              onChange={e => { draft.setNewColName(e.target.value); setDuplicateOf(null) }}
-              placeholder="e.g. Last contact date"
-              aria-describedby={duplicateOf ? `${titleId}-dup` : undefined}
-              aria-invalid={duplicateOf ? true : undefined}
-            />
-            {duplicateOf && (
-              <div id={`${titleId}-dup`} role="alert" className="mt-2 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
-                <p className="text-base text-amber-900 dark:text-amber-200">
-                  There's already a column called “{duplicateOf.name}”{duplicateOf.is_visible === 0 ? ' (hidden)' : ''}. Two with the same name are hard to tell apart in filters and reports.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn-primary" style={{ minHeight: 44, fontSize: 15 }}
-                    onClick={() => { setDuplicateOf(null); void draft.addWithName(suggestion) }}>
-                    Add as “{suggestion}”
-                  </button>
-                  <button type="button" className="btn-secondary" style={{ minHeight: 44, fontSize: 15 }}
-                    onClick={() => { setDuplicateOf(null); nameRef.current?.focus() }}>
-                    Change the name
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <div>
-            <label htmlFor="new-col-type" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Type
-            </label>
-            <select
-              id="new-col-type"
-              className="input"
-              style={{ minHeight: 36 }}
-              value={draft.newColType}
-              onChange={e => {
-                // A link column is set up in its own dialog (W04 §7.1)
-                if (e.target.value === 'link') { onLinkColumn(); return }
-                draft.setNewColType(e.target.value as ColumnType); draft.setDropdownOptions('')
-                draft.setDeadlineChoice(e.target.value === 'deadline' ? { mode: 'every', n: 12, unit: 'months' } : { mode: 'none' })
-              }}
-            >
-              {COLUMN_TYPES.map(({ type, label }) => (
-                <option key={type} value={type}>{label}</option>
-              ))}
-              {linksOn && <option value="link">Link to another {t('list')}…</option>}
-              {filesOn && <option value="file_count">Files (how many)</option>}
-            </select>
-            {COLUMN_TYPES.find(c => c.type === draft.newColType) && (
-              <p className="mt-1 text-base text-slate-500 dark:text-slate-400">{COLUMN_TYPES.find(c => c.type === draft.newColType)!.description}</p>
-            )}
-          </div>
-          {!linksOn && gridCount > 1 && (
-            <FeatureOffer feature="links" message={f(FEATURE_SUGGESTIONS.links.message)} />
-          )}
-
-          {(draft.newColType === 'date' || draft.newColType === 'deadline') && (
-            <DeadlineQuestion type={draft.newColType} value={draft.deadlineChoice} onChange={draft.setDeadlineChoice} />
-          )}
-
-          {(draft.newColType === 'age_from_dob' || draft.newColType === 'calculated_days') && (
-            <div>
-              <label htmlFor="new-col-source" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Worked out from</label>
-              <select id="new-col-source" className="input" style={{ minHeight: 36 }} value={draft.sourceColumnId ?? ''} onChange={e => draft.setSourceColumnId(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">Choose a date column…</option>
-                {allColumns.filter(c => c.column_type === 'date').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              {!allColumns.some(c => c.column_type === 'date') && <p className="mt-1 text-base text-slate-500 dark:text-slate-400">Add a date column first.</p>}
-            </div>
-          )}
-
-          {(draft.newColType === 'dropdown' || draft.newColType === 'status') && (
-            <div>
-              <label htmlFor="new-col-options" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                {draft.newColType === 'status' ? 'Statuses' : 'Choices'} <span className="font-normal text-slate-500 dark:text-slate-400">(one per line)</span>
-              </label>
-              <textarea
-                id="new-col-options"
-                className="input resize-none"
-                rows={4}
-                value={draft.dropdownOptions}
-                onChange={e => draft.setDropdownOptions(e.target.value)}
-                placeholder={draft.newColType === 'status' ? 'Active\nPending\nClosed' : 'Option A\nOption B\nOption C'}
-                style={{ minHeight: 'unset', height: 'auto', padding: '8px 12px' }}
-              />
-              {draft.newColType === 'status' && (
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Colors are assigned automatically.</p>
-              )}
-            </div>
-          )}
-
-          {draft.newColType === 'auto_number' && (
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label htmlFor="new-col-prefix" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Starts with <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span>
-                  </label>
-                  <input id="new-col-prefix" className="input" style={{ minHeight: 36 }} maxLength={AUTO_NUMBER_PREFIX_MAX}
-                    placeholder="e.g. J-" value={draft.autoPrefix} onChange={e => draft.setAutoPrefix(e.target.value)} />
-                </div>
-                <div className="w-28">
-                  <label htmlFor="new-col-pad" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Digits</label>
-                  <select id="new-col-pad" className="input" style={{ minHeight: 36 }} value={draft.autoPad} onChange={e => draft.setAutoPad(Number(e.target.value))}>
-                    {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Each new {t('record')} gets the next number: {formatAutoNumber({ prefix: draft.autoPrefix, pad: draft.autoPad }, 1)}, {formatAutoNumber({ prefix: draft.autoPrefix, pad: draft.autoPad }, 2)}…
+    <Dialog open onClose={onCancel} title="Add a column" size="md"
+      footer={<>
+        <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+        <PrimaryButton type="submit" form={formId}>Add</PrimaryButton>
+      </>}>
+      <form id={formId} onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label htmlFor="new-col-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Column name
+          </label>
+          <input
+            id="new-col-name"
+            ref={draft.colNameInputRef}
+            type="text"
+            className="input"
+            style={{ minHeight: 36 }}
+            value={draft.newColName}
+            onChange={e => { draft.setNewColName(e.target.value); setDuplicateOf(null) }}
+            placeholder="e.g. Last contact date"
+            aria-describedby={duplicateOf ? `${formId}-dup` : undefined}
+            aria-invalid={duplicateOf ? true : undefined}
+          />
+          {duplicateOf && (
+            <div id={`${formId}-dup`} role="alert" className="mt-2 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+              <p className="text-base text-amber-900 dark:text-amber-200">
+                There's already a column called “{duplicateOf.name}”{duplicateOf.is_visible === 0 ? ' (hidden)' : ''}. Two with the same name are hard to tell apart in filters and reports.
               </p>
-              {rowCount > 0 && (
-                <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
-                  <input type="checkbox" className="w-5 h-5" checked={draft.numberExisting} onChange={e => draft.setNumberExisting(e.target.checked)} />
-                  Number the {t('record', { many: true })} already in this {t('list')}
-                </label>
-              )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-primary" style={{ minHeight: 44, fontSize: 15 }}
+                  onClick={() => { setDuplicateOf(null); void draft.addWithName(suggestion) }}>
+                  Add as “{suggestion}”
+                </button>
+                <button type="button" className="btn-secondary" style={{ minHeight: 44, fontSize: 15 }}
+                  onClick={() => { setDuplicateOf(null); nameRef.current?.focus() }}>
+                  Change the name
+                </button>
+              </div>
             </div>
           )}
+        </div>
+        <div>
+          <label htmlFor="new-col-type" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Type
+          </label>
+          <select
+            id="new-col-type"
+            className="input"
+            style={{ minHeight: 36 }}
+            value={draft.newColType}
+            onChange={e => {
+              // A link column is set up in its own dialog (W04 §7.1)
+              if (e.target.value === 'link') { onLinkColumn(); return }
+              draft.setNewColType(e.target.value as ColumnType); draft.setDropdownOptions('')
+              draft.setDeadlineChoice(e.target.value === 'deadline' ? { mode: 'every', n: 12, unit: 'months' } : { mode: 'none' })
+            }}
+          >
+            {COLUMN_TYPES.map(({ type, label }) => (
+              <option key={type} value={type}>{label}</option>
+            ))}
+            {linksOn && <option value="link">Link to another {t('list')}…</option>}
+            {filesOn && <option value="file_count">Files (how many)</option>}
+          </select>
+          {COLUMN_TYPES.find(c => c.type === draft.newColType) && (
+            <p className="mt-1 text-base text-slate-500 dark:text-slate-400">{COLUMN_TYPES.find(c => c.type === draft.newColType)!.description}</p>
+          )}
+        </div>
+        {!linksOn && gridCount > 1 && (
+          <FeatureOffer feature="links" message={f(FEATURE_SUGGESTIONS.links.message)} />
+        )}
 
-          <div className="flex gap-2 pt-1">
-            <button type="submit" className="btn-primary flex-1" style={{ minHeight: 44, fontSize: 15 }}>
-              Add
-            </button>
-            <button
-              type="button"
-              className="btn-secondary flex-1"
-              style={{ minHeight: 44, fontSize: 15 }}
-              onClick={onCancel}
-            >
-              Cancel
-            </button>
+        {(draft.newColType === 'date' || draft.newColType === 'deadline') && (
+          <DeadlineQuestion type={draft.newColType} value={draft.deadlineChoice} onChange={draft.setDeadlineChoice} />
+        )}
+
+        {(draft.newColType === 'age_from_dob' || draft.newColType === 'calculated_days') && (
+          <div>
+            <label htmlFor="new-col-source" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Worked out from</label>
+            <select id="new-col-source" className="input" style={{ minHeight: 36 }} value={draft.sourceColumnId ?? ''} onChange={e => draft.setSourceColumnId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">Choose a date column…</option>
+              {allColumns.filter(c => c.column_type === 'date').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {!allColumns.some(c => c.column_type === 'date') && <p className="mt-1 text-base text-slate-500 dark:text-slate-400">Add a date column first.</p>}
           </div>
-        </form>
-      </div>
-    </div>,
+        )}
+
+        {(draft.newColType === 'dropdown' || draft.newColType === 'status') && (
+          <div>
+            <label htmlFor="new-col-options" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+              {draft.newColType === 'status' ? 'Statuses' : 'Choices'} <span className="font-normal text-slate-500 dark:text-slate-400">(one per line)</span>
+            </label>
+            <textarea
+              id="new-col-options"
+              className="input resize-none"
+              rows={4}
+              value={draft.dropdownOptions}
+              onChange={e => draft.setDropdownOptions(e.target.value)}
+              placeholder={draft.newColType === 'status' ? 'Active\nPending\nClosed' : 'Option A\nOption B\nOption C'}
+              style={{ minHeight: 'unset', height: 'auto', padding: '8px 12px' }}
+            />
+            {draft.newColType === 'status' && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Colors are assigned automatically.</p>
+            )}
+          </div>
+        )}
+
+        {draft.newColType === 'auto_number' && (
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label htmlFor="new-col-prefix" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Starts with <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span>
+                </label>
+                <input id="new-col-prefix" className="input" style={{ minHeight: 36 }} maxLength={AUTO_NUMBER_PREFIX_MAX}
+                  placeholder="e.g. J-" value={draft.autoPrefix} onChange={e => draft.setAutoPrefix(e.target.value)} />
+              </div>
+              <div className="w-28">
+                <label htmlFor="new-col-pad" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Digits</label>
+                <select id="new-col-pad" className="input" style={{ minHeight: 36 }} value={draft.autoPad} onChange={e => draft.setAutoPad(Number(e.target.value))}>
+                  {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Each new {t('record')} gets the next number: {formatAutoNumber({ prefix: draft.autoPrefix, pad: draft.autoPad }, 1)}, {formatAutoNumber({ prefix: draft.autoPrefix, pad: draft.autoPad }, 2)}…
+            </p>
+            {rowCount > 0 && (
+              <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
+                <input type="checkbox" className="w-5 h-5" checked={draft.numberExisting} onChange={e => draft.setNumberExisting(e.target.checked)} />
+                Number the {t('record', { many: true })} already in this {t('list')}
+              </label>
+            )}
+          </div>
+        )}
+      </form>
+    </Dialog>,
     document.body
   )
 }

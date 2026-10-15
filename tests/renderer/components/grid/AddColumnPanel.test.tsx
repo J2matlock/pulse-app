@@ -51,7 +51,7 @@ describe('AddColumnForm', () => {
     const onCancel = vi.fn()
     render(<Harness onCancel={onCancel} />)
     const dialog = screen.getByRole('dialog', { name: 'Add a column' })
-    expect(dialog.className).toContain('fixed inset-0')
+    expect(dialog.parentElement!.className).toContain('fixed inset-0')
     expect(document.activeElement).toBe(screen.getByLabelText('Column name'))
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
     expect(onCancel).toHaveBeenCalled()

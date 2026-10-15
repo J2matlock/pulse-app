@@ -3,13 +3,14 @@
  * document for each record, two postcards per sheet, or Avery labels.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { FileStack, X } from 'lucide-react'
+import { FileStack } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import { localDateString } from '../../../shared/dates'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
@@ -39,8 +40,6 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   preferTemplate?: string
   onClose: () => void
 }): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const [gridId, setGridId] = useState(initialGridId)
   const grids = useGridStore(s => s.grids)
   const { t } = useVocab(gridId)
@@ -103,12 +102,6 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
     })
   }, [])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   const target = {
     gridId,
     ...(who === 'selected' && selectedHere ? { rowIds } : {}),
@@ -154,21 +147,14 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="batch-docs-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[calc(100vh-2rem)] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
-        {/* The buttons stay in view however tall the form gets (UX D-11) */}
-        <div className="overflow-y-auto p-6 space-y-4 min-h-0">
-        <div className="flex items-center justify-between">
-          <h2 id="batch-docs-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <FileStack className="w-5 h-5" aria-hidden="true" />{title}{listName ? `: ${listName}` : ''}
-          </h2>
-          <button type="button" aria-label="Close" onClick={onClose}
-            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
+    // The buttons stay in view however tall the form gets (UX D-11)
+    <Dialog open onClose={onClose} size="lg" title={<>{title}{listName ? `: ${listName}` : ''}</>}
+      icon={<FileStack className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      footer={<>
+        <SecondaryButton onClick={onClose}>{unknown.length ? 'Close' : 'Cancel'}</SecondaryButton>
+        <PrimaryButton disabled={busy || !ready} onClick={() => void make()}>Make PDF</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         <div role="group" aria-label="Make" className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden w-fit">
           {(['documents', 'labels'] as const).map(m => (
             <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}
@@ -271,13 +257,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
           </p>
         )}
         <UnknownPlaceholders unknown={unknown.length ? unknown : mode === 'documents' ? preview?.unknown ?? [] : []} />
-        </div>
-
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <button type="button" className="btn-secondary" onClick={onClose}>{unknown.length ? 'Close' : 'Cancel'}</button>
-          <button type="button" className="btn-primary" disabled={busy || !ready} onClick={() => void make()}>Make PDF</button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

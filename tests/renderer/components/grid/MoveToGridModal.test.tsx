@@ -14,6 +14,7 @@ if (!globalThis.crypto?.randomUUID) {
 }
 
 vi.mock('motion/react', () => ({
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: {
     div: React.forwardRef((props: Record<string, unknown>, ref: React.Ref<HTMLDivElement>) => {
       const { variants, initial, animate, exit, ...rest } = props

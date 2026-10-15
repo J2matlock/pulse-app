@@ -4,12 +4,13 @@
  * Column rules stored in columns.conditional_format JSON.
  * Priority: Alert rules > Cell formats > Column formats > Row highlights
  */
-import React, { useId, useRef, useState } from 'react'
-import { X, Plus } from 'lucide-react'
+import React, { useState } from 'react'
+import { Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import type { CellFormatRule, GridRow } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { defaultOpForType, rowLabel } from './cellFormatRules'
@@ -42,10 +43,6 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
     updateColumn: s.updateColumn,
   })))
 
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  const titleId = useId()
-  useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const isColumnMode = mode === 'column'
   const thisColumn  = columns.find(c => c.id === columnId)
@@ -149,87 +146,69 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
   ) : ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
-
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <div>
-            <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              {isColumnMode ? `Color rules for "${thisColumn?.name ?? 'this column'}"` : 'Color rules for this cell'}
-            </h2>
-            {!isColumnMode && (
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {`${thisRowLabel} · ${thisColumn?.name ?? 'column'}`}
-              </p>
+    <Dialog open onClose={onClose} closeOnBackdrop={false} size="xl"
+      title={isColumnMode ? `Color rules for "${thisColumn?.name ?? 'this column'}"` : 'Color rules for this cell'}
+      description={!isColumnMode ? `${thisRowLabel} · ${thisColumn?.name ?? 'column'}` : undefined}
+      footer={<>
+        {/* Scope selector — cell mode only */}
+        {!isColumnMode && (
+          <select
+            aria-label="Which cells it's for"
+            className="input py-1 text-base mr-auto"
+            style={{ minHeight: 36, maxWidth: 220 }}
+            value={applyScope}
+            onChange={e => setApplyScope(e.target.value as ApplyScope)}
+          >
+            <option value="cell">This cell only</option>
+            <option value="all_rows">{`Every ${t('record')} in this column`}</option>
+            {selectedRowIds && selectedRowIds.size > 0 && (
+              <option value="selected">{`Selected ${t('record', { many: true })} (${selectedRowIds.size})`}</option>
             )}
-          </div>
-          <button onClick={onClose} title="Close" aria-label="Close" className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
+          </select>
+        )}
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving…' : 'Save'}
+        </PrimaryButton>
+    </>}>
+      <div className="space-y-4">
+        <p className="text-base text-slate-600 dark:text-slate-300">
+          Color a cell by what's in it, for example a date that has passed in red.
+        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {isColumnMode
+            ? `Rules apply to every ${t('record')} in this column. The first one that matches is used.`
+            : `Rules stay with this ${t('record')}'s cell, even when the ${t('list')} is sorted. The first one that matches is used.`}
+        </p>
+
+        {rules.length === 0 && (
+          <div className="py-6 text-center text-slate-500 dark:text-slate-400 text-base">No color rules yet. Add one below.</div>
+        )}
+
+        {rules.map((rule, i) => (
+          <CellFormatRuleCard
+            key={i}
+            rule={rule}
+            index={i}
+            ruleCount={rules.length}
+            columns={columns}
+            thisColumn={thisColumn}
+            otherColumns={otherColumns}
+            rows={rows}
+            rowId={rowId}
+            nameColId={nameColId}
+            isColumnMode={isColumnMode}
+            onChange={patch => updateRule(i, patch)}
+            onMove={to => moveRule(i, to)}
+            onRemove={() => removeRule(i)}
+          />
+        ))}
+
+        <button onClick={addRule}
+          className="hit-44 flex items-center gap-2 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
+          <Plus className="w-4 h-4" />Add a color rule
+        </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          <p className="text-base text-slate-600 dark:text-slate-300">
-            Color a cell by what's in it, for example a date that has passed in red.
-          </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {isColumnMode
-              ? `Rules apply to every ${t('record')} in this column. The first one that matches is used.`
-              : `Rules stay with this ${t('record')}'s cell, even when the ${t('list')} is sorted. The first one that matches is used.`}
-          </p>
-
-          {rules.length === 0 && (
-            <div className="py-6 text-center text-slate-500 dark:text-slate-400 text-base">No color rules yet. Add one below.</div>
-          )}
-
-          {rules.map((rule, i) => (
-            <CellFormatRuleCard
-              key={i}
-              rule={rule}
-              index={i}
-              ruleCount={rules.length}
-              columns={columns}
-              thisColumn={thisColumn}
-              otherColumns={otherColumns}
-              rows={rows}
-              rowId={rowId}
-              nameColId={nameColId}
-              isColumnMode={isColumnMode}
-              onChange={patch => updateRule(i, patch)}
-              onMove={to => moveRule(i, to)}
-              onRemove={() => removeRule(i)}
-            />
-          ))}
-
-          <button onClick={addRule}
-            className="hit-44 flex items-center gap-2 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
-            <Plus className="w-4 h-4" />Add a color rule
-          </button>
-        </div>
-
-        <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          {/* Scope selector — cell mode only */}
-          {!isColumnMode && (
-            <select
-              aria-label="Which cells it's for"
-              className="input py-1 text-base mr-auto"
-              style={{ minHeight: 36, maxWidth: 220 }}
-              value={applyScope}
-              onChange={e => setApplyScope(e.target.value as ApplyScope)}
-            >
-              <option value="cell">This cell only</option>
-              <option value="all_rows">{`Every ${t('record')} in this column`}</option>
-              {selectedRowIds && selectedRowIds.size > 0 && (
-                <option value="selected">{`Selected ${t('record', { many: true })} (${selectedRowIds.size})`}</option>
-              )}
-            </select>
-          )}
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={handleSave} disabled={isSaving} className="btn-primary">
-            {isSaving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

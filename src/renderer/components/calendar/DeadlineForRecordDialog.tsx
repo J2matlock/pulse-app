@@ -5,15 +5,16 @@
  * (history, undo, change notes and alerts as for any edit). Rules that can't
  * be worked backwards are listed but can't be chosen, with the reason.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { CalendarCheck, X } from 'lucide-react'
+import { CalendarCheck } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { DeadlineDayOption } from '../../../shared/calendar'
 import { formatDue } from '../../../shared/deadlineEngine'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { RecordSearchField, type PickedRecord } from './RecordSearchField'
@@ -33,8 +34,6 @@ export interface DeadlineForRecordDialogProps {
 
 export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForRecordDialogProps): React.ReactElement {
   const { t } = useVocab(null)
-  const ref = useRef<HTMLDivElement>(null)
-  useFocusTrap(ref, true, { onEscape: onClose })
   const [record, setRecord] = useState<PickedRecord | null>(null)
   const [due, setDue] = useState(date)
   const [options, setOptions] = useState<DeadlineDayOption[] | null>(null)
@@ -75,19 +74,13 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="deadline-for-record-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 id="deadline-for-record-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <CalendarCheck className="w-5 h-5" aria-hidden="true" />Deadline for {t('record', { article: true })}
-          </h2>
-          <button type="button" aria-label="Close" onClick={onClose}
-            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
+    <Dialog open onClose={onClose} size="lg" title={<>Deadline for {t('record', { article: true })}</>}
+      icon={<CalendarCheck className="w-5 h-5 mt-3 text-slate-700 dark:text-slate-200" aria-hidden="true" />}
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={saving || !chosen} onClick={() => void save()}>Set deadline</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         <div>
           <span className={label}>{t('record', { cap: true })}</span>
           <RecordSearchField value={record} onChange={r => { setRecord(r); setColumnId(null) }} autoFocus />
@@ -132,7 +125,7 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
                     <div className="flex flex-wrap items-center gap-2 pl-8 pb-1">
                       <span className="text-sm text-slate-600 dark:text-slate-300">It can be due:</span>
                       {o.nearest.map(d => (
-                        <button key={d} type="button" className="btn-compact-secondary" onClick={() => { setDue(d); setColumnId(o.columnId) }}>{formatDue(d)}</button>
+                        <SecondaryButton key={d} size="compact" onClick={() => { setDue(d); setColumnId(o.columnId) }}>{formatDue(d)}</SecondaryButton>
                       ))}
                     </div>
                   )}
@@ -143,12 +136,7 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
         )}
 
         {error && <p role="alert" className="text-base text-red-700 dark:text-red-400">{error}</p>}
-
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={saving || !chosen} onClick={() => void save()}>Set deadline</button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

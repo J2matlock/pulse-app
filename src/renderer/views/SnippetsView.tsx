@@ -1,17 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Zap } from 'lucide-react'
+import { Plus, Pencil, Trash2, Zap } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import { expandVariables } from '../utils/snippetExpander'
 import { useSettingsStore } from '../stores/settingsStore'
 import type { Snippet } from '../../shared/types'
 import { safeInvoke } from '../utils/safeInvoke'
-import { useFocusTrap } from '../hooks/useFocusTrap'
+import { Dialog } from '../components/ui/Dialog'
 import { EmptyState } from '../components/shared/EmptyState'
 import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
-import { PrimaryButton } from '../components/ui/Button'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
 import { PurposeLine } from '../components/shared/PurposeLine'
 import { deleteWithUndo, onLibraryChanged } from '../utils/libraryUndo'
 
@@ -49,9 +49,6 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
   const [saving, setSaving] = useState(false)
   const expansionRef = useRef<HTMLTextAreaElement>(null)
   const triggerRef = useRef<HTMLInputElement>(null)
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  useFocusTrap(trapRef, true, { onEscape: onClose })
   useEffect(() => { triggerRef.current?.focus() }, [])
 
   function insertVariable(v: string) {
@@ -90,123 +87,102 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
   const preview = expandVariables(expansion, 'Maria Rodriguez', snippetFormats)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-         onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="snippet-dialog-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <Zap className="w-5 h-5 text-blue-500" />
-          <h2 id="snippet-dialog-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
-            {initial ? 'Edit snippet' : 'New snippet'}
-          </h2>
-          <button onClick={onClose} aria-label="Close"
-                  className="hit-44 p-1 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-          {/* Trigger */}
-          <div>
-            <label htmlFor="snippet-trigger" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Trigger <span className="text-red-600 dark:text-red-400">*</span>
-            </label>
-            <div className="flex items-center gap-0">
-              <span className="px-3 py-2 rounded-l-lg border border-r-0 border-slate-300 dark:border-slate-600
-                               bg-slate-100 dark:bg-slate-700 text-slate-500 font-mono text-base select-none">
-                /
-              </span>
-              <input
-                id="snippet-trigger"
-                ref={triggerRef}
-                value={trigger}
-                onChange={e => { setTrigger(e.target.value.replace(/\s/g, '')); setTriggerError('') }}
-                onKeyDown={e => { if (e.key === 'Enter') expansionRef.current?.focus() }}
-                className={`flex-1 rounded-r-lg border px-3 py-2 font-mono text-base
-                            bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
-                            focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                            ${triggerError ? 'border-red-400' : 'border-slate-300 dark:border-slate-600'}`}
-                placeholder="lm"
-                style={{ fontSize: 15 }}
-                aria-required="true"
-                {...fieldErrorProps('snippet-trigger', triggerError, 'snippet-trigger-hint')}
-              />
-            </div>
-            <FieldError fieldId="snippet-trigger" error={triggerError} className="text-sm text-red-600 dark:text-red-400 mt-1" />
-            <p id="snippet-trigger-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Type /{trigger || 'lm'} in any {t('activity')} or in scratch notes to expand.
-            </p>
-          </div>
-
-          {/* Expansion */}
-          <div>
-            <label htmlFor="snippet-expansion" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Expansion <span className="text-red-600 dark:text-red-400">*</span>
-            </label>
-            <textarea
-              id="snippet-expansion"
-              ref={expansionRef}
-              aria-required="true"
-              value={expansion}
-              onChange={e => setExpansion(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleSave() } }}
-              rows={4}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600
-                         bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
-                         px-3 py-2 resize-y focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-              placeholder="Left message on voicemail on {today}."
+    <Dialog open onClose={onClose} size="lg" title={initial ? 'Edit snippet' : 'New snippet'}
+      icon={<Zap className="w-5 h-5 mt-3 text-blue-500" aria-hidden="true" />}
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={() => void handleSave()} disabled={!trigger.trim() || !expansion.trim()}>
+          {initial ? 'Save changes' : 'Add snippet'}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-4">
+        {/* Trigger */}
+        <div>
+          <label htmlFor="snippet-trigger" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Trigger <span className="text-red-600 dark:text-red-400">*</span>
+          </label>
+          <div className="flex items-center gap-0">
+            <span className="px-3 py-2 rounded-l-lg border border-r-0 border-slate-300 dark:border-slate-600
+                             bg-slate-100 dark:bg-slate-700 text-slate-500 font-mono text-base select-none">
+              /
+            </span>
+            <input
+              id="snippet-trigger"
+              ref={triggerRef}
+              value={trigger}
+              onChange={e => { setTrigger(e.target.value.replace(/\s/g, '')); setTriggerError('') }}
+              onKeyDown={e => { if (e.key === 'Enter') expansionRef.current?.focus() }}
+              className={`flex-1 rounded-r-lg border px-3 py-2 font-mono text-base
+                          bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                          focus:outline-hidden focus:ring-3 focus:ring-blue-500
+                          ${triggerError ? 'border-red-400' : 'border-slate-300 dark:border-slate-600'}`}
+              placeholder="lm"
               style={{ fontSize: 15 }}
+              aria-required="true"
+              {...fieldErrorProps('snippet-trigger', triggerError, 'snippet-trigger-hint')}
             />
           </div>
+          <FieldError fieldId="snippet-trigger" error={triggerError} className="text-sm text-red-600 dark:text-red-400 mt-1" />
+          <p id="snippet-trigger-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Type /{trigger || 'lm'} in any {t('activity')} or in scratch notes to expand.
+          </p>
+        </div>
 
-          {/* Variable helper */}
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1.5">
-              Variables — click to insert at cursor:
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {VARIABLES.map(v => (
-                <button
-                  key={v.label}
-                  type="button"
-                  onClick={() => insertVariable(v.label)}
-                  title={f(v.desc)}
-                  className="hit-44 px-2 py-1 rounded-sm border border-blue-200 dark:border-blue-800
-                             bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300
-                             font-mono text-base hover:bg-blue-100 dark:hover:bg-blue-900/40
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
+        {/* Expansion */}
+        <div>
+          <label htmlFor="snippet-expansion" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Expansion <span className="text-red-600 dark:text-red-400">*</span>
+          </label>
+          <textarea
+            id="snippet-expansion"
+            ref={expansionRef}
+            aria-required="true"
+            value={expansion}
+            onChange={e => setExpansion(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleSave() } }}
+            rows={4}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600
+                       bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                       px-3 py-2 resize-y focus:outline-hidden focus:ring-3 focus:ring-blue-500"
+            placeholder="Left message on voicemail on {today}."
+            style={{ fontSize: 15 }}
+          />
+        </div>
+
+        {/* Variable helper */}
+        <div>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+            Variables — click to insert at cursor:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {VARIABLES.map(v => (
+              <button
+                key={v.label}
+                type="button"
+                onClick={() => insertVariable(v.label)}
+                title={f(v.desc)}
+                className="hit-44 px-2 py-1 rounded-sm border border-blue-200 dark:border-blue-800
+                           bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300
+                           font-mono text-base hover:bg-blue-100 dark:hover:bg-blue-900/40
+                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+              >
+                {v.label}
+              </button>
+            ))}
           </div>
-
-
-          {/* Live preview */}
-          {expansion.trim() && (
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-900">
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Preview:</p>
-              <p className="text-base text-slate-800 dark:text-slate-200 whitespace-pre-wrap" style={{ fontSize: 15 }}>
-                {preview}
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button
-            onClick={() => void handleSave()}
-            disabled={!trigger.trim() || !expansion.trim()}
-            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {initial ? 'Save changes' : 'Add snippet'}
-          </button>
-        </div>
+        {/* Live preview */}
+        {expansion.trim() && (
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Preview:</p>
+            <p className="text-base text-slate-800 dark:text-slate-200 whitespace-pre-wrap" style={{ fontSize: 15 }}>
+              {preview}
+            </p>
+          </div>
+        )}
       </div>
-    </div>
+    </Dialog>
   )
 }
 

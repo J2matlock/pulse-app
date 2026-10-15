@@ -4,10 +4,9 @@
  * values labelled, so many points don't pile up).
  * Inline SVG (no chart library), with a table for screen readers.
  */
-import React, { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import React from 'react'
 import { parseDbTimestamp } from '../../../shared/dates'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
 
 export interface SeriesPoint { at: string; value: number }
 
@@ -51,29 +50,14 @@ export function Sparkline({ points, label, onOpen }: { points: SeriesPoint[]; la
 }
 
 export function NumberHistoryDialog({ label, points, currency, onClose }: { label: string; points: SeriesPoint[]; currency: boolean; onClose: () => void }): React.ReactElement {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
   const W = 560, H = 240, L = 56, B = 28, T = 24, R = 16
   const xy = scalePoints(points, W - L - R, H - T - B, 0).map(p => ({ x: p.x + L, y: p.y + T }))
   const vals = points.map(p => p.value)
   const min = Math.min(...vals), max = Math.max(...vals)
   const labelled = labelledIndices(points)
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="number-history-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 id="number-history-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">{label} over time</h2>
-          <button type="button" aria-label="Close" onClick={onClose}
-            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
+    <Dialog open onClose={onClose} size="xl" title={<>{label} over time</>}>
+      <div className="space-y-3">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto text-slate-700 dark:text-slate-300" aria-hidden="true">
           <g className="text-slate-300 dark:text-slate-600" stroke="currentColor" strokeWidth="1">
             <line x1={L} y1={T} x2={L} y2={H - B} />
@@ -102,6 +86,6 @@ export function NumberHistoryDialog({ label, points, currency, onClose }: { labe
           {points.length} values from {short(points[0]!.at)} to {short(points[points.length - 1]!.at)}.
         </p>
       </div>
-    </div>
+    </Dialog>
   )
 }

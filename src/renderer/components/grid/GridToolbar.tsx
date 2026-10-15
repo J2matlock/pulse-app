@@ -140,7 +140,6 @@ export function GridToolbar(): React.ReactElement {
   const viewMenu = useToolbarPopup(showViewMenu, useCallback(() => setShowViewMenu(false), []))
   const reportsMenu = useToolbarPopup(showReportsMenu, useCallback(() => setShowReportsMenu(false), []))
   const moreMenu = useToolbarPopup(showMoreMenu, useCallback(() => setShowMoreMenu(false), []))
-  const addColumnPanel = useToolbarPopup(showAddColumn, useCallback(() => setShowAddColumn(false), []), { kind: 'panel', edgeAware: false })
   const manageColumnsMenu = useToolbarPopup(showManageColumns, useCallback(() => setShowManageColumns(false), []))
   const listForms = useFormStore(s => (activeGridId != null ? s.byGrid[activeGridId] : undefined)) ?? EMPTY_FORMS
   useEffect(() => { if (formsOn && activeGridId != null) void useFormStore.getState().load(activeGridId) }, [formsOn, activeGridId])
@@ -479,36 +478,20 @@ export function GridToolbar(): React.ReactElement {
         </AnimatePresence>
         {foldShowReports && showMenuPanel}
         {foldShowReports && reportsMenuPanel}
-        <AnimatePresence>
-          {showAddColumn && (
-            // A centred dialog, not a pop-up hanging off a button: the toolbar button, the More
-            // menu and the "+" after the last header all open it, and nothing shifts (UX-B-03)
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/30" onClick={() => setShowAddColumn(false)} />
-              <motion.div
-                ref={addColumnPanel.ref}
-                onKeyDown={addColumnPanel.onKeyDown}
-                role="dialog"
-                aria-modal="true"
-                aria-label="Add a column"
-                className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-5"
-                variants={dropdownVariants}
-                initial="hidden" animate="visible" exit="exit"
-              >
-                <AddColumnForm
-                  draft={addColumnDraft}
-                  allColumns={allColumns}
-                  rowCount={rowCount}
-                  gridCount={gridCount}
-                  linksOn={linksOn}
-                  filesOn={filesOn}
-                  onLinkColumn={() => { setShowAddColumn(false); setLinkSetup(true) }}
-                  onCancel={() => setShowAddColumn(false)}
-                />
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        {/* A centred dialog (its own, portalled), not a pop-up hanging off a button: the toolbar
+            button, the More menu and the "+" after the last header all open it, and nothing shifts (UX-B-03) */}
+        {showAddColumn && (
+          <AddColumnForm
+            draft={addColumnDraft}
+            allColumns={allColumns}
+            rowCount={rowCount}
+            gridCount={gridCount}
+            linksOn={linksOn}
+            filesOn={filesOn}
+            onLinkColumn={() => { setShowAddColumn(false); setLinkSetup(true) }}
+            onCancel={() => setShowAddColumn(false)}
+          />
+        )}
         <AnimatePresence>
           {showManageColumns && (
             <>

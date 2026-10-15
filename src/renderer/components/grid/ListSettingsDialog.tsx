@@ -3,7 +3,7 @@
  * record's name is shown, and priority levels (plans/generalization/W02-list-kinds.md §5).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Settings2, X } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import type { GridSettingsPatch } from '../../../shared/ipc-contract'
@@ -12,7 +12,8 @@ import { guessArticle, resolveVocab, VOCAB_WORD_MAX, type Vocab } from '../../..
 import { DISPLAY_FORMAT_MAX, renderDisplayFormat } from '../../../shared/displayFormat'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { useGridStore } from '../../stores/gridStore'
@@ -47,8 +48,6 @@ async function applySettings(gridId: number, patch: GridSettingsPatch): Promise<
 
 export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Props): React.ReactElement {
   const { t } = useVocab(gridId)
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const formatRef = useRef<HTMLInputElement>(null)
   const priorityOn = useFeature('priority')
   const requirementsOn = useFeature('requirements')
@@ -87,12 +86,6 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
     // Load once per list; t and onClose only matter for the failure message
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridId])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const workspaceRecord = resolveVocab(workspaceVocab).record
   // The kind most lists here hold: a list that holds something else has had it chosen on purpose
@@ -204,116 +197,104 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
 
   return (
     // Fits a 768px-high screen: the body scrolls, the title and Save stay in view (UX-B-16)
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="list-settings-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <Settings2 className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-          <h2 id="list-settings-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1 min-w-0 truncate">
-            {t('list', { cap: true })} settings{loaded ? `: ${loaded.grid.name}` : ''}
-          </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {!loaded ? (
-          <p className="px-6 py-8 text-base text-slate-600 dark:text-slate-300">Loading…</p>
-        ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-6" data-testid="list-settings-body">
-            <div>
-              <label htmlFor="list-settings-name" className={label}>Name</label>
-              <input id="list-settings-name" className="input w-full" maxLength={200} value={name} onChange={e => setName(e.target.value)} />
-            </div>
-
-            {(priorityOn || (requirementsOn && onOpenRequirements)) && (
-              <div className="space-y-2">
-                {priorityOn && (
-                  <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
-                    <input type="checkbox" className="w-5 h-5" checked={acuity} onChange={e => setAcuity(e.target.checked)} />
-                    Use {t('priority', { many: true })} on this {t('list')}
-                  </label>
-                )}
-                {requirementsOn && onOpenRequirements && (
-                  <button type="button" className="btn-secondary" onClick={onOpenRequirements}>
-                    Monthly {t('requirement', { many: true })}…
-                  </button>
-                )}
-              </div>
-            )}
-
-            <DeletedColumnsSection gridId={gridId} />
-
-            {/* Set once at setup and rarely again; open when this list differs (Q1c) */}
-            <MoreSettings changed={listSettingsChanged} data-testid="list-settings-more">
-                <fieldset>
-                  <legend className={label}>What does this {t('list')} hold?</legend>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {RECORD_KINDS.map(k => (
-                      <label key={k.kind} className="flex items-start gap-2 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
-                        <input type="radio" name="list-settings-kind" className="w-5 h-5 mt-0.5" checked={kind === k.kind} onChange={() => setKind(k.kind)} />
-                        <span>
-                          <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{k.label}</span>
-                          <span className="block text-sm text-slate-600 dark:text-slate-300">{k.example}</span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  {note && <p role="status" className="mt-2 text-base text-amber-800 dark:text-amber-200">{note}</p>}
-                </fieldset>
-
-                <fieldset className="space-y-2">
-                  <legend className={label}>What do you call one of them? And more than one?</legend>
-                  <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
-                    <input type="checkbox" className="w-5 h-5" checked={!ownWords} onChange={e => setOwnWords(!e.target.checked)} />
-                    Use the workspace words ({workspaceRecord.one} / {workspaceRecord.many})
-                  </label>
-                  {ownWords && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label htmlFor="list-settings-one" className="block text-base text-slate-700 dark:text-slate-200 mb-1">One</label>
-                        <input id="list-settings-one" className="input w-full" maxLength={VOCAB_WORD_MAX} value={one} onChange={e => setOne(e.target.value)} />
-                      </div>
-                      <div>
-                        <label htmlFor="list-settings-many" className="block text-base text-slate-700 dark:text-slate-200 mb-1">More than one</label>
-                        <input id="list-settings-many" className="input w-full" maxLength={VOCAB_WORD_MAX} value={many} onChange={e => setMany(e.target.value)} />
-                      </div>
-                    </div>
-                  )}
-                </fieldset>
-
-                <div className="space-y-2">
-                  <label htmlFor="list-settings-format" className={label}>How to show each one's name</label>
-                  {/* What the chips are for, before the chips, so they aren't taken for filters (UX-B-37) */}
-                  <p className={hint}>
-                    Usually {nameColumn ? <>the <strong>{nameColumn.name}</strong> column</> : 'the name column'} is enough. To show more, click the columns to add them.
-                  </p>
-                  <div className="flex flex-wrap gap-2" aria-label="Columns you can add">
-                    {loaded.columns.map(c => (
-                      <button key={c.id} type="button" onClick={() => insertToken(c.name)}
-                        className="hit-44 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                  <input id="list-settings-format" ref={formatRef} className="input w-full font-mono" maxLength={DISPLAY_FORMAT_MAX}
-                    placeholder={formatPlaceholder} value={format} onChange={e => setFormat(e.target.value)} />
-                  <p className="text-base text-slate-700 dark:text-slate-200">
-                    <span className="text-slate-500 dark:text-slate-400">{loaded.firstRow ? 'Example: ' : 'Looks like: '}</span>
-                    <strong>{preview || '—'}</strong>
-                  </p>
-                </div>
-            </MoreSettings>
-
-            {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
+    <Dialog open onClose={onClose} size="xl"
+      icon={<Settings2 className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      title={<>{t('list', { cap: true })} settings{loaded ? `: ${loaded.grid.name}` : ''}</>}
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton disabled={!loaded || saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save'}</PrimaryButton>
+      </>}>
+      {!loaded ? (
+        <p className="py-2 text-base text-slate-600 dark:text-slate-300">Loading…</p>
+      ) : (
+        <div className="space-y-6" data-testid="list-settings-body">
+          <div>
+            <label htmlFor="list-settings-name" className={label}>Name</label>
+            <input id="list-settings-name" className="input w-full" maxLength={200} value={name} onChange={e => setName(e.target.value)} />
           </div>
-        )}
 
-        <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={!loaded || saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save'}</button>
+          {(priorityOn || (requirementsOn && onOpenRequirements)) && (
+            <div className="space-y-2">
+              {priorityOn && (
+                <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                  <input type="checkbox" className="w-5 h-5" checked={acuity} onChange={e => setAcuity(e.target.checked)} />
+                  Use {t('priority', { many: true })} on this {t('list')}
+                </label>
+              )}
+              {requirementsOn && onOpenRequirements && (
+                <SecondaryButton onClick={onOpenRequirements}>
+                  Monthly {t('requirement', { many: true })}…
+                </SecondaryButton>
+              )}
+            </div>
+          )}
+
+          <DeletedColumnsSection gridId={gridId} />
+
+          {/* Set once at setup and rarely again; open when this list differs (Q1c) */}
+          <MoreSettings changed={listSettingsChanged} data-testid="list-settings-more">
+              <fieldset>
+                <legend className={label}>What does this {t('list')} hold?</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {RECORD_KINDS.map(k => (
+                    <label key={k.kind} className="flex items-start gap-2 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
+                      <input type="radio" name="list-settings-kind" className="w-5 h-5 mt-0.5" checked={kind === k.kind} onChange={() => setKind(k.kind)} />
+                      <span>
+                        <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{k.label}</span>
+                        <span className="block text-sm text-slate-600 dark:text-slate-300">{k.example}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {note && <p role="status" className="mt-2 text-base text-amber-800 dark:text-amber-200">{note}</p>}
+              </fieldset>
+
+              <fieldset className="space-y-2">
+                <legend className={label}>What do you call one of them? And more than one?</legend>
+                <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                  <input type="checkbox" className="w-5 h-5" checked={!ownWords} onChange={e => setOwnWords(!e.target.checked)} />
+                  Use the workspace words ({workspaceRecord.one} / {workspaceRecord.many})
+                </label>
+                {ownWords && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="list-settings-one" className="block text-base text-slate-700 dark:text-slate-200 mb-1">One</label>
+                      <input id="list-settings-one" className="input w-full" maxLength={VOCAB_WORD_MAX} value={one} onChange={e => setOne(e.target.value)} />
+                    </div>
+                    <div>
+                      <label htmlFor="list-settings-many" className="block text-base text-slate-700 dark:text-slate-200 mb-1">More than one</label>
+                      <input id="list-settings-many" className="input w-full" maxLength={VOCAB_WORD_MAX} value={many} onChange={e => setMany(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+              </fieldset>
+
+              <div className="space-y-2">
+                <label htmlFor="list-settings-format" className={label}>How to show each one's name</label>
+                {/* What the chips are for, before the chips, so they aren't taken for filters (UX-B-37) */}
+                <p className={hint}>
+                  Usually {nameColumn ? <>the <strong>{nameColumn.name}</strong> column</> : 'the name column'} is enough. To show more, click the columns to add them.
+                </p>
+                <div className="flex flex-wrap gap-2" aria-label="Columns you can add">
+                  {loaded.columns.map(c => (
+                    <button key={c.id} type="button" onClick={() => insertToken(c.name)}
+                      className="hit-44 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+                <input id="list-settings-format" ref={formatRef} className="input w-full font-mono" maxLength={DISPLAY_FORMAT_MAX}
+                  placeholder={formatPlaceholder} value={format} onChange={e => setFormat(e.target.value)} />
+                <p className="text-base text-slate-700 dark:text-slate-200">
+                  <span className="text-slate-500 dark:text-slate-400">{loaded.firstRow ? 'Example: ' : 'Looks like: '}</span>
+                  <strong>{preview || '—'}</strong>
+                </p>
+              </div>
+          </MoreSettings>
+
+          {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
         </div>
-      </div>
-    </div>
+      )}
+    </Dialog>
   )
 }

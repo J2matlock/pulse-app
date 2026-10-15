@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
-import { X, FileText } from 'lucide-react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
+import React, { useEffect, useState } from 'react'
+import { FileText } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column, SaveDialogResult } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -64,8 +63,6 @@ const PRESETS: Array<{ key: NonNullable<PresetKey>; label: string }> = [
 
 export function SupervisorReportDialog({ gridId, columns, onClose }: Props): React.ReactElement {
   const { t } = useVocab(gridId)
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true, { onEscape: onClose })
   const today = localDateString()
   const firstOfMonth = today.slice(0, 8) + '01'
 
@@ -185,151 +182,161 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
   }
 
   return (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="supervisor-report-title" aria-describedby="supervisor-report-intro">
-      <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/40" onClick={onClose} />
-      <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-            <h2 id="supervisor-report-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100" style={{ fontSize: 17 }}>
-              Report for my supervisor
-            </h2>
+    // The description says what the PDF is, before any field (UX D-37)
+    <Dialog open onClose={onClose} size="lg" title="Report for my supervisor"
+      icon={<FileText className="w-5 h-5 mt-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      description={<>A PDF of your {t('list')} for the period: who you saw, what came due, and what's late — for your supervisor.</>}
+      footer={<>
+        <SecondaryButton onClick={onClose} disabled={exporting}>Cancel</SecondaryButton>
+        <PrimaryButton
+          onClick={handleExport}
+          icon={<FileText className="w-4 h-4" />}
+          disabled={exporting || selectedColumnIds.size === 0 || !startDate || !endDate}
+          title={selectedColumnIds.size === 0 ? 'Select at least one column' : !startDate || !endDate ? 'Enter a date range' : ''}
+        >
+          {exporting ? 'Saving…' : format === 'pdf' ? 'Save as PDF…' : 'Save as spreadsheet (CSV)…'}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-5">
+        {/* Worker name */}
+        <div>
+          <label htmlFor="supervisor-worker-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Your name
+          </label>
+          <input
+            id="supervisor-worker-name"
+            type="text"
+            className="input w-full"
+            style={{ minHeight: 44, fontSize: 15 }}
+            value={workerName}
+            onChange={e => setWorkerName(e.target.value)}
+            placeholder="e.g. Jane Smith"
+            aria-describedby="supervisor-worker-hint"
+          />
+          <p id="supervisor-worker-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {nameFromProfile ? 'Filled in from Settings → Profile.' : 'Put your name in Settings → Profile and it is filled in here each time.'}
+          </p>
+          {/* Title & Org on same row */}
+          <div className="flex gap-3 mt-2">
+            <input
+              type="text"
+              className="input flex-1"
+              value={workerTitle}
+              onChange={e => setWorkerTitle(e.target.value)}
+              placeholder="Title (like Team lead)"
+              aria-label="Your title"
+            />
+            <input
+              type="text"
+              className="input flex-1"
+              value={workerOrg}
+              onChange={e => setWorkerOrg(e.target.value)}
+              placeholder="Organization"
+              aria-label="Organization"
+            />
           </div>
-          <button
-            onClick={onClose}
-            className="hit-44 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
-            title="Close"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          {/* What the PDF is, before any field (UX D-37) */}
-          <p id="supervisor-report-intro" className="text-base text-slate-600 dark:text-slate-300">
-            A PDF of your {t('list')} for the period: who you saw, what came due, and what's late — for your supervisor.
-          </p>
-          {/* Worker name */}
-          <div>
-            <label htmlFor="supervisor-worker-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Your name
-            </label>
-            <input
-              id="supervisor-worker-name"
-              type="text"
-              className="input w-full"
-              style={{ minHeight: 44, fontSize: 15 }}
-              value={workerName}
-              onChange={e => setWorkerName(e.target.value)}
-              placeholder="e.g. Jane Smith"
-              aria-describedby="supervisor-worker-hint"
-            />
-            <p id="supervisor-worker-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {nameFromProfile ? 'Filled in from Settings → Profile.' : 'Put your name in Settings → Profile and it is filled in here each time.'}
-            </p>
-            {/* Title & Org on same row */}
-            <div className="flex gap-3 mt-2">
-              <input
-                type="text"
-                className="input flex-1"
-                value={workerTitle}
-                onChange={e => setWorkerTitle(e.target.value)}
-                placeholder="Title (like Team lead)"
-                aria-label="Your title"
-              />
-              <input
-                type="text"
-                className="input flex-1"
-                value={workerOrg}
-                onChange={e => setWorkerOrg(e.target.value)}
-                placeholder="Organization"
-                aria-label="Organization"
-              />
-            </div>
-          </div>
-
-          {/* Date range */}
-          <div>
-            <label htmlFor="supervisor-date-range" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Date range
-            </label>
-            {/* Preset pills */}
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {PRESETS.map(p => (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => applyPreset(p.key)}
-                  className={`hit-44 px-3 py-1 rounded-full text-base font-medium transition-colors ${
-                    activePreset === p.key
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <input
-                id="supervisor-date-range"
-                type="date"
-                className="input flex-1"
-                style={{ minHeight: 44, fontSize: 15 }}
-                value={startDate}
-                onChange={e => handleStartDateChange(e.target.value)}
-              />
-              <span className="text-slate-500 dark:text-slate-400 text-sm flex-shrink-0">to</span>
-              <input
-                type="date"
-                className="input flex-1"
-                style={{ minHeight: 44, fontSize: 15 }}
-                value={endDate}
-                onChange={e => handleEndDateChange(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Columns */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-base font-medium text-slate-700 dark:text-slate-300">
-                Columns to include
-              </label>
+        {/* Date range */}
+        <div>
+          <label htmlFor="supervisor-date-range" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Date range
+          </label>
+          {/* Preset pills */}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {PRESETS.map(p => (
               <button
-                onClick={toggleAll}
-                className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline"
+                key={p.key}
+                type="button"
+                onClick={() => applyPreset(p.key)}
+                className={`hit-44 px-3 py-1 rounded-full text-base font-medium transition-colors ${
+                  activePreset === p.key
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-slate-600'
+                }`}
               >
-                {selectedColumnIds.size === columns.length ? 'Deselect all' : 'Select all'}
+                {p.label}
               </button>
-            </div>
-            <div className="border border-slate-200 dark:border-slate-700 rounded-lg divide-y divide-slate-100 dark:divide-slate-700">
-              {columns.map(col => (
-                <label
-                  key={col.id}
-                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                  style={{ minHeight: 44 }}
-                >
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
-                    checked={selectedColumnIds.has(col.id)}
-                    onChange={() => toggleColumn(col.id)}
-                  />
-                  <span className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
-                    {col.name}
-                  </span>
-                  <span className="ml-auto text-sm text-slate-500 dark:text-slate-400 capitalize">{col.column_type}</span>
-                </label>
-              ))}
-            </div>
+            ))}
           </div>
+          <div className="flex items-center gap-3">
+            <input
+              id="supervisor-date-range"
+              type="date"
+              className="input flex-1"
+              style={{ minHeight: 44, fontSize: 15 }}
+              value={startDate}
+              onChange={e => handleStartDateChange(e.target.value)}
+            />
+            <span className="text-slate-500 dark:text-slate-400 text-sm flex-shrink-0">to</span>
+            <input
+              type="date"
+              className="input flex-1"
+              style={{ minHeight: 44, fontSize: 15 }}
+              value={endDate}
+              onChange={e => handleEndDateChange(e.target.value)}
+            />
+          </div>
+        </div>
 
-          {/* Toggles */}
-          <div className="space-y-3">
+        {/* Columns */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-base font-medium text-slate-700 dark:text-slate-300">
+              Columns to include
+            </label>
+            <button
+              onClick={toggleAll}
+              className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {selectedColumnIds.size === columns.length ? 'Deselect all' : 'Select all'}
+            </button>
+          </div>
+          <div className="border border-slate-200 dark:border-slate-700 rounded-lg divide-y divide-slate-100 dark:divide-slate-700">
+            {columns.map(col => (
+              <label
+                key={col.id}
+                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                style={{ minHeight: 44 }}
+              >
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+                  checked={selectedColumnIds.has(col.id)}
+                  onChange={() => toggleColumn(col.id)}
+                />
+                <span className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
+                  {col.name}
+                </span>
+                <span className="ml-auto text-sm text-slate-500 dark:text-slate-400 capitalize">{col.column_type}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Toggles */}
+        <div className="space-y-3">
+          <label
+            className="flex items-center gap-3 cursor-pointer"
+            style={{ minHeight: 44 }}
+          >
+            <input
+              type="checkbox"
+              className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+              checked={includeActivityLog}
+              onChange={e => setIncludeActivityLog(e.target.checked)}
+            />
+            <div>
+              <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
+                Include activity log
+              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                {t('activityLog', { cap: true })} entries within the date range
+              </div>
+            </div>
+          </label>
+          {/* Both on suits nearly every report (Q1c) */}
+          <MoreSettings changed={!includeSystemActivity || !includeTaskSummary} data-testid="report-more">
             <label
               className="flex items-center gap-3 cursor-pointer"
               style={{ minHeight: 44 }}
@@ -337,117 +344,73 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
               <input
                 type="checkbox"
                 className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
-                checked={includeActivityLog}
-                onChange={e => setIncludeActivityLog(e.target.checked)}
+                checked={includeSystemActivity}
+                onChange={e => setIncludeSystemActivity(e.target.checked)}
               />
               <div>
                 <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
-                  Include activity log
+                  Include system activity
                 </div>
                 <div className="text-sm text-slate-500 dark:text-slate-400">
-                  {t('activityLog', { cap: true })} entries within the date range
+                  Auto-logged events: value changes, checklist updates, label changes
                 </div>
               </div>
             </label>
-            {/* Both on suits nearly every report (Q1c) */}
-            <MoreSettings changed={!includeSystemActivity || !includeTaskSummary} data-testid="report-more">
-              <label
-                className="flex items-center gap-3 cursor-pointer"
-                style={{ minHeight: 44 }}
-              >
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
-                  checked={includeSystemActivity}
-                  onChange={e => setIncludeSystemActivity(e.target.checked)}
-                />
-                <div>
-                  <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
-                    Include system activity
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Auto-logged events: value changes, checklist updates, label changes
-                  </div>
+            <label
+              className="flex items-center gap-3 cursor-pointer"
+              style={{ minHeight: 44 }}
+            >
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+                checked={includeTaskSummary}
+                onChange={e => setIncludeTaskSummary(e.target.checked)}
+              />
+              <div>
+                <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
+                  Include task summary
                 </div>
-              </label>
-              <label
-                className="flex items-center gap-3 cursor-pointer"
-                style={{ minHeight: 44 }}
-              >
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
-                  checked={includeTaskSummary}
-                  onChange={e => setIncludeTaskSummary(e.target.checked)}
-                />
-                <div>
-                  <div className="text-base text-slate-700 dark:text-slate-300" style={{ fontSize: 15 }}>
-                    Include task summary
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Tasks completed within the date range
-                  </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Tasks completed within the date range
                 </div>
-              </label>
-            </MoreSettings>
-          </div>
-
-          {/* Format */}
-          <div>
-            <label className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Format
+              </div>
             </label>
-            <div className="flex gap-3">
-              {(['pdf', 'csv'] as const).map(f => (
-                <label
-                  key={f}
-                  className={`flex-1 flex items-center justify-center gap-2 border-2 rounded-lg py-2.5 cursor-pointer transition-colors ${
-                    format === f
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                      : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'
-                  }`}
-                  style={{ minHeight: 44 }}
-                >
-                  <input
-                    type="radio"
-                    name="format"
-                    className="sr-only"
-                    checked={format === f}
-                    onChange={() => setFormat(f)}
-                  />
-                  <span className="font-medium uppercase text-sm">{f}</span>
-                </label>
-              ))}
-            </div>
+          </MoreSettings>
+        </div>
+
+        {/* Format */}
+        <div>
+          <label className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Format
+          </label>
+          <div className="flex gap-3">
+            {(['pdf', 'csv'] as const).map(f => (
+              <label
+                key={f}
+                className={`flex-1 flex items-center justify-center gap-2 border-2 rounded-lg py-2.5 cursor-pointer transition-colors ${
+                  format === f
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'
+                }`}
+                style={{ minHeight: 44 }}
+              >
+                <input
+                  type="radio"
+                  name="format"
+                  className="sr-only"
+                  checked={format === f}
+                  onChange={() => setFormat(f)}
+                />
+                <span className="font-medium uppercase text-sm">{f}</span>
+              </label>
+            ))}
           </div>
-
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <button
-            onClick={onClose}
-            className="btn-secondary"
-            style={{ minHeight: 44, fontSize: 15 }}
-            disabled={exporting}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleExport}
-            className="btn-primary flex items-center gap-2"
-            style={{ minHeight: 44, fontSize: 15 }}
-            disabled={exporting || selectedColumnIds.size === 0 || !startDate || !endDate}
-            title={selectedColumnIds.size === 0 ? 'Select at least one column' : !startDate || !endDate ? 'Enter a date range' : ''}
-          >
-            <FileText className="w-4 h-4" aria-hidden="true" />
-            {exporting ? 'Saving…' : format === 'pdf' ? 'Save as PDF…' : 'Save as spreadsheet (CSV)…'}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
+    </Dialog>
   )
 }

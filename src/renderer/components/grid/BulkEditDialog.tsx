@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect, useId } from 'react'
-import { motion } from 'motion/react'
-import { Pencil, X } from 'lucide-react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React, { useState, useRef, useEffect } from 'react'
+import { Pencil } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
 import { columnOptionLabels } from '../../../shared/stages'
@@ -29,10 +28,7 @@ export function BulkEditDialog({
   rowById,
 }: BulkEditDialogProps): React.ReactElement | null {
   const { t } = useVocab()
-  const titleId = useId()
-  const panelRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<Element | null>(null)
-  useFocusTrap(panelRef, open)
 
   // The name column last: one value for every selected record renames them all (UX-B-11)
   const editableColumns = columns.filter(c => c.is_visible && !isNotTypedColumnType(c.column_type))
@@ -73,13 +69,6 @@ export function BulkEditDialog({
       }
     }
   }, [selectedColumnId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      if (!applying) onClose()
-    }
-  }
 
   async function handleApply() {
     if (!selectedColumn || selectedColumnId == null) return
@@ -131,141 +120,86 @@ export function BulkEditDialog({
   const count = selectedRowIds.size
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      onKeyDown={handleKeyDown}
-    >
-      {/* Backdrop */}
-      <motion.div
-        className="fixed inset-0 bg-black/50"
-        variants={backdropVariants}
-        initial="hidden"
-        animate="visible"
-        onClick={() => { if (!applying) onClose() }}
-      />
-
-      {/* Panel */}
-      <motion.div
-        ref={panelRef}
-        className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 mx-4"
-        variants={modalPanelVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Close button */}
-        <button
-          onClick={() => { if (!applying) onClose() }}
-          className="hit-44 absolute top-4 right-4 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
-          aria-label="Close"
+    <Dialog open onClose={() => { if (!applying) onClose() }} title={<>Edit {count} selected {t('record', { count })}</>} size="md"
+      icon={
+        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+          <Pencil className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        </div>
+      }
+      footer={<>
+        <SecondaryButton onClick={onClose} disabled={applying}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={() => void handleApply()} disabled={applying || !selectedColumn}>
+          {applying ? 'Applying…' : 'Apply to all'}
+        </PrimaryButton>
+      </>}>
+      {/* Column picker */}
+      <div className="mb-4">
+        <label htmlFor="bulk-edit-column" className="block text-[15px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Column to update
+        </label>
+        <select
+          id="bulk-edit-column"
+          className="input w-full"
+          style={{ minHeight: 44, fontSize: 15 }}
+          value={selectedColumnId ?? ''}
+          onChange={e => setSelectedColumnId(e.target.value ? Number(e.target.value) : null)}
           disabled={applying}
         >
-          <X className="w-5 h-5" />
-        </button>
+          <option value="" disabled>Choose a column…</option>
+          {editableColumns.map(col => (
+            <option key={col.id} value={col.id}>
+              {col.is_name_column === 1 ? `${col.name} (this renames them all)` : col.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        {/* Header */}
-        <div className="flex items-start gap-3 mb-5">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-            <Pencil className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="min-w-0 flex-1 pt-1">
-            <h2 id={titleId} className="text-base font-semibold text-slate-800 dark:text-slate-100">
-              Edit {count} selected {t('record', { count })}
-            </h2>
-          </div>
-        </div>
-
-        {/* Column picker */}
-        <div className="mb-4">
-          <label htmlFor="bulk-edit-column" className="block text-[15px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            Column to update
+      {/* Value editor */}
+      {selectedColumn && (
+        <div className="mb-5">
+          <label htmlFor="bulk-edit-value" className="block text-[15px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            New value
           </label>
-          <select
-            id="bulk-edit-column"
-            className="input w-full"
-            style={{ minHeight: 44, fontSize: 15 }}
-            value={selectedColumnId ?? ''}
-            onChange={e => setSelectedColumnId(e.target.value ? Number(e.target.value) : null)}
+          <ValueEditor
+            column={selectedColumn}
+            value={value}
+            onChange={setValue}
             disabled={applying}
-          >
-            <option value="" disabled>Choose a column…</option>
-            {editableColumns.map(col => (
-              <option key={col.id} value={col.id}>
-                {col.is_name_column === 1 ? `${col.name} (this renames them all)` : col.name}
-              </option>
-            ))}
-          </select>
+          />
+          {selectedColumn.is_name_column === 1 && count > 1 && (
+            <p role="alert" className="text-[15px] text-amber-800 dark:text-amber-300 mt-2">
+              All {count} {t('record', { many: true })} will get this same name.
+            </p>
+          )}
         </div>
+      )}
 
-        {/* Value editor */}
-        {selectedColumn && (
-          <div className="mb-5">
-            <label htmlFor="bulk-edit-value" className="block text-[15px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              New value
-            </label>
-            <ValueEditor
-              column={selectedColumn}
-              value={value}
-              onChange={setValue}
-              disabled={applying}
+      {/* Warning text */}
+      <p className="text-[15px] text-slate-500 dark:text-slate-400 mb-5">
+        This will update {count} {t('record', { count })}. This action can be undone.
+      </p>
+
+      {/* Progress indicator */}
+      {applying && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300 mb-1">
+            <span>Updating…</span>
+            <span>{progress.done} of {progress.total}</span>
+          </div>
+          <div className="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 rounded-full transition-[width] duration-200"
+              style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }}
             />
-            {selectedColumn.is_name_column === 1 && count > 1 && (
-              <p role="alert" className="text-[15px] text-amber-800 dark:text-amber-300 mt-2">
-                All {count} {t('record', { many: true })} will get this same name.
-              </p>
-            )}
           </div>
-        )}
-
-        {/* Warning text */}
-        <p className="text-[15px] text-slate-500 dark:text-slate-400 mb-5">
-          This will update {count} {t('record', { count })}. This action can be undone.
-        </p>
-
-        {/* Progress indicator */}
-        {applying && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300 mb-1">
-              <span>Updating…</span>
-              <span>{progress.done} of {progress.total}</span>
-            </div>
-            <div className="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-600 rounded-full transition-[width] duration-200"
-                style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Error message */}
-        {error && (
-          <p className="text-[15px] text-red-600 dark:text-red-400 mb-4">{error}</p>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            disabled={applying}
-            className="btn-secondary"
-            style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => void handleApply()}
-            disabled={applying || !selectedColumn}
-            className="btn-primary"
-            style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
-          >
-            {applying ? 'Applying…' : 'Apply to all'}
-          </button>
         </div>
-      </motion.div>
-    </div>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <p className="text-[15px] text-red-600 dark:text-red-400">{error}</p>
+      )}
+    </Dialog>
   )
 }
 

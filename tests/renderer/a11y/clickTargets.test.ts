@@ -67,7 +67,8 @@ describe('click targets are 44px (Q-103)', () => {
     const src = readFileSync(join(ROOT, 'components/grid/SortableRow.tsx'), 'utf8')
     expect(src).toMatch(/hit-44 flex items-center justify-center w-7 h-7 profile-btn-glow/)
     expect(src).toMatch(/hit-44 flex items-center justify-center w-7 h-7 rounded focus-visible/)
-    expect(src).toMatch(/hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-400/)
+    // The row menu is the shared IconButton, whose compact size is drawn inside a 44px area
+    expect(src).toMatch(/<IconButton\s+tabIndex=\{-1\}\s+size="compact"[\s\S]{0,300}?data-testid="row-menu-button"/)
     // Each button has a column of its own, at least 44px wide, so the areas can't overlap
     expect(src).toMatch(/width: OPEN_COL_WIDTH, height: rowHeight/)
     expect(src).toMatch(/width: STAR_COL_WIDTH, height: rowHeight/)

@@ -55,6 +55,8 @@ vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMoc
 
 vi.mock('../../../../src/renderer/utils/animations', () => ({
   dropdownVariants: {},
+  backdropVariants: {},
+  modalPanelVariants: {},
 }))
 
 vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
@@ -409,7 +411,7 @@ describe('ColumnHeader', () => {
     const dialog = screen.getByRole('dialog', { name: /Phone.*settings/ })
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
     // Tab from the last control wraps to the first
-    const close = screen.getByRole('button', { name: 'Close' })
+    const close = screen.getAllByRole('button', { name: 'Close' }).at(-1)!
     close.focus()
     fireEvent.keyDown(close, { key: 'Tab' })
     expect(dialog.contains(document.activeElement)).toBe(true)

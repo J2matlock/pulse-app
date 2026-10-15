@@ -100,6 +100,17 @@ describe('Dialog', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('closeOnBackdrop={false}: a click outside leaves it open, the X and Escape still close it', () => {
+    const onClose = vi.fn()
+    const { container } = render(<Basic onClose={onClose} closeOnBackdrop={false} />)
+    fireEvent.click(container.querySelector('.bg-black\\/50')!)
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByLabelText('Name'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
   it('passes other keys to its own onKeyDown', () => {
     const onKeyDown = vi.fn()
     render(<Basic onKeyDown={onKeyDown} />)
