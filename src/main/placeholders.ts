@@ -71,10 +71,28 @@ const sourceOf = (config: string | null): number | null => {
 const snake = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 const norm = (s: string) => s.trim().toLowerCase()
 
+/** The Settings → Profile fields a letter can sign with */
+export type ProfileField = 'name' | 'title' | 'org' | 'phone' | 'email'
+
 export interface ResolveResult {
   text: string
   /** Placeholders that matched nothing, as typed */
   unknown: string[]
+  /**
+   * Profile fields the document asked for that are blank in Settings → Profile
+   * (`{{my_name}}`, `{{case_manager_title}}`…), in the order met. The text
+   * shows "[your name]" in their place instead of a silent hole (C-05).
+   */
+  empty: ProfileField[]
+}
+
+/** `{{my_name}}` / `{{case_manager_name}}` → the profile field it reads, and the hole shown when it's blank */
+const MY_FIELDS: Record<string, { field: ProfileField; hole: string }> = {
+  my_name: { field: 'name', hole: '[your name]' }, case_manager_name: { field: 'name', hole: '[your name]' },
+  my_title: { field: 'title', hole: '[your title]' }, case_manager_title: { field: 'title', hole: '[your title]' },
+  my_org: { field: 'org', hole: '[your organization]' }, case_manager_org: { field: 'org', hole: '[your organization]' },
+  my_phone: { field: 'phone', hole: '[your phone]' }, case_manager_phone: { field: 'phone', hole: '[your phone]' },
+  my_email: { field: 'email', hole: '[your email]' }, case_manager_email: { field: 'email', hole: '[your email]' },
 }
 
 /** Fill a document's placeholders for one record. */
@@ -234,12 +252,17 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
   }
 
   const unknown = new Set<string>()
+  const empty = new Set<ProfileField>()
   const text = content.replace(/\{\{\s*([^{}\n]{1,200}?)\s*\}\}/g, (whole, key: string) => {
-    const v = resolveOne(key.trim())
+    const k = key.trim()
+    const v = resolveOne(k)
     if (v === undefined) { unknown.add(whole); return whole }
+    // A blank profile field leaves a visible hole, not "My name is , and…" (C-05)
+    const mine = MY_FIELDS[k]
+    if (mine && v === '') { empty.add(mine.field); return mine.hole }
     return v
   })
-  return { text, unknown: [...unknown] }
+  return { text, unknown: [...unknown], empty: [...empty] }
 }
 
 export interface FieldGroup { label: string; items: Array<{ key: string; desc: string }> }

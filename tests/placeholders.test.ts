@@ -45,6 +45,12 @@ describe('placeholders', () => {
       .toBe('2017 Civic|Dana Cole|Acme Auto|October 2, 2026|October 5, 2000|25|AB12345C|September 20, 2026')
   })
 
+  it('mark blank profile fields as holes and say which are blank (C-05)', () => {
+    t.db.prepare("DELETE FROM settings WHERE key = 'profile_org'").run()
+    expect(fill('{{my_name}} / {{case_manager_title}} / {{my_org}} / {{case_manager_org}}'))
+      .toEqual({ text: 'Dana Cole / [your title] / [your organization] / [your organization]', unknown: [], empty: ['title', 'org'] })
+  })
+
   it('spell out a Deadline column\'s date like any date', () => {
     t.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE name = 'Last service'").run()
     expect(fill('{{field:Last service}}').text).toBe('September 20, 2026')
@@ -58,12 +64,12 @@ describe('placeholders', () => {
     const owner = saveLinkType({ from_grid_id: vehicles.gridId, to_grid_id: customers.gridId, label_forward: 'Owner', label_backward: 'Vehicles', cardinality: 'many_to_one' })
     expect(fill('{{linked:Owner.name}} {{linked:Owner.Phone}}').text).toBe(' ')
     addLink(owner.id, vehicles.rowIds[0]!, customers.rowIds[0]!)
-    expect(fill('{{linked:Owner.name}} {{linked:owner.phone}}')).toEqual({ text: 'Jane Smith 555-0100', unknown: [] })
+    expect(fill('{{linked:Owner.name}} {{linked:owner.phone}}')).toEqual({ text: 'Jane Smith 555-0100', unknown: [], empty: [] })
     expect(fill('{{linked:Owner.Fax}}').unknown).toEqual(['{{linked:Owner.Fax}}'])
   })
 
   it('leave unknown placeholders as typed and list them once', () => {
-    expect(fill('Hi {{nope}}, {{field:Missing}} and {{nope}}')).toEqual({ text: 'Hi {{nope}}, {{field:Missing}} and {{nope}}', unknown: ['{{nope}}', '{{field:Missing}}'] })
+    expect(fill('Hi {{nope}}, {{field:Missing}} and {{nope}}')).toEqual({ text: 'Hi {{nope}}, {{field:Missing}} and {{nope}}', unknown: ['{{nope}}', '{{field:Missing}}'], empty: [] })
   })
 
   it('offer the list\'s columns, deadlines and links to insert', () => {
@@ -105,7 +111,7 @@ describe('placeholders that used to print the wrong thing or nothing', () => {
     const att = t.db.prepare("INSERT INTO attachments (row_id, file_name, mime_type, size_bytes, sha256, deleted_at) VALUES (?, 'a.pdf', 'application/pdf', 1, 'x', ?)")
     att.run(vehicles.rowIds[0], null); att.run(vehicles.rowIds[0], null); att.run(vehicles.rowIds[0], '2026-01-01')
     // "Last service" Sep 20 has a 30-day rule: due Oct 20, 18 days after Oct 2, as the list says (AUDIT-027)
-    expect(fill('{{field:Age}}|{{field:Until service}}|{{field:Files}}|{{field:Owner}}')).toEqual({ text: '25|18 days|2|Jane Smith', unknown: [] })
+    expect(fill('{{field:Age}}|{{field:Until service}}|{{field:Files}}|{{field:Owner}}')).toEqual({ text: '25|18 days|2|Jane Smith', unknown: [], empty: [] })
     expect(fill('{{until_service}}').text).toBe('18 days')
   })
 
@@ -122,7 +128,7 @@ describe('placeholders that used to print the wrong thing or nothing', () => {
     const dob = addCol(customers.gridId, 'D.O.B.', 'date')
     set(customers.rowIds[0]!, dob, '1980-02-03')
     addLink(owner.id, vehicles.rowIds[0]!, customers.rowIds[0]!)
-    expect(fill('{{linked:Owner.D.O.B.}}')).toEqual({ text: 'February 3, 1980', unknown: [] })
+    expect(fill('{{linked:Owner.D.O.B.}}')).toEqual({ text: 'February 3, 1980', unknown: [], empty: [] })
   })
 
   it('a Tags column prints as a list, not JSON', () => {
@@ -137,6 +143,6 @@ describe('next appointment placeholders (W07 §7)', () => {
     expect(fill('[{{appointment.date}}|{{appointment.time}}]').text).toBe('[|]')
     t.db.prepare("INSERT INTO appointments (row_id, title, start_at, location) VALUES (?, 'Service', '2026-10-09T14:30', 'Main St shop')").run(vehicles.rowIds[0])
     t.db.prepare("INSERT INTO appointments (row_id, title, start_at) VALUES (?, 'Old', '2026-09-01T09:00')").run(vehicles.rowIds[0])
-    expect(fill('{{appointment.date}} at {{appointment.time}}, {{appointment.location}}')).toEqual({ text: 'October 9, 2026 at 2:30 pm, Main St shop', unknown: [] })
+    expect(fill('{{appointment.date}} at {{appointment.time}}, {{appointment.location}}')).toEqual({ text: 'October 9, 2026 at 2:30 pm, Main St shop', unknown: [], empty: [] })
   })
 })

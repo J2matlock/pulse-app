@@ -8,7 +8,7 @@ import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
-import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
+import { UnknownPlaceholders, type EmptyProfileField } from '../shared/UnknownPlaceholders'
 
 /**
  * A letter for this record (3.6, R-24): pick a template, adjust the text,
@@ -23,6 +23,7 @@ export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [text, setText] = useState<string | null>(null)
   const [unknown, setUnknown] = useState<string[]>([])
+  const [empty, setEmpty] = useState<EmptyProfileField[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [logIt, setLogIt] = useState(true)
@@ -49,8 +50,8 @@ export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
     if (!selectedId) return
     setGenerating(true)
     try {
-      const res = await safeInvoke<{ text: string; unknown: string[] }>(IPC.LETTER_TEMPLATE_GENERATE, selectedId, rowId, gridId)
-      if (res.ok) { setText(res.data.text); setUnknown(res.data.unknown) }
+      const res = await safeInvoke<{ text: string; unknown: string[]; empty?: EmptyProfileField[] }>(IPC.LETTER_TEMPLATE_GENERATE, selectedId, rowId, gridId)
+      if (res.ok) { setText(res.data.text); setUnknown(res.data.unknown); setEmpty(res.data.empty ?? []) }
       else toast.error('We couldn\'t fill in that letter. Check the template and try again.')
     } finally {
       setGenerating(false)
@@ -107,7 +108,7 @@ export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
                 <label htmlFor="record-letter-text" className="text-base font-medium text-slate-700 dark:text-slate-200">The letter (you can change it here)</label>
                 <button onClick={() => setText(null)} className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline">Change template</button>
               </div>
-              <UnknownPlaceholders unknown={unknown} />
+              <UnknownPlaceholders unknown={unknown} empty={empty} />
               <textarea id="record-letter-text" value={text} onChange={e => setText(e.target.value)} rows={16}
                 className="w-full text-base bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-4 resize-y focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                 style={{ fontSize: 15 }} />

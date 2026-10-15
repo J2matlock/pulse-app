@@ -37,7 +37,7 @@ describe('More menu', () => {
 })
 
 describe('letter from the record page', () => {
-  it('can be edited, saved as a PDF, and is noted on the timeline once', async () => {
+  it('can be edited, saved as a PDF, and is noted in the log once', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'letter-template:get-all') return Promise.resolve({ ok: true, data: [{ id: 3, name: 'Welcome', description: '', is_system: 0 }] })
       if (channel === 'letter-template:generate') return Promise.resolve({ ok: true, data: { text: 'Dear Maria,', unknown: [] } })
@@ -54,6 +54,20 @@ describe('letter from the record page', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy/ })) })
     const notes = mockInvoke.mock.calls.filter(c => c[0] === 'case-log:create')
     expect(notes).toEqual([['case-log:create', 4, 'Letter: Welcome', 'system', null]])
+  })
+
+  it('says which profile fields are blank and where to fill them in (C-05)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'letter-template:get-all') return Promise.resolve({ ok: true, data: [{ id: 3, name: 'Welcome', description: '', is_system: 0 }] })
+      if (channel === 'letter-template:generate') return Promise.resolve({ ok: true, data: { text: 'My name is [your name], [your title].', unknown: [], empty: ['name', 'title'] } })
+      return Promise.resolve({ ok: true, data: null })
+    })
+    render(<RecordLetterDialog rowId={4} gridId={1} clientName="Maria" onClose={vi.fn()} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Fill in letter' })) })
+    expect(screen.getByText(/Your name and title are blank/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'add them in Settings → Profile' }))
+    expect(window.location.hash).toBe('#/settings?tab=profile')
   })
 })
 
