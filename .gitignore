@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# Also a node_modules symlink: agent worktrees link to the main checkout's folder
+node_modules
 
 # Build output
 out/
