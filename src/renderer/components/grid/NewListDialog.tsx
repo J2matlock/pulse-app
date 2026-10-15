@@ -97,10 +97,11 @@ export function NewListDialog({ onClose, onCreated, onPickExample }: Props): Rea
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
+    // Fits a 768px-high screen: the body scrolls, the title and Create stay in view (UX-B-16)
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="new-list-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <Grid3X3 className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           <h2 id="new-list-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">New {t('list')}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -108,7 +109,7 @@ export function NewListDialog({ onClose, onCreated, onPickExample }: Props): Rea
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-6" data-testid="new-list-body">
           <div>
             <label htmlFor="new-list-name" className={label}>{t('list', { cap: true })} name</label>
             <input id="new-list-name" className="input w-full" maxLength={200} autoFocus placeholder="e.g. Vehicles"
@@ -183,7 +184,7 @@ export function NewListDialog({ onClose, onCreated, onPickExample }: Props): Rea
           {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+        <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           {startWith === 'example' ? (
             <button type="button" className="btn-primary" onClick={onPickExample}>Browse examples…</button>
