@@ -189,6 +189,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   async function handleDelete() {
     setShowMenu(false)
     const res = await safeInvoke(IPC.COLUMN_DEPENDENTS, column.id)
+    // Nothing else uses it: straight to the Trash, with the Undo toast (Q4). When rules, forms
+    // or views use it, the dialog stays to show what will stop working (or when that can't be told)
+    if (res.ok && res.data.length === 0) { await deleteColumn(column.id); return }
     setDependents(res.ok ? res.data : [])
     setShowDeleteColConfirm(true)
   }
@@ -485,7 +488,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 onClick={handleDelete}
               >
                 <Trash2 className="w-4 h-4" />
-                Move column to the Trash…
+                Move column to the Trash
               </button>
             </div>
           </>, document.body
