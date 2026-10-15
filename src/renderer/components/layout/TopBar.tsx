@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Search, Clock, ChevronDown, RotateCcw, RotateCw } from 'lucide-react'
+import { Search, Clock, ChevronDown, RotateCcw, RotateCw, HelpCircle } from 'lucide-react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { dropdownVariants } from '../../utils/animations'
 import { DEBOUNCE_SEARCH, DEBOUNCE_ANNOUNCE } from '../../../shared/constants'
@@ -156,6 +156,9 @@ export function TopBar(): React.ReactElement {
   const canUndo = undoStack.length > 0
   const canRedo = redoStack.length > 0
   const lastAction = undoStack.length > 0 ? undoStack[undoStack.length - 1] : null
+  // The number of steps is said here and in the history panel, not as a bare digit on the button (UX-D-48)
+  const undoSteps = undoStack.length > 1 ? ` — ${undoStack.length} changes to undo` : ''
+  const undoHelp = modHelp(lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)${undoSteps}` : 'Nothing to undo (Ctrl+Z)')
 
   return (
     <header
@@ -209,12 +212,12 @@ export function TopBar(): React.ReactElement {
         {/* Undo / Redo controls */}
         <div className="flex items-center relative" data-tour="undo-redo" ref={historyAnchorRef as React.RefObject<HTMLDivElement>}>
           {/* Undo button */}
-          <Tooltip content={modHelp(lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)` : 'Nothing to undo (Ctrl+Z)')} placement="bottom">
+          <Tooltip content={undoHelp} placement="bottom">
             <button
               onClick={() => void undo()}
               disabled={!canUndo}
-              aria-label={modHelp(lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)` : 'Nothing to undo (Ctrl+Z)')}
-              className="hit-44 flex items-center gap-1 px-2 py-1.5 rounded-l-md
+              aria-label={undoHelp}
+              className="hit-44 flex items-center px-2 py-1.5 rounded-l-md
                          text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200
                          hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors
                          disabled:opacity-40 disabled:cursor-not-allowed
@@ -224,11 +227,6 @@ export function TopBar(): React.ReactElement {
               <motion.div whileTap={{ scale: 0.85 }} transition={{ duration: 0.1 }}>
                 <RotateCcw className="w-4 h-4" />
               </motion.div>
-              {canUndo && (
-                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 leading-none">
-                  {undoStack.length}
-                </span>
-              )}
             </button>
           </Tooltip>
           {/* History dropdown trigger */}
@@ -300,6 +298,8 @@ export function TopBar(): React.ReactElement {
                 aria-expanded={showRecent}
               >
                 <Clock className="w-4 h-4" />
+                {/* Said in words: a clock alone doesn't say "recent" (UX-D-18) */}
+                <span className="text-base hidden sm:inline">Recent</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
             </Tooltip>
@@ -347,19 +347,17 @@ export function TopBar(): React.ReactElement {
           </div>
         )}
 
-        {/* Help for this page: Help opens on the matching topic (audit N-22) */}
+        {/* Help for this page: Help opens on the matching topic (audit N-22). Labelled in words,
+            and no "Press ? for shortcuts" beside it: two question marks read as one thing, and the
+            shortcut is on the Help page (UX-D-17, E-33) */}
         {!location.pathname.startsWith('/help') && (
           <button type="button" onClick={() => openHelpFor(location.pathname, navigate)}
-            className="hit-44 inline-flex items-center justify-center w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 text-base font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            className="hit-44 inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-base text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             aria-label="Help for this page" title="Help for this page">
-            ?
+            <HelpCircle className="w-4 h-4" aria-hidden="true" />
+            <span>Help</span>
           </button>
         )}
-
-        {/* Shortcut discovery hint */}
-        <span className="text-sm text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
-          Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">?</kbd> for shortcuts
-        </span>
       </div>
     </header>
   )

@@ -132,10 +132,23 @@ describe('TopBar', () => {
     expect(undoBtn.hasAttribute('disabled')).toBe(true)
   })
 
-  it('shows undo count badge when items exist', () => {
+  it('says how many changes can be undone in the tooltip, not as a bare digit on the button (UX-D-48)', () => {
     mockUndoStack = [{ description: 'Edit cell' }, { description: 'Add row' }]
     renderTopBar()
-    expect(screen.getByText('2')).toBeDefined()
+    expect(screen.queryByText('2')).toBeNull()
+    expect(screen.getByRole('button', { name: /Undo: Add row \(Ctrl\+Z\) — 2 changes to undo/ })).toBeDefined()
+  })
+
+  it('the help button says "Help" and the "Press ? for shortcuts" hint is gone (UX-D-17, E-33)', () => {
+    renderTopBar('/dashboard')
+    expect(screen.getByRole('button', { name: 'Help for this page' }).textContent).toBe('Help')
+    expect(screen.queryByText(/for shortcuts/)).toBeNull()
+  })
+
+  it('the recent-records button says "Recent" next to its clock (UX-D-18)', () => {
+    mockRecent = [{ rowId: 1, gridId: 1, name: 'Test Person', gridName: 'Test Grid' }]
+    renderTopBar('/grid')
+    expect(screen.getByRole('button', { name: /Recently viewed/ }).textContent).toContain('Recent')
   })
 
   it('enables undo button when stack has items', () => {
