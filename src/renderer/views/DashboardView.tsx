@@ -752,7 +752,7 @@ export default function DashboardView(): React.ReactElement {
       <div className="max-w-4xl xl:max-w-6xl mx-auto px-6 py-6">
         {/* The buttons wrap among themselves, right-aligned, instead of dropping under the title */}
         <div className="flex items-start gap-3 mb-6">
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
           <div className="flex flex-1 min-w-0 flex-wrap justify-end gap-3">
             {/* The occasional actions share one menu; Customize stays out (UX D-19) */}
             <PrintExportMenu items={printExportItems} />

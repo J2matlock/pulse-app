@@ -251,8 +251,8 @@ export default function SnippetsView(): React.ReactElement {
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 space-y-1">
         <div className="flex items-center gap-3 flex-wrap">
-          <Zap className="w-5 h-5 text-slate-500" />
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1 min-w-0">Snippets</h1>
+          <Zap className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 flex-1 min-w-0">Snippets</h1>
           <PrimaryButton
             data-primary-action
             onClick={() => { setEditTarget(null); setShowEditor(true) }}

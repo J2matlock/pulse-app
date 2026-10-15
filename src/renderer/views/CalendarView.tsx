@@ -287,8 +287,8 @@ export default function CalendarView(): React.ReactElement {
   return (
     <div className="h-full flex bg-white dark:bg-slate-900" onKeyDown={onKeyDown}>
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mr-2">
+        <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-slate-200 dark:border-slate-700">
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mr-2">
             <CalendarDays className="w-5 h-5" aria-hidden="true" />{mode === 'month' ? monthTitle(anchor) : mode === 'week' ? `Week of ${longDay(weekFrom)}` : mode === 'day' ? longDay(anchor) : `From ${longDay(anchor)}`}
           </h1>
           <button type="button" aria-label={mode === 'month' ? 'Previous month' : mode === 'week' ? 'Previous week' : mode === 'day' ? 'Previous day' : 'Earlier'} onClick={() => step(-1)} className="btn-compact-secondary"><ChevronLeft className="w-4 h-4" /></button>

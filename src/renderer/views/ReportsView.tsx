@@ -100,16 +100,16 @@ export default function ReportsView(): React.ReactElement {
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-900">
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-slate-200 dark:border-slate-700">
         {building && (
           <SecondaryButton size="compact" onClick={() => request('home')} icon={<ArrowLeft className="w-4 h-4" />}>All reports</SecondaryButton>
         )}
-        <h1 className="flex-1 text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BarChart3 className="w-5 h-5" aria-hidden="true" />Reports</h1>
+        <h1 className="flex-1 text-2xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />Reports</h1>
         <PrimaryButton data-primary-action onClick={() => request('new')} icon={<Plus className="w-4 h-4" />}>New report</PrimaryButton>
       </div>
 
       {!building ? (
-        <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-auto px-6 py-4 space-y-4">
           <PurposeLine>Each report answers a question about your work. Open one to see it, print it or pin it to the dashboard.</PurposeLine>
           {reports === null ? <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>
             : reports.length === 0 ? (

@@ -235,8 +235,8 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3">
-              <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Help Center</h1>
+              <BookOpen className="w-6 h-6 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+              <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Help Center</h1>
             </div>
             <PurposeLine className="mt-1">Type a question, or pick a topic below.</PurposeLine>
           </div>
