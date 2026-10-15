@@ -31,6 +31,7 @@ import { ImportPreviewStep } from './ImportPreviewStep'
 import { ImportMappingStep } from './ImportMappingStep'
 import { ImportOptionsStep } from './ImportOptionsStep'
 import { ImportResultsStep } from './ImportResultsStep'
+import { PrimaryButton } from '../ui/Button'
 
 interface Props {
   open: boolean
@@ -679,44 +680,29 @@ export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines =
 
           <div className="flex items-center gap-3">
             {step < 5 && step !== 1 && (
-              <button
+              <PrimaryButton
                 onClick={() => {
                   if (step === 2) handleSheetConfirm()
                   else if (step === 3) advanceToMapping()
                   else setStep(s => (s + 1) as Step)
                 }}
                 disabled={loading}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
-                           text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                           focus:ring-offset-3 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
                 Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
+              </PrimaryButton>
             )}
 
             {step === 5 && (
-              <button
-                onClick={handleImport}
-                disabled={loading}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
-                           text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                           focus:ring-offset-3 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-              >
+              <PrimaryButton onClick={handleImport} disabled={loading}>
                 Import
-              </button>
+              </PrimaryButton>
             )}
 
             {step === 6 && !loading && (
-              <button
-                onClick={close}
-                disabled={deadlineState === 'busy'}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
-                           text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                           focus:ring-offset-3 min-h-[44px]"
-              >
+              <PrimaryButton onClick={close} disabled={deadlineState === 'busy'}>
                 Done
-              </button>
+              </PrimaryButton>
             )}
           </div>
         </div>

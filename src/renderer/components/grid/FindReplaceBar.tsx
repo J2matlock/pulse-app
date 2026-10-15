@@ -5,6 +5,7 @@ import { columnOptionLabels } from '../../../shared/stages'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { SEARCHABLE_TYPES as SEARCH_TYPES } from '../../utils/searchMatch'
 import { useVocab } from '../../hooks/useVocab'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 
 /** Find & Replace changes stored text, so it skips worked-out and linked columns the search also reads */
 const SEARCHABLE_TYPES = new Set<ColumnType>([...SEARCH_TYPES].filter(t => !['auto_number', 'link', 'tag'].includes(t)) as ColumnType[])
@@ -234,7 +235,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500
                        focus:bg-white dark:focus:bg-slate-800
                        pr-24 transition-colors"
-            style={{ minHeight: 40 }}
+            style={{ minHeight: 44 }}
             aria-label="Find text"
           />
           {/* Match counter + nav inside input area */}
@@ -293,44 +294,31 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500
                        focus:bg-white dark:focus:bg-slate-800
                        transition-colors"
-            style={{ minHeight: 40 }}
+            style={{ minHeight: 44 }}
             aria-label="Replace text"
           />
         </div>
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 mt-2">
-          <button
+          <SecondaryButton
+            size="compact"
             onClick={() => void handleReplace()}
             disabled={!hasMatches || !hasFind}
             title="Replace this match (or press Enter in the Replace box)"
-            className="hit-44 flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-medium
-                       text-slate-700 dark:text-slate-200
-                       bg-slate-100 dark:bg-slate-700
-                       hover:bg-slate-200 dark:hover:bg-slate-600
-                       border border-slate-200 dark:border-slate-600
-                       transition-colors
-                       disabled:opacity-30 disabled:cursor-not-allowed
-                       focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-            style={{ minHeight: 36 }}
+            className="flex-1"
           >
             Replace
-          </button>
-          <button
+          </SecondaryButton>
+          <PrimaryButton
+            size="compact"
             onClick={handleReplaceAll}
             disabled={!hasMatches || !hasFind}
             title="Replace all matches"
-            className="hit-44 flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-medium
-                       text-white
-                       bg-blue-600 hover:bg-blue-700
-                       dark:bg-blue-500 dark:hover:bg-blue-600
-                       transition-colors
-                       disabled:opacity-30 disabled:cursor-not-allowed
-                       focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-            style={{ minHeight: 36 }}
+            className="flex-1"
           >
             Replace all
-          </button>
+          </PrimaryButton>
         </div>
       </div>
       <ConfirmDialog
