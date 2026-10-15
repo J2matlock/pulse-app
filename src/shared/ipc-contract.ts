@@ -702,6 +702,10 @@ export interface IPCContract {
   /** An empty draft deletes it; false: the record can't take notes now (nothing stored) */
   'note-draft:put':  { args: [rowId: number, draft: NoteDraft]; return: boolean }
   'note-draft:list': { args: [];                                return: NoteDraftSummary[] }
+
+  // ── Print what's due ────────────────────────────────────────────────────
+  /** null: the save dialog was cancelled */
+  'export:whats-due': { args: [days: number, opts?: { includeAppointments?: boolean }]; return: { filePath: string; count: number } | null }
 }
 
 /** Union of all typed channel names */

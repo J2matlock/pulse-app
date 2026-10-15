@@ -32,7 +32,7 @@ vi.mock('electron', () => ({
 import { exportPdfGrid, exportPdfProfile, exportContactPdf, exportDirectoryPdf } from '../src/main/export-pdf'
 import { exportSupervisorReport } from '../src/main/export-supervisor'
 import { exportHandoffPacket } from '../src/main/export-handoff'
-import { exportWeeklyPlanner } from '../src/main/export-planner'
+import { exportWeeklyPlanner, exportWhatsDue } from '../src/main/export-planner'
 import { exportAuditReport } from '../src/main/export-audit'
 import { exportCsv } from '../src/main/export-csv'
 import { exportIcs } from '../src/main/export-ics'
@@ -123,9 +123,10 @@ describe('exports use the workspace words', () => {
     expect(leaks(dest('handoff.pdf'))).toEqual([])
   })
 
-  it('weekly planner', async () => {
+  it("weekly planner and what's due", async () => {
     await exportWeeklyPlanner(localDateFromToday(0), dest('week.pdf'), 'Jo')
-    expect(leaks(dest('week.pdf'))).toEqual([])
+    await exportWhatsDue(90, dest('due.pdf'), 'Jo', { includeAppointments: true })
+    expect([...leaks(dest('week.pdf')), ...leaks(dest('due.pdf'))]).toEqual([])
   })
 
   it('audit report', async () => {
@@ -180,6 +181,7 @@ describe('exports use the workspace words', () => {
     await exportSupervisorReport({ ...sup, format: 'csv', destPath: dest('sup.csv') })
     await exportHandoffPacket({ rowId: rowIds[0]!, gridId, receiving: 'Sam', summary: 'Waiting on parts.' }, dest('handoff.pdf'))
     await exportWeeklyPlanner(localDateFromToday(0), dest('week.pdf'), 'Jo')
+    await exportWhatsDue(90, dest('due.pdf'), 'Jo', { includeAppointments: true })
     await exportAuditReport({ gridId }, dest('audit.pdf'), 'Shelf A', 'Jo')
     await exportContactPdf(providerId, dest('contact.pdf'))
     await exportDirectoryPdf({}, dest('directory.pdf'))
@@ -200,7 +202,7 @@ describe('exports use the workspace words', () => {
     })
     writeFileSync(dest('form.pdf'), Buffer.from(buildFormPdf(form.id, null).pdf.output('arraybuffer')))
     writeFileSync(dest('form-filled.pdf'), Buffer.from(buildFormPdf(form.id, rowIds[0]!).pdf.output('arraybuffer')))
-    return ['grid.pdf', 'profile.pdf', 'sup.pdf', 'sup.csv', 'handoff.pdf', 'week.pdf', 'audit.pdf', 'contact.pdf', 'directory.pdf',
+    return ['grid.pdf', 'profile.pdf', 'sup.pdf', 'sup.csv', 'handoff.pdf', 'week.pdf', 'due.pdf', 'audit.pdf', 'contact.pdf', 'directory.pdf',
       'list.csv', 'notes.csv', 'totals.csv', 'missing.csv', 'compliance.pdf', 'labels.pdf',
       ...['records', 'activities', 'appointments', 'deadlines'].flatMap(s => [`report-${s}.csv`, `report-${s}.pdf`]),
       'form.pdf', 'form-filled.pdf']

@@ -483,6 +483,9 @@ export const IPC = {
   NOTE_DRAFT_GET: 'note-draft:get',
   NOTE_DRAFT_PUT: 'note-draft:put',
   NOTE_DRAFT_LIST: 'note-draft:list',
+
+  // Print what's due (overdue and the next N days, as a PDF)
+  EXPORT_WHATS_DUE: 'export:whats-due',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

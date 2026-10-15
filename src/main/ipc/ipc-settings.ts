@@ -21,6 +21,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'note_formats', 'note_format_last',
   'track_time', 'track_mileage', 'unit_minutes', 'mileage_rate', 'ics_full_names', 'note_type_last',
   'workspace_vocab', 'workspace_features', 'feature_offers_dismissed', 'dashboard_layout', 'calendar_layers', 'calendar_mode', HIDDEN_DEADLINES_KEY, 'attachments_max_mb', 'dashboard_reports',
+  'print_due_days',
 ])
 
 /** Settings main reads itself: a value it can't read is refused rather than stored */

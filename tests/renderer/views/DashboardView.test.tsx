@@ -263,13 +263,29 @@ describe('DashboardView — interactions', () => {
   it('the occasional actions sit under one Print & export menu (D-19)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.queryByRole('button', { name: /Print this week/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Print what's due/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Print & export/ }))
     const items = screen.getAllByRole('menuitem').map(m => m.textContent)
-    expect(items.some(x => x?.startsWith('Print this week'))).toBe(true)
+    expect(items.some(x => x?.startsWith("Print what's due"))).toBe(true)
+    expect(items.some(x => x?.startsWith('Print this week'))).toBe(false)
     expect(items.some(x => x?.startsWith('Monthly summary'))).toBe(true)
     expect(items.some(x => x?.startsWith('Add to my calendar…'))).toBe(true)
     expect(screen.getByRole('button', { name: /Customize/ })).toBeDefined()
+  })
+
+  it("Print what's due asks how far ahead, 30 days first, and remembers the choice (persona study R7)", async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByRole('button', { name: /Print & export/ }))
+    fireEvent.click(screen.getAllByRole('menuitem').find(m => m.textContent?.startsWith("Print what's due"))!)
+    const dialog = screen.getByRole('dialog', { name: "Print what's due" })
+    expect((screen.getByRole('radio', { name: 'Next 30 days' }) as HTMLInputElement).checked).toBe(true)
+    expect(dialog.textContent).toContain('Next 7 days')
+    fireEvent.click(screen.getByRole('radio', { name: 'Next 90 days' }))
+    mockSafeInvoke.mockClear()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: "Print what's due…" })) })
+    expect(mockSafeInvoke).toHaveBeenCalledWith('settings:update', 'print_due_days', '90')
+    expect(mockSafeInvoke).toHaveBeenCalledWith('export:whats-due', 90, expect.objectContaining({ includeAppointments: expect.any(Boolean) }))
   })
 
   it('the color key is a pop-up from a link and no longer opens on its own (D-21, Q5)', async () => {
