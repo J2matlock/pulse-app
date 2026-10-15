@@ -10,7 +10,7 @@ let testDb: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => testDb.db }))
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), isPackaged: false } }))
 
-import { loadPlannerRows, exportWeeklyPlanner, loadDueRows, exportWhatsDue, daysLeftText, dueRangeText } from '../src/main/export-planner'
+import { loadDueRows, exportWhatsDue, daysLeftText, dueRangeText } from '../src/main/export-planner'
 import { jsPDF } from '../src/main/export-shared'
 
 beforeEach(() => {
@@ -24,31 +24,30 @@ beforeEach(() => {
 })
 afterEach(() => cleanupTestDb(testDb))
 
-describe('weekly planner', () => {
-  it('splits this week from overdue, using effective due dates', () => {
-    const { week, overdue } = loadPlannerRows(localDateFromToday(0), localDateFromToday(6))
-    expect(week.map(r => r.kind).sort()).toEqual(['Deadline', 'Task'])
-    expect(overdue).toHaveLength(1)
-    expect(overdue[0]!.due).toBe(localDateFromToday(-10))
+describe("what's due from the first fixture", () => {
+  it('lists the overdue deadline first, then the task and the deadline coming up, by effective due date', () => {
+    setDbFeatures(testDb.db)
+    const rows = loadDueRows(6)
+    expect(rows.map(r => [r.kind, r.due])).toEqual([['Deadline', localDateFromToday(-10)], ['Task', localDateFromToday(1)], ['Deadline', localDateFromToday(2)]])
   })
 
-  it('writes a PDF', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'planner-'))
-    const dest = join(dir, 'week.pdf')
-    await exportWeeklyPlanner(localDateFromToday(0), dest, 'Jordan')
-    expect(existsSync(dest) && statSync(dest).size > 1000).toBe(true)
-    rmSync(dir, { recursive: true, force: true })
-  })
-})
-
-describe('appointments on the planner (W07 §7)', () => {
-  it('lists this week\'s scheduled appointments with their times', () => {
+  it('lists scheduled appointments with their times when asked to, from today', () => {
     testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
     const day = localDateFromToday(1)
     testDb.db.prepare("INSERT INTO appointments (title, start_at) VALUES ('Drop-off', ?)").run(`${day}T08:30`)
     testDb.db.prepare("INSERT INTO appointments (title, start_at, status) VALUES ('Done one', ?, 'done')").run(`${day}T10:00`)
-    const { week } = loadPlannerRows(localDateFromToday(0), localDateFromToday(6))
-    expect(week.filter(r => r.kind === 'Appointment')).toEqual([{ due: day, client: '', what: '8:30 am  Drop-off', kind: 'Appointment' }])
+    testDb.db.prepare("INSERT INTO appointments (title, start_at) VALUES ('Last week', ?)").run(`${localDateFromToday(-3)}T10:00`)
+    expect(loadDueRows(6).filter(r => r.kind === 'Appointment')).toEqual([])
+    expect(loadDueRows(6, { includeAppointments: true }).filter(r => r.kind === 'Appointment'))
+      .toEqual([{ due: day, daysUntil: 1, late: false, client: '', what: '8:30 am  Drop-off', kind: 'Appointment' }])
+  })
+
+  it('writes a PDF', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'planner-'))
+    const dest = join(dir, 'due.pdf')
+    await exportWhatsDue(30, dest, 'Jordan')
+    expect(existsSync(dest) && statSync(dest).size > 1000).toBe(true)
+    rmSync(dir, { recursive: true, force: true })
   })
 })
 

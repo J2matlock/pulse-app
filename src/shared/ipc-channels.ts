@@ -172,7 +172,6 @@ export const IPC = {
   DASHBOARD_RECENT_ACTIVITY: 'dashboard:recent-activity',
   DASHBOARD_GET_FOLLOWUPS: 'dashboard:get-followups',
   DASHBOARD_GET_BRIEFING: 'dashboard:get-briefing',
-  EXPORT_WEEKLY_PLANNER: 'export:weekly-planner',
   EXPORT_AUDIT_REPORT: 'export:audit-report',
   EXPORT_HANDOFF_PACKET: 'export:handoff-packet',
   EXPORT_ICS: 'export:ics',

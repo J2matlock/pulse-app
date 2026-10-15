@@ -387,7 +387,6 @@ export interface IPCContract {
   'dashboard:get-deadlines': { args: [];  return: unknown[] }
   'dashboard:get-followups': { args: [];  return: unknown[] }
   'dashboard:get-briefing': { args: []; return: { overdue: number; dueToday: number; dueThisWeek: number; followUpsDue: number; tasksDue: number; checklistDue: number } }
-  'export:weekly-planner':  { args: [weekStart: string]; return: string | null }
 
   // ── Auth & Security ─────────────────────────────────────────────────────
   'auth:setup-password':                { args: [password: string, hint: string];                                return: { cloudWarning: string | null } }
