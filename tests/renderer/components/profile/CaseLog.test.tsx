@@ -115,6 +115,21 @@ describe('CaseLog', () => {
     expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy()
   })
 
+  it('makes one offer for a note with time and miles, time first, in the workspace words (Q1b)', async () => {
+    setWords({ record: { one: 'job', many: 'jobs', article: 'a' }, activity: { one: 'work note', many: 'work notes', article: 'a' } })
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: [] })
+      if (channel === 'case-log:create') return Promise.resolve({ ok: true, data: makeEntry({ id: 9 }) })
+      return Promise.resolve({ ok: true, data: null })
+    })
+    await renderSettled(<CaseLog rowId={10} />)
+    fireEvent.change(screen.getByPlaceholderText(/Add a note entry/), { target: { value: 'Drove 12 miles, 45 min visit' } })
+    fireEvent.click(screen.getByTitle('Add a work note'))
+    expect(await screen.findByText('This work note mentions time. Record minutes on work notes and total them each month?')).toBeTruthy()
+    expect(screen.queryByText(/mentions miles/)).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Turn on' })).toHaveLength(1)
+  })
+
   it('renders the Case Log header', async () => {
     await renderSettled(<CaseLog rowId={10} />)
     expect(screen.getByText('Case log')).toBeTruthy()

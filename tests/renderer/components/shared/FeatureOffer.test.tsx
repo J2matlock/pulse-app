@@ -11,7 +11,6 @@ vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMoc
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 
 import { FeatureOffer } from '../../../../src/renderer/components/shared/FeatureOffer'
-import { offerFor } from '../../../../src/renderer/components/profile/CaseLog'
 import { IPC } from '../../../../src/shared/ipc-channels'
 import { setWords, EXISTING_FEATURES } from '../../vocabFixture'
 
@@ -61,17 +60,5 @@ describe('FeatureOffer', () => {
     render(<FeatureOffer feature="timeTracking" message="Record minutes?" />)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalled())
     expect(screen.queryByText('Record minutes?')).toBeNull()
-  })
-})
-
-describe('offerFor', () => {
-  it('spots time or miles in a note only while those boxes are off', () => {
-    const off = { trackTime: false, trackMileage: false }
-    expect(offerFor('Phone call, 45 min', off)).toBe('timeTracking')
-    expect(offerFor('Spent 1.5 hours on paperwork', off)).toBe('timeTracking')
-    expect(offerFor('Drove 12 miles to the visit', off)).toBe('mileage')
-    expect(offerFor('Drove 12 miles, 30 minutes', { trackTime: true, trackMileage: false })).toBe('mileage')
-    expect(offerFor('Met at 3pm, all good', off)).toBeNull()
-    expect(offerFor('45 min', { trackTime: true, trackMileage: true })).toBeNull()
   })
 })
