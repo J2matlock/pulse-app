@@ -21,6 +21,15 @@ export const CHAR_WIDTH_HEADER = 9
 export const CHAR_WIDTH_CELL = 8
 export const HEADER_PADDING = 72
 export const CELL_PADDING = 32
+/** Fit measures the text with the grid's own font (UX pass Q3); the character widths above are
+ *  only for when it can't (no canvas). What a header holds besides its name: */
+export const FIT_HEADER_PADDING = 24  // the header's and the name's side padding, and the gaps
+export const FIT_ICON_RULE = 24       // the deadline rule's clock
+export const FIT_ICON_SORT = 24       // the sort arrows
+export const FIT_ICON_MENU = 32       // the "…" button
+/** A cell's side padding and borders, and the deadline shape before a date */
+export const FIT_CELL_PADDING = 30
+export const FIT_CELL_SHAPE = 20
 export const MIN_COL_WIDTH = 60
 export const DEFAULT_COL_WIDTH = 80
 export const MAX_AUTO_FIT_WIDTH = 400

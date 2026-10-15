@@ -220,6 +220,26 @@ describe('GridHeaderRow', () => {
     }
   })
 
+  it('gives each column a 12 px resize handle on its right border; a double-click fits the column (Q3)', () => {
+    const autoFitColumn = vi.fn()
+    render(<GridHeaderRow {...makeProps({ autoFitColumn })} />)
+    const handles = screen.getAllByTestId('column-resize-handle')
+    expect(handles).toHaveLength(2)
+    const h = handles[0]!
+    // Straddles the border (-6 px) and is above the next header, so it's easy to grab
+    expect(h.className).toMatch(/(^|\s)w-3(\s|$)/)
+    expect(h.className).toMatch(/(^|\s)-right-1\.5(\s|$)/)
+    expect(h.className).toMatch(/(^|\s)z-20(\s|$)/)
+    expect(h.className).toContain('cursor-col-resize')
+    expect(h.getAttribute('title')).toBe('Drag to resize · Double-click to fit')
+    // The bar shows on the header's hover and turns blue on the handle's
+    const bar = h.firstElementChild!
+    expect(bar.className).toContain('group-hover/colhead:bg-slate-400')
+    expect(bar.className).toContain('group-hover/resize:bg-blue-500')
+    fireEvent.doubleClick(h)
+    expect(autoFitColumn).toHaveBeenCalledWith(1)
+  })
+
   it('does not render acuity header when disabled', () => {
     const { container } = render(<GridHeaderRow {...makeProps()} />)
     expect(container.textContent).not.toContain('Ac')

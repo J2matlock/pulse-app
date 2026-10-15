@@ -70,6 +70,7 @@ vi.mock('../../src/renderer/components/grid/gridCellStyle', async () => {
 })
 
 import { useGridStore } from '../../src/renderer/stores/gridStore'
+import { pulseEvents } from '../../src/renderer/events'
 import { DataGrid } from '../../src/renderer/components/grid/DataGrid'
 import { setWords } from '../renderer/vocabFixture'
 import { RECORDS, COLUMNS, RUNS, OUT_DIR, columns, rows, setupGridStore, record as recordTo, timingTable, type Timing } from './gridFixture'
@@ -183,5 +184,29 @@ describe(`DataGrid at ${RECORDS} records × ${COLUMNS} columns (jsdom)`, () => {
     record("Search keystroke: 'Person 12' (wall clock)", wall, `${shown} shown`)
     record("Search keystroke: 'Person 12' (React commit time)", commit)
     record('Search cleared (wall clock)', clearWall)
+  })
+
+  // UX pass Q3: dragging a column's edge changes columnSizing on every pointer move. Widths
+  // should reach the cells through the --cw-* CSS variables only, so no record redraws.
+  it('changes a column width 30 times in a row (500 records × 20 columns)', async () => {
+    const commit: number[] = [], redrawn: number[] = []
+    for (let run = 0; run < RUNS; run++) {
+      const view = mountGrid()
+      act(() => { useGridStore.setState({ rows: rows.slice(0, 500), columns: columns.slice(0, 22) }) })
+      await settle()
+      for (let k = 0; k < 30; k++) {
+        commitMs = 0
+        drawn.cells = 0
+        act(() => { pulseEvents.emit('column:resize', { columnId: 3, change: k % 2 ? 'narrower' : 'wider' }) })
+        await settle()
+        commit.push(commitMs); redrawn.push(drawn.cells / 22)
+      }
+      view.unmount()
+      cleanup()
+    }
+    record('Column width change, 500 × 20 (React commit time)', commit)
+    record('Records redrawn per width change (count, not ms)', redrawn)
+    // Widths reach the cells through CSS variables: no record redraws (before Q3: every mounted one did)
+    expect(Math.max(...redrawn)).toBe(0)
   })
 })

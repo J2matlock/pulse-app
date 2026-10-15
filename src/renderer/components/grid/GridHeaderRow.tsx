@@ -49,7 +49,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
       role="columnheader"
       aria-colindex={colIndex}
       aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
-      className={`relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
+      className={`group/colhead relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
                   ${flash ? 'bg-blue-100 dark:bg-blue-900/50 ring-3 ring-inset ring-blue-400' : 'bg-slate-50 dark:bg-slate-800'} transition-colors duration-700 select-none`}
       data-flash={flash || undefined}
       style={{
@@ -65,20 +65,24 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
     >
       <ColumnHeader column={col} dragHandleProps={{ ...attributes, ...listeners }} />
 
-      {/* Resize handle — right edge */}
+      {/* Resize handle: a 12 px grab zone straddling the column's right border (UX pass Q3).
+          Its 3 px bar shows when the header is hovered and turns blue on the handle and while
+          dragging. Pointer only: the keyboard's way is Narrower · Fit · Wider in the column's menu */}
       {header.column.getCanResize() && (
         <div
           onMouseDown={header.getResizeHandler()}
           onTouchStart={header.getResizeHandler()}
           onDoubleClick={e => { e.stopPropagation(); onAutoFit(col.id) }}
-          className={`absolute right-0 top-0 w-1.5 h-full cursor-col-resize z-10
-                       transition-opacity
-                       ${header.column.getIsResizing()
-                         ? 'bg-blue-500 opacity-100'
-                         : 'bg-slate-400 dark:bg-slate-500 opacity-20 hover:opacity-100 hover:bg-blue-400 active:bg-blue-600'}`}
+          className="group/resize absolute top-0 -right-1.5 z-20 flex h-full w-3 justify-center cursor-col-resize"
           style={{ touchAction: 'none', userSelect: 'none' }}
-          title="Drag to resize · Double-click to auto-fit"
-        />
+          title="Drag to resize · Double-click to fit"
+          data-testid="column-resize-handle"
+          data-resizing={header.column.getIsResizing() || undefined}
+        >
+          <span aria-hidden="true" className={`block h-full w-[3px] rounded-full transition-colors ${header.column.getIsResizing()
+            ? 'bg-blue-500'
+            : 'bg-transparent group-hover/colhead:bg-slate-400 dark:group-hover/colhead:bg-slate-500 group-hover/resize:bg-blue-500 dark:group-hover/resize:bg-blue-500'}`} />
+        </div>
       )}
     </div>
   )
