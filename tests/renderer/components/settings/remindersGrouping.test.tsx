@@ -50,8 +50,8 @@ describe('Reminders in Settings', () => {
     const reminders = screen.getByRole('heading', { name: /Reminders/ }).closest('section')!
     expect(within(reminders).getByText(/Want a desktop notification each morning\? Turn on Reminders\./)).toBeTruthy()
     const requirements = screen.getByRole('heading', { name: 'Contact requirements' }).closest('section')!
-    expect(within(requirements).getByText(/Need a minimum number of visits or calls per month\? Turn on Contact requirements/)).toBeTruthy()
-    expect(within(requirements).getByText(/how many case notes each client needs/)).toBeTruthy()
+    expect(within(requirements).getByText(/count how many case notes each client gets per month, and show who.s behind\? Turn on Contact requirements/)).toBeTruthy()
+    expect(requirements.textContent).not.toMatch(/[{}]/)
     expect(within(requirements).getByRole('button', { name: 'Turn on' })).toBeTruthy()
     // Settings is the one place the offer must never be dismissed from
     expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull()

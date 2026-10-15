@@ -20,7 +20,7 @@ import toast from 'react-hot-toast'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { FEATURES, isOn, type FeatureKey } from '../../shared/features'
 import { suggestFeature, suggestionMessage } from '../../shared/featureSuggestions'
-import { FeatureOffer } from '../components/shared/FeatureOffer'
+import { FeatureOffer, featureOnMessage } from '../components/shared/FeatureOffer'
 import { modHelp } from '../utils/keys'
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -151,10 +151,9 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
   }, [filteredItems, features])
 
   async function turnOn(key: FeatureKey) {
-    const label = FEATURES.find(x => x.key === key)?.label ?? 'That feature'
     try {
       await updateWorkspace({ features: { [key]: true } })
-      toast.success(`${f(label)} is on. You can turn it off in Settings → Words & features.`)
+      toast.success(featureOnMessage(key, f))
     } catch {
       toast.error("We couldn't turn that on. Try Settings → Words & features.")
     }
