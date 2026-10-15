@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState, useId } from 'react'
+import toast from 'react-hot-toast'
 import type { Column } from '../../../shared/types'
+import type { ColumnType } from '../../../shared/columnTraits'
 import type { NavDirection } from '../../hooks/useGridCellNavigation'
-import { toYmd, MIN_YEAR, MAX_YEAR } from '../../../shared/ymd'
+import { DateField } from '../ui/DateField'
 
 export type { NavDirection }
 
@@ -10,9 +12,20 @@ interface Props {
   value: string | null
   onSave: (value: string | null, navDirection?: NavDirection) => void
   onCancel: () => void
+  /**
+   * Escape threw away typing that differs from the stored value. The caller
+   * makes it an Undo step that puts the typing back (persona study D5).
+   */
+  onDiscard?: (typed: string) => void
   /** Shown in an empty text editor, e.g. on a record just added (UX-B-39) */
   placeholder?: string
 }
+
+/** Clicking away from a half-typed date can't keep the editor open, so a toast says what happened */
+export const DATE_NOT_SAVED = "That date wasn't saved. It isn't a whole date."
+
+/** The kinds whose typing Escape can put back. A date's old value is never lost, so it has nothing to put back */
+const DISCARDABLE: ReadonlySet<ColumnType> = new Set<ColumnType>(['text', 'notes', 'address', 'phone', 'email', 'url', 'number', 'currency'])
 
 const BASE_STYLE: React.CSSProperties = {
   width: '100%',
@@ -28,8 +41,6 @@ const BASE_STYLE: React.CSSProperties = {
 
 // Colors come from classes so an open editor follows dark mode, native date and select pickers included
 const EDITOR_CLASS = 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100'
-// A date needs its room for the digits and the calendar button in a narrow cell
-const DATE_STYLE: React.CSSProperties = { ...BASE_STYLE, padding: '0 4px 0 8px' }
 const CHECKBOX_STYLE: React.CSSProperties = { ...BASE_STYLE, display: 'flex', alignItems: 'center', padding: '0 12px' }
 const SELECT_STYLE: React.CSSProperties = { ...BASE_STYLE, cursor: 'pointer' }
 const TEXTAREA_NOTES_STYLE: React.CSSProperties = { ...BASE_STYLE, resize: 'none', padding: '8px 12px', height: 88 }
@@ -42,7 +53,7 @@ const TEXTAREA_ADDRESS_STYLE: React.CSSProperties = { ...BASE_STYLE, resize: 'no
  * Text/number: saves on Enter, Tab, or blur (click outside). Typing is uninterrupted.
  * Checkbox/date/dropdown: saves immediately on change.
  */
-export function CellEditor({ column, value, onSave, onCancel, placeholder }: Props): React.ReactElement {
+export function CellEditor({ column, value, onSave, onCancel, onDiscard, placeholder }: Props): React.ReactElement {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null)
   const [localValue, setLocalValue] = useState(value ?? '')
   const savedRef = useRef(false)
@@ -52,12 +63,6 @@ export function CellEditor({ column, value, onSave, onCancel, placeholder }: Pro
     // Reject non-finite numbers (NaN, Infinity, -Infinity) for numeric columns
     if (val && (column.column_type === 'number' || column.column_type === 'currency')) {
       if (!isFinite(Number(val))) return
-    }
-    // A half-typed year (0026) isn't a date; keep what was there instead
-    if (val && column.column_type === 'date' && toYmd(val) !== val) {
-      savedRef.current = true
-      onCancel()
-      return
     }
     savedRef.current = true
     onSave(val, navDirection)
@@ -74,7 +79,11 @@ export function CellEditor({ column, value, onSave, onCancel, placeholder }: Pro
         try {
           if (el instanceof HTMLSelectElement || el instanceof HTMLInputElement) el.showPicker()
         } catch { /* showPicker may throw if no user gesture */ }
-      } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      } else if (el instanceof HTMLTextAreaElement) {
+        // A long note opens with the caret at its end, not all of it selected and ready to be typed over (#22)
+        const end = el.value.length
+        el.setSelectionRange(end, end)
+      } else if (el instanceof HTMLInputElement) {
         el.select()
       }
     }
@@ -85,14 +94,23 @@ export function CellEditor({ column, value, onSave, onCancel, placeholder }: Pro
   const kind = column.column_type
   const hint = kind === 'checkbox' ? 'Space ticks or unticks. Escape goes back.'
     : kind === 'dropdown' || kind === 'status' ? 'Pick one to save. Escape cancels.'
-    : kind === 'notes' || kind === 'address' ? 'Tab saves. Escape cancels. Enter starts a new line.'
-    : 'Enter saves. Escape cancels.'
+    : kind === 'notes' || kind === 'address' ? 'Tab saves. Escape cancels, and you can put it back. Enter starts a new line.'
+    : kind === 'date' ? 'Enter saves. Escape cancels.'
+    : 'Enter saves. Escape cancels, and you can put it back.'
   const a11y = { 'aria-label': column.name, 'aria-describedby': hintId }
+
+  /** Escape: nothing is saved, and typing that differs from what's stored can be put back */
+  function cancelEdit() {
+    if (savedRef.current) return
+    savedRef.current = true
+    if (onDiscard && DISCARDABLE.has(kind) && localValue.trim() !== '' && localValue !== (value ?? '')) onDiscard(localValue)
+    onCancel()
+  }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') {
       e.stopPropagation()
-      onCancel()
+      cancelEdit()
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.stopPropagation()
       guardedSave(localValue === '' ? null : localValue, 'next-row')
@@ -131,28 +149,27 @@ export function CellEditor({ column, value, onSave, onCancel, placeholder }: Pro
         )
       }
 
-      case 'date': {
-        // Store as YYYY-MM-DD. Do NOT call onSave on onChange — the native date
-        // input edits segments (MM, DD, YYYY) one at a time, so saving mid-edit
-        // triggers a re-render that resets the picker and corrupts input.
-        // Save only on blur or keyboard commit (Enter/Tab/Escape handled above).
-        const dateValue = localValue || ''
+      case 'date':
+        // Saved only on Enter, Tab or leaving the cell, never mid-typing (the segments would reset).
+        // A half-typed or impossible date is refused there and the stored one stays (persona study D1)
         return (
-          <input
+          <DateField
             {...a11y}
-            ref={inputRef as React.RefObject<HTMLInputElement>}
-            type="date"
+            size="cell"
+            autoFocus
             className={EDITOR_CLASS}
-            style={DATE_STYLE}
-            min={`${MIN_YEAR}-01-01`}
-            max={`${MAX_YEAR}-12-31`}
-            value={dateValue}
-            onChange={e => setLocalValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={() => guardedSave(localValue || null)}
+            value={value}
+            onCommit={(v, how) => guardedSave(v, how === 'enter' ? 'next-row' : how === 'tab' ? 'next-col' : how === 'shift-tab' ? 'prev-col' : undefined)}
+            onInvalid={(_message, how) => {
+              // Enter and Tab keep the editor open with the message; clicking away can't, so it says so
+              if (how !== 'blur' || savedRef.current) return
+              savedRef.current = true
+              toast.error(DATE_NOT_SAVED)
+              onCancel()
+            }}
+            onCancel={onCancel}
           />
         )
-      }
 
       case 'number': {
         return (
@@ -247,7 +264,7 @@ export function CellEditor({ column, value, onSave, onCancel, placeholder }: Pro
             value={localValue}
             onChange={e => setLocalValue(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Escape') { e.stopPropagation(); onCancel() }
+              if (e.key === 'Escape') { e.stopPropagation(); cancelEdit() }
               else if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); guardedSave(localValue === '' ? null : localValue, e.shiftKey ? 'prev-col' : 'next-col') }
               // Allow Enter for newlines in textarea
             }}

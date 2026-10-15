@@ -13,6 +13,8 @@ import { friendlyError } from '../../utils/friendlyError'
 import type { DeadlineState } from '../../../shared/deadlineEngine'
 import { CellDisplay } from '../grid/CellDisplay'
 import { CellEditor } from '../grid/CellEditor'
+import { pushDiscardedTyping } from '../../utils/discardedTyping'
+import { getClientName } from '../../utils/clientName'
 import { Sparkline, NumberHistoryDialog, type SeriesPoint } from './NumberHistory'
 import { isEmptyCell } from '../../utils/emptyCell'
 import { shortDate, ymdLocalDate } from '../../../shared/dates'
@@ -114,7 +116,8 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
           <div className="w-full" style={{ minHeight: 44, height: col.column_type === 'notes' ? 88 : col.column_type === 'address' ? 72 : 44 }}>
             <CellEditor column={col} value={value}
               onSave={v => { setEditing(false); if ((v ?? '') !== (value ?? '')) void onSave(v) }}
-              onCancel={() => setEditing(false)} />
+              onCancel={() => setEditing(false)}
+              onDiscard={typed => pushDiscardedTyping({ rowId: row.row_id, columnId: col.id, columnName: col.name, typed, previous: value, recordName: getClientName(row, allColumns) })} />
           </div>
         ) : onSave ? (
           <button type="button" onClick={() => setEditing(true)} aria-label={`Edit ${col.name}`}
