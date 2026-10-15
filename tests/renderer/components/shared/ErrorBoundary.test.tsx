@@ -36,7 +36,7 @@ describe('ErrorBoundary', () => {
         <ThrowingComponent message="Test crash" />
       </ErrorBoundary>
     )
-    expect(screen.getByText('Something went wrong loading this page.')).toBeDefined()
+    expect(screen.getByText("We couldn't show this page.")).toBeDefined()
   })
 
   it('shows a plain sentence, not the raw error message', () => {
@@ -79,7 +79,7 @@ describe('ErrorBoundary', () => {
         <ThrowingComponent message="Oops" />
       </ErrorBoundary>
     )
-    expect(screen.getByText('Something went wrong loading this page.')).toBeDefined()
+    expect(screen.getByText("We couldn't show this page.")).toBeDefined()
     rerender(
       <ErrorBoundary resetKey="/dashboard">
         <p>Dashboard</p>
@@ -106,6 +106,6 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     )
     expect(screen.getByText('Custom fallback')).toBeDefined()
-    expect(screen.queryByText('Something went wrong loading this page.')).toBeNull()
+    expect(screen.queryByText("We couldn't show this page.")).toBeNull()
   })
 })

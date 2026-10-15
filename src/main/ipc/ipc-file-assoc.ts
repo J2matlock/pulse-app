@@ -40,7 +40,7 @@ export function registerFileAssocHandlers(): void {
 
   // Not gated: an OS setting outside the database (see enforceWritable)
   define(IPC.FILE_ASSOC_REGISTER, [z.boolean('Invalid setting').default(true)], (register) => {
-    if (process.platform !== 'win32') return fail('Not supported on this platform')
+    if (process.platform !== 'win32') return fail('Opening .pulse files with a double-click can only be set up on Windows.')
     if (register) registerPulseFileType()
     else unregisterPulseFileType()
     return ok(true)

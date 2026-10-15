@@ -469,8 +469,8 @@ export default function DashboardView(): React.ReactElement {
     const back = startsMonday ? (d.getDay() + 6) % 7 : d.getDay()
     d.setDate(d.getDate() - back)
     const res = await safeInvoke(IPC.EXPORT_WEEKLY_PLANNER, localDateString(d))
-    if (!res.ok) { toast.error("We couldn't create the weekly planner. Please try again."); return }
-    if (res.data) { toast.success('Weekly planner saved.'); noteUnencryptedExport() }
+    if (!res.ok) { toast.error("We couldn't make the PDF of this week — try again"); return }
+    if (res.data) { toast.success('Saved the PDF of this week.'); noteUnencryptedExport() }
   }
 
   // "Select several…" in the toolbar row; the checkboxes and this bar follow

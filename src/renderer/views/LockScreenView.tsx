@@ -134,13 +134,13 @@ export function LockScreenView(): React.ReactElement {
         inputRef.current?.focus()
       } else {
         // Lockout and unreadable-credential messages are already written for users
-        setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : friendlyError(result.error, "Pulse couldn't unlock just now. Please try again."))
+        setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : friendlyError(result.error, "Pulse couldn't unlock just now — try again"))
         setPassword('')
         await checkLockout()
         inputRef.current?.focus()
       }
     } catch {
-      setError("We couldn't unlock just now. Please try again.")
+      setError("We couldn't unlock just now — try again")
     } finally {
       setIsSubmitting(false)
     }
@@ -169,7 +169,7 @@ export function LockScreenView(): React.ReactElement {
         setTimeout(() => { keyRef.current?.focus(); keyRef.current?.select() }, 0)
       }
     } catch {
-      setKeyError("We couldn't check the key just now. Please try again.")
+      setKeyError("We couldn't check the key just now — try again")
     } finally {
       setIsSubmitting(false)
     }

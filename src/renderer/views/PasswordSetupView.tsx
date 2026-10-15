@@ -95,7 +95,7 @@ export function PasswordSetupView(): React.ReactElement {
           setPasswordSetup(true)
           setLocked(true)
         } else {
-          toast.error('Password setup failed. Please try again.')
+          toast.error("We couldn't set up your password — try again")
         }
         setIsSubmitting(false)
         return
@@ -107,7 +107,7 @@ export function PasswordSetupView(): React.ReactElement {
       // Move to recovery key prompt instead of immediately unlocking
       setStep('recovery-prompt')
     } catch {
-      toast.error('Setup failed. Please try again.')
+      toast.error("We couldn't set up your password — try again")
     } finally {
       setIsSubmitting(false)
     }
@@ -121,10 +121,10 @@ export function PasswordSetupView(): React.ReactElement {
         setGeneratedKey(result.data)
         setStep('recovery-display')
       } else {
-        toast.error('Failed to generate recovery key.')
+        toast.error("We couldn't make a recovery key — try again")
       }
     } catch {
-      toast.error('Failed to generate recovery key.')
+      toast.error("We couldn't make a recovery key — try again")
     }
   }
 

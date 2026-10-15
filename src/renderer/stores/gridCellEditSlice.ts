@@ -142,12 +142,12 @@ export const createCellEditSlice = (set: Set, get: Get) => ({
       set(s => ({
         rows: isLatest ? s.rows.map(r => r.row_id === rowId ? { ...r, [key]: fallback } : r) : s.rows,
         isSaving: _savesInFlight > 0,
-        saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
+        saveError: fromUndo || collect ? null : "We couldn't save your changes — try again"
       }))
       rlog.error('GridStore', 'Cell update failed', err)
       if (fromUndo) throw err
       // A bulk action counts its failures and says so once
-      if (!collect) toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not save — please try again'))
+      if (!collect) toast.error(friendlyError(err instanceof Error ? err.message : null, "We couldn't save that — try again"))
       return false
     }
     const entry = settle()

@@ -138,7 +138,7 @@ export default function TasksView(): React.ReactElement {
     setLoadError(null)
     // safeInvoke and the store don't throw: a failed load comes back as false,
     // and "no tasks" would be wrong then
-    const failed = () => setLoadError('We couldn\u2019t load your tasks \u2014 please try again.')
+    const failed = () => setLoadError('We couldn\u2019t load your tasks — try again')
     try {
       const [tasksOk, urgentOk] = await Promise.all([loadTasks(), loadUrgentItems(), loadTaskGroups()])
       if (tasksOk === false || (checklistsOn && !urgentOk)) failed()

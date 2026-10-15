@@ -186,7 +186,7 @@ export function registerContactHandlers(): void {
 
   define(IPC.CONTACTS_CREATE_CUSTOM_FIELD, [
     idArg(),
-    textArg('Field name required (max 200 chars)', { max: 200, notBlank: true }),
+    textArg('Give the detail a name (up to 200 characters).', { max: 200, notBlank: true }),
     z.enum(['text', 'phone', 'email', 'url', 'number'], 'Invalid field type'),
   ], (categoryId, fieldName, fieldType) => {
     return ok(createCustomField(categoryId, fieldName, fieldType))
@@ -208,7 +208,7 @@ export function registerContactHandlers(): void {
   define(IPC.CONTACTS_IMPORT_VCF, [z.custom<string>()], async (filePath) => {
     assertSafePath(filePath)
     const stat = statSync(filePath)
-    if (stat.size > 10 * 1024 * 1024) return fail('vCard file too large (max 10 MB)')
+    if (stat.size > 10 * 1024 * 1024) return fail('That vCard file is bigger than 10 MB. Split it into smaller files and try again.')
     // Outlook and older phones write vCard 2.1 in Windows-1252 or UTF-16; read them like a CSV (Q-079)
     const content = decodeCsvBytes(await readFile(filePath)).text
     const parsed = parseVCard(content)

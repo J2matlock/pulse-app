@@ -66,7 +66,7 @@ export function useGridExport({ activeGridId, closeMenu }: { activeGridId: numbe
         activeRowIds,
         destPath: saveRes.data.filePath,
       })
-      if (!result.ok) toast.error(friendlyError(result.error, 'Export failed. Please try again.'))
+      if (!result.ok) toast.error(friendlyError(result.error, "We couldn't export the file — try again"))
       else noteUnencryptedExport()
     } else {
       const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
@@ -81,7 +81,7 @@ export function useGridExport({ activeGridId, closeMenu }: { activeGridId: numbe
         activeRowIds,
         destPath: saveRes.data.filePath
       })
-      if (!result.ok) toast.error(friendlyError(result.error, 'Export failed. Please try again.'))
+      if (!result.ok) toast.error(friendlyError(result.error, "We couldn't export the file — try again"))
       else noteUnencryptedExport()
     }
   }

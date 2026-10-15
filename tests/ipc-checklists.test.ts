@@ -492,7 +492,7 @@ describe('CHECKLIST_APPLY_TEMPLATE', () => {
   it('fails for non-existent template', async () => {
     const r = await invoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, 99999) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toContain('not found')
+    expect(r.error).toContain("isn't there any more")
   })
 
   it('fails for invalid IDs', async () => {

@@ -69,7 +69,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       const data = await storeInvoke<AlertRule[]>(IPC.ALERT_RULE_GET_ALL)
       set({ rules: data.map(parseRule), isLoaded: true, loadError: null })
     } catch (err) {
-      set({ loadError: err instanceof Error ? err.message : 'Failed to load alert rules' })
+      set({ loadError: err instanceof Error ? err.message : "We couldn't load the deadline rules — try again" })
       return
     }
     await get().loadUsage()
@@ -90,7 +90,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       await get().loadRules()
       return data
     } catch {
-      toast.error('Could not save rule — please try again')
+      toast.error("We couldn't save the deadline rule — try again")
       return null
     }
   },
@@ -107,7 +107,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       if (g.activeGridId && [...g.columns, ...g.hiddenColumns].some(usesIt)) await g.loadGrid(g.activeGridId)
       return true
     } catch {
-      toast.error('Could not save rule — please try again')
+      toast.error("We couldn't save the deadline rule — try again")
       return false
     }
   },
@@ -117,7 +117,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     try {
       snapshot = await storeInvoke<DeletedAlertRule>(IPC.ALERT_RULE_DELETE, id)
     } catch {
-      toast.error('Could not delete rule — please try again')
+      toast.error("We couldn't delete the deadline rule — try again")
       return false
     }
     set(s => ({ rules: s.rules.filter(r => r.id !== id), usage: s.usage.filter(u => u.rule_id !== id) }))

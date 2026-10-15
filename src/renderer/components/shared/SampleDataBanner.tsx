@@ -87,7 +87,7 @@ export async function removeSampleData(): Promise<boolean> {
   const status = await safeInvoke(IPC.SAMPLE_DATA_STATUS)
   const sampleGridId = status.ok ? status.data.gridId : null
   const res = await safeInvoke(IPC.SAMPLE_DATA_REMOVE)
-  if (!res.ok) { toast.error("We couldn't remove the sample data. Nothing was changed; please try again."); return false }
+  if (!res.ok) { toast.error("We couldn't remove the sample data. Nothing was changed — try again"); return false }
   // Undo steps may point at sample entries that are gone now (L-16)
   useUndoStore.getState().clear()
   const activeGridId = useGridStore.getState().activeGridId

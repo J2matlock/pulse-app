@@ -120,10 +120,10 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
   }, [onClose])
 
   async function handleGenerate() {
-    if (!selectedGridId) { setError(`Please select ${t('list', { article: true })}.`); return }
+    if (!selectedGridId) { setError(`Choose ${t('list', { article: true })}.`); return }
     const rowId = clientRowId ? parseInt(clientRowId, 10) : NaN
     if (isNaN(rowId) || rowId < 1) {
-      setError(`Please select ${t('record', { article: true })}.`)
+      setError(`Choose ${t('record', { article: true })}.`)
       return
     }
     setGenerating(true)
@@ -135,13 +135,13 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
         IPC.LETTER_TEMPLATE_GENERATE, template.id, rowId, Number(selectedGridId)
       )
       if (!res.ok) {
-        setError(friendlyError(res.error, `Could not generate the letter. Please check the ${t('record')} and try again.`))
+        setError(friendlyError(res.error, `We couldn't make the letter — check the ${t('record')} and try again`))
       } else {
         setResult(res.data.text)
         setUnknown(res.data.unknown)
       }
     } catch {
-      setError('Something went wrong while generating the letter. Please try again.')
+      setError("We couldn't make the letter — try again")
     } finally {
       setGenerating(false)
     }
@@ -293,7 +293,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
                           resetCopied()
                           noteUnencryptedExport()
                         } else if (!res.ok) {
-                          toast.error("We couldn't save the letter as a PDF. Please try again.")
+                          toast.error("We couldn't save the letter as a PDF — try again")
                         }
                       } catch (err) { rlog.error('GenerateLetterModal', 'PDF export failed', err) }
                     }}

@@ -87,7 +87,7 @@ export function WordsEditor(): React.ReactElement {
     if (p.hasErrors) { toast.error('Your word changes weren\'t saved: some boxes need fixing first.'); return }
     update({ vocab: toStored(trimmed(p.draft)) }).then(
       () => { toast.success('Your word changes were saved.') },
-      () => { toast.error('We couldn\'t save your word changes. Please try again.') },
+      () => { toast.error('We couldn\'t save your word changes — try again') },
     )
   }, [update])
 
@@ -107,7 +107,7 @@ export function WordsEditor(): React.ReactElement {
       await update({ vocab: toStored(trimmed(draft)) })
       toast.success(ownWords.length > 0 ? `Words saved. ${t('list', { many: true, cap: true })} with their own words keep them.` : 'Words saved. They now appear everywhere.')
     } catch (err) {
-      const fallback = "We couldn't save the words. Please try again."
+      const fallback = "We couldn't save the words — try again"
       toast.error(err instanceof Error && err.message !== IPC_READ_ONLY ? friendlyError(err.message, fallback) : fallback)
     } finally {
       setSaving(false)

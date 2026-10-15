@@ -224,7 +224,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       if (get().loadedGridId === gridId) {
         // A reload of the open list: what's on screen is still this list's, so keep it and say so
         set({ isLoading: false })
-        toast.error(`We couldn't refresh this ${wordNow('list')}. Please try again.`)
+        toast.error(`We couldn't refresh this ${wordNow('list')} — try again`)
       } else {
         // Another list's records must not show under this one's name (AUDIT-041)
         set({
@@ -243,7 +243,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       return id
     } catch (err) {
       rlog.error('GridStore', 'Failed to create grid', err)
-      toast.error(`Could not create ${wordNow('list')} — please try again`)
+      toast.error(`We couldn't create the ${wordNow('list')} — try again`)
       return null
     }
   },
@@ -275,7 +275,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       })
     } catch (err) {
       rlog.error('GridStore', 'Failed to delete grid', err)
-      toast.error(`Could not delete ${wordNow('list')} — please try again`)
+      toast.error(`We couldn't move the ${wordNow('list')} to the Trash — try again`)
     }
   },
 
@@ -288,7 +288,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       }
     } catch (err) {
       rlog.error('GridStore', 'Failed to update grid', err)
-      toast.error(`Could not rename ${wordNow('list')} — please try again`)
+      toast.error(`We couldn't rename the ${wordNow('list')} — try again`)
     }
   },
 
@@ -303,7 +303,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       await invoke(IPC.GRID_REORDER, orderedIds)
     } catch (err) {
       rlog.error('GridStore', 'Failed to reorder grids', err)
-      toast.error(`Could not reorder ${wordNow('list', { many: true })} — please try again`)
+      toast.error(`We couldn't reorder the ${wordNow('list', { many: true })} — try again`)
       // Reload to restore correct order on failure
       await get().loadGridList()
     }

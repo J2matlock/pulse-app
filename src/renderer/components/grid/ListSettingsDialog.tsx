@@ -36,7 +36,7 @@ const hint = 'text-sm text-slate-600 dark:text-slate-300'
 /** Send settings, then bring the sidebar, the open list and the words up to date. */
 async function applySettings(gridId: number, patch: GridSettingsPatch): Promise<string | null> {
   const res = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, patch)
-  if (!res.ok) return friendlyError(res.error, "We couldn't save these settings. Please try again.")
+  if (!res.ok) return friendlyError(res.error, "We couldn't save these settings — try again")
   const grid = useGridStore.getState()
   await grid.loadGridList()
   if (grid.activeGridId === gridId) await grid.loadGrid(gridId)

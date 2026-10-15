@@ -219,7 +219,7 @@ export function registerTaskHandlers(): void {
   // The task is checked in the body, field by field, as before
   define(IPC.TASK_RESTORE, [z.custom<RestoredTask>()], (task) => {
     if (!task || typeof task.id !== 'number') return fail('Invalid task format')
-    if (!task.title || typeof task.title !== 'string' || task.title.length > 1000) return fail('Title missing or too long')
+    if (!task.title || typeof task.title !== 'string' || task.title.length > 1000) return fail('Give the task a title (up to 1,000 characters).')
     if (!ALLOWED_PRIORITIES.has(task.priority)) return fail(`Invalid priority: ${task.priority}`)
     if (task.created_at) {
       const d = new Date(task.created_at)
@@ -333,13 +333,13 @@ export function registerTaskHandlers(): void {
   define(IPC.TASK_APPLY_TEMPLATE, [idArg('Invalid template ID'), z.custom<number | null | undefined>()], (templateId, groupId) => {
     const db = getDb()
     const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(templateId) as { id: number; name: string; items: string; is_recurring: number | null; recurrence_days: number | null } | undefined
-    if (!template) return fail('Template not found')
+    if (!template) return fail("That checklist template isn't there any more.")
 
     let templateItems: Array<string | { title: string; category?: string; priority?: string }>
     try {
       templateItems = JSON.parse(template.items)
-      if (!Array.isArray(templateItems)) return fail('Invalid template items format')
-    } catch { return fail('Invalid template items format') }
+      if (!Array.isArray(templateItems)) return fail('That checklist template is damaged. Make it again under Templates.')
+    } catch { return fail('That checklist template is damaged. Make it again under Templates.') }
     // A group that's a string, negative or gone would be written as is (Q-056)
     if (groupId != null) {
       if (!validId(groupId)) return fail('Invalid group ID')

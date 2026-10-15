@@ -66,8 +66,8 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
   }
 
   function validateTrigger(val: string): string {
-    if (!val) return 'Trigger is required.'
-    if (/\s/.test(val)) return 'No spaces allowed in trigger.'
+    if (!val) return 'Type a trigger, like fu.'
+    if (/\s/.test(val)) return 'Leave out spaces: a trigger is one word.'
     if (takenTriggers.some(t => t.toLowerCase() === val.trim().toLowerCase())) return `/${val.trim()} is already used by another snippet. Choose a different trigger.`
     return ''
   }

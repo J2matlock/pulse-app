@@ -83,7 +83,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
     try {
       if (pendingKeyAction === 'generate') {
         const res = await safeInvoke(IPC.AUTH_GENERATE_RECOVERY_KEY, keyActionPassword)
-        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "That didn't work. Please try again.")); return }
+        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "We couldn't make a recovery key — try again")); return }
         closeKeyAction()
         setGeneratedRecoveryKey(res.data)
         setShowRecoveryKeyModal(true)
@@ -92,7 +92,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         const res = reencrypt
           ? await safeInvoke(IPC.AUTH_REVOKE_RECOVERY_KEY, keyActionPassword, { reencrypt: true })
           : await safeInvoke(IPC.AUTH_REVOKE_RECOVERY_KEY, keyActionPassword)
-        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "That didn't work. Please try again.")); return }
+        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "We couldn't turn off the recovery key — try again")); return }
         closeKeyAction()
         setHasRecovery(false)
         if (reencrypt) setReencrypted(true)
@@ -135,7 +135,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         : await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
       if (!res.ok) {
         const wrong = res.error === 'Incorrect password'
-        setPwError({ text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "Your password couldn't be changed. Please try again."), field: wrong ? 'current' : null })
+        setPwError({ text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "We couldn't change your password — try again"), field: wrong ? 'current' : null })
         return
       }
       setPwForm({ current: '', next: '', confirm: '', hint: '' })
@@ -147,7 +147,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         // The recovery key wrapped the old key, so Pulse removed it: offer a new one straight away
         if (hasRecovery) { setHasRecovery(false); setRecoveryRemoved(true); setPendingKeyAction('generate') }
       } else {
-        toast.success('Password changed successfully.')
+        toast.success('Password changed.')
       }
     } finally {
       setPwSaving(false)

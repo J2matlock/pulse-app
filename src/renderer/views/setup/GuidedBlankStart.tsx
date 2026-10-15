@@ -160,7 +160,7 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
           ...(c.type === 'dropdown' ? { config: JSON.stringify({ options: c.options ?? ['Yes', 'No'] }) } : {}),
         })),
       })
-      if (!res.ok) { setError("We couldn't create the list. Please try again."); return }
+      if (!res.ok) { setError("We couldn't create the list — try again"); return }
       const newId = res.data.gridId
       setGridId(newId)
       // Words are saved now, not at the end, so an interruption doesn't lose them
@@ -187,7 +187,7 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
         setBusy(true)
         try {
           const res = await safeInvoke(IPC.ONBOARDING_DATE_RULES, gridId, list)
-          if (!res.ok) { setError(friendlyError(res.error, "We couldn't save those dates. Please try again.")); return }
+          if (!res.ok) { setError(friendlyError(res.error, "We couldn't save those dates — try again")); return }
         } finally { setBusy(false) }
       }
     }
@@ -202,11 +202,11 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
       const term = { one: one.slice(0, 40), many: many.slice(0, 40), article: guessArticle(one) }
       // The list keeps its own words too, so a later list with other words doesn't change it
       const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: kind, vocab: { record: term } })
-      if (!listRes.ok) { setError(friendlyError(listRes.error, "We couldn't save that. Please try again.")); return }
+      if (!listRes.ok) { setError(friendlyError(listRes.error, "We couldn't save that — try again")); return }
       await updateWorkspace({ vocab: { record: term }, features: answers })
       await onFinished()
     } catch (err) {
-      setError(friendlyError(err instanceof Error ? err.message : null, "We couldn't save that. Please try again."))
+      setError(friendlyError(err instanceof Error ? err.message : null, "We couldn't save that — try again"))
     } finally { setBusy(false) }
   }
 

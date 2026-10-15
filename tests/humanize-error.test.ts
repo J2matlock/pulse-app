@@ -85,7 +85,7 @@ describe('humanizeError', () => {
 
   it('unknown SQLITE_ error → generic database error', () => {
     const err = new Error('SQLITE_MISMATCH: datatype mismatch')
-    expect(humanizeError(err)).toBe("Something went wrong and the change wasn't saved. Please try again.")
+    expect(humanizeError(err)).toBe("Pulse couldn't make that change. Your other work is saved. Try again, and if it keeps happening, restart Pulse.")
   })
 
   // ── Errors a retry won't fix get specific advice (AUDIT-104) ────────────
@@ -142,11 +142,11 @@ describe('humanizeError', () => {
     const fk = Object.assign(new Error('FOREIGN KEY constraint failed'), { name: 'SqliteError', code: 'SQLITE_CONSTRAINT_FOREIGNKEY' })
     expect(humanizeError(fk)).toBe("This is still used somewhere else in Pulse, so it can't be removed yet.")
     const sql = Object.assign(new Error('no such column: foo'), { name: 'SqliteError', code: 'SQLITE_ERROR' })
-    expect(humanizeError(sql)).toBe("Something went wrong and the change wasn't saved. Please try again.")
+    expect(humanizeError(sql)).toBe("Pulse couldn't make that change. Your other work is saved. Try again, and if it keeps happening, restart Pulse.")
   })
 
   it('a programming error becomes a plain sentence', () => {
-    expect(humanizeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).toBe("Something went wrong and the change wasn't saved. Please try again.")
+    expect(humanizeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).toBe("Pulse couldn't make that change. Your other work is saved. Try again, and if it keeps happening, restart Pulse.")
   })
 
   // ── App-level errors pass through unchanged ─────────────────────────────

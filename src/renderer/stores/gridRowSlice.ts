@@ -98,7 +98,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
     } catch (err) {
       rlog.error('GridStore', 'Failed to add row', err)
       // The free-version limit already showed its own message
-      toast.error(`Could not add ${wordNow('record')} — please try again`)
+      toast.error(`We couldn't add the ${wordNow('record')} — try again`)
     }
   },
 
@@ -134,7 +134,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
       })
     } catch (err) {
       rlog.error('GridStore', 'Failed to delete row', err)
-      toast.error(`Could not delete ${wordNow('record')} — please try again`)
+      toast.error(`We couldn't move the ${wordNow('record')} to the Trash — try again`)
     }
   },
 
@@ -176,7 +176,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
     } catch (err) {
       rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to archive row', err)
-      toast.error(`Could not archive ${wordNow('record')} — please try again`)
+      toast.error(`We couldn't archive the ${wordNow('record')} — try again`)
     }
   },
 
@@ -209,7 +209,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
       rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to unarchive row', err)
       // The free-version limit already showed its own message
-      toast.error(`Could not unarchive ${wordNow('record')} — please try again`)
+      toast.error(`We couldn't unarchive the ${wordNow('record')} — try again`)
     }
   },
 
@@ -244,7 +244,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
     } catch (err) {
       rlog.error('GridStore', 'Failed to duplicate row', err)
       // The free-version limit already showed its own message
-      toast.error(`Could not duplicate ${wordNow('record')} — please try again`)
+      toast.error(`We couldn't duplicate the ${wordNow('record')} — try again`)
       return null
     }
   },
@@ -266,7 +266,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
         set(s => ({ rows: s.rows.map(r => r.row_id === rowId ? { ...r, ...prevValues } : r) }))
       }
       rlog.error('GridStore', 'Failed to update row', err)
-      toast.error(`Could not update ${wordNow('record')} — please try again`)
+      toast.error(`We couldn't update the ${wordNow('record')} — try again`)
     }
   },
 })

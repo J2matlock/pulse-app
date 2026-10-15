@@ -78,7 +78,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       const parseRes = await safeInvoke<Partial<Provider>[]>(IPC.CONTACTS_IMPORT_VCF, filePath)
 
       if (!parseRes.ok) {
-        setError(friendlyError(parseRes.error, 'Could not parse the vCard file. Please check the file format.'))
+        setError(friendlyError(parseRes.error, "We couldn't read that vCard file — check that its name ends in .vcf and try again"))
         return
       }
 
@@ -98,7 +98,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       setStep('preview')
     } catch (err: unknown) {
       rlog.error('ContactImportExport', 'vCard parse failed', err)
-      setError('An unexpected error occurred while reading the file.')
+      setError("We couldn't read that file — try again, or export it again from your address book")
     }
   }
 
@@ -128,7 +128,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
     try {
       const res = await safeInvoke<number>(IPC.CONTACTS_CONFIRM_IMPORT_VCF, selected)
       if (!res.ok) {
-        setError(friendlyError(res.error, 'Import failed. Please try again.'))
+        setError(friendlyError(res.error, "We couldn't bring in those contacts — try again"))
         setImporting(false)
         return
       }
@@ -141,7 +141,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       useContactsStore.getState().loadProviders()
     } catch (err: unknown) {
       rlog.error('ContactImportExport', 'Contact import failed', err)
-      setError('An unexpected error occurred during import.')
+      setError("We couldn't bring in those contacts — nothing was added; try again")
     } finally {
       setImporting(false)
     }
@@ -156,7 +156,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
     try {
       const res = await safeInvoke<string | null>(IPC.CONTACTS_EXPORT_VCF, null)
       if (!res.ok) {
-        setError(friendlyError(res.error, 'Export failed. Please try again.'))
+        setError(friendlyError(res.error, "We couldn't export the contacts — try again"))
         setExporting(false)
         return
       }
@@ -164,7 +164,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       if (res.data) setExportDone(true)
     } catch (err: unknown) {
       rlog.error('ContactImportExport', 'Contact export failed', err)
-      setError('An unexpected error occurred during export.')
+      setError("We couldn't export the contacts — try again")
     } finally {
       setExporting(false)
     }

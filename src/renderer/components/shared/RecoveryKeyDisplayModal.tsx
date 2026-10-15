@@ -30,7 +30,7 @@ export function RecoveryKeyDisplayModal({ open, recoveryKey, onClose }: Recovery
   async function handleCopy() {
     // copyText says so itself when the copy didn't happen
     // Short-lived: it shouldn't still be in the corner on the next screen (UX-A-31)
-    if (await copyText(recoveryKey)) toast.success('Recovery key copied to clipboard', { duration: 3000 })
+    if (await copyText(recoveryKey)) toast.success('Recovery key copied', { duration: 3000 })
   }
 
   function handleDone() {
@@ -54,7 +54,7 @@ export function RecoveryKeyDisplayModal({ open, recoveryKey, onClose }: Recovery
 
     const doc = iframe.contentDocument || iframe.contentWindow?.document
     if (!doc) {
-      toast.error('Unable to print — try copying the key instead.')
+      toast.error("We couldn't print — copy the key instead")
       document.body.removeChild(iframe)
       return
     }

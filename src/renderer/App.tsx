@@ -56,7 +56,7 @@ if (!window.__pulseUnhandledRejectionRegistered) {
   window.__pulseUnhandledRejectionRegistered = true
   window.addEventListener('unhandledrejection', (event) => {
     rlog.error('App', 'Unhandled rejection in renderer', event.reason)
-    toast.error('Something went wrong — your recent action may not have been saved.', { duration: 4000 })
+    toast.error("We couldn't finish that — your last change may not have been saved. Check it and try again.", { duration: 4000 })
   })
   window.addEventListener('error', (e) => {
     rlog.error('renderer', 'Uncaught error', { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno })

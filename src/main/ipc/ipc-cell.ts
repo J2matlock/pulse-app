@@ -192,7 +192,7 @@ export function registerCellHandlers(): void {
 
   // ── Cell Formats ──────────────────────────────────────────────────────────
   define(IPC.CELL_FORMAT_SET, [
-    idArg(), idArg(), z.string('Invalid rules format').check(textLength({ max: 50_000 }, 'Formatting rules too large')),
+    idArg(), idArg(), z.string('Invalid rules format').check(textLength({ max: 50_000 }, 'Those color rules are too big to save. Remove some and try again.')),
   ], (rowId, columnId, rules) => {
     try { JSON.parse(rules) } catch { return fail('Invalid rules JSON') }
     const db = getDb()

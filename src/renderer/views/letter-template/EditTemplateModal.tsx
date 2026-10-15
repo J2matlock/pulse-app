@@ -79,8 +79,8 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError('Template name is required.'); setErrorField('name'); nameRef.current?.focus(); return }
-    if (!content.trim()) { setError('Template content cannot be empty.'); setErrorField('content'); contentRef.current?.focus(); return }
+    if (!name.trim()) { setError('Give the template a name.'); setErrorField('name'); nameRef.current?.focus(); return }
+    if (!content.trim()) { setError('Write the letter before saving the template.'); setErrorField('content'); contentRef.current?.focus(); return }
     setSaving(true)
     setError(null)
     setErrorField(null)
@@ -90,7 +90,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
       onClose()
     } catch (err) {
       rlog.error('EditTemplateModal', 'Failed to save letter template:', err)
-      setError('Could not save the template. Please try again.')
+      setError("We couldn't save the template — try again")
     } finally {
       setSaving(false)
     }

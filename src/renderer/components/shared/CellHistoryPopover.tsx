@@ -80,11 +80,11 @@ export function CellHistoryPopover({
         if (result.ok) {
           setHistory(result.data);
         } else {
-          setError('Could not load history. Please try again.');
+          setError("We couldn't load this cell's history — try again");
         }
       } catch {
         if (!cancelled) {
-          setError('Failed to load history');
+          setError("We couldn't load this cell's history — try again");
         }
       } finally {
         if (!cancelled) {

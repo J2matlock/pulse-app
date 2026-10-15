@@ -31,9 +31,9 @@ export function registerAcuityHandlers(): void {
 
   define(IPC.ACUITY_CREATE_LEVEL, [idArg(), z.custom<NewLevel>()], (gridId, data) => {
     if (typeof data.name !== 'string' || data.name.trim().length === 0 || data.name.length > 100) return fail(`${word('priority', { cap: true })} name is required (max 100 characters).`)
-    if (typeof data.points !== 'number' || !Number.isFinite(data.points) || data.points < 0) return fail('Points must be a non-negative number')
+    if (typeof data.points !== 'number' || !Number.isFinite(data.points) || data.points < 0) return fail("Points can't be below 0.")
     if (typeof data.color !== 'string' || data.color.length > 50) return fail('Invalid color')
-    if (typeof data.abbreviation !== 'string') return fail('Abbreviation is required')
+    if (typeof data.abbreviation !== 'string') return fail(`Give the ${word('priority')} a short form (1 to 4 letters).`)
     const db = getDb()
     const maxPos = (db.prepare('SELECT MAX(position) as m FROM acuity_levels WHERE grid_id = ?').get(gridId) as { m: number | null })?.m ?? -1
     const result = db.prepare(`

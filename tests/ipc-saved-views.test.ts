@@ -149,7 +149,7 @@ describe('IPC Saved Views', () => {
       }
       const result = await invoke(IPC.SAVED_VIEW_CREATE, gridId, 'View 21', '{}') as any
       expect(result.ok).toBe(false)
-      expect(result.error).toMatch(/Maximum/)
+      expect(result.error).toMatch(/up to 20 saved views/)
     })
   })
 

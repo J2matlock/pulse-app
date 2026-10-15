@@ -204,7 +204,7 @@ export function registerChecklistHandlers(): void {
   // The item is checked in the body, field by field, as before
   define(IPC.CHECKLIST_RESTORE_ITEM, [z.custom<RestoredItem>()], (item) => {
     if (!item || typeof item.id !== 'number' || typeof item.row_id !== 'number') return fail('Invalid item format')
-    if (!item.title || typeof item.title !== 'string' || item.title.length > 1000) return fail('Title missing or too long')
+    if (!item.title || typeof item.title !== 'string' || item.title.length > 1000) return fail('Give the item a title (up to 1,000 characters).')
     if (item.created_at) {
       const d = new Date(item.created_at)
       if (isNaN(d.getTime())) return fail('Invalid created_at date')
@@ -351,10 +351,10 @@ export function registerChecklistHandlers(): void {
     if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
     const template = getDb().prepare('SELECT * FROM checklist_templates WHERE id = ?').get(id) as ChecklistTemplate | undefined
-    if (!template) return fail('Template not found')
+    if (!template) return fail("That checklist template isn't there any more.")
 
     let items: unknown[]
-    try { items = JSON.parse(template.items) as unknown[] } catch { return fail('Template items are corrupted') }
+    try { items = JSON.parse(template.items) as unknown[] } catch { return fail('That checklist template is damaged. Make it again under Templates.') }
 
     const exportData = {
       pulse_type: 'checklist-template' as const,
@@ -397,12 +397,12 @@ export function registerChecklistHandlers(): void {
     if (typeof data.version === 'number' && data.version > 1) return fail('This checklist was made by a newer version of Pulse. Update Pulse, then try again.')
     if (data.version !== 1) return fail(NOT_A_CHECKLIST)
     const t = data.template
-    if (!t || typeof t.name !== 'string' || !t.name.trim()) return fail('Template is missing a name')
-    if (!Array.isArray(t.items) || t.items.length === 0) return fail('Template has no items')
+    if (!t || typeof t.name !== 'string' || !t.name.trim()) return fail('That checklist file has no name.')
+    if (!Array.isArray(t.items) || t.items.length === 0) return fail('That checklist file has no items.')
     if (t.items.length > 500) return fail('That checklist has more than 500 items, which is more than Pulse can bring in.')
     for (const item of t.items) {
       if (typeof item !== 'object' || item === null || typeof (item as { title?: unknown }).title !== 'string') {
-        return fail('Each item must have a title')
+        return fail('That checklist file has an item without a title.')
       }
     }
 

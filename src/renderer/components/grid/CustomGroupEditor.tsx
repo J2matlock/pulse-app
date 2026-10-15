@@ -154,7 +154,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
 
   async function handleSave() {
     const errs: string[] = []
-    if (!name.trim()) errs.push('Group name is required.')
+    if (!name.trim()) errs.push('Give the group a name.')
     if (buckets.length < 2) errs.push('At least 2 buckets are required.')
     buckets.forEach((b, i) => {
       if (!b.label.trim()) errs.push(`Bucket ${i + 1} needs a label.`)

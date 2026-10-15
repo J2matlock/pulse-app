@@ -139,7 +139,7 @@ export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, on
       onDone()
     } catch (err) {
       rlog.error('MoveToGridModal', 'Move/copy failed', err)
-      setError('Something went wrong. Please try again.')
+      setError("We couldn't finish the move — nothing was changed; try again")
       setBusy(false)
     }
   }
@@ -333,7 +333,7 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDon
       onDone()
     } catch (err) {
       rlog.error('MoveToGridModal', 'Bulk move/copy failed', err)
-      setError('Something went wrong. Please try again.')
+      setError("We couldn't finish the move — nothing was changed; try again")
       setBusy(false)
     }
   }

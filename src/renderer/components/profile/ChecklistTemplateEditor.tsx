@@ -168,7 +168,7 @@ function parseItems(itemsJson: string): TemplateItem[] {
   }
 }
 
-const NAME_REQUIRED = 'Name is required.'
+const NAME_REQUIRED = 'Give the template a name.'
 
 export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Props): React.ReactElement | null {
   const dialogTitleId = useId()
@@ -292,14 +292,14 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
         : await safeInvoke<ChecklistTemplate>(IPC.CL_TEMPLATE_CREATE, payload)
 
       if (!result.ok) {
-        setError('Could not save the template. Please try again.')
+        setError("We couldn't save the template — try again")
         return
       }
 
       onSaved(result.data)
       onClose()
     } catch {
-      setError('Could not save the template. Please try again.')
+      setError("We couldn't save the template — try again")
     } finally {
       setSaving(false)
     }

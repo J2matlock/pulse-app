@@ -112,13 +112,13 @@ export default function TrashView() {
     if (result.ok) { setRows([]); setRowTotal(0); setLists([]); forgetUndoSteps() }
     else {
       rlog.error('TrashView', 'Failed to empty trash', result.error)
-      toast.error("We couldn't empty the Trash. Please try again.")
+      toast.error("We couldn't empty the Trash — try again")
       return
     }
     // Removed files go too (no id: every file in the Trash)
     if (files > 0) {
       const res = await safeInvoke(IPC.ATTACHMENT_PURGE)
-      if (!res.ok) toast.error("We couldn't remove the files in the Trash. Please try again.")
+      if (!res.ok) toast.error("We couldn't remove the files in the Trash — try again")
     }
     reloadFiles()
   }

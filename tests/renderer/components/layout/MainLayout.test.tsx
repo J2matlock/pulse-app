@@ -47,7 +47,7 @@ describe('MainLayout', () => {
 
   it('keeps the sidebar and top bar when the page crashes', () => {
     render(<MemoryRouter><MainLayout><Crash /></MainLayout></MemoryRouter>)
-    expect(screen.getByText('Something went wrong loading this page.')).toBeTruthy()
+    expect(screen.getByText("We couldn't show this page.")).toBeTruthy()
     expect(screen.getByTestId('sidebar')).toBeTruthy()
     expect(screen.getByTestId('topbar')).toBeTruthy()
   })

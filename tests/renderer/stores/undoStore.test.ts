@@ -221,7 +221,7 @@ describe('undoStore', () => {
         "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
         'The disk is full. Free up some space, then try again.',
         'Your computer ran out of memory. Close some other programs and try again.',
-        "Something went wrong and the change wasn't saved. Please try again.",
+        "Pulse couldn't make that change. Your other work is saved. Try again, and if it keeps happening, restart Pulse.",
         "Pulse can't save changes right now.",
       ]
       for (const message of passing) {

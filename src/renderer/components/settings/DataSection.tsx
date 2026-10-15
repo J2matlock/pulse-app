@@ -80,7 +80,7 @@ export function DataSection(): React.ReactElement {
     const res = await safeInvoke<number>(IPC.CELL_HISTORY_COMPACT, months)
     // "records removed" read as if entries were deleted; these are old cell changes
     if (res.ok) toast.success(res.data === 0 ? 'There were no old cell changes to remove.' : `Removed ${res.data} old cell ${res.data === 1 ? 'change' : 'changes'} from the edit history.`)
-    else toast.error("We couldn't clean up the edit history. Please try again.")
+    else toast.error("We couldn't clean up the edit history — try again")
   }
   const [exportingAllCsv, setExportingAllCsv] = useState(false)
   const [backingUp, setBackingUp] = useState(false)
@@ -211,10 +211,10 @@ export function DataSection(): React.ReactElement {
                   noteUnencryptedExport()
                 }
               } else {
-                toast.error('Export failed. Please try again.')
+                toast.error("We couldn't export your data — try again")
               }
             } catch {
-              toast.error('Export failed. Please try again.')
+              toast.error("We couldn't export your data — try again")
             } finally {
               setExportingAllCsv(false)
             }
@@ -290,7 +290,7 @@ export function DataSection(): React.ReactElement {
             const res = await safeInvoke<boolean>(IPC.APP_INTEGRITY_CHECK)
             if (res.ok && res.data) toast.success('Database integrity check passed.')
             else if (res.ok && !res.data) toast.error('Database integrity check FAILED. Consider restoring from backup.')
-            else toast.error('Integrity check failed. Please try again.')
+            else toast.error("We couldn't check the data file — try again")
           }}
         >
           <RefreshCw className="w-4 h-4 inline mr-2" />
@@ -315,7 +315,7 @@ export function DataSection(): React.ReactElement {
                 setPulseRegistered(shouldRegister)
                 toast.success(shouldRegister ? '.pulse files registered.' : '.pulse files unregistered.')
               } else {
-                toast.error('Could not update file association.')
+                toast.error("Pulse couldn't set itself up to open .pulse files — you can still open them from Templates")
               }
             }}
             className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
@@ -389,7 +389,7 @@ export function DataSection(): React.ReactElement {
                   toast.success('Everything was erased. Pulse is restarting.')
                   void safeInvoke(IPC.APP_RELAUNCH)
                 } else {
-                  toast.error(friendlyError(res.error, 'Reset failed. Please try again.'))
+                  toast.error(friendlyError(res.error, "We couldn't erase everything — nothing was changed; try again"))
                 }
               }}
               className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed w-full"

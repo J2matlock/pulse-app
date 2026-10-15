@@ -105,7 +105,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
 
         // safeInvoke doesn't throw: without this a failed load showed "all clear"
         if (![deadlinesResult, tasksResult, checklistsResult, clDueResult, followUpsResult].every(r => r.ok)) {
-          setLoadError('Could not load your focus items. Try closing and reopening Focus Mode.')
+          setLoadError("We couldn't load your focus items — close focus mode and open it again")
           return
         }
         if (deadlinesResult.ok) setClientItems(focusDeadlineItems(deadlinesResult.data))
@@ -154,7 +154,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
         }
       } catch (err) {
         rlog.error('FocusModeView', 'Failed to load focus data', err)
-        setLoadError('Could not load your focus items. Try closing and reopening Focus Mode.')
+        setLoadError("We couldn't load your focus items — close focus mode and open it again")
       } finally {
         setIsLoading(false)
       }
@@ -399,7 +399,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
               <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                 <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" aria-hidden="true" />
               </div>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white">Something went wrong</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-white">We couldn't open focus mode</p>
               <p className="text-slate-600 dark:text-slate-400">{loadError}</p>
               <button
                 onClick={onClose}

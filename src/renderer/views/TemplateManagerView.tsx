@@ -60,11 +60,11 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setSetupTemplates(res.data)
       } else {
-        setSetupError(friendlyError(res.error, 'Could not load setup templates. Please try again.'))
+        setSetupError(friendlyError(res.error, "We couldn't load the templates — try again"))
       }
     } catch (err) {
       rlog.error('TemplateManagerView', 'Failed to load setup templates', err)
-      setSetupError('Could not load setup templates. Please try again.')
+      setSetupError("We couldn't load the templates — try again")
     } finally {
       setLoadingSetup(false)
     }
@@ -78,10 +78,10 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setClTemplates(res.data)
       } else {
-        setClError('Could not load checklist templates. Please try again.')
+        setClError("We couldn't load the checklist templates — try again")
       }
     } catch {
-      setClError('Could not load checklist templates. Please try again.')
+      setClError("We couldn't load the checklist templates — try again")
     } finally {
       setLoadingCL(false)
     }
@@ -113,13 +113,13 @@ export default function TemplateManagerView(): React.ReactElement {
       const previewRes = await safeInvoke<{ pulse: unknown; preview: PulseImportPreview }>(IPC.SETUP_TEMPLATE_IMPORT, filePath)
 
       if (!previewRes.ok) {
-        setSetupError(friendlyError(previewRes.error, 'Could not read that template file. Make sure it is a valid .pulse file.'))
+        setSetupError(friendlyError(previewRes.error, "We couldn't read that template file — choose a file whose name ends in .pulse"))
         return
       }
 
       setImportedFile({ filePath, preview: previewRes.data.preview })
     } catch {
-      setSetupError('Something went wrong while opening the file. Please try again.')
+      setSetupError("We couldn't open that file — try again")
     } finally {
       setImporting(false)
     }
@@ -153,12 +153,12 @@ export default function TemplateManagerView(): React.ReactElement {
     try {
       const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT, gridId, saveRes.data.filePath)
       if (!res.ok) {
-        setSetupError(friendlyError(res.error, 'Could not export the template. Please try again.'))
+        setSetupError(friendlyError(res.error, "We couldn't export the template — try again"))
       } else {
         void loadSetupTemplates()
       }
     } catch {
-      setSetupError('Could not export the template. Please try again.')
+      setSetupError("We couldn't export the template — try again")
     } finally {
       setExporting(false)
     }
@@ -170,10 +170,10 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setSetupTemplates(prev => prev.filter(t => t.id !== id))
       } else {
-        setSetupError(friendlyError(res.error, 'Could not delete the template. Please try again.'))
+        setSetupError(friendlyError(res.error, "We couldn't delete the template — try again"))
       }
     } catch {
-      setSetupError('Could not delete the template. Please try again.')
+      setSetupError("We couldn't delete the template — try again")
     }
   }
 
@@ -183,10 +183,10 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setClTemplates(prev => prev.filter(t => t.id !== id))
       } else {
-        setClError(friendlyError(res.error, 'Could not delete the template. Please try again.'))
+        setClError(friendlyError(res.error, "We couldn't delete the template — try again"))
       }
     } catch {
-      setClError('Could not delete the template. Please try again.')
+      setClError("We couldn't delete the template — try again")
     }
   }
 
@@ -212,9 +212,9 @@ export default function TemplateManagerView(): React.ReactElement {
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke<true>(IPC.CL_TEMPLATE_EXPORT, template.id, saveRes.data.filePath)
-      if (!res.ok) setClError(friendlyError(res.error, 'Could not export the template.'))
+      if (!res.ok) setClError(friendlyError(res.error, "We couldn't export the template — try again"))
     } catch {
-      setClError('Could not export the template.')
+      setClError("We couldn't export the template — try again")
     }
   }
 
@@ -230,10 +230,10 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setClTemplates(prev => [...prev, res.data])
       } else {
-        setClError(friendlyError(res.error, 'Could not import the template.'))
+        setClError(friendlyError(res.error, "We couldn't bring in the template — check that it's a Pulse checklist file and try again"))
       }
     } catch {
-      setClError('Could not import the template.')
+      setClError("We couldn't bring in the template — check that it's a Pulse checklist file and try again")
     }
   }
 
@@ -341,7 +341,7 @@ export default function TemplateManagerView(): React.ReactElement {
                     })
                     if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
                     const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT_SAVED, id, saveRes.data.filePath)
-                    if (!res.ok) setSetupError(friendlyError(res.error, 'Could not export the template.'))
+                    if (!res.ok) setSetupError(friendlyError(res.error, "We couldn't export the template — try again"))
                     else toast.success('Template saved.')
                   }}
                   onRefresh={loadSetupTemplates}

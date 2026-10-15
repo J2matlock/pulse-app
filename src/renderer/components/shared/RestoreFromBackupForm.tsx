@@ -13,7 +13,7 @@ import { PRODUCT_NAME } from '../../../shared/constants'
 /** Main's words as they are, except an open-failure code, which becomes a sentence (F-031) */
 function restoreErrorText(error: string): string {
   const kind = parseDbOpenFailure(error)
-  return kind ? `The backup was restored, but it couldn't be opened. ${dbOpenFailureText(kind, PRODUCT_NAME)}` : friendlyError(error, "The backup couldn't be restored. Please try again, or choose a different backup.")
+  return kind ? `The backup was restored, but it couldn't be opened. ${dbOpenFailureText(kind, PRODUCT_NAME)}` : friendlyError(error, "We couldn't restore that backup — try again, or choose a different one")
 }
 
 interface RestoreFromBackupFormProps {
@@ -110,7 +110,7 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
       setConfirm('')
       onRestored(info)
     } catch {
-      setError("We couldn't restore that backup. Please try again.")
+      setError("We couldn't restore that backup — try again")
     } finally {
       setIsSubmitting(false)
     }

@@ -79,7 +79,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       }
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to update column (confirmed type change)', err)
-      toast.error('Could not update column — please try again')
+      toast.error("We couldn't change the column — try again")
     }
   },
 
@@ -120,7 +120,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       return colId
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to add column', err)
-      toast.error('Could not add column — please try again')
+      toast.error("We couldn't add the column — try again")
       return null
     }
   },
@@ -164,7 +164,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
     } catch (err) {
       rethrowIfUndoing(err)
       rlog.error('GridColumnSlice', 'Failed to update column', err)
-      toast.error('Could not update column — please try again')
+      toast.error("We couldn't change the column — try again")
       return false
     }
   },
@@ -197,7 +197,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       }
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to delete column', err)
-      toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not delete column — please try again'))
+      toast.error(friendlyError(err instanceof Error ? err.message : null, "We couldn't move the column to the Trash — try again"))
     }
   },
 
@@ -220,7 +220,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       })
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to set name column', err)
-      toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not change the name column — please try again'))
+      toast.error(friendlyError(err instanceof Error ? err.message : null, "We couldn't change the name column — try again"))
     }
   },
 
@@ -231,7 +231,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       if (gridId) await get().loadGrid(gridId)
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to toggle column visibility', err)
-      toast.error('Could not update column — please try again')
+      toast.error("We couldn't change the column — try again")
     }
   },
 
@@ -244,7 +244,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       await get().loadGrid(gridId)
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to show columns', err)
-      toast.error('Could not show the columns — please try again')
+      toast.error("We couldn't show the columns — try again")
     }
   },
 

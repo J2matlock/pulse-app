@@ -76,7 +76,7 @@ export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
   async function savePdf() {
     if (text === null) return
     const res = await safeInvoke<string | null>(IPC.LETTER_TEMPLATE_EXPORT_PDF, { text })
-    if (!res.ok) { toast.error('We couldn\'t save the letter as a PDF. Please try again.'); return }
+    if (!res.ok) { toast.error('We couldn\'t save the letter as a PDF — try again'); return }
     if (res.data) { noteUnencryptedExport(); await noteIt() }
   }
 

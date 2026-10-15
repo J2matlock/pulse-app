@@ -98,8 +98,8 @@ export default function SettingsView(): React.ReactElement {
   async function saveSetting(key: string, value: string) {
     try {
       const res = await safeInvoke<boolean>(IPC.SETTINGS_UPDATE, key, value)
-      if (!res.ok) toast.error('Failed to save setting.')
-    } catch { toast.error('Failed to save setting.') }
+      if (!res.ok) toast.error("We couldn't save that setting — try again")
+    } catch { toast.error("We couldn't save that setting — try again") }
   }
 
   async function handleThemeChange(newTheme: Theme) {

@@ -37,7 +37,7 @@ export function FeaturesSection(): React.ReactElement {
     try {
       await update({ features: { [key]: on } })
     } catch (err) {
-      const fallback = "We couldn't change that setting. Please try again."
+      const fallback = "We couldn't change that setting — try again"
       toast.error(err instanceof Error && err.message !== IPC_READ_ONLY ? friendlyError(err.message, fallback) : fallback)
     } finally {
       setSaving(null)

@@ -170,7 +170,7 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
     setSaving(true)
     try {
       const res = await safeInvoke<FormChange>(IPC.FORM_SUBMIT, form.id, row?.row_id ?? null, payload, noteAnswers)
-      if (!res.ok) { setErrors([friendlyError(res.error, "We couldn't save this form. Please try again.")]); setTimeout(() => errorRef.current?.focus(), 0); return false }
+      if (!res.ok) { setErrors([friendlyError(res.error, "We couldn't save this form — try again")]); setTimeout(() => errorRef.current?.focus(), 0); return false }
       let change = res.data
       const refresh = async () => {
         const grid = useGridStore.getState()

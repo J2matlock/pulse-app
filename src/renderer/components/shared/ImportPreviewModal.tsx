@@ -81,7 +81,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
       )
 
       if (!res.ok) {
-        setError(friendlyError(res.error, 'Could not import the template. Please try again.'))
+        setError(friendlyError(res.error, "We couldn't bring in the template — try again"))
         return
       }
 
@@ -94,7 +94,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
       )
 
       if (!applyRes.ok) {
-        setError(friendlyError(applyRes.error, 'Could not apply the template. Please try again.'))
+        setError(friendlyError(applyRes.error, "We couldn't use the template — try again"))
         return
       }
 
@@ -102,7 +102,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
       await reloadAfterApply(applyMode === 'existing' ? selectedGridId : null)
       onApplied()
     } catch {
-      setError('Something went wrong while applying the template. Please try again.')
+      setError("We couldn't use the template — try again")
     } finally {
       setApplying(false)
     }

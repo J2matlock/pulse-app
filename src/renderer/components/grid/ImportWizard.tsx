@@ -150,12 +150,12 @@ export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines =
         IPC.IMPORT_FILE_PREVIEW, path, sheetIndex, hdrRowIdx
       )
       if (!res.ok) {
-        setError(friendlyError(res.error, 'Could not read the file. Please check the format and try again.'))
+        setError(friendlyError(res.error, "We couldn't read that file — check that it's an Excel or CSV file and try again"))
         return null
       }
       return res.data
     } catch {
-      setError('Something went wrong while reading the file. Please try again.')
+      setError("We couldn't read that file — try again, or save it again from Excel first")
       return null
     } finally {
       setLoading(false)
@@ -236,7 +236,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines =
     if (path) {
       await handleFileChosen(path)
     } else {
-      setError('Could not get the file path. Try using the Browse button instead.')
+      setError("We couldn't open that file from here — use the Browse button instead")
     }
   }
 
@@ -372,7 +372,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines =
         if (askDeadlines && res.data.imported > 0) await findNewDateColumns()
       }
     } catch {
-      setError('Something went wrong during the import. Please try again.')
+      setError("We couldn't finish the import — nothing was added; try again")
     } finally {
       setLoading(false)
       setImportProgress(null)

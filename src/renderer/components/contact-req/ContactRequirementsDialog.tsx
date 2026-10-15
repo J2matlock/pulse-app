@@ -60,7 +60,7 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
     const payload = drafts!.map(d => ({ label: d.label, note_types: d.note_types, per_month: parseInt(d.per_month, 10), period: d.period }))
     const res = await safeInvoke(IPC.CONTACT_REQ_SAVE, gridId, payload)
     setSaving(false)
-    if (!res.ok) { setError(friendlyError(res.error, "We couldn't save these settings. Please try again.")); return }
+    if (!res.ok) { setError(friendlyError(res.error, "We couldn't save these settings — try again")); return }
     pulseEvents.emit('contact-req:changed')
     onClose()
   }

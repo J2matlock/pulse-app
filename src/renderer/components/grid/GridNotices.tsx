@@ -29,7 +29,7 @@ export function GridHintBanner({ onDismiss }: { onDismiss: () => void }): React.
 export function GridLoadError({ message, onRetry }: { message: string; onRetry: () => void }): React.ReactElement {
   return (
     <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
-      <p className="text-base text-slate-700 dark:text-slate-300">{message} Please try again.</p>
+      <p className="text-base text-slate-700 dark:text-slate-300">{message} Your data is safe.</p>
       <button type="button" className="btn-primary" onClick={onRetry}>
         Try again
       </button>

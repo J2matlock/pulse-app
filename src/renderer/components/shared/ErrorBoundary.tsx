@@ -50,7 +50,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center h-full min-h-64 gap-4 p-8 text-center">
           <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            Something went wrong loading this page.
+            We couldn't show this page.
           </p>
           <p className="text-base text-slate-600 dark:text-slate-300 max-w-sm">
             Your saved work is safe. Try the page again, or open another one.

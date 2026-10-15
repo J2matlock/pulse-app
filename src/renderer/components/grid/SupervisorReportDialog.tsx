@@ -139,8 +139,8 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
 
   async function handleExport() {
     setError(null)
-    if (!startDate || !endDate) { setError('Please enter a date range.'); return }
-    if (startDate > endDate) { setError('Start date must be before end date.'); return }
+    if (!startDate || !endDate) { setError('Choose a start and an end date.'); return }
+    if (startDate > endDate) { setError('Choose an end date after the start date.'); return }
     if (selectedColumnIds.size === 0) { setError('Select at least one column to include.'); return }
 
     const ext = format === 'pdf' ? 'pdf' : 'csv'
@@ -173,7 +173,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
       })
 
       if (!result.ok) {
-        setError(friendlyError(result.error, 'Export failed. Please try again.'))
+        setError(friendlyError(result.error, "We couldn't save the report — try again"))
       } else {
         noteUnencryptedExport()
         onClose()

@@ -53,14 +53,14 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
       )
 
       if (!res.ok) {
-        setError(friendlyError(res.error, 'Could not apply the template. Please try again.'))
+        setError(friendlyError(res.error, "We couldn't add the checklist — try again"))
         return
       }
       // Its deadline rules and, in an existing list, its new columns show straight away
       await reloadAfterApply(applyMode === 'existing' ? selectedGridId : null)
       onApplied()
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError("We couldn't add the checklist — try again")
     } finally {
       setApplying(false)
     }

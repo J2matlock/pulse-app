@@ -40,7 +40,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       }
     } catch (err) {
       rlog.error('GridAcuitySlice', 'Failed to toggle acuity', err)
-      toast.error(`Could not update ${wordNow('priority')} — please try again`)
+      toast.error(`We couldn't change the ${wordNow('priority')} — try again`)
     }
   },
 
@@ -67,7 +67,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       get().mapRows(r => r.row_id === rowId ? { ...r, acuity_level_id: prevLevelId } : r)
       rlog.error('GridAcuitySlice', 'Failed to set acuity level', err)
       rethrowIfUndoing(err)
-      toast.error(`Could not update ${wordNow('priority')} — please try again`)
+      toast.error(`We couldn't change the ${wordNow('priority')} — try again`)
     }
   },
 
@@ -80,7 +80,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       return level
     } catch (err) {
       rlog.error('GridAcuitySlice', 'Failed to create acuity level', err)
-      toast.error(`Could not create ${wordNow('priority')} — please try again`)
+      toast.error(`We couldn't create the ${wordNow('priority')} — try again`)
       return null
     }
   },
@@ -94,7 +94,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       await invoke(IPC.ACUITY_UPDATE_LEVEL, levelId, updates)
     } catch (err) {
       rlog.error('GridAcuitySlice', 'Failed to update acuity level', err)
-      toast.error(`Could not update ${wordNow('priority')} — please try again`)
+      toast.error(`We couldn't change the ${wordNow('priority')} — try again`)
       await get().reloadAcuityLevels()
     }
   },
@@ -109,7 +109,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
     } catch (err) {
       set({ acuityLevels: prev })
       rlog.error('GridAcuitySlice', 'Failed to delete acuity level', err)
-      toast.error(`Could not delete ${wordNow('priority')} — please try again`)
+      toast.error(`We couldn't delete the ${wordNow('priority')} — try again`)
     }
   },
 
@@ -126,7 +126,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
     } catch (err) {
       set({ acuityLevels: prev })
       rlog.error('GridAcuitySlice', 'Failed to reorder acuity levels', err)
-      toast.error(`Could not reorder ${wordNow('priority', { many: true })} — please try again`)
+      toast.error(`We couldn't reorder the ${wordNow('priority', { many: true })} — try again`)
     }
   },
 
@@ -180,7 +180,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       })
       rlog.error('GridAcuitySlice', 'Bulk acuity set failed', err)
       rethrowIfUndoing(err)
-      toast.error(`Could not update ${wordNow('priority')} — please try again`)
+      toast.error(`We couldn't change the ${wordNow('priority')} — try again`)
     }
   },
 })

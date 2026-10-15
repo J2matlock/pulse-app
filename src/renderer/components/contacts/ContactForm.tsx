@@ -197,9 +197,9 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           }
         }
       }
-      if (tagFailures > 0 && fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag and field changes didn't save — please try again`)
-      else if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — please try again`)
-      else if (fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some field changes didn't save — please try again`)
+      if (tagFailures > 0 && fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag and field changes didn't save — try again`)
+      else if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — try again`)
+      else if (fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some field changes didn't save — try again`)
       // Tags and custom fields were saved after the store re-read the contact, so read it again.
       const store = useContactsStore.getState()
       if (savedId && store.selectedProviderId === savedId) await store.selectProvider(savedId)
@@ -207,7 +207,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
       onClose()
     } catch (err) {
       // The form stays open with what was typed. Read-only already shows its own message.
-      if (!(err instanceof ReadOnlyError)) toast.error(`We couldn't save the ${t('contact')} — please try again`)
+      if (!(err instanceof ReadOnlyError)) toast.error(`We couldn't save the ${t('contact')} — try again`)
     } finally {
       setSaving(false)
     }

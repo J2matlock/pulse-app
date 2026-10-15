@@ -38,6 +38,47 @@ describe('friendlyError', () => {
 })
 
 /**
+ * Messages a person can act on, often because they carry the only useful fact
+ * (a size limit, a character count, what to choose instead). Each must reach
+ * the screen word for word: a change to friendlyError's filter that swallows
+ * one fails here, not in front of someone retrying the same thing (UX review F-05).
+ */
+const MUST_SHOW: string[] = [
+  'That vCard file is bigger than 10 MB. Split it into smaller files and try again.',
+  'Give the detail a name (up to 200 characters).',
+  'That letter is too long to save as a PDF. Keep it under 500,000 characters.',
+  'Keep the summary under 20,000 characters and the name of who is taking over under 500.',
+  "A column can't be wider than 2,000 pixels.",
+  'That deadline rule has too many colors. Remove some and try again.',
+  "That deadline rule isn't there any more.",
+  'Give the task a title (up to 1,000 characters).',
+  'Give the item a title (up to 1,000 characters).',
+  "That backup file isn't there any more. Choose another.",
+  "That backup couldn't be opened. It may be damaged, or made by a different copy of Pulse.",
+  'Passwords can be up to 1,024 characters.',
+  'Enter your password (up to 1,024 characters).',
+  'Enter the recovery key (up to 512 characters).',
+  'A password is already set up. Unlock Pulse, then change it in Settings → Security.',
+  "Points can't be below 0.",
+  "Give the ${word('priority')} a short form (1 to 4 letters).",
+  'Those color rules are too big to save. Remove some and try again.',
+  "That checklist template isn't there any more.",
+  'That checklist template is damaged. Make it again under Templates.',
+  'That checklist file has no name.',
+  'That checklist file has no items.',
+  'That checklist file has an item without a title.',
+  'Opening .pulse files with a double-click can only be set up on Windows.',
+  "You can keep up to 20 saved views. Delete one you don't use, then save this one.",
+  'Scratch notes can be up to 500,000 characters.',
+  "That's too much text to copy at once.",
+  'That file is too large to be a Pulse checklist.',
+  'That checklist has more than 500 items, which is more than Pulse can bring in.',
+  "You can import up to 1,000 ${word('contact', { many: true })} at a time.",
+  "You can export up to 5,000 ${word('contact', { many: true })} at a time.",
+  'Up to ${MAX_HOLIDAYS} days off can be saved.',
+]
+
+/**
  * Every message main can send (fail('…') and the messages of its own error
  * classes like StageError) is either written for people — listed here and
  * passed through — or developer text that friendlyError replaces. A new
@@ -45,6 +86,7 @@ describe('friendlyError', () => {
  * here, or make sure the filter catches it.
  */
 const PLAIN = new Set<string>([
+  ...MUST_SHOW,
   'READ_ONLY', // friendlyError turns it into its own sentence
   "That link can't be opened from here. Pulse only opens its own https pages.", // F-035
   '${msg} Nothing was erased.',
@@ -54,7 +96,6 @@ const PLAIN = new Set<string>([
   "${word('priority', { cap: true })} name is required (max 100 characters).",
   "A Files column can't be changed to another type, or made from one. Add a new column instead.",
   'A repeating task needs a due date. Turn off Repeat to remove the date.',
-  'Abbreviation is required',
   "We couldn't save that setting. Try again.",
   "That's too much text to copy at once.",
   "Give the ${word('list')} a name.",
@@ -78,9 +119,7 @@ const PLAIN = new Set<string>([
   'Choose the new date and say why.',
   'Choose the options first.',
   'Choose where to save it',
-  'Could not decrypt backup',
   'Could not read file',
-  'Each item must have a title',
   'Enter the password or recovery key used with this backup',
   'Enter the reading as a number.',
   'Enter your current password to continue', // revoke with re-encrypt needs it to wrap the new key (P-001)
@@ -88,19 +127,13 @@ const PLAIN = new Set<string>([
   'Keep at least one working day in the week.',
   "Link columns can't be changed to another type, or made from one.",
   'There\'s already a column called "${taken.name}". Give the new one a different name.',
-  'Maximum of 20 saved views reached',
-  'Not supported on this platform',
   'Nothing to undo',
   "Numbers are filled in automatically and can't be changed.",
-  'Password is already configured',
   'Points must be a number between 0 and 1000',
   "Pulse couldn't check your password, so nothing was erased.",
   'Pulse is already set up on this computer. Unlock it, then use Settings → Backup to restore.',
   "Pulse's own entries keep their date.",
   'Some of those dates could not be read.',
-  'Template has no items',
-  'Template is missing a name',
-  'Template items are corrupted',
   "That ${word('activity')} is too long (max 100,000 characters).",
   "That ${word('activity')} is already there.",
   "${word('activity', { many: true, cap: true })} older than ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted. Void it instead: it's kept but hidden.",
@@ -126,7 +159,6 @@ const PLAIN = new Set<string>([
   "That setting isn't valid.",
   "That isn't a version number Pulse knows.",
   "That template doesn't exist any more.",
-  'That text is too long',
   "The backup was restored, but Pulse couldn't open it. Close Pulse, open it again and sign in with your new password.",
   "This computer isn't showing notifications from Pulse. Check that notifications are allowed for Pulse in your system settings.",
   "This kind of column can't be used as the name.",
@@ -207,10 +239,16 @@ describe('every main-process message', () => {
     for (const literal of messages) {
       const [cls, text] = literal.includes('|') && /^[A-Z]\w*Error\|/.test(literal) ? literal.split(/\|(.*)/s) : [null, literal]
       // An app's own error class carries a message written for people unless it says otherwise
-      const plain = cls ? !/^(Template not found|Invalid template items format)$/.test(text) : PLAIN.has(text)
+      const plain = cls !== null || PLAIN.has(text)
       const shown = friendlyError(sample(text), 'FALLBACK')
       if (plain ? shown === 'FALLBACK' : shown !== 'FALLBACK') wrong.push(`${plain ? 'hidden' : 'shown'}: ${text}`)
     }
     expect(wrong).toEqual([])
+  })
+
+  it('a message a person can act on reaches the screen word for word (UX review F-05)', () => {
+    const known = new Set(messages)
+    expect(MUST_SHOW.filter(m => !known.has(m))).toEqual([])
+    expect(MUST_SHOW.filter(m => friendlyError(sample(m), 'FALLBACK') !== sample(m))).toEqual([])
   })
 })

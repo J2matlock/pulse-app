@@ -359,7 +359,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         onClose()
       }
     } catch {
-      setError("We couldn't save this deadline rule. Please try again.")
+      setError("We couldn't save this deadline rule — try again")
     } finally {
       setIsSaving(false)
     }

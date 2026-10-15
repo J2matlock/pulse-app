@@ -160,7 +160,7 @@ describe('FILE_ASSOC_REGISTER', () => {
     // process.platform is linux in test env
     const result = await invoke(IPC.FILE_ASSOC_REGISTER, true) as { ok: false; error: string }
     expect(result.ok).toBe(false)
-    expect(result.error).toContain('Not supported')
+    expect(result.error).toContain('only be set up on Windows')
   })
 
   it('refuses anything but true or false (Q-056)', async () => {

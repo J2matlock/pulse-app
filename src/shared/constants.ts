@@ -24,7 +24,7 @@ export const PASSING_ERRORS = {
   unreachable: "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
   diskFull: 'The disk is full. Free up some space, then try again.',
   noMemory: 'Your computer ran out of memory. Close some other programs and try again.',
-  generic: "Something went wrong and the change wasn't saved. Please try again.",
+  generic: "Pulse couldn't make that change. Your other work is saved. Try again, and if it keeps happening, restart Pulse.",
   /** The renderer's own wording for IPC_READ_ONLY */
   cantSaveNow: "Pulse can't save changes right now.",
 } as const

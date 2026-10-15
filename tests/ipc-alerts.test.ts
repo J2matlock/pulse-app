@@ -297,7 +297,7 @@ describe('ALERT_RULE_DELETE', () => {
   it('fails for non-existent rule', async () => {
     const r = await invoke(IPC.ALERT_RULE_DELETE, 999999) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/not found/)
+    expect(r.error).toMatch(/isn't there any more/)
   })
 
   it('rejects invalid id', async () => {

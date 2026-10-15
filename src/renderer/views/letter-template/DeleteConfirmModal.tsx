@@ -28,7 +28,7 @@ export function DeleteConfirmModal({ template, onConfirm, onClose }: DeleteConfi
       await onConfirm()
       onClose()
     } catch {
-      setError('Could not delete the template. Please try again.')
+      setError("We couldn't delete the template — try again")
       setDeleting(false)
     }
   }

@@ -63,7 +63,7 @@ export function EditOptionsDialog({ column, onClose, onSaved }: Props): React.Re
       updateRecords,
     })
     setSaving(false)
-    if (!res.ok) { setError(friendlyError(res.error, "We couldn't save the choices. Please try again.")); return }
+    if (!res.ok) { setError(friendlyError(res.error, "We couldn't save the choices — try again")); return }
     const before = columnOptionLabels(column)
     const back = Object.fromEntries(renames.map(r => [r.value.trim(), r.original!]))
     const carried = res.data.updated > 0

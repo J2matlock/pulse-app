@@ -26,7 +26,7 @@ export function registerSavedViewHandlers(): void {
       if (count >= 20) return null
       return db.prepare('INSERT INTO saved_views (grid_id, name, config) VALUES (?, ?, ?)').run(gridId, name, config)
     })()
-    if (result === null) return fail('Maximum of 20 saved views reached')
+    if (result === null) return fail("You can keep up to 20 saved views. Delete one you don't use, then save this one.")
     return ok(result.lastInsertRowid)
   }, { write: true })
 

@@ -524,7 +524,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
   async function handleVoid(id: number, reason: string) {
     const res = await safeInvoke(IPC.CASE_LOG_VOID, id, reason)
-    if (!res.ok) { toast.error(`We couldn't void that ${t('activity')}. Please try again.`); return }
+    if (!res.ok) { toast.error(`We couldn't void that ${t('activity')} — try again`); return }
     setEntries(prev => prev.filter(e => e.id !== id))
     showDateChanges(rowId, res.data)
     void refreshHidden()

@@ -62,7 +62,7 @@ export function registerAlertHandlers(): void {
   define(IPC.ALERT_RULE_CREATE, [z.custom<Omit<AlertRule, 'id' | 'created_at'>>(isObject, 'Invalid rule')], (rule) => {
     if (typeof rule.name !== 'string' || !rule.name.trim() || rule.name.length > 200) return fail('Invalid rule name')
     if (rule.description != null && (typeof rule.description !== 'string' || rule.description.length > 2000)) return fail('Invalid rule description')
-    if (typeof rule.thresholds !== 'string' || rule.thresholds.length > 10_000) return fail('Thresholds too large')
+    if (typeof rule.thresholds !== 'string' || rule.thresholds.length > 10_000) return fail('That deadline rule has too many colors. Remove some and try again.')
     try { JSON.parse(rule.thresholds) } catch (err) { logNonFatal('ipc-alerts', 'Invalid thresholds JSON', err); return fail('Invalid thresholds JSON') }
     if (rule.interval_days != null && (!Number.isInteger(rule.interval_days) || rule.interval_days < 0)) return fail('Invalid interval_days')
     if (!validMonths(rule.interval_months)) return fail('Invalid interval_months')
@@ -81,13 +81,13 @@ export function registerAlertHandlers(): void {
   define(IPC.ALERT_RULE_UPDATE, [idArg(), z.custom<Partial<AlertRule>>(isObject, 'Invalid rule')], (id, updates) => {
     if (updates.description != null && (typeof updates.description !== 'string' || updates.description.length > 2000)) return fail('Invalid rule description')
     if (updates.thresholds !== undefined) {
-      if (typeof updates.thresholds !== 'string' || updates.thresholds.length > 10_000) return fail('Thresholds too large')
+      if (typeof updates.thresholds !== 'string' || updates.thresholds.length > 10_000) return fail('That deadline rule has too many colors. Remove some and try again.')
       try { JSON.parse(updates.thresholds) } catch (err) { logNonFatal('ipc-alerts', 'Invalid thresholds JSON', err); return fail('Invalid thresholds JSON') }
     }
     if (updates.name !== undefined && (typeof updates.name !== 'string' || !updates.name.trim() || updates.name.length > 200)) return fail('Invalid rule name')
     if (updates.interval_months !== undefined && !validMonths(updates.interval_months)) return fail('Invalid interval_months')
     const current = getDb().prepare('SELECT kind FROM alert_rules WHERE id = ?').get(id) as { kind: string | null } | undefined
-    if (!current) return fail('Alert rule not found')
+    if (!current) return fail("That deadline rule isn't there any more.")
     const engine = validEngineFields(updates, current)
     if ('error' in engine) return fail(engine.error)
     const normalized: Record<string, unknown> = { ...updates, ...engine.fields }
@@ -111,7 +111,7 @@ export function registerAlertHandlers(): void {
   define(IPC.ALERT_RULE_DELETE, [idArg()], (id) => {
     const db = getDb()
     const rule = db.prepare('SELECT * FROM alert_rules WHERE id = ?').get(id) as AlertRule | undefined
-    if (!rule) return fail('Alert rule not found')
+    if (!rule) return fail("That deadline rule isn't there any more.")
     if (rule.is_system) return fail("Built-in deadline rules can't be deleted.")
     // Unlink every column in the same step: a column left pointing at a missing
     // rule would stop being a deadline in the grid but not everywhere else
@@ -132,7 +132,7 @@ export function registerAlertHandlers(): void {
   define(IPC.ALERT_RULE_RESTORE, [z.custom<DeletedAlertRule | null | undefined>()], (snapshot) => {
     const r = snapshot?.rule
     if (!r || !validId(r.id) || typeof r.name !== 'string' || !r.name.trim() || r.name.length > 200) return fail('Invalid rule')
-    if (typeof r.thresholds !== 'string' || r.thresholds.length > 10_000) return fail('Thresholds too large')
+    if (typeof r.thresholds !== 'string' || r.thresholds.length > 10_000) return fail('That deadline rule has too many colors. Remove some and try again.')
     if (!Array.isArray(snapshot.columnIds) || snapshot.columnIds.length > 10_000 || !snapshot.columnIds.every(validId)) return fail('Invalid columns')
     if (!validMonths(r.interval_months)) return fail('Invalid interval_months')
     const engine = validEngineFields({ kind: r.kind ?? 'interval', rule_config: r.rule_config ?? null, rule_condition: r.rule_condition ?? null })

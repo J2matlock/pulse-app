@@ -156,6 +156,6 @@ describe('FocusModeView', () => {
     // safeInvoke is mocked to fail here
     render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText(/Could not load your focus items/)).toBeDefined()
+    expect(screen.getByText(/We couldn't load your focus items/)).toBeDefined()
   })
 })

@@ -145,7 +145,7 @@ export const createFilterSlice = (set: Set, get: Get) => ({
       await get().loadSavedFilters()
     } catch (err) {
       rlog.error('GridFilterSlice', 'saveFilter failed', err)
-      toast.error('Could not save filter — please try again')
+      toast.error("We couldn't save the filter — try again")
     }
   },
   deleteSavedFilter: async (id: number) => {
@@ -154,7 +154,7 @@ export const createFilterSlice = (set: Set, get: Get) => ({
       set(s => ({ savedFilters: s.savedFilters.filter(f => f.id !== id) }))
     } catch (err) {
       rlog.error('GridFilterSlice', 'deleteSavedFilter failed', err)
-      toast.error('Could not delete filter — please try again')
+      toast.error("We couldn't delete the saved filter — try again")
     }
   },
   applySavedFilter: (id: number) => {
@@ -202,7 +202,7 @@ export const createFilterSlice = (set: Set, get: Get) => ({
       await get().loadSavedViews()
     } catch (err) {
       rlog.error('GridFilterSlice', 'saveCurrentView failed', err)
-      toast.error('Could not save view — please try again')
+      toast.error("We couldn't save the view — try again")
     }
   },
   applySavedView: (id: number) => {
@@ -266,7 +266,7 @@ export const createFilterSlice = (set: Set, get: Get) => ({
       set(s => ({ savedViews: s.savedViews.filter(v => v.id !== id) }))
     } catch (err) {
       rlog.error('GridFilterSlice', 'deleteSavedView failed', err)
-      toast.error('Could not delete view — please try again')
+      toast.error("We couldn't delete the saved view — try again")
     }
   },
 

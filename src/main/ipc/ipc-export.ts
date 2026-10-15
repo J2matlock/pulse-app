@@ -213,7 +213,7 @@ export function registerExportHandlers(): void {
     return withCorrelation('backup-restore-other', async (corrId) => {
       if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
       if (typeof secret !== 'string' || secret.length === 0 || secret.length > 1024) return fail('Enter the password or recovery key used with this backup')
-      if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
+      if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Passwords can be up to 1,024 characters.')
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
       if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
       assertSafePath(backupPath)
@@ -335,7 +335,7 @@ export function registerExportHandlers(): void {
   // ── Backup Preview (Finding 2.13) ─────────────────────────────────────────
   define(IPC.BACKUP_PREVIEW, [textArg('No path provided', { min: 1 })], async (backupPath) => {
     assertSafePath(backupPath)
-    if (!existsSync(backupPath)) return fail('Backup file not found')
+    if (!existsSync(backupPath)) return fail("That backup file isn't there any more. Choose another.")
 
     const rawKey = getDbKey().toString('hex')
     // Validate key format BEFORE opening the DB or running any pragma
@@ -354,7 +354,7 @@ export function registerExportHandlers(): void {
           setEncryptionKey(db, rawKey)
         } catch (err) {
           logNonFatal('ipc-export', 'decrypt backup for preview', err)
-          return fail('Could not decrypt backup')
+          return fail("That backup couldn't be opened. It may be damaged, or made by a different copy of Pulse.")
         }
         db.pragma("kdf_iter=256000")
         db.pragma("cipher_page_size=4096")
@@ -534,7 +534,7 @@ export function registerExportHandlers(): void {
   define(IPC.EXPORT_HANDOFF_PACKET, [z.custom<HandoffOptions>()], async (opts) => {
     if (typeof opts !== 'object' || opts === null || !validId(opts.rowId) || !validId(opts.gridId)) return fail('Invalid ID')
     const text = (v: unknown, max: number) => v == null || (typeof v === 'string' && v.length <= max)
-    if (!text(opts.receiving, 500) || !text(opts.summary, 20_000)) return fail('That text is too long')
+    if (!text(opts.receiving, 500) || !text(opts.summary, 20_000)) return fail('Keep the summary under 20,000 characters and the name of who is taking over under 500.')
     const unavailable = refuseUnavailableRecord(opts.rowId, opts.gridId)
     if (unavailable) return unavailable
     const filePath = await pickSavePath({
@@ -563,7 +563,7 @@ export function registerExportHandlers(): void {
 
   define(IPC.LETTER_TEMPLATE_EXPORT_PDF, [z.custom<{ text: string }>()], async (opts) => {
     if (typeof opts?.text !== 'string') return fail('Text must be a string')
-    if (opts.text.length > 500_000) return fail('Text too large (max 500,000 characters)')
+    if (opts.text.length > 500_000) return fail('That letter is too long to save as a PDF. Keep it under 500,000 characters.')
     const filePath = await pickSavePath({
       title: 'Export Letter as PDF',
       defaultPath: `letter-${localDateString()}.pdf`,

@@ -285,7 +285,7 @@ export default function ProfileView(): React.ReactElement {
       destPath: saveRes.data.filePath,
       includeSections: sections,
     })
-    if (!result.ok) toast.error('We couldn\'t export this profile. Please try again.')
+    if (!result.ok) toast.error('We couldn\'t export this profile — try again')
     else noteUnencryptedExport()
   }
 

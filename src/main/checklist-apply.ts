@@ -11,15 +11,15 @@ export class ChecklistApplyError extends Error {}
 export function applyChecklistTemplate(rowId: number, templateId: number, groupId: number | null = null, opts: { skipOpen?: boolean } = {}): number[] {
   const db = getDb()
   const template = db.prepare('SELECT items, is_recurring, recurrence_days FROM checklist_templates WHERE id = ?').get(templateId) as { items: string; is_recurring: number | null; recurrence_days: number | null } | undefined
-  if (!template) throw new ChecklistApplyError('Template not found')
+  if (!template) throw new ChecklistApplyError("That checklist template isn't there any more.")
   let items: Array<string | { title: string; priority?: string }>
   try {
     const parsed = JSON.parse(template.items) as unknown
-    if (!Array.isArray(parsed)) throw new ChecklistApplyError('Invalid template items format')
+    if (!Array.isArray(parsed)) throw new ChecklistApplyError('That checklist template is damaged. Make it again under Templates.')
     items = parsed as typeof items
   } catch (err) {
     if (err instanceof ChecklistApplyError) throw err
-    throw new ChecklistApplyError('Invalid template items format')
+    throw new ChecklistApplyError('That checklist template is damaged. Make it again under Templates.')
   }
   const maxPos = (db.prepare('SELECT MAX(position) as p FROM checklist_items WHERE row_id = ?').get(rowId) as { p: number | null }).p ?? -1
   // A repeating template ("every 30 days") makes repeating items: each comes back that many days after it's ticked off

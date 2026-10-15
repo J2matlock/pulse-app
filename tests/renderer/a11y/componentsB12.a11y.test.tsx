@@ -83,7 +83,7 @@ describe('dialogs are named by their headings (audit A06-22)', () => {
     expect(name.getAttribute('aria-invalid')).toBeNull()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^(Create|Save)/ })) })
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('Name is required')
+    expect(alert.textContent).toContain('Give the template a name')
     expect(name.getAttribute('aria-invalid')).toBe('true')
     expect(name.getAttribute('aria-describedby')).toBe(alert.id)
     await expectNoAxeViolations(document.body)
@@ -115,7 +115,7 @@ describe('submit-time errors are announced (audit A06-14)', () => {
     const template = { id: 4, name: 'Reminder', description: '', content: 'Dear {{client_name}}', is_system: 0, created_at: '', updated_at: '' }
     render(<DeleteConfirmModal template={template as never} onConfirm={() => Promise.reject(new Error('nope'))} onClose={() => {}} />)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Delete/ })) })
-    expect(screen.getByRole('alert').textContent).toBe('Could not delete the template. Please try again.')
+    expect(screen.getByRole('alert').textContent).toBe("We couldn't delete the template — try again")
     await expectNoAxeViolations(document.body)
   })
 })

@@ -1006,7 +1006,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist Templates
   }
 
   async function handleSave() {
-    if (!draft.name.trim()) { setError('Template name is required.'); return }
+    if (!draft.name.trim()) { setError('Give the template a name.'); return }
     setSaving(true)
     setError('')
     try {
@@ -1034,7 +1034,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist Templates
       setView('list')
     } catch (err) {
       rlog.error('Checklist', 'Failed to save template', err)
-      setError('Failed to save template. Please try again.')
+      setError("We couldn't save the template — try again")
     } finally {
       setSaving(false)
     }

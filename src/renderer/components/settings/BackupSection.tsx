@@ -182,7 +182,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         toast.error(friendlyError(res.error, 'Restore failed. Please try a different backup.'))
       }
     } catch {
-      toast.error('Restore failed. Please try again.')
+      toast.error("We couldn't restore that backup — your data wasn't changed; try again")
     } finally {
       setRestoring(false)
     }

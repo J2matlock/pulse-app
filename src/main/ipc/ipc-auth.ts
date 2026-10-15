@@ -82,8 +82,8 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_SETUP_PASSWORD, 'ipc-auth', async (_e, password: string, hint: string) => {
     return withCorrelation('auth-setup-password', async (corrId) => {
-      if (isPasswordSetup()) return fail('Password is already configured')
-      if (typeof password !== 'string' || password.length > 1024) return fail('Invalid password')
+      if (isPasswordSetup()) return fail('A password is already set up. Unlock Pulse, then change it in Settings → Security.')
+      if (typeof password !== 'string' || password.length > 1024) return fail('Passwords can be up to 1,024 characters.')
       { const check = checkNewPassword(password); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
       if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
       const dbPath = resolveDatabasePath()
@@ -112,7 +112,7 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_VERIFY_PASSWORD, 'ipc-auth', async (_e, password: string) => {
     try {
-      if (typeof password !== 'string' || password.length === 0 || password.length > 1024) return fail('Invalid password')
+      if (typeof password !== 'string' || password.length === 0 || password.length > 1024) return fail('Enter your password (up to 1,024 characters).')
       const { failedAttempts } = await verifyAndUnlock(password)
       const openFailure = openAfterUnlock()
       if (openFailure) return openFailure
@@ -135,7 +135,7 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_VERIFY_RECOVERY_KEY, 'ipc-auth', async (_e, recoveryKey: string) => {
     try {
-      if (typeof recoveryKey !== 'string' || recoveryKey.length === 0 || recoveryKey.length > 512) return fail('Invalid recovery key')
+      if (typeof recoveryKey !== 'string' || recoveryKey.length === 0 || recoveryKey.length > 512) return fail('Enter the recovery key (up to 512 characters).')
       await verifyAndUnlockRecovery(recoveryKey)
       const openFailure = openAfterUnlock()
       if (openFailure) return openFailure
@@ -166,7 +166,7 @@ export function registerAuthHandlers(): void {
       }
       if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
       if (typeof secret !== 'string' || secret.length === 0 || secret.length > 1024) return fail('Enter the password or recovery key used with this backup')
-      if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
+      if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Passwords can be up to 1,024 characters.')
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
       if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
       assertSafePath(backupPath)
@@ -191,8 +191,8 @@ export function registerAuthHandlers(): void {
   secureWrap(IPC.AUTH_CHANGE_PASSWORD, 'ipc-auth', async (e, oldPassword: string, newPassword: string, newHint: string, opts?: { reencrypt?: boolean }) => {
     return withCorrelation('auth-change-password', async (corrId) => {
       try {
-        if (typeof oldPassword !== 'string' || oldPassword.length > 1024) return fail('Invalid password')
-        if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
+        if (typeof oldPassword !== 'string' || oldPassword.length > 1024) return fail('Passwords can be up to 1,024 characters.')
+        if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Passwords can be up to 1,024 characters.')
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
         if (typeof newHint !== 'string' || newHint.length > 512) return fail('Hint too long')
         if (opts !== undefined && (opts === null || typeof opts !== 'object')) return fail('Invalid options')
@@ -229,13 +229,13 @@ export function registerAuthHandlers(): void {
   })
 
   secureWrap(IPC.AUTH_GENERATE_RECOVERY_KEY, 'ipc-auth', async (_e, currentPassword?: string) => {
-    if (currentPassword !== undefined && (typeof currentPassword !== 'string' || currentPassword.length > 1024)) return fail('Invalid password')
+    if (currentPassword !== undefined && (typeof currentPassword !== 'string' || currentPassword.length > 1024)) return fail('Passwords can be up to 1,024 characters.')
     const key = await generateRecoveryKey(currentPassword)
     return ok(key)
   })
 
   secureWrap(IPC.AUTH_REVOKE_RECOVERY_KEY, 'ipc-auth', async (e, currentPassword?: string, opts?: { reencrypt?: boolean }) => {
-    if (currentPassword !== undefined && (typeof currentPassword !== 'string' || currentPassword.length > 1024)) return fail('Invalid password')
+    if (currentPassword !== undefined && (typeof currentPassword !== 'string' || currentPassword.length > 1024)) return fail('Passwords can be up to 1,024 characters.')
     if (opts !== undefined && (opts === null || typeof opts !== 'object')) return fail('Invalid options')
     if (opts?.reencrypt === true) {
       // Revoke by giving the data a new key wrapped by the current password only (P-001)
@@ -254,7 +254,7 @@ export function registerAuthHandlers(): void {
   })
 
   secureWrap(IPC.AUTH_RESET_PASSWORD_AFTER_RECOVERY, 'ipc-auth', async (_e, newPassword: string, newHint: string) => {
-    if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
+    if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Passwords can be up to 1,024 characters.')
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
     if (typeof newHint !== 'string' || newHint.length > 512) return fail('Hint too long')
     await resetPasswordAfterRecovery(newPassword, newHint)

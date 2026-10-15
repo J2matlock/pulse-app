@@ -40,7 +40,7 @@ export function NotesSection(): React.ReactElement {
       await updateWorkspace({ features: { [key]: on } })
       pulseEvents.emit('note-tracking:changed')
     } catch {
-      toast.error("We couldn't change that setting. Please try again.")
+      toast.error("We couldn't change that setting — try again")
     }
   }
 

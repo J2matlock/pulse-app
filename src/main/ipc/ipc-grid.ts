@@ -292,7 +292,7 @@ export function registerGridHandlers(): void {
       return fail('Invalid width entry — each must have integer columnId and positive width')
     }
     if (updates.some(u => u.width > 2000)) {
-      return fail('Column width exceeds maximum (2000px)')
+      return fail("A column can't be wider than 2,000 pixels.")
     }
     const db = getDb()
     const stmt = cachedStmt('col_batch_width', 'UPDATE columns SET width = ? WHERE id = ?')

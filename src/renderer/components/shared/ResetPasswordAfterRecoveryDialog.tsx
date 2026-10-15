@@ -41,13 +41,13 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
     try {
       const result = await safeInvoke(IPC.AUTH_RESET_PASSWORD_AFTER_RECOVERY, password, hint)
       if (result.ok) {
-        toast.success('Password updated successfully.')
+        toast.success('Password changed.')
         onComplete()
       } else {
-        setError(friendlyError(result.error, 'Password reset failed. Please try again.'))
+        setError(friendlyError(result.error, "We couldn't change your password — try again"))
       }
     } catch {
-      setError('Password reset failed. Please try again.')
+      setError("We couldn't change your password — try again")
     } finally {
       setIsSubmitting(false)
     }

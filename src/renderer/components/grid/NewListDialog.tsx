@@ -71,11 +71,11 @@ export function NewListDialog({ onClose, onCreated, onPickExample }: Props): Rea
             ...(c.type === 'dropdown' ? { config: JSON.stringify({ options: c.options ?? ['Yes', 'No'] }) } : {}),
           })),
         })
-        if (!res.ok) { setError(`We couldn't create the ${t('list')}. Please try again.`); return }
+        if (!res.ok) { setError(`We couldn't create the ${t('list')} — try again`); return }
         gridId = res.data.gridId
       } else {
         const res = await safeInvoke(IPC.GRID_CREATE, trimmed)
-        if (!res.ok) { setError(`We couldn't create the ${t('list')}. Please try again.`); return }
+        if (!res.ok) { setError(`We couldn't create the ${t('list')} — try again`); return }
         gridId = Number(res.data)
       }
 

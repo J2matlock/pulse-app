@@ -188,7 +188,7 @@ describe('AUTH_SETUP_PASSWORD', () => {
     mockIsPasswordSetup.mockReturnValue(true)
     const r = await invoke(IPC.AUTH_SETUP_PASSWORD, 'validpass123', 'my hint') as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/already configured/)
+    expect(r.error).toMatch(/already set up/)
   })
 
   it('sets up password and returns cloudWarning', async () => {
@@ -320,7 +320,7 @@ describe('AUTH_CHANGE_PASSWORD', () => {
     mockChangePassword.mockClear()
     for (const old of [null, 42, 'x'.repeat(1025)]) {
       const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, old, 'new-password-123', 'hint') as any
-      expect(r).toEqual({ ok: false, error: 'Invalid password' })
+      expect(r).toEqual({ ok: false, error: 'Passwords can be up to 1,024 characters.' })
     }
     expect(mockChangePassword).not.toHaveBeenCalled()
   })
