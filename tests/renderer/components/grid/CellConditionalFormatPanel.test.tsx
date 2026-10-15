@@ -92,39 +92,51 @@ describe('CellConditionalFormatPanel', () => {
 
   it('is a modal dialog named by its title (Q-101)', () => {
     render(<CellConditionalFormatPanel columnId={1} onClose={vi.fn()} mode="column" />)
-    expect(screen.getByRole('dialog', { name: 'Auto-Highlight Column' }).getAttribute('aria-modal')).toBe('true')
+    expect(screen.getByRole('dialog', { name: 'Color rules for "Name"' }).getAttribute('aria-modal')).toBe('true')
   })
 
   it('renders cell mode title', () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={1} onClose={vi.fn()} />)
-    expect(screen.getByText('Auto-Highlight Cell')).toBeTruthy()
+    expect(screen.getByText('Color rules for this cell')).toBeTruthy()
   })
 
   it('renders column mode title', () => {
     render(<CellConditionalFormatPanel columnId={1} onClose={vi.fn()} mode="column" />)
-    expect(screen.getByText('Auto-Highlight Column')).toBeTruthy()
+    expect(screen.getByText('Color rules for "Name"')).toBeTruthy()
   })
 
-  it('shows empty state with Add highlight rule button', () => {
+  it('calls them color rules everywhere: empty state, add button, Save (UX-B-23)', () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={1} onClose={vi.fn()} />)
-    expect(screen.getByText(/No highlight rules yet/)).toBeTruthy()
-    expect(screen.getByText('Add highlight rule')).toBeTruthy()
+    expect(screen.getByText('No color rules yet. Add one below.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add a color rule' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/highlight|trigger|format/i)
+  })
+
+  it('reads a rule as one sentence (UX-B-24)', () => {
+    render(<CellConditionalFormatPanel rowId={1} columnId={2} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByText('Add a color rule'))
+    expect(screen.getByText('Color this cell when')).toBeTruthy()
+    expect((screen.getByLabelText('What it looks at') as HTMLSelectElement).selectedOptions[0]!.textContent).toBe('its own value')
+    expect(screen.getAllByRole('option', { name: 'is more than' }).length).toBe(1)
+    expect(screen.getByText('Then show it as:')).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/highlight|trigger|format/i)
   })
 
   it('talks about the list\'s records, not rows (R1)', () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={2} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByText('Add highlight rule'))
-    expect(screen.getByText('Another column of the same client (e.g. a checkbox)')).toBeTruthy()
-    expect(screen.getByText('A cell of another client')).toBeTruthy()
-    expect(screen.getByText('Highlight the whole client when matched')).toBeTruthy()
+    fireEvent.click(screen.getByText('Add a color rule'))
+    expect(screen.getByText('another column of this client')).toBeTruthy()
+    expect(screen.getByText('a cell of another client')).toBeTruthy()
+    expect(screen.getByText('Color the whole client, not just this cell')).toBeTruthy()
     expect(document.body.textContent).not.toMatch(/\brow\b/i)
   })
 
   it('"All rows in this column" saves a column rule, so new records get it too (L-19)', async () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={2} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByText('Add highlight rule'))
+    fireEvent.click(screen.getByText('Add a color rule'))
     fireEvent.change(screen.getByDisplayValue('This cell only'), { target: { value: 'all_rows' } })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Apply' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })) })
     const updateColumn = useGridStore.getState().updateColumn as unknown as ReturnType<typeof vi.fn>
     expect(updateColumn).toHaveBeenCalledWith(2, { conditional_format: expect.any(String) })
     const saved = JSON.parse((updateColumn.mock.calls[0]![1] as { conditional_format: string }).conditional_format) as Array<Record<string, unknown>>
