@@ -2,11 +2,13 @@ import React from 'react'
 
 export const ROW_HEIGHTS = { compact: 44, comfortable: 44, spacious: 52 } as const
 export const HANDLE_WIDTH = 32  // Width of the row drag-handle column
-// The open-record and star buttons each have their own column, a 44px click area apiece (Q-103, D-034)
+// The open-record, star and row-menu buttons each have their own column, a 44px click area apiece (Q-103, D-034)
 export const OPEN_COL_WIDTH = 44
 export const STAR_COL_WIDTH = 44
-/** The open and star columns together: the room between the select box and the next column */
-export const PROFILE_BTN_WIDTH = OPEN_COL_WIDTH + STAR_COL_WIDTH
+/** The "⋯" that opens the row's menu by mouse (UX-B-01) */
+export const MENU_COL_WIDTH = 44
+/** The open, star and menu columns together: the room between the select box and the next column */
+export const PROFILE_BTN_WIDTH = OPEN_COL_WIDTH + STAR_COL_WIDTH + MENU_COL_WIDTH
 /** The built-in Tags column: a record's tags from its page (G-37) */
 export const TAGS_COL_WIDTH = 160
 

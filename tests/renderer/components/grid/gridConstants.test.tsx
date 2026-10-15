@@ -29,7 +29,7 @@ describe('gridConstants', () => {
     // The open and star buttons each have their own 44px column (Q-103, D-034)
     expect(OPEN_COL_WIDTH).toBe(44)
     expect(STAR_COL_WIDTH).toBe(44)
-    expect(PROFILE_BTN_WIDTH).toBe(88)
+    expect(PROFILE_BTN_WIDTH).toBe(132)
   })
 
   it('HANDLE_STYLE has width matching HANDLE_WIDTH', () => {

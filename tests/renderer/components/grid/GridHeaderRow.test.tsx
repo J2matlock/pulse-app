@@ -44,9 +44,10 @@ vi.mock('../../../../src/renderer/components/grid/ColumnHeader', () => ({
 
 vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
   HANDLE_WIDTH: 32,
-  PROFILE_BTN_WIDTH: 88,
+  PROFILE_BTN_WIDTH: 132,
   OPEN_COL_WIDTH: 44,
   STAR_COL_WIDTH: 44,
+  MENU_COL_WIDTH: 44,
 }))
 
 vi.mock('../../../../src/renderer/components/grid/AcuityBadge', () => ({
@@ -190,13 +191,17 @@ describe('GridHeaderRow', () => {
     expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('mixed')
   })
 
-  it('has an open column and a separate "Starred" column, each with its own gridline, before the data columns', () => {
+  it('has an open column, a "Starred" column and an "Actions" column, each with its own gridline and a tooltip, before the data columns (UX-B-38)', () => {
     render(<GridHeaderRow {...makeProps()} />)
     const headers = screen.getAllByRole('columnheader')
-    expect(headers[1]!.getAttribute('aria-label')).toBe('Profile')
+    expect(headers[1]!.getAttribute('aria-label')).toBe("Client's page")
+    expect(headers[1]!.getAttribute('title')).toContain("opens the client's page")
     expect(headers[2]!.getAttribute('aria-label')).toBe('Starred')
-    expect(headers.slice(0, 3).map(h => h.getAttribute('aria-colindex'))).toEqual(['1', '2', '3'])
-    for (const h of headers.slice(1, 3)) {
+    expect(headers[2]!.getAttribute('title')).toContain('Star a client')
+    expect(headers[3]!.getAttribute('aria-label')).toBe('Actions')
+    expect(headers[3]!.getAttribute('title')).toContain('duplicate, archive, move')
+    expect(headers.slice(0, 4).map(h => h.getAttribute('aria-colindex'))).toEqual(['1', '2', '3', '4'])
+    for (const h of headers.slice(1, 4)) {
       expect(h.className).toMatch(/(^|\s)border-r(\s|$)/)
       expect(h.className).toContain('border-slate-300')
       expect((h as HTMLElement).style.width).toBe('44px')

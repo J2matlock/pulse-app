@@ -13,11 +13,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
-import { User, Star, EyeOff } from 'lucide-react'
+import { User, Star, EyeOff, MoreHorizontal } from 'lucide-react'
 import type { GridTableHeader } from './gridTable'
 import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
-import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -128,7 +128,7 @@ export function GridHeaderRow({
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
-  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
   // A dragged column is read out by name, not its id (AUDIT-049)
   const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
   // Every record on screen is ticked (records hidden in a collapsed group don't count)
@@ -203,8 +203,8 @@ export function GridHeaderRow({
               width: OPEN_COL_WIDTH, height: rowHeight,
               ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 12 } : {}),
             }}
-            aria-label="Profile"
-            title={`Open the ${t('record')}'s page`}
+            aria-label={`${t('record', { cap: true })}'s page`}
+            title={`The person icon opens the ${t('record')}'s page`}
           >
             <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
           </div>
@@ -218,15 +218,29 @@ export function GridHeaderRow({
               ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 12 } : {}),
             }}
             aria-label="Starred"
-            title="Starred"
+            title={`Star ${t('record', { article: true })} to find them quickly with the Starred button above`}
           >
             <Star className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+          </div>
+          {/* Row menu column header (UX-B-01) */}
+          <div
+            role="columnheader"
+            aria-colindex={4}
+            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+            style={{
+              width: MENU_COL_WIDTH, height: rowHeight,
+              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH + STAR_COL_WIDTH, zIndex: 12 } : {}),
+            }}
+            aria-label="Actions"
+            title={`The ⋯ has more for each ${t('record')}: duplicate, archive, move and more`}
+          >
+            <MoreHorizontal className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
           </div>
           {/* Acuity column header — clickable to sort */}
           {acuityEnabled && (
             <div
               role="columnheader"
-              aria-colindex={4}
+              aria-colindex={5}
               aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
               className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
                          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
@@ -249,7 +263,7 @@ export function GridHeaderRow({
             </div>
           )}
           {showTags && (
-            <div role="columnheader" aria-colindex={4 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+            <div role="columnheader" aria-colindex={5 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
               style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
               <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
               {onHideTags && (

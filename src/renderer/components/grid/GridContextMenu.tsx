@@ -1,6 +1,6 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { Palette, Trash2, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon } from 'lucide-react'
+import { Palette, Trash2, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon, ChevronDown, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
 import { copyText } from '../../hooks/useCopyFeedback'
@@ -76,6 +76,9 @@ export function GridContextMenu({
   const cmCol = columns.find(c => c.id === contextMenu.colId)
   const cmCellVal = cmRow ? (cmRow[`col_${contextMenu.colId}` as keyof GridRow] as string | null) : null
   const isArchived = cmRow?.is_active === 0
+  // History, color rules and formatting sit behind "More…" so the menu fits the screen
+  // (UX-B-01); it starts open when this cell already has rules or a copied format is waiting
+  const [moreOpen, setMoreOpen] = useState(cmRules.length > 0 || copiedFormatRules !== null)
 
   return (
     <>
@@ -108,6 +111,9 @@ export function GridContextMenu({
         {/* Cell actions */}
         {cmCol && (
           <>
+            <div className="px-3 pt-2 pb-0.5 text-sm font-semibold text-slate-500 dark:text-slate-400 truncate" aria-hidden="true">
+              This cell: {cmCol.name}
+            </div>
             <button
               className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
@@ -153,22 +159,6 @@ export function GridContextMenu({
               Clear cell
             </button>
             </>)}
-            <button
-              className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => {
-                onCellHistoryTarget({
-                  rowId: contextMenu.rowId,
-                  colId: contextMenu.colId,
-                  colName: cmCol?.name ?? 'Cell',
-                  x: contextMenu.x,
-                  y: contextMenu.y,
-                })
-                onClose()
-              }}
-            >
-              <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              View history
-            </button>
             <hr className="my-1 border-slate-200 dark:border-slate-700" />
           </>
         )}
@@ -199,6 +189,36 @@ export function GridContextMenu({
 
         <hr className="my-1 border-slate-200 dark:border-slate-700" />
 
+        {/* The rest: history, color rules and formatting, behind one row (UX-B-01) */}
+        <button
+          role="menuitem"
+          aria-expanded={moreOpen}
+          className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+          onClick={() => setMoreOpen(o => !o)}
+        >
+          {moreOpen ? <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-500 dark:text-slate-400" />}
+          More…
+        </button>
+        {moreOpen && (<>
+        {cmCol && (
+          <button
+            className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={() => {
+              onCellHistoryTarget({
+                rowId: contextMenu.rowId,
+                colId: contextMenu.colId,
+                colName: cmCol.name,
+                x: contextMenu.x,
+                y: contextMenu.y,
+              })
+              onClose()
+            }}
+          >
+            <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            View history of this cell
+          </button>
+        )}
+
         <ContextMenuColorRules
           contextMenu={contextMenu}
           columns={columns}
@@ -222,7 +242,7 @@ export function GridContextMenu({
           onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: contextMenu.colId }); onClose() }}
         >
           <Palette className="w-4 h-4 text-purple-500" />
-          {cmRules.length > 0 ? 'Edit color rules…' : 'Color rules…'}
+          Color rules for this cell…
         </button>
 
         {/* Copy / paste formatting */}
@@ -266,6 +286,7 @@ export function GridContextMenu({
             Paste formatting{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} ${t('record', { many: true })})` : ''}
           </button>
         )}
+        </>)}
 
         <hr className="my-1 border-slate-200 dark:border-slate-700" />
 

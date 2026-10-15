@@ -154,6 +154,10 @@ export function DataGrid(): React.ReactElement {
 
   // Extracted hooks
   const { contextMenu, setContextMenu, handleCellContextMenu, closeContextMenu } = useGridContextMenu()
+  // The row's "⋯" button and the keyboard open the same menu, under the button or cell (UX-B-01)
+  const handleOpenRowMenu = useCallback((rowId: number, colId: number, at: { x: number; y: number }) => {
+    setContextMenu({ x: at.x, y: at.y, rowId, colId })
+  }, [setContextMenu])
   const { selectedRowIds, setSelectedRowIds, selectedRowIdsRef, handleToggleRowSelect } = useGridSelection({ visualRowIdsRef, activeGridId })
 
   // Refs for values used in handleCellKeyDown
@@ -495,6 +499,7 @@ export function DataGrid(): React.ReactElement {
       updateCell={updateCell}
       onCellKeyDown={handleCellKeyDown}
       onCellContextMenu={handleCellContextMenu}
+      onOpenRowMenu={handleOpenRowMenu}
       onNavigateToProfile={handleNavigateToProfile}
       onToggleStar={handleToggleStarProp}
       showTags={showTagsColumn}
@@ -532,7 +537,7 @@ export function DataGrid(): React.ReactElement {
   const isGrouped = isGroupedFromHook
   // Screen readers pair each cell with its header by these numbers, and hear how many
   // records there are while only some are drawn (AUDIT-012, AUDIT-042)
-  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
+  const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
   const colCount = leadingColCount + columns.length
   const rowCount = 1 + (isGrouped ? displayItems.length : tableRows.length)
   const isEmpty = tableRows.length === 0 && !isLoading
