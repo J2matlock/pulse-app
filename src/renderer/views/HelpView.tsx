@@ -19,6 +19,8 @@ import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { FEATURES, isOn, type FeatureKey } from '../../shared/features'
+import { suggestFeature, suggestionMessage } from '../../shared/featureSuggestions'
+import { FeatureOffer } from '../components/shared/FeatureOffer'
 import { modHelp } from '../utils/keys'
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -129,6 +131,12 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
   const features = useWorkspaceStore(s => s.features)
   const updateWorkspace = useWorkspaceStore(s => s.update)
   const offItems = useMemo(() => filteredItems.filter(it => it.feature && !isOn(features, it.feature)), [filteredItems, features])
+  const onItems = useMemo(() => filteredItems.filter(it => !(it.feature && !isOn(features, it.feature))), [filteredItems, features])
+  // A search for a switched-off feature says so first, with a way to turn it on (Q1b)
+  const suggested = useMemo(
+    () => searching ? suggestFeature({ trigger: 'help', query: debouncedSearch, fill: f }, k => !isOn(features, k)) : null,
+    [searching, debouncedSearch, f, features],
+  )
 
   // Group by category
   const grouped = useMemo(() => {
@@ -304,6 +312,10 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
           ))}
         </div>
 
+        {suggested && (
+          <FeatureOffer feature={suggested} always message={f(suggestionMessage(suggested, 'help'))} />
+        )}
+
         {/* FAQ Accordion — grouped by category when browsing, best match first when searching */}
         {filteredItems.length === 0 ? (
           <div className="text-center py-12 space-y-3">
@@ -318,12 +330,15 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
             )}
           </div>
         ) : searching ? (
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1 pt-2">Best matches first</h2>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700">
-              {filteredItems.filter(it => !(it.feature && !isOn(features, it.feature))).map(item => renderItem(item))}
+          // Every match is a switched-off feature's topic: they're all under "More features…" below
+          onItems.length > 0 && (
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1 pt-2">Best matches first</h2>
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700">
+                {onItems.map(item => renderItem(item))}
+              </div>
             </div>
-          </div>
+          )
         ) : (
           Array.from(grouped.entries()).map(([category, items]) => (
             <div key={category} className="space-y-1">

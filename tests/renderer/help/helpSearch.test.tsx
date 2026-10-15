@@ -58,6 +58,36 @@ describe('Help search', () => {
     expect(screen.queryByText(/No questions match/)).toBeNull()
   })
 
+  it('a search for a switched-off feature offers it first, above the results (Q1b)', async () => {
+    useWorkspaceStore.setState({ features: { ...EXISTING_FEATURES, mileage: false } })
+    render(<HelpView onStartTour={vi.fn()} onStartMiniTour={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText('Search help…'), { target: { value: 'mileage' } })
+    await settle()
+    const offer = screen.getByRole('status')
+    expect(offer.textContent).toContain('Record miles on case notes for your monthly mileage claim? Turn on Mileage on case notes.')
+    expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy()
+    // It comes before every question
+    const firstQuestion = screen.getAllByRole('button', { expanded: false })[0]!
+    expect(offer.compareDocumentPosition(firstQuestion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('with the feature on, the same search makes no offer', async () => {
+    useWorkspaceStore.setState({ features: { ...EXISTING_FEATURES, mileage: true } })
+    render(<HelpView onStartTour={vi.fn()} onStartMiniTour={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText('Search help…'), { target: { value: 'mileage' } })
+    await settle()
+    expect(screen.queryByRole('button', { name: 'Turn on' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Best matches first' })).toBeTruthy()
+  })
+
+  it('no empty "Best matches first" box when every match is a switched-off feature', async () => {
+    render(<HelpView onStartTour={vi.fn()} onStartMiniTour={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText('Search help…'), { target: { value: 'contacts per month' } })
+    await settle()
+    expect(screen.queryByRole('heading', { name: 'Best matches first' })).toBeNull()
+    expect(screen.getByRole('status').textContent).toMatch(/Turn on Contact requirements/)
+  })
+
   it('"password" puts the question about changing it first, not an answer that mentions it', async () => {
     render(<HelpView onStartTour={vi.fn()} onStartMiniTour={vi.fn()} />)
     fireEvent.change(screen.getByPlaceholderText('Search help…'), { target: { value: 'password' } })
