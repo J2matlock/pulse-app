@@ -62,7 +62,23 @@ describe('ConfirmDialog', () => {
   it('shows red styling for destructive variant (default)', () => {
     render(<ConfirmDialog {...baseProps} />)
     const confirmBtn = screen.getByText('Confirm')
-    expect(confirmBtn.className).toContain('bg-red-600')
+    expect(confirmBtn.className).toMatch(/(^| )btn-danger( |$)/)
+  })
+
+  it('uses the primary button when not destructive', () => {
+    render(<ConfirmDialog {...baseProps} destructive={false} />)
+    expect(screen.getByText('Confirm').className).toMatch(/(^| )btn-primary( |$)/)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('both buttons are the 44 px shared buttons, with no inline size or native title', () => {
+    render(<ConfirmDialog {...baseProps} />)
+    for (const name of ['Cancel', 'Confirm']) {
+      const btn = screen.getByRole('button', { name })
+      expect(btn.className).toMatch(/(^| )btn-(secondary|danger)( |$)/)
+      expect(btn.getAttribute('style')).toBeNull()
+      expect(btn.getAttribute('title')).toBeNull()
+    }
   })
 
   it('shows AlertTriangle icon when destructive', () => {
