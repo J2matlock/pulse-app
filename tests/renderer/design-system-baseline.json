@@ -79,7 +79,7 @@
     "native-title": 3,
     "radius": 8,
     "spacing": 1,
-    "text-size": 10
+    "text-size": 9
   },
   "components/contacts/ContactCard.tsx": {
     "native-title": 3,
@@ -121,7 +121,7 @@
     "radius": 8,
     "raw-button": 2,
     "spacing": 5,
-    "text-size": 9
+    "text-size": 8
   },
   "components/contacts/ContactLinkedClients.tsx": {
     "inline-size": 5,
@@ -272,9 +272,6 @@
   "components/grid/GridHeaderRow.tsx": {
     "native-title": 3,
     "radius": 2
-  },
-  "components/grid/GridLoadingState.tsx": {
-    "raw-button": 2
   },
   "components/grid/GridNotices.tsx": {
     "radius": 1,
@@ -457,7 +454,7 @@
     "inline-size": 2,
     "native-title": 5,
     "radius": 16,
-    "spacing": 9,
+    "spacing": 8,
     "text-size": 8
   },
   "components/profile/RecordAppointments.tsx": {
@@ -467,7 +464,7 @@
   "components/profile/RecordFiles.tsx": {
     "native-title": 1,
     "radius": 7,
-    "raw-button": 3
+    "raw-button": 2
   },
   "components/profile/RecordLetterDialog.tsx": {
     "text-size": 2
@@ -496,11 +493,6 @@
     "inline-size": 1,
     "radius": 1
   },
-  "components/settings/AboutSection.tsx": {
-    "inline-size": 6,
-    "radius": 2,
-    "raw-button": 7
-  },
   "components/settings/ActivityTypesEditor.tsx": {
     "native-title": 4,
     "radius": 1,
@@ -518,10 +510,10 @@
     "text-size": 1
   },
   "components/settings/BackupSection.tsx": {
-    "inline-size": 6,
+    "inline-size": 5,
     "radius": 5,
-    "raw-button": 6,
-    "spacing": 6,
+    "raw-button": 5,
+    "spacing": 4,
     "text-size": 4
   },
   "components/settings/DataSection.tsx": {
@@ -711,15 +703,12 @@
     "text-size": 1
   },
   "views/ContactsView.tsx": {
-    "radius": 1,
-    "spacing": 3,
-    "text-size": 5
+    "spacing": 1
   },
   "views/DashboardView.tsx": {
     "inline-size": 2,
     "radius": 1,
-    "raw-button": 1,
-    "spacing": 6
+    "spacing": 5
   },
   "views/FocusModeView.tsx": {
     "radius": 1,
@@ -763,9 +752,7 @@
     "raw-button": 3
   },
   "views/ReportsView.tsx": {
-    "radius": 3,
-    "raw-button": 3,
-    "text-size": 2
+    "text-size": 1
   },
   "views/SettingsView.tsx": {
     "inline-size": 1,
@@ -774,7 +761,7 @@
   },
   "views/SetupView.tsx": {
     "inline-size": 1,
-    "radius": 4,
+    "radius": 3,
     "raw-button": 5,
     "spacing": 8,
     "text-size": 2
@@ -795,8 +782,7 @@
   },
   "views/TemplateManagerView.tsx": {
     "native-title": 3,
-    "radius": 2,
-    "text-size": 3
+    "text-size": 1
   },
   "views/TrashView.tsx": {
     "inline-size": 5,
@@ -812,9 +798,8 @@
   },
   "views/dashboard/GettingStartedCard.tsx": {
     "inline-size": 1,
-    "radius": 4,
+    "radius": 2,
     "raw-button": 2,
-    "spacing": 1,
     "text-size": 1
   },
   "views/dashboard/MeterReadingDialog.tsx": {
