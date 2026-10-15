@@ -213,6 +213,74 @@ for (const records of RECORD_COUNTS) {
       report(spec)
     })
 
+    // After the other list measures: it adds records to the seeded list (UX pass Q9b)
+    test('list edits and the dashboard', async () => {
+      const spec = 'List edits'
+      ctx = await openSeeded(seeded)
+      const page = ctx.window
+      const { columns } = await ipc<{ columns: Array<{ id: number; name: string }> }>(page, 'grid:get-full', seeded.gridId)
+      const textColId = columns.find(c => c.name === 'Perf field 1')?.id
+      await atEachCpu(page, async cpu => {
+        const added: Timing[] = [], edited: Timing[] = [], dashboard: Timing[] = [], back: Timing[] = []
+        // Back to the top: the records added at the last CPU rate scrolled the list to its end
+        await page.evaluate(sel => { const body = document.querySelector(sel)?.closest('.overflow-auto'); if (body) body.scrollTop = 0 }, ROWS)
+        await page.waitForSelector('[role="row"][data-row-index="0"]')
+        for (let i = 0; i < 5; i++) {
+          await waitQuiet(page, 500)
+          // A text cell (Perf field 1) of the first record that isn't one of the example's samples
+          // (editing a sample asks whether to keep it): open its editor, type, then time Enter → the value shown
+          const cell = page.locator(`${ROWS}:not(:has([title="Made-up sample entry"])) [role="gridcell"][data-col-id="${textColId}"]`).first()
+          await cell.dblclick()
+          const input = cell.locator('input, textarea').first()
+          await input.waitFor()
+          const value = `Edited ${cpu}-${i}`
+          await input.fill(value)
+          const colId = await cell.getAttribute('data-col-id')
+          const rowId = await cell.getAttribute('data-row-id')
+          // A real key press (a dispatched one doesn't reach the editor's input the same way):
+          // the clock starts in the page when the key arrives, and stops at the frame that shows the value
+          await page.evaluate(() => {
+            window.addEventListener('keydown', e => { if (e.key === 'Enter') (window as unknown as { enterAt: number }).enterAt = performance.now() }, { capture: true, once: true })
+          })
+          await page.keyboard.press('Enter')
+          const shown = await page.evaluate(({ sel, value }) => new Promise<{ ready: number | null; painted: number | null }>(resolve => {
+            const started = performance.now()
+            const check = () => {
+              const el = document.querySelector(sel)
+              const at = (window as unknown as { enterAt?: number }).enterAt ?? started
+              if (el && !el.querySelector('input, textarea') && el.textContent?.includes(value)) {
+                const ready = performance.now() - at
+                requestAnimationFrame(() => setTimeout(() => resolve({ ready, painted: performance.now() - at }), 0))
+                return
+              }
+              if (performance.now() - started > 5000) { resolve({ ready: null, painted: null }); return }
+              requestAnimationFrame(check)
+            }
+            check()
+          }), { sel: `[data-row-id="${rowId}"][data-col-id="${colId}"]`, value })
+          edited.push({ ...shown, animDone: null, settled: null, fallbackMs: null, ...(shown.ready == null ? { error: 'value not shown within 5 s' } : {}) })
+          await waitQuiet(page, 500)
+        }
+        for (let i = 0; i < 5; i++) {
+          // Click → the new record's row on screen (lit for a moment, Q6), then its name box open
+          added.push(await measure(page, { kind: 'click', selector: 'button[data-tour="add-client"]' }, { ready: '[role="grid"] [role="row"].motion-flash' }))
+          await page.keyboard.press('Escape')
+          await waitQuiet(page, 500)
+        }
+        for (let i = 0; i < 5; i++) {
+          dashboard.push(await measure(page, { kind: 'hash', hash: '#/dashboard' }, { ready: '#main-content h1, main h1', quietMs: 400 }))
+          await waitQuiet(page, 400)
+          back.push(await measure(page, { kind: 'hash', hash: '#/grid' }, { ready: ROWS, quietMs: 400 }))
+          await waitQuiet(page, 400)
+        }
+        addTimings(spec, 'Add record → its row on screen', records, cpu, added, [['ready', 'row in DOM'], ['painted', 'painted'], ['settled', 'settled']])
+        addTimings(spec, 'Cell edit: Enter → value shown', records, cpu, edited, [['ready', 'in DOM (to the frame)'], ['painted', 'painted']])
+        addTimings(spec, 'List → dashboard', records, cpu, dashboard, [['ready', 'heading in DOM'], ['settled', 'settled']])
+        addTimings(spec, 'Dashboard → list', records, cpu, back, [['ready', 'rows in DOM'], ['settled', 'settled']])
+      })
+      report(spec)
+    })
+
     test('first visit of the lazily loaded views', async () => {
       const spec = 'Lazy views'
       ctx = await openSeeded(seeded)
