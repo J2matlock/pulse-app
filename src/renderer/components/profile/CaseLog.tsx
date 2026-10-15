@@ -831,7 +831,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
     {between}
 
-    // On the page, not in a card (Q8); the line under the heading row ends the section above
+    {/* On the page, not in a card (Q8); the line under the heading row ends the section above */}
     <section>
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 px-4 pb-3 border-b border-slate-200 dark:border-slate-700">
