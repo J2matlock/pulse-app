@@ -949,6 +949,10 @@ describe('DataGrid', () => {
       await flushEffects()
       const tip = screen.getByRole('button', { name: 'Dismiss tip' })
       expect(screen.getByRole('grid').contains(tip)).toBe(false)
+      // Mouse-first words, no right-click or shortcut clauses (UX-B-02, UX-A-09)
+      const tipText = tip.parentElement!.textContent!
+      expect(tipText).toBe("Tip: click a column name to sort. The ⋯ next to it has deadline rules, hiding and more. The person icon opens a client's page.")
+      expect(tipText).not.toMatch(/right-click|Shift\+\?/i)
       unmount()
       setupStores({ rows: [] })
       renderDataGrid()
