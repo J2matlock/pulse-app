@@ -11,6 +11,8 @@ export const MENU_COL_WIDTH = 44
 export const PROFILE_BTN_WIDTH = OPEN_COL_WIDTH + STAR_COL_WIDTH + MENU_COL_WIDTH
 /** The built-in Tags column: a record's tags from its page (G-37) */
 export const TAGS_COL_WIDTH = 160
+/** The "+" after the last column header that adds a column, as a spreadsheet would (UX-B-03) */
+export const ADD_COL_WIDTH = 44
 
 // Auto-fit column sizing constants
 export const CHAR_WIDTH_HEADER = 9
@@ -95,10 +97,8 @@ function withLabel(node: React.ReactElement, label: string): React.ReactElement 
 }
 
 /**
- * List toolbar buttons on a narrow window (V1): the toolbar is a size container.
- * Under about 1150px the buttons drop their icons; under about 1020px the
- * less-used ones show only their icon (with the name as their label and tooltip).
- * Either way the row doesn't wrap and take a row of the list.
+ * List toolbar buttons (V1, UX-B-09): the toolbar is a size container. Under about
+ * 1280px the buttons drop their icons to make room; their names stay at every width,
+ * and what still doesn't fit folds into the More menu (GridToolbar's tiers).
  */
-export const TOOLBAR_ICON = '@max-6xl:hidden @max-5xl:inline'
-export const TOOLBAR_LABEL = '@max-5xl:hidden'
+export const TOOLBAR_ICON = '@max-7xl:hidden'

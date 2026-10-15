@@ -234,6 +234,18 @@ describe('FilterControls (G-12, G-30)', () => {
     expect(conditions()).not.toContain('starts_with')
   })
 
+  it('keeps saved filters under the Filter button, with no second "Saved" button on the row (UX-B-18)', async () => {
+    const applySavedFilter = vi.fn()
+    useGridStore.setState({ columns: [makeColumn(1, 'Name')], savedFilters: [{ id: 7, name: 'Housing only', grid_id: 1, filters: '[]', created_at: '' }] as never, applySavedFilter, loadSavedFilters: vi.fn() } as never)
+    await renderSettled(<FilterControls />)
+    expect(screen.queryByRole('button', { name: /^Saved/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    await screen.findByRole('dialog', { name: 'Add filter condition' })
+    fireEvent.click(screen.getByRole('button', { name: 'Housing only' }))
+    expect(applySavedFilter).toHaveBeenCalledWith(7)
+    expect(screen.queryByRole('dialog', { name: 'Add filter condition' })).toBeNull()
+  })
+
   it('has no Overdue button without deadlines', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
     await renderSettled(<FilterControls />)

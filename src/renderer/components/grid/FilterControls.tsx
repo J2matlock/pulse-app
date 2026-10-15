@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { AnimatePresence, motion } from 'motion/react'
-import { Filter, Trash2, Bookmark, Star } from 'lucide-react'
-import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
+import { Filter, Star, Bookmark } from 'lucide-react'
+import { TOOLBAR_ICON } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore, type FilterOperator } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
@@ -25,9 +25,7 @@ export function FilterControls(): React.ReactElement {
   const hasDeadlines = [...columns, ...hiddenColumns].some(c => c.column_type === 'deadline' || opsForColumn(c)[0] === 'due_status')
   const overdueOn = activeFilters.some(f => f.columnId === ANY_DEADLINE_COLUMN_ID && f.operator === 'due_status' && f.value === 'overdue')
   const [showPanel, setShowPanel] = useState(false)
-  const [showSaved, setShowSaved] = useState(false)
   const filterBtnRef = useRef<HTMLButtonElement>(null)
-  const savedBtnRef = useRef<HTMLButtonElement>(null)
 
   // Load saved filters whenever the active grid changes
   useEffect(() => {
@@ -35,12 +33,6 @@ export function FilterControls(): React.ReactElement {
   }, [activeGridId, loadSavedFilters])
 
   if (columns.length === 0) return <></>
-
-  function handleOpenSaved() {
-    void loadSavedFilters() // Always refresh before showing
-    setShowSaved(v => !v)
-    setShowPanel(false)
-  }
 
   return (
     <div className="flex items-center flex-wrap gap-1" data-tour="filter-controls">
@@ -53,7 +45,7 @@ export function FilterControls(): React.ReactElement {
         aria-label="Starred"
       >
         <Star className={`w-4 h-4 ${TOOLBAR_ICON} ${showStarredOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-        <span className={TOOLBAR_LABEL}>Starred</span>
+        <span>Starred</span>
       </button>
       {hasDeadlines && (
         // "Who's overdue?" in one click (G-12)
@@ -71,15 +63,17 @@ export function FilterControls(): React.ReactElement {
           Overdue
         </button>
       )}
-      <Tooltip content="Add a filter condition" placement="bottom">
+      <Tooltip content={savedFilters.length > 0 ? 'Add a filter, or pick a saved one' : 'Add a filter condition'} placement="bottom">
         <button
           ref={filterBtnRef}
-          onClick={() => { setShowPanel(v => !v); setShowSaved(false) }}
+          onClick={() => { void loadSavedFilters(); setShowPanel(v => !v) }}
           className={`btn-secondary flex items-center gap-2 ${activeFilters.length > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : ''}`}
           style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           title={`Filter ${t('record', { many: true })}`}
+          aria-expanded={showPanel}
+          aria-haspopup="dialog"
         >
-          <Filter className="w-4 h-4 @max-6xl:hidden" />
+          <Filter className={`w-4 h-4 ${TOOLBAR_ICON}`} />
           Filter
           {activeFilters.length > 0 && (
             <span className="bg-blue-500 text-white text-sm font-semibold px-1.5 py-0.5 rounded-full">
@@ -88,50 +82,29 @@ export function FilterControls(): React.ReactElement {
           )}
         </button>
       </Tooltip>
-      <button
-        ref={savedBtnRef}
-        onClick={handleOpenSaved}
-        className={`btn-secondary flex items-center gap-1.5 ${showSaved ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
-        style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
-        title="Saved filter presets"
-        aria-label="Saved filters"
-      >
-        <Bookmark className={`w-3.5 h-3.5 ${TOOLBAR_ICON}`} />
-        <span className={TOOLBAR_LABEL}>Saved</span>
-        {savedFilters.length > 0 && (
-          <span className="bg-slate-400 dark:bg-slate-500 text-white text-sm font-semibold px-1.5 py-0.5 rounded-full">
-            {savedFilters.length}
-          </span>
-        )}
-      </button>
-      {/* Render panels — useFilterBarState needs to be lifted, but for simplicity use local state */}
-      <FilterBarInline showPanel={showPanel} showSaved={showSaved} onClosePanel={() => setShowPanel(false)} onCloseSaved={() => setShowSaved(false)} filterBtnRef={filterBtnRef} savedBtnRef={savedBtnRef} />
+      {/* One place to save a filter (the chip bar) and one to pick a saved one (here, UX-B-18) */}
+      <FilterBarInline showPanel={showPanel} onClosePanel={() => setShowPanel(false)} filterBtnRef={filterBtnRef} />
     </div>
   )
 }
 
-// Internal inline panels for FilterControls
+// Internal inline panel for FilterControls
 function FilterBarInline({
-  showPanel, showSaved, onClosePanel, onCloseSaved, filterBtnRef, savedBtnRef
+  showPanel, onClosePanel, filterBtnRef,
 }: {
   showPanel: boolean
-  showSaved: boolean
   onClosePanel: () => void
-  onCloseSaved: () => void
   filterBtnRef: React.RefObject<HTMLButtonElement | null>
-  savedBtnRef: React.RefObject<HTMLButtonElement | null>
 }): React.ReactElement | null {
   const rows = useGridStore(s => s.rows)
-  const { columns, addFilter, savedFilters, applySavedFilter, deleteSavedFilter } = useGridStore(useShallow(s => ({
+  const { columns, addFilter, savedFilters, applySavedFilter } = useGridStore(useShallow(s => ({
     columns: s.columns, addFilter: s.addFilter, savedFilters: s.savedFilters,
-    applySavedFilter: s.applySavedFilter, deleteSavedFilter: s.deleteSavedFilter,
+    applySavedFilter: s.applySavedFilter,
   })))
   const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string } | null>(null)
   // Pop-ups take focus, close on Escape and give focus back (AUDIT-044)
   const panelRef = useRef<HTMLDivElement>(null)
-  const savedRef = useRef<HTMLDivElement>(null)
   const panelKeys = useMenuKeys(panelRef, showPanel && !!newFilter, onClosePanel, { kind: 'panel' })
-  const savedKeys = useMenuKeys(savedRef, showSaved, onCloseSaved, { kind: 'panel' })
 
   useEffect(() => {
     if (showPanel && !newFilter) {
@@ -188,6 +161,25 @@ function FilterBarInline({
               initial="hidden" animate="visible" exit="exit"
             >
               <div className="space-y-3">
+                {savedFilters.length > 0 && (
+                  <div data-testid="saved-filters-in-panel">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Your saved filters</p>
+                    <div className="flex flex-wrap gap-2">
+                      {savedFilters.map(sf => (
+                        <button
+                          key={sf.id}
+                          type="button"
+                          className="hit-44 flex items-center gap-1.5 px-3 py-1.5 text-base rounded-full border border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                          onClick={() => { applySavedFilter(sf.id); onClosePanel() }}
+                        >
+                          <Bookmark className="w-3.5 h-3.5" aria-hidden="true" />
+                          {sf.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="border-t border-slate-200 dark:border-slate-700 mt-3" />
+                  </div>
+                )}
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Add filter condition</p>
                 <div>
                   <label htmlFor="filter-inline-column" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Column</label>
@@ -294,52 +286,6 @@ function FilterBarInline({
                   <button onClick={onClosePanel} className="btn-secondary text-base" style={{ minHeight: 36, padding: '0 12px' }}>Cancel</button>
                 </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showSaved && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={onCloseSaved} />
-            <motion.div
-              ref={savedRef}
-              onKeyDown={savedKeys}
-              role="dialog"
-              aria-label="Saved filters"
-              className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-2 w-72"
-              style={panelBelow(savedBtnRef.current, 288)}
-              variants={dropdownVariants}
-              initial="hidden" animate="visible" exit="exit"
-            >
-              <p className="px-3 pb-2 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Saved filters</p>
-              {savedFilters.length === 0 ? (
-                <div className="px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved presets yet.</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Add a filter, then click "Save" in the active filter bar to save it as a preset.
-                  </p>
-                </div>
-              ) : (
-                savedFilters.map(sf => (
-                  <div key={sf.id} className="flex items-center gap-1 px-2 py-1">
-                    <button
-                      className="flex-1 text-left text-base text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-2 rounded-sm hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[44px] flex items-center"
-                      onClick={() => { applySavedFilter(sf.id); onCloseSaved() }}
-                    >
-                      {sf.name}
-                    </button>
-                    <button
-                      className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      title="Delete preset"
-                      aria-label="Delete preset"
-                      onClick={() => void deleteSavedFilter(sf.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
             </motion.div>
           </>
         )}

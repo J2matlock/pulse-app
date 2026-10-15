@@ -30,7 +30,7 @@ import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH, ADD_COL_WIDTH } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
 import { useGridAnnouncer } from '../../hooks/useGridAnnouncer'
@@ -391,7 +391,8 @@ export function DataGrid(): React.ReactElement {
     if (findReplaceActiveMatch) scrollToRowId(findReplaceActiveMatch.rowId)
   }, [findReplaceActiveMatch]) // eslint-disable-line react-hooks/exhaustive-deps -- only when the match changes, not on every re-render of the rows
 
-  const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0) + table.getTotalSize()
+  const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0) + table.getTotalSize() + ADD_COL_WIDTH
+  const openAddColumn = useCallback(() => pulseEvents.emit('grid:add-column'), [])
   const columnIds = useMemo(() => columns.map(c => `col_${c.id}`), [columns])
 
   // Column drag-end: reorder columns
@@ -538,7 +539,8 @@ export function DataGrid(): React.ReactElement {
   // Screen readers pair each cell with its header by these numbers, and hear how many
   // records there are while only some are drawn (AUDIT-012, AUDIT-042)
   const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
-  const colCount = leadingColCount + columns.length
+  // + 1 for the "Add a column" header after the last column (UX-B-03)
+  const colCount = leadingColCount + columns.length + 1
   const rowCount = 1 + (isGrouped ? displayItems.length : tableRows.length)
   const isEmpty = tableRows.length === 0 && !isLoading
 
@@ -583,6 +585,7 @@ export function DataGrid(): React.ReactElement {
             setSelectedRowIds={setSelectedRowIds}
             showTags={showTagsColumn}
             onHideTags={() => setShowTagsColumn(false)}
+            onAddColumn={openAddColumn}
             colSensors={colSensors}
             onColumnDragEnd={handleColumnDragEnd}
             autoFitColumn={autoFitColumn}

@@ -132,21 +132,22 @@ export function FilterBar(): React.ReactElement | null {
           </button>
           {!showSaveName && (
             <>
-              <Tooltip content="Save this filter combination for quick reuse" placement="bottom">
+              {/* The one place a filter is saved; saved ones are picked under the Filter button too (UX-B-18) */}
+              <Tooltip content="Keep these filters to use again with one click" placement="bottom">
                 <button
                   onClick={() => setShowSaveName(true)}
                   className="hit-44 flex items-center gap-1 text-base text-blue-500 hover:text-blue-700 dark:hover:text-blue-300"
-                  title="Save this filter preset"
+                  title="Save this filter"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Save
+                  Save this filter
                 </button>
               </Tooltip>
               {savedFilters.length > 0 && (
                 <button
                   onClick={() => { setShowSaved(v => !v); setShowSaveName(false) }}
                   className="hit-44 flex items-center gap-1 text-base text-blue-500 hover:text-blue-700 dark:hover:text-blue-300"
-                  title="Load a saved filter preset"
+                  title="Pick or delete a saved filter"
                 >
                   <Bookmark className="w-3.5 h-3.5" />
                   Saved ({savedFilters.length})
@@ -348,9 +349,9 @@ export function FilterBar(): React.ReactElement | null {
               </p>
               {savedFilters.length === 0 ? (
                 <div className="px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved presets yet.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved filters yet.</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Add a filter, then click "Save" to save it as a preset.
+                    Add a filter, then click "Save this filter".
                   </p>
                 </div>
               ) : (
@@ -364,8 +365,8 @@ export function FilterBar(): React.ReactElement | null {
                     </button>
                     <button
                       className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      title="Delete preset"
-                      aria-label="Delete preset"
+                      title="Delete this saved filter"
+                      aria-label={`Delete saved filter ${sf.name}`}
                       onClick={() => void deleteSavedFilter(sf.id)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

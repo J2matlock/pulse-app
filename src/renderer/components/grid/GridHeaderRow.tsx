@@ -13,11 +13,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
-import { User, Star, EyeOff, MoreHorizontal } from 'lucide-react'
+import { User, Star, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
 import type { GridTableHeader } from './gridTable'
 import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
-import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, ADD_COL_WIDTH } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -104,6 +104,8 @@ export interface GridHeaderRowProps {
   /** The built-in Tags column (G-37) */
   showTags?: boolean
   onHideTags?: () => void
+  /** The "+" after the last column: opens Add column (UX-B-03) */
+  onAddColumn?: () => void
 }
 
 export function GridHeaderRow({
@@ -125,6 +127,7 @@ export function GridHeaderRow({
   setFrozenColumnCount: _setFrozenColumnCount,
   showTags,
   onHideTags,
+  onAddColumn,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
@@ -292,6 +295,28 @@ export function GridHeaderRow({
               )
             })}
           </SortableContext>
+          {/* Where a spreadsheet's next empty column would be: a "+" that adds one (UX-B-03).
+              A header of its own (the rows have no cell under it), so the grid's shape stays honest */}
+          {onAddColumn && (
+            <div
+              role="columnheader"
+              aria-colindex={leadingColCount + headers.length + 1}
+              aria-label="Add a column"
+              className="flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+              style={{ width: ADD_COL_WIDTH, height: rowHeight }}
+            >
+              <button
+                type="button"
+                onClick={onAddColumn}
+                className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                aria-label="Add a column"
+                title="Add a column"
+                data-testid="add-column-header"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </DndContext>

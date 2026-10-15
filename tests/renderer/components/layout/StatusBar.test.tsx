@@ -44,13 +44,13 @@ describe('StatusBar', () => {
 
   it('says nothing about saving until something is saved, then "Saved" for a few seconds', () => {
     vi.useFakeTimers()
-    const view = render(at('/grid'))
+    const view = render(at('/profile/2'))
     expect(screen.queryByText('Saved')).toBeNull()
     mockStoreState = { ...mockStoreState, isSaving: true }
-    view.rerender(at('/grid'))
+    view.rerender(at('/profile/2'))
     expect(screen.getByText('Saving…')).toBeDefined()
     mockStoreState = { ...mockStoreState, isSaving: false }
-    view.rerender(at('/grid'))
+    view.rerender(at('/profile/2'))
     expect(screen.getByText('Saved')).toBeDefined()
     act(() => { vi.advanceTimersByTime(SAVED_SHOWN_MS + 10) })
     expect(screen.queryByText('Saved')).toBeNull()
@@ -59,20 +59,21 @@ describe('StatusBar', () => {
 
   it('shows error when saveError is set', () => {
     mockStoreState = { ...mockStoreState, saveError: 'Save failed' }
-    render(at('/grid'))
+    render(at('/profile/2'))
     expect(screen.getByText('Save failed')).toBeDefined()
   })
 
-  it('shows the list name on the list and its records only', () => {
-    const view = render(at('/grid'))
-    expect(screen.getByText('My Caseload')).toBeDefined()
-    view.unmount()
+  it("shows the list name on a record's page only: the list page has its own one-line footer (UX-B-42)", () => {
+    const { container, unmount } = render(at('/grid'))
+    expect(screen.queryByText('My Caseload')).toBeNull()
+    expect((container.querySelector('footer') as HTMLElement).style.height).toBe('0px')
+    unmount()
     render(at('/profile/2'))
     expect(screen.getByText('My Caseload')).toBeDefined()
   })
 
   it('puts no separator in front of the list name when nothing comes before it (polish V1)', () => {
-    const { container } = render(at('/grid'))
+    const { container } = render(at('/profile/2'))
     expect(container.querySelectorAll('footer [aria-hidden="true"].border-l')).toHaveLength(0)
   })
 

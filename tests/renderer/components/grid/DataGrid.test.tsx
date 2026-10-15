@@ -321,9 +321,9 @@ describe('DataGrid', () => {
     it('renders column headers from store', async () => {
       renderDataGrid()
       await flushEffects()
-      // GridHeaderRow renders: select-all checkbox + open + star + menu + 4 data columns = 8 columnheaders
+      // GridHeaderRow renders: select-all checkbox + open + star + menu + 4 data columns + "Add a column" = 9 columnheaders
       const headers = screen.getAllByRole('columnheader')
-      expect(headers.length).toBe(TEST_COLUMNS.length + 4)
+      expect(headers.length).toBe(TEST_COLUMNS.length + 5)
     })
 
     it('renders rows with cell values', async () => {
@@ -807,8 +807,8 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // 4 fixed headers (select-all, open, star, menu) + 4 data columns = 8
-      expect(headers.length).toBe(8)
+      // 4 fixed headers (select-all, open, star, menu) + 4 data columns + "Add a column" = 9
+      expect(headers.length).toBe(9)
     })
 
     it('sorted column shows correct aria-sort attribute', async () => {
@@ -898,17 +898,20 @@ describe('DataGrid', () => {
       expect(screen.getByRole('grid', { name: 'Caseload' })).toBeTruthy()
     })
 
-    // AUDIT-012: every header has a cell in each row, in the same place
+    // AUDIT-012: every header has a cell in each row, in the same place. The last header is
+    // the "Add a column" button (UX-B-03), which no row has a cell under
     function expectCellsMatchHeaders(): void {
       const grid = screen.getByRole('grid')
       const headers = screen.getAllByRole('columnheader')
       expect(grid.getAttribute('aria-colcount')).toBe(String(headers.length))
       expect(headers.map(h => h.getAttribute('aria-colindex'))).toEqual(headers.map((_, i) => String(i + 1)))
+      expect(headers[headers.length - 1]!.getAttribute('aria-label')).toBe('Add a column')
+      const dataHeaders = headers.slice(0, -1)
       const bodyRows = screen.getAllByRole('row').slice(1)
       expect(bodyRows.length).toBeGreaterThan(0)
       for (const row of bodyRows) {
         const cells = Array.from(row.querySelectorAll('[role="gridcell"]'))
-        expect(cells.map(c => c.getAttribute('aria-colindex'))).toEqual(headers.map((_, i) => String(i + 1)))
+        expect(cells.map(c => c.getAttribute('aria-colindex'))).toEqual(dataHeaders.map((_, i) => String(i + 1)))
       }
     }
 
@@ -928,7 +931,7 @@ describe('DataGrid', () => {
       })
       renderDataGrid()
       await flushEffects()
-      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 6)
+      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 7)
       expectCellsMatchHeaders()
     })
 

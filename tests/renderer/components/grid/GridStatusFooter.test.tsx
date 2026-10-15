@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 const mockInvoke = vi.fn().mockResolvedValue({ ok: true, data: null })
 Object.defineProperty(window, 'api', {
@@ -50,6 +50,7 @@ vi.mock('react-hot-toast', () => ({
 }))
 
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
+import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { GridStatusFooter } from '../../../../src/renderer/components/grid/GridStatusFooter'
 import type { Column, GridRow } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
@@ -126,5 +127,46 @@ describe('GridStatusFooter', () => {
     setupStore({ selectedRowIds: new Set([1, 2]) })
     render(<GridStatusFooter />)
     expect(screen.getByText(/Selected: 2/)).toBeTruthy()
+  })
+
+  it('is the one footer line: list name, counts and the save status together (UX-B-42)', () => {
+    setupStore({ grids: [{ id: 1, name: 'My Caseload' }], activeGridId: 1, isSaving: true, saveError: null })
+    render(<GridStatusFooter />)
+    expect(screen.getByText('My Caseload')).toBeTruthy()
+    expect(screen.getByText('3 clients')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toBe('Saving…')
+  })
+
+  it('says when archived records are being shown too (UX-B-27)', () => {
+    const archived = { ...makeRow(3), is_active: 0 } as unknown as GridRow
+    setupStore({ rows: [makeRow(1), makeRow(2), archived], showArchived: true })
+    render(<GridStatusFooter />)
+    expect(screen.getByTestId('archived-shown-note').textContent).toBe('Showing archived clients too')
+  })
+
+  it('says nothing about archived records while they are hidden', () => {
+    setupStore({ showArchived: false })
+    render(<GridStatusFooter />)
+    expect(screen.queryByTestId('archived-shown-note')).toBeNull()
+  })
+
+  it('offers the color key for the deadline rules the shown columns use (UX-B-04)', () => {
+    useAlertStore.setState({ rules: [
+      { id: 7, name: 'Annual review', thresholds: [{ daysBefore: 30, label: 'Coming up', bgClass: 'bg-yellow-100' }, { daysBefore: -1, label: 'Late', bgClass: 'bg-red-100' }] },
+      { id: 8, name: 'Not used here', thresholds: [] },
+    ] } as unknown as Parameters<typeof useAlertStore.setState>[0])
+    const due = { ...makeColumn(3, 'Review due', 'date'), config: JSON.stringify({ alert_rule_id: 7 }) } as Column
+    setupStore({ columns: [makeColumn(1, 'Name'), due] })
+    render(<GridStatusFooter />)
+    fireEvent.click(screen.getByRole('button', { name: /What do the colors mean/ }))
+    const panel = screen.getByRole('dialog', { name: 'What the colors mean' })
+    expect(panel.textContent).toContain('Annual review')
+    expect(panel.textContent).toContain('Coming up')
+    expect(panel.textContent).not.toContain('Not used here')
+  })
+
+  it('has no color key when no shown column has a deadline rule', () => {
+    render(<GridStatusFooter />)
+    expect(screen.queryByTestId('color-key-button')).toBeNull()
   })
 })

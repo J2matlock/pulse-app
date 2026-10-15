@@ -87,15 +87,16 @@ describe('SavedViewsDropdown', () => {
     setupStore()
   })
 
-  it('renders Views button', () => {
+  it('renders the Saved views button (F-03)', () => {
     render(<SavedViewsDropdown />)
-    expect(screen.getByText('Views')).toBeTruthy()
+    expect(screen.getByText('Saved views')).toBeTruthy()
   })
 
-  it('clicking Views opens dropdown with empty state', () => {
+  it('clicking Saved views opens the dropdown and says what a view holds (UX-B-19)', () => {
     render(<SavedViewsDropdown />)
-    fireEvent.click(screen.getByText('Views'))
+    fireEvent.click(screen.getByText('Saved views'))
     expect(screen.getByText('No saved views yet')).toBeTruthy()
+    expect(screen.getByText('Save the way the caseload looks right now — filters, sort, grouping and hidden columns — and come back to it with one click.')).toBeTruthy()
   })
 
   it('each saved view is a button, so the keyboard can apply it; delete names the view (Q-053)', () => {
@@ -103,7 +104,7 @@ describe('SavedViewsDropdown', () => {
     const deleteSavedView = vi.fn()
     setupStore({ savedViews: [{ id: 4, name: 'Due soon', grid_id: 1, config: '{}', created_at: '' }], applySavedView, deleteSavedView })
     render(<SavedViewsDropdown />)
-    fireEvent.click(screen.getByText('Views'))
+    fireEvent.click(screen.getByText('Saved views'))
     fireEvent.click(screen.getByRole('button', { name: 'Delete view Due soon' }))
     expect(deleteSavedView).toHaveBeenCalledWith(4)
     expect(applySavedView).not.toHaveBeenCalled()
@@ -121,7 +122,7 @@ describe('SavedViewsDropdown', () => {
 
   it('shows Save current view button in dropdown', () => {
     render(<SavedViewsDropdown />)
-    fireEvent.click(screen.getByText('Views'))
-    expect(screen.getByText('Save current view...')).toBeTruthy()
+    fireEvent.click(screen.getByText('Saved views'))
+    expect(screen.getByText('Save how it looks now…')).toBeTruthy()
   })
 })

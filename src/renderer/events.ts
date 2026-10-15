@@ -8,6 +8,8 @@ type PulseEvents = {
   'followup:changed': undefined
   'urgentchecklist:changed': undefined
   'toggle-find-replace': undefined
+  /** Open Find and replace on the list (from the More menu, UX-B-15) */
+  'open-find-replace': undefined
   'sample-data:changed': undefined
   /** Records were archived or reactivated (Undo and Redo included), so what's due changed */
   'records:archive-changed': undefined

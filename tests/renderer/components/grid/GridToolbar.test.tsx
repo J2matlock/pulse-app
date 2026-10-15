@@ -107,7 +107,8 @@ vi.mock('../../../../src/renderer/components/shared/ColumnSelectDialog', () => (
 
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
-import { GridToolbar } from '../../../../src/renderer/components/grid/GridToolbar'
+import { GridToolbar, toolbarTierFor } from '../../../../src/renderer/components/grid/GridToolbar'
+import { pulseEvents } from '../../../../src/renderer/events'
 import type { Column } from '../../../../src/shared/types'
 import { setWords, setFeatures, EXISTING_FEATURES } from '../../vocabFixture'
 
@@ -151,25 +152,62 @@ describe('GridToolbar', () => {
       : { ok: false, error: "Pulse couldn't write that file. If it's open in Excel, close it and try again." }) as never)
     render(<GridToolbar />)
     fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    fireEvent.click(screen.getByText('Export as CSV'))
+    fireEvent.click(screen.getByText('Save as CSV…'))
     await act(async () => { fireEvent.click(screen.getByText('Confirm columns')) })
     expect(toast.error).toHaveBeenCalledWith("Pulse couldn't write that file. If it's open in Excel, close it and try again.")
     vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' } as never)
   })
 
-  it('fits on one row in a narrow window: icons go first, then less-used names (V1)', () => {
+  it('keeps every button\'s name at every width: nothing hides a label (UX-B-09)', () => {
     const { container } = render(<GridToolbar />)
     expect((container.firstElementChild as HTMLElement).className).toContain('@container')
-    const view = screen.getByRole('button', { name: 'View' })
-    expect(view.querySelector('span')!.className).toContain('@max-5xl:hidden')
+    const show = screen.getByRole('button', { name: 'Show' })
+    expect(show.querySelector('span')!.className).not.toMatch(/hidden/)
     expect(screen.getByRole('button', { name: 'Reports' })).toBeTruthy()
-    // Add keeps its name at every width
-    expect(screen.getByText('Add Client').className).not.toContain('@max-5xl:hidden')
+    expect(screen.getByText('Add Client').className).not.toMatch(/hidden/)
+    expect(container.innerHTML).not.toContain('@max-5xl:hidden')
+  })
+
+  it('folds Show, Reports and the settings into More on a 1366 laptop, and Add column too under 960px (UX-B-08)', () => {
+    expect(toolbarTierFor(1500)).toBe('wide')
+    expect(toolbarTierFor(1146)).toBe('mid')
+    expect(toolbarTierFor(873)).toBe('narrow')
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} })
+    const widthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1146)
+    const { unmount } = render(<GridToolbar />)
+    expect(screen.queryByRole('button', { name: 'Show' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reports' })).toBeNull()
+    expect(screen.queryByLabelText('Caseload settings')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add column' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    for (const item of ['Show', 'Reports', 'Caseload settings…']) expect(screen.getByRole('menuitem', { name: item })).toBeTruthy()
+    // The folded Show opens its own menu, under More
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Show' }))
+    expect(screen.getByRole('menu', { name: 'Show' })).toBeTruthy()
+    expect(screen.getByText('Show archived clients')).toBeTruthy()
+    unmount()
+    widthSpy.mockReturnValue(873)
+    render(<GridToolbar />)
+    expect(screen.queryByRole('button', { name: 'Add column' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    expect(screen.getByRole('menuitem', { name: 'Add a column…' })).toBeTruthy()
+    widthSpy.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('offers Find and replace by mouse from the More menu (UX-B-15)', () => {
+    const opened = vi.fn()
+    const off = pulseEvents.on('open-find-replace', opened)
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Find and replace…'))
+    expect(opened).toHaveBeenCalled()
+    off()
   })
 
   it('toolbar menus work from the keyboard: focus goes in, arrows move, Escape or Tab closes and focus comes back (AUDIT-044)', () => {
     render(<GridToolbar />)
-    for (const name of [/^View/, /^Reports/, /^More/]) {
+    for (const name of [/^Show/, /^Reports/, /^More/]) {
       const btn = screen.getByRole('button', { name })
       btn.focus()
       fireEvent.click(btn)
@@ -193,8 +231,7 @@ describe('GridToolbar', () => {
 
   it('the Add a column panel closes on Escape (AUDIT-044)', () => {
     render(<GridToolbar />)
-    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    fireEvent.click(screen.getByText('Add a column…'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
     const name = screen.getByLabelText('Column name')
     expect(document.activeElement).toBe(name)
     fireEvent.keyDown(name, { key: 'Escape' })
@@ -210,7 +247,7 @@ describe('GridToolbar', () => {
     setWords({ record: { one: 'customer', many: 'customers', article: 'a' } }, { 1: { record: { one: 'vehicle', many: 'vehicles', article: 'a' } } })
     const { unmount } = render(<GridToolbar />)
     expect(screen.getByText('Add Vehicle')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /^View/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Show/ }))
     expect(screen.getByText('Show archived vehicles')).toBeTruthy()
     unmount()
     setWords({})
@@ -218,13 +255,27 @@ describe('GridToolbar', () => {
     expect(screen.getByText('Add Record')).toBeTruthy()
   })
 
-  it('keeps the toolbar short: Add up front, the rest under View, Reports and More (G-22)', () => {
+  it('keeps the toolbar short: Add up front, Add column before More, the rest under Show, Reports and More (G-22, UX-B-03)', () => {
     render(<GridToolbar />)
-    for (const name of [/^View/, /^Reports/, /^More/]) expect(screen.getByRole('button', { name })).toBeTruthy()
-    expect(screen.queryByText('Add Column')).toBeNull()
+    for (const name of [/^Show/, /^Reports/, /^More/]) expect(screen.getByRole('button', { name })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add column' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    for (const item of ['Add a column…', 'Show or hide columns…', 'Import from CSV or Excel…', 'Export as CSV', 'Export as PDF']) expect(screen.getByText(item)).toBeTruthy()
+    for (const item of ['Show or hide columns…', 'Find and replace…', 'Import from CSV or Excel…', 'Save as CSV…', 'Save as PDF…', 'Letters and labels…']) expect(screen.getByText(item)).toBeTruthy()
+    expect(screen.queryByText('Add a column…')).toBeNull()
     expect(screen.getByLabelText('Caseload settings')).toBeTruthy()
+  })
+
+  it('the "+" header cell and the empty list open the same Add column form (UX-B-03)', () => {
+    render(<GridToolbar />)
+    act(() => { pulseEvents.emit('grid:add-column') })
+    expect(screen.getByLabelText('Column name')).toBeTruthy()
+  })
+
+  it('names the Reports items plainly: "History of changes (PDF)…", not "Audit trail" (UX-B-40)', () => {
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByRole('button', { name: /^Reports/ }))
+    expect(screen.getByText('History of changes (PDF)…')).toBeTruthy()
+    expect(screen.queryByText(/Audit trail/)).toBeNull()
   })
 
   it('offers the requirements summary only while requirements are on (audit X-31)', () => {
@@ -249,11 +300,11 @@ describe('GridToolbar', () => {
     expect(screen.getByTestId('grouping-bar')).toBeTruthy()
   })
 
-  it('shows archived records from the View menu', () => {
+  it('shows archived records from the Show menu (F-03)', () => {
     const setShowArchived = vi.fn()
     setupStores({ setShowArchived })
     render(<GridToolbar />)
-    fireEvent.click(screen.getByRole('button', { name: /^View/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Show/ }))
     fireEvent.click(screen.getByText('Show archived clients'))
     expect(setShowArchived).toHaveBeenCalledWith(true)
   })
@@ -270,8 +321,7 @@ describe('GridToolbar', () => {
     const addColumn = vi.fn().mockResolvedValue(9)
     setupStores({ addColumn, columns: [makeColumn(1, 'Name'), { ...makeColumn(2, 'Born'), column_type: 'date' }] })
     render(<GridToolbar />)
-    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    fireEvent.click(screen.getByText('Add a column…'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
     const type = screen.getByLabelText('Type') as HTMLSelectElement
     const labels = [...type.options].map(o => o.text)
     for (const l of ['Notes', 'Age', 'Days until', 'Web link']) expect(labels).toContain(l)
@@ -285,8 +335,7 @@ describe('GridToolbar', () => {
 
   it('Add a column… opens the add column form', () => {
     render(<GridToolbar />)
-    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    fireEvent.click(screen.getByText('Add a column…'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
     expect(screen.getByLabelText('Column name')).toBeTruthy()
     expect(screen.getByLabelText('Type')).toBeTruthy()
   })
@@ -297,8 +346,7 @@ describe('GridToolbar', () => {
     const createRule = vi.fn()
     useAlertStore.setState({ rules: [{ id: 3, name: 'Yearly', description: null, is_system: 0, thresholds: [], interval_days: null, interval_months: 12, end_of_month: 0, kind: 'interval', created_at: '' }], createRule } as never)
     render(<GridToolbar />)
-    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    fireEvent.click(screen.getByText('Add a column…'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
     fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Annual review' } })
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
     expect(screen.getByText('Does this date come due again?')).toBeTruthy()
@@ -316,8 +364,7 @@ describe('GridToolbar', () => {
     const createRule = vi.fn().mockResolvedValue(21)
     useAlertStore.setState({ rules: [], createRule } as never)
     render(<GridToolbar />)
-    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
-    fireEvent.click(screen.getByText('Add a column…'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
     fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Lease end' } })
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
     fireEvent.click(screen.getByLabelText("It's the due date"))
@@ -331,8 +378,10 @@ describe('GridToolbar', () => {
       hiddenColumns: [makeColumn(3, 'Hidden Col')],
     })
     render(<GridToolbar />)
-    expect(screen.getByText('1 hidden')).toBeTruthy()
+    // The count lives in the More menu, not on the button, so the row stays short (UX-B-08)
+    expect(screen.queryByText('1 hidden')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    expect(screen.getByText('1 hidden')).toBeTruthy()
     fireEvent.click(screen.getByText('Show or hide columns…'))
     expect(screen.getByText('Hidden Col')).toBeTruthy()
   })

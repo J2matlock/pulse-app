@@ -204,7 +204,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-saved-views',
     question: 'How do I save and load custom views?',
-    answer: 'A saved view remembers your current sort, filter, grouping, and archive settings. Click "Views" in the toolbar to save the current configuration or switch between saved views. This is great for quickly toggling between different ways of looking at your {list} \u2014 for example, a "This Week" view filtered to upcoming deadlines.',
+    answer: 'A saved view remembers your current sort, filter, grouping, and archive settings. Click "Saved views" in the toolbar to save the way the {list} looks now or switch between saved views. This is great for quickly toggling between different ways of looking at your {list} \u2014 for example, a "This Week" view filtered to upcoming deadlines.',
     category: 'caseload-grid',
   },
   {
@@ -419,7 +419,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-export-pdf',
     question: 'How do I export my {list} as a PDF?',
-    answer: 'Click "More" in the toolbar and choose "Export as PDF." Select which columns to include and where to save the file. The PDF is formatted as a clean table suitable for printing or sharing with supervisors.',
+    answer: 'Click "More" in the toolbar and choose "Save as PDF…". Select which columns to include and where to save the file. The PDF is formatted as a clean table suitable for printing or sharing with supervisors.',
     category: 'import-export',
     tourStepIds: ['export-btn'],
   },
@@ -595,7 +595,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'docs-batch',
     question: 'How do I print letters or address labels for many at once?',
-    answer: 'Select {record:many} in the {list} and click "Print documents…", or choose "Documents and labels…" in the Export menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert a detail" adds any column, a deadline\'s due date, or a column of a linked {record}.',
+    answer: 'Select {record:many} in the {list} and click "Letters and labels…", or choose "Letters and labels…" in the More menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert a detail" adds any column, a deadline\'s due date, or a column of a linked {record}.',
     category: 'snippets-templates',
     feature: 'letters',
   },

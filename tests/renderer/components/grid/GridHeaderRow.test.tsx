@@ -48,6 +48,7 @@ vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
   OPEN_COL_WIDTH: 44,
   STAR_COL_WIDTH: 44,
   MENU_COL_WIDTH: 44,
+  ADD_COL_WIDTH: 44,
 }))
 
 vi.mock('../../../../src/renderer/components/grid/AcuityBadge', () => ({
@@ -189,6 +190,17 @@ describe('GridHeaderRow', () => {
   it('shows part ticked when only some records on screen are ticked', () => {
     render(<GridHeaderRow {...makeProps({ selectableRowIds: [1, 2], selectedRowIds: new Set([1]) })} />)
     expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('mixed')
+  })
+
+  it('ends with a "+" header that adds a column, like the next empty column of a spreadsheet (UX-B-03)', () => {
+    const onAddColumn = vi.fn()
+    render(<GridHeaderRow {...makeProps({ onAddColumn })} />)
+    const headers = screen.getAllByRole('columnheader')
+    const last = headers[headers.length - 1]!
+    expect(last.getAttribute('aria-label')).toBe('Add a column')
+    expect(last.getAttribute('aria-colindex')).toBe(String(headers.length))
+    fireEvent.click(screen.getByTestId('add-column-header'))
+    expect(onAddColumn).toHaveBeenCalledOnce()
   })
 
   it('has an open column, a "Starred" column and an "Actions" column, each with its own gridline and a tooltip, before the data columns (UX-B-38)', () => {

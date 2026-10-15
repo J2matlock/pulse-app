@@ -158,7 +158,7 @@ export const STEPS: TourStep[] = [
     title: 'Show archived {record:many}',
     subtitle: 'Hidden but not forgotten',
     description:
-      'Open "View" and choose "Show archived {record:many}" to see them. Archived {record:many} are hidden from your main view but not deleted — you can unarchive them at any time.',
+      'Open "Show" and choose "Show archived {record:many}" to see them. Archived {record:many} are hidden from your main view but not deleted — you can unarchive them at any time.',
     icon: <Archive className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',

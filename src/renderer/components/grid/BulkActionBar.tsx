@@ -172,7 +172,7 @@ export function BulkActionBar({
           className="hit-44 text-base px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium"
           onClick={() => setBatchDocs(true)}
         >
-          Print documents…
+          Letters and labels…
         </button>
       )}
       {batchDocs && activeGridId != null && (

@@ -7,7 +7,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { edgeAwareRefCallback } from '../../utils/domHelpers'
 import { Layers, X, ChevronDown, Shield, Star, Settings, Trash2 } from 'lucide-react'
-import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
+import { TOOLBAR_ICON } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { ACUITY_GROUP_KEY } from '../../../shared/types'
@@ -153,17 +153,13 @@ export function GroupingBar(): React.ReactElement {
             </>
           ) : (
             <>
-              <span className={TOOLBAR_LABEL}>Group</span>
+              <span>Group</span>
               <ChevronDown className="w-3 h-3 text-slate-500 dark:text-slate-400" />
             </>
           )}
         </button>
       </Tooltip>
-      {isGroupingActive && triggerLabel && (
-        <span className="text-sm text-slate-500 dark:text-slate-400 @max-6xl:hidden">
-          Grouped by: <span className="font-medium text-slate-500 dark:text-slate-400">{triggerLabel}</span>
-        </span>
-      )}
+      {/* The chip already names the column; no "Grouped by:" text beside it (UX-B-22) */}
 
       {/* Column picker dropdown */}
       {pickerOpen && (
