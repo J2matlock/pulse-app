@@ -40,6 +40,27 @@ describe('Reminders in Settings', () => {
     expect(screen.queryByText('Desktop notification at a set time')).toBeNull()
   })
 
+  // E-02 / E-20: an off feature leaves a trace where its section would be, with a Turn on button
+  it('offers to turn on Reminders and Contact requirements where their sections would be', () => {
+    setFeatures({ ...EXISTING_FEATURES, notifications: false, requirements: false })
+    render(<AlertsSection />)
+    const reminders = screen.getByRole('heading', { name: /Reminders/ }).closest('section')!
+    expect(within(reminders).getByText(/Want a desktop notification each morning\? Turn on Reminders\./)).toBeTruthy()
+    const requirements = screen.getByRole('heading', { name: 'Contact requirements' }).closest('section')!
+    expect(within(requirements).getByText(/Need a minimum number of visits or calls per month\? Turn on Contact requirements/)).toBeTruthy()
+    expect(within(requirements).getByText(/how many case notes each client needs/)).toBeTruthy()
+    expect(within(requirements).getByRole('button', { name: 'Turn on' })).toBeTruthy()
+    // Settings is the one place the offer must never be dismissed from
+    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull()
+  })
+
+  it('shows no offer while the features are on', () => {
+    setFeatures({ ...EXISTING_FEATURES, notifications: true, requirements: true })
+    render(<AlertsSection />)
+    expect(screen.queryByText(/Turn on Reminders\./)).toBeNull()
+    expect(screen.queryByText(/Turn on Contact requirements/)).toBeNull()
+  })
+
   it('reloads the rules and "Used by" each time it opens, not only at unlock', () => {
     invoke.mockClear()
     render(<AlertsSection />)

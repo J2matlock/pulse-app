@@ -21,7 +21,17 @@ async function readDismissed(): Promise<string[]> {
  * would help (W01 §3.4). "Not now" is remembered per feature, so each offer
  * is made at most until someone says no.
  */
-export function FeatureOffer({ feature, message, onDone }: { feature: FeatureKey; message: string; onDone?: () => void }): React.ReactElement | null {
+export function FeatureOffer({ feature, message, onDone, always = false }: {
+  feature: FeatureKey
+  message: string
+  onDone?: () => void
+  /**
+   * Show even after "Not now", and without that button: for the place in
+   * Settings where the feature's own section would be, so an off feature
+   * always leaves a trace there (UX review E-02).
+   */
+  always?: boolean
+}): React.ReactElement | null {
   const { f } = useVocab()
   const on = useFeature(feature)
   const update = useWorkspaceStore(s => s.update)
@@ -29,12 +39,13 @@ export function FeatureOffer({ feature, message, onDone }: { feature: FeatureKey
   const def = FEATURES.find(x => x.key === feature)
 
   useEffect(() => {
+    if (always) return
     let alive = true
     void readDismissed().then(list => { if (alive) setDismissed(list.includes(feature)) })
     return () => { alive = false }
-  }, [feature])
+  }, [feature, always])
 
-  if (on || dismissed !== false || !def?.available) return null
+  if (on || (!always && dismissed !== false) || !def?.available) return null
 
   async function turnOn() {
     try {
@@ -58,7 +69,7 @@ export function FeatureOffer({ feature, message, onDone }: { feature: FeatureKey
       <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />
       <span className="flex-1 min-w-0">{message}</span>
       <button type="button" className="btn-compact-secondary" onClick={() => void turnOn()}>Turn on</button>
-      <button type="button" className="btn-compact-secondary" onClick={() => void notNow()}>Not now</button>
+      {!always && <button type="button" className="btn-compact-secondary" onClick={() => void notNow()}>Not now</button>}
     </div>
   )
 }

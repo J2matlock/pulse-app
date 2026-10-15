@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import toast from 'react-hot-toast'
 import { FEATURES, isOn, type FeatureGroup, type FeatureKey } from '../../../shared/features'
+import { FEATURE_PLACES } from '../../../shared/featurePlaces'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
@@ -57,6 +58,8 @@ export function FeaturesSection(): React.ReactElement {
                 <span>
                   <span className="block text-base font-medium text-slate-800 dark:text-slate-100">{f(def.label)}</span>
                   <span className="block text-sm text-slate-600 dark:text-slate-300">{f(def.description)}</span>
+                  {/* Where to look once it's on; nobody finds a feature from a switch list alone (E-02) */}
+                  <span className="block text-sm text-slate-500 dark:text-slate-400">Shows in: {f(FEATURE_PLACES[def.key])}</span>
                 </span>
               </label>
             ))}
