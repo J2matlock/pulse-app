@@ -17,6 +17,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useFeature } from '../hooks/useFeature'
 import { useVocab } from '../hooks/useVocab'
 import { AppointmentPanel } from '../components/calendar/AppointmentPanel'
+import { CalendarItemPanel } from '../components/calendar/CalendarItemPanel'
 import { AppointmentDialog } from '../components/calendar/AppointmentDialog'
 import { TimeGrid } from '../components/calendar/TimeGrid'
 import { ScopeDialog } from '../components/calendar/ScopeDialog'
@@ -39,6 +40,14 @@ const AGENDA_DAYS = 31
 const MAX_IN_CELL = 3
 
 const LAYER_LABELS: Record<CalendarLayer, string> = { appointments: '{Appointment:many}', events: 'Events', deadlines: 'Deadlines', followups: 'Follow-ups', tasks: 'Tasks' }
+/** A swatch per layer for the key under the chips (UX D-09); deadlines take their colour from how soon they are */
+const LAYER_SWATCH: Record<CalendarLayer, string> = {
+  appointments: 'bg-blue-200 border-blue-400 dark:bg-blue-900/60 dark:border-blue-600',
+  events: 'bg-teal-200 border-teal-400 dark:bg-teal-900/60 dark:border-teal-600',
+  deadlines: 'bg-gradient-to-r from-red-300 via-orange-300 to-green-300 border-slate-400',
+  followups: 'bg-purple-200 border-purple-400 dark:bg-purple-900/60 dark:border-purple-600',
+  tasks: 'bg-purple-200 border-purple-400 dark:bg-purple-900/60 dark:border-purple-600',
+}
 const OK_CLASS = 'bg-green-100 text-green-900 dark:bg-green-900/40 dark:text-green-100 border-green-300 dark:border-green-700'
 const STATE_CLASS: Record<DeadlineState, string> = {
   overdue: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100 border-red-300 dark:border-red-700',
@@ -100,7 +109,8 @@ export default function CalendarView(): React.ReactElement {
   const { t, f } = useVocab(null)
   // Moves on at midnight, so the today marker does too
   const today = useToday()
-  const [mode, setMode] = useState<CalendarMode>(apptsOn ? 'week' : 'month')
+  // Month to start (UX D-29); the last view used is remembered below
+  const [mode, setMode] = useState<CalendarMode>('month')
   const [pendingDrop, setPendingDrop] = useState<{ appt: Appointment; times: { start_at: string; end_at: string | null } } | null>(null)
   const [anchor, setAnchor] = useState(today)
   const [focusDay, setFocusDay] = useState(today)
@@ -108,6 +118,8 @@ export default function CalendarView(): React.ReactElement {
   const [appts, setAppts] = useState<Appointment[]>([])
   const [items, setItems] = useState<CalendarItem[]>([])
   const [selected, setSelected] = useState<Appointment | null>(null)
+  // A deadline or follow-up chip opens a panel too, instead of leaving the page (UX D-08)
+  const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null)
   const [newAt, setNewAt] = useState<string | null>(null)
   // A new event (no record) starting here, or an event being edited: events open for editing, not a panel
   const [newEventAt, setNewEventAt] = useState<string | null>(null)
@@ -167,8 +179,9 @@ export default function CalendarView(): React.ReactElement {
     return () => { off1(); off2() }
   }, [load])
 
-  // The open panel shows the appointment as it is now
+  // The open panel shows the appointment (or item) as it is now; a deadline marked done leaves the calendar, and the panel with it
   useEffect(() => { if (selected) setSelected(appts.find(a => a.id === selected.id) ?? null) }, [appts]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (selectedItem) setSelectedItem(items.find(i => i.key === selectedItem.key) ?? null) }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const offered = CALENDAR_LAYERS.filter(l => (l !== 'appointments' || apptsOn) && (l !== 'tasks' || tasksOn))
   // A switched-off feature's layer stays off even when it was saved as on
@@ -205,6 +218,7 @@ export default function CalendarView(): React.ReactElement {
     else void updateAppointment(a, times, 'one')
   }
   function openAppt(a: Appointment) {
+    setSelectedItem(null)
     if (a.row_id === null) { setSelected(null); setEditingEvent(a) } else setSelected(a)
   }
   /** A new appointment, or an event when appointments are switched off */
@@ -225,7 +239,7 @@ export default function CalendarView(): React.ReactElement {
   function openEvent(e: CalEvent) {
     if (e.type === 'appointment') { openAppt(e.appt); return }
     if (e.item.kind === 'task') navigate(e.item.taskId ? `/tasks?task=${e.item.taskId}` : '/tasks')
-    else if (e.item.rowId) navigate(`/profile/${e.item.rowId}?gridId=${e.item.gridId}`)
+    else { setSelected(null); setSelectedItem(e.item) }
   }
 
   // Keyboard (W07 §6): arrows move the day, Enter opens it, N new, T today, M/A switch views
@@ -251,14 +265,16 @@ export default function CalendarView(): React.ReactElement {
     }
   }
 
-  const eventButton = (e: CalEvent, compact: boolean) => {
+  // 'cell': one line in a month cell; 'strip': the week's all-day row, wide enough for two lines (UX D-08); 'list': the agenda
+  const eventButton = (e: CalEvent, size: 'cell' | 'strip' | 'list') => {
     const text = eventText(e, clock)
     const cls = e.type === 'appointment' ? apptClass(e.appt) : e.item.kind === 'deadline' ? STATE_CLASS[e.item.state ?? 'ok'] ?? STATE_CLASS.ok : 'bg-purple-100 text-purple-900 dark:bg-purple-900/40 dark:text-purple-100 border-purple-300 dark:border-purple-700'
+    const open = e.type === 'appointment' ? selected?.id === e.appt.id : selectedItem?.key === e.item.key
     return (
-      <button key={e.type === 'appointment' ? `a${e.appt.id}` : e.item.key} type="button" aria-label={text.full} title={text.full}
+      <button key={e.type === 'appointment' ? `a${e.appt.id}` : e.item.key} type="button" aria-label={text.full} title={text.full} aria-pressed={open || undefined}
         onClick={ev => { ev.stopPropagation(); openEvent(e) }}
-        className={`w-full text-left rounded-md border px-1.5 ${compact ? 'py-0.5 truncate' : 'py-2'} text-[15px] focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${cls}`}
-        style={compact ? undefined : { minHeight: 44 }}>
+        className={`w-full text-left rounded-md border px-1.5 ${size === 'cell' ? 'py-0.5 truncate' : size === 'strip' ? 'py-0.5 line-clamp-2' : 'py-2'} text-[15px] focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${cls} ${open ? 'ring-2 ring-blue-500' : ''}`}
+        style={size === 'list' ? { minHeight: 44 } : undefined}>
         {text.short}
       </button>
     )
@@ -287,18 +303,20 @@ export default function CalendarView(): React.ReactElement {
           <div className="flex flex-wrap gap-2 ml-auto">
             {/* Outlook or Google Calendar (audit S-30) */}
             <button type="button" className="btn-compact-secondary" onClick={() => setExporting(true)}><CalendarPlus className="w-4 h-4" aria-hidden="true" />Add to my calendar…</button>
-            <button type="button" className="btn-compact-primary" aria-haspopup="dialog" onClick={() => setChooserDay(focusDay)}><Plus className="w-4 h-4" aria-hidden="true" />New…</button>
+            <button type="button" className="btn-compact-primary" aria-haspopup="dialog" onClick={() => setChooserDay(focusDay)}><Plus className="w-4 h-4" aria-hidden="true" />Add…</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full">
+            {/* Checkbox chips with a colour swatch each, so "on" is plain to see (UX D-09) */}
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="calendar-show-label">
-              <span id="calendar-show-label" className="text-base text-slate-600 dark:text-slate-300">Show:</span>
+              <span id="calendar-show-label" className="text-base text-slate-600 dark:text-slate-300">Showing:</span>
               {offered.map(l => (
                 <React.Fragment key={l}>
-                  <button type="button" aria-pressed={layers.has(l)} onClick={() => toggleLayer(l)}
-                    className={`hit-44 px-3 rounded-full border text-sm ${layers.has(l) ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
+                  <label className={`hit-44 inline-flex items-center gap-1.5 pl-2 pr-3 rounded-full border text-sm cursor-pointer select-none ${layers.has(l) ? 'bg-slate-100 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
+                    <input type="checkbox" className="w-4 h-4" checked={layers.has(l)} onChange={() => toggleLayer(l)} />
+                    <span aria-hidden="true" className={`w-3 h-3 rounded-sm border ${LAYER_SWATCH[l]}`} />
                     {f(LAYER_LABELS[l])}
-                  </button>
-                  {l === 'deadlines' && layers.has('deadlines') && <DeadlineColumnsMenu hidden={hiddenCols} onChange={next => void chooseDeadlineColumns(next)} />}
+                  </label>
+                  {l === 'deadlines' && <DeadlineColumnsMenu hidden={hiddenCols} disabled={!layers.has('deadlines')} onChange={next => void chooseDeadlineColumns(next)} />}
                 </React.Fragment>
               ))}
             </div>
@@ -311,13 +329,18 @@ export default function CalendarView(): React.ReactElement {
                 </select>
               </label>
             )}
+            {layers.has('deadlines') && (
+              <p className="w-full text-sm text-slate-600 dark:text-slate-300">
+                Deadline colors: red = late, orange = due now, yellow = coming up, green = not yet due.
+              </p>
+            )}
           </div>
         </div>
 
         {mode === 'week' || mode === 'day' ? (
           <TimeGrid days={mode === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(weekFrom, i)) : [anchor]} clock={clock}
             appointments={appts.filter(a => !a.all_day && shownLayers.has(apptLayer(a)))}
-            allDay={d => (byDay.get(d) ?? []).filter(e => e.type === 'item' || e.appt.all_day).map(e => eventButton(e, true))}
+            allDay={d => (byDay.get(d) ?? []).filter(e => e.type === 'item' || e.appt.all_day).map(e => eventButton(e, 'strip'))}
             label={a => eventText({ type: 'appointment', date: a.start_at.slice(0, 10), sortKey: '', appt: a }, clock)}
             colorOf={apptClass}
             onOpen={openAppt}
@@ -344,7 +367,7 @@ export default function CalendarView(): React.ReactElement {
                         className={`text-sm font-medium w-7 h-7 rounded-full ${d === today ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
                         {Number(d.slice(8))}
                       </button>
-                      {events.slice(0, extra > 0 ? MAX_IN_CELL - 1 : MAX_IN_CELL).map(e => eventButton(e, true))}
+                      {events.slice(0, extra > 0 ? MAX_IN_CELL - 1 : MAX_IN_CELL).map(e => eventButton(e, 'cell'))}
                       {extra > 0 && (
                         <button type="button" onClick={() => openDay(d)} className="w-full text-left text-sm text-blue-700 dark:text-blue-300 hover:underline px-1.5">
                           +{extra + 1} more
@@ -361,7 +384,7 @@ export default function CalendarView(): React.ReactElement {
             {Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(anchor, i)).filter(d => byDay.has(d)).map(d => (
               <section key={d} aria-label={longDay(d)} className="mb-4">
                 <h2 className={`text-base font-semibold mb-1 ${d === today ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>{longDay(d)}{d === today ? ' (today)' : ''}</h2>
-                <div className="space-y-1.5 max-w-2xl">{byDay.get(d)!.map(e => eventButton(e, false))}</div>
+                <div className="space-y-1.5 max-w-2xl">{byDay.get(d)!.map(e => eventButton(e, 'list'))}</div>
               </section>
             ))}
             {![...byDay.keys()].some(d => d >= anchor && d <= range.to) && <p className="text-base text-slate-500 dark:text-slate-400">Nothing in the next {AGENDA_DAYS} days.</p>}
@@ -369,6 +392,7 @@ export default function CalendarView(): React.ReactElement {
         )}
       </div>
       {selected && <AppointmentPanel appointment={selected} onClose={() => setSelected(null)} />}
+      {selectedItem && !selected && <CalendarItemPanel item={selectedItem} onClose={() => setSelectedItem(null)} onChanged={load} />}
       {newAt && <AppointmentDialog start={newAt} onClose={() => setNewAt(null)} />}
       {newEventAt && <AppointmentDialog start={newEventAt} event onClose={() => setNewEventAt(null)} />}
       {editingEvent && <AppointmentDialog appointment={editingEvent} onClose={() => setEditingEvent(null)} />}

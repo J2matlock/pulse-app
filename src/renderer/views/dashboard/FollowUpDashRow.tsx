@@ -1,10 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
-import { useUndoStore } from '../../stores/undoStore'
 import type { FollowUpRow } from './types'
-import { wordNow } from '../../utils/vocab'
+import { completeFollowUp } from './completeFollowUp'
 import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
 import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
 import { shortDate } from '../../../shared/dates'
@@ -30,28 +27,9 @@ export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollo
   async function handleComplete() {
     setCompleting(true)
     try {
-      const res = await safeInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, followUp.id)
+      // The row goes even when main refused, as before; a reload brings it back
+      await completeFollowUp(followUp, onReloadFollowUps)
       onComplete(followUp.id)
-      if (res.ok) {
-        const { sysLogId } = res.data
-        const sideEffects = sysLogId ? [{ type: 'void_case_log' as const, caseLogId: sysLogId }] : undefined
-        useUndoStore.getState().push({
-          id: crypto.randomUUID(),
-          description: `Completed follow-up for ${followUp.client_name ?? wordNow('record', {}, followUp.grid_id)}`,
-          timestamp: Date.now(),
-          category: 'logged',
-          icon: 'check',
-          sideEffects,
-          undo: async () => {
-            await mustInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, followUp.id)
-            await onReloadFollowUps?.()
-          },
-          redo: async () => {
-            await mustInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, followUp.id)
-            await onReloadFollowUps?.()
-          },
-        })
-      }
     } catch { /* ignore */ } finally {
       setCompleting(false)
     }

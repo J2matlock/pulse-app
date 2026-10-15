@@ -24,7 +24,7 @@ export function NewOnCalendarChooser({ date, apptsOn, tasksOn, onChoose, onClose
   const ref = useRef<HTMLDivElement>(null)
   useFocusTrap(ref, true, { onEscape: onClose })
   const options: Array<{ kind: NewOnCalendar; label: string; hint: string; icon: React.ReactNode }> = [
-    { kind: 'event', label: 'Event', hint: `A meeting, training or day off, not about one ${t('record')}`, icon: <CalendarDays className="w-5 h-5" aria-hidden="true" /> },
+    { kind: 'event', label: 'Event', hint: `A meeting, training or day off, usually not about one ${t('record')}`, icon: <CalendarDays className="w-5 h-5" aria-hidden="true" /> },
     ...(apptsOn ? [{ kind: 'appointment' as const, label: t('appointment', { cap: true }), hint: `With ${t('record', { article: true })}`, icon: <CalendarClock className="w-5 h-5" aria-hidden="true" /> }] : []),
     { kind: 'deadline', label: `Deadline for ${t('record', { article: true })}`, hint: 'Make one of their deadlines due this day', icon: <CalendarCheck className="w-5 h-5" aria-hidden="true" /> },
     ...(tasksOn ? [{ kind: 'task' as const, label: 'Task', hint: 'Something to do by this day', icon: <ListTodo className="w-5 h-5" aria-hidden="true" /> }] : []),

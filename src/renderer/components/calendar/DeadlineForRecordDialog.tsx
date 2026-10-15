@@ -98,6 +98,15 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
           <input type="date" className="input w-auto" value={due} onChange={e => setDue(e.target.value)} />
         </label>
 
+        {/* The shape of the form shows before a record is picked (UX D-30) */}
+        {!record && (
+          <div>
+            <span className={`${label} text-slate-500 dark:text-slate-400`}>Which deadline</span>
+            <select className="input w-full" disabled aria-label="Which deadline">
+              <option>Pick {t('record', { article: true })} first</option>
+            </select>
+          </div>
+        )}
         {record && options && (
           options.length === 0 && !error ? (
             <p className="text-base text-slate-600 dark:text-slate-300">{record.gridName ?? `This ${t('list')}`} has no deadline columns.</p>

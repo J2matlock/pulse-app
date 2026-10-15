@@ -98,11 +98,11 @@ describe('Which deadlines… on the Calendar', () => {
     expect(document.activeElement).toBe(opener)
   })
 
-  it('goes away with the Deadlines chip', async () => {
+  it('stays, greyed, with the Deadlines chip off (UX D-09)', async () => {
     render(<MemoryRouter><CalendarView /></MemoryRouter>)
     await settle()
-    fireEvent.click(screen.getByRole('button', { name: 'Deadlines' }))
-    expect(screen.queryByRole('button', { name: /^Which deadlines/ })).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Deadlines' }))
+    expect((screen.getByRole('button', { name: /^Which deadlines/ }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
 
@@ -152,7 +152,7 @@ describe('adding from the Calendar', () => {
     useWorkspaceStore.setState({ features: { appointments: false, tasks: false } } as never)
     render(<MemoryRouter><CalendarView /></MemoryRouter>)
     await settle()
-    fireEvent.click(screen.getByRole('button', { name: 'New…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add…' }))
     const chooser = screen.getByRole('dialog', { name: /^Add to / })
     expect(within(chooser).queryByRole('button', { name: 'Appointment' })).toBeNull()
     expect(within(chooser).queryByRole('button', { name: 'Task' })).toBeNull()
