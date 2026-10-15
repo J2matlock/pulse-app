@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import React from 'react'
 
 // Mock lucide-react
@@ -15,7 +15,7 @@ vi.mock('../../../../src/renderer/utils/deadlineCalc', () => ({
   // Fixed "next due" date so labels are predictable
   computeEffectiveDeadline: () => new Date(2026, 4, 1),
   // The panel asks the engine first (W05 extensions); keep it on the mocked day count
-  evaluateRuleForRow: () => ({ daysUntil: mockComputeDaysUntil(), due: null, state: 'ok', detail: '' }),
+  evaluateRuleForRow: (...args: unknown[]) => ({ daysUntil: mockComputeDaysUntil(...args), due: null, state: 'ok', detail: '' }),
 }))
 
 import { DeadlinePanel } from '../../../../src/renderer/components/profile/DeadlinePanel'
@@ -220,5 +220,44 @@ describe('DeadlinePanel', () => {
       />
     )
     expect(screen.getByText('Due today')).toBeTruthy()
+  })
+
+  it('keeps the cards in the order they first showed in, after a date changes (C-14)', () => {
+    const a = makeColumn({ id: 1, name: 'Last Contact' })
+    const b = makeColumn({ id: 2, name: 'Annual Review' })
+    // Days left follow the stored date: '2026-01-01' is due sooner than '2026-03-01'
+    mockComputeDaysUntil.mockImplementation((_rule: unknown, raw: unknown) => raw === '2026-01-01' ? 2 : raw === '2026-03-01' ? 20 : 60)
+    const names = () => screen.getAllByText(/^(Last Contact|Annual Review)$/).map(el => el.textContent)
+    const { rerender } = render(
+      <DeadlinePanel row={makeRow({ col_1: '2026-01-01', col_2: '2026-03-01' })} columns={[b, a]} alertRules={[defaultRule]} onDateSave={onDateSave} />
+    )
+    expect(names()).toEqual(['Last Contact', 'Annual Review'])
+    // Done on Last Contact: it is now the least urgent, but stays where it was
+    rerender(<DeadlinePanel row={makeRow({ col_1: '2026-09-01', col_2: '2026-03-01' })} columns={[b, a]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
+    expect(names()).toEqual(['Last Contact', 'Annual Review'])
+  })
+
+  it('says which date is being edited and what the next due date becomes (C-15)', () => {
+    const col = makeColumn({ id: 1, name: 'Last Contact' })
+    render(<DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
+    fireEvent.click(screen.getByText(/^Last done/))
+    expect(screen.getByLabelText('Last done on')).toBeTruthy()
+    expect(screen.getByText(/^Next due .* \(worked out from this date\)$/)).toBeTruthy()
+  })
+
+  it('a plain date is edited as "Due on", with no worked-out date', () => {
+    const col = makeColumn({ id: 1, name: 'Court Date' })
+    render(<DeadlinePanel row={makeRow({ col_1: '2026-05-01' })} columns={[col]} alertRules={[{ ...defaultRule, interval_days: 0 }]} onDateSave={onDateSave} />)
+    fireEvent.click(screen.getByTitle('Click to edit date'))
+    expect(screen.getByLabelText('Due on')).toBeTruthy()
+    expect(screen.queryByText(/worked out from this date/)).toBeNull()
+  })
+
+  it('Extend… is a full-size button, not small link text (C-31)', () => {
+    const col = makeColumn({ id: 1, name: 'Last Contact' })
+    render(<DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
+    const extend = screen.getByRole('button', { name: 'Extend…' })
+    expect(extend.className).toMatch(/text-base/)
+    expect(extend.className).not.toMatch(/text-sm|underline/)
   })
 })
