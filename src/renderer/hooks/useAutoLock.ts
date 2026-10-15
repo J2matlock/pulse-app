@@ -39,7 +39,7 @@ export function useAutoLock(
       clearTimeout(timer)
       pingMainProcess()
       timer = setTimeout(() => {
-        useSettingsStore.getState().lock()
+        useSettingsStore.getState().lockAfterIdle()
       }, autoLockMinutes * 60 * 1000)
     }
 

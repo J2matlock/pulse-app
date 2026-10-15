@@ -81,6 +81,7 @@ export function LockScreenView(): React.ReactElement {
   const setLocked = useSettingsStore(s => s.setLocked)
   const setRecoverySession = useSettingsStore(s => s.setRecoverySession)
   const setPasswordSetup = useSettingsStore(s => s.setPasswordSetup)
+  const idleMinutes = useSettingsStore(s => s.lockedAfterIdleMinutes)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -186,6 +187,12 @@ export function LockScreenView(): React.ReactElement {
             <Lock className="w-4 h-4" />
             <span className="text-base">Your data is locked</span>
           </div>
+          {/* After the idle timer, say so: the screen changing on its own looks like a crash (UX-A-29) */}
+          {idleMinutes !== null && (
+            <p className="mt-2 text-base text-slate-600 dark:text-slate-400">
+              Locked after {idleMinutes} minute{idleMinutes === 1 ? '' : 's'} without activity. Change this in Settings → Security.
+            </p>
+          )}
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 border border-slate-200 dark:border-slate-700">

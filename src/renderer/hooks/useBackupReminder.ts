@@ -7,6 +7,7 @@ import { useBackupStatusStore } from '../stores/backupStatusStore'
 import { safeInvoke } from '../utils/safeInvoke'
 import { localDateString } from '../../shared/dates'
 import { pulseEvents } from '../events'
+import { showRecoveryKeyReminder } from '../components/shared/RecoveryKeyReminderToast'
 
 
 /**
@@ -76,6 +77,6 @@ export async function checkRecoveryKeyReminder(snoozedUntil: string | null): Pro
   if (snoozedUntil && snoozedUntil > localDateString()) return
   const key = await safeInvoke(IPC.AUTH_HAS_RECOVERY_KEY)
   if (!key.ok || key.data) return
-  toast('Save a recovery key (1 minute): without it, a forgotten password means losing your data. Settings → Security → Recovery key.', { icon: '🔑', duration: 10000 })
+  showRecoveryKeyReminder()
   await safeInvoke(IPC.SETTINGS_UPDATE, 'onboarding_recovery_snooze_until', snoozeUntil())
 }

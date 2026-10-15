@@ -14,11 +14,13 @@ Object.defineProperty(window, 'api', {
 
 // Mock settingsStore
 const mockLock = vi.fn()
+// The idle timer's lock goes through to lock(), as the store's does
+const mockLockAfterIdle = vi.fn(() => mockLock())
 const mockSetLocked = vi.fn()
 let passwordSetup = true
 vi.mock('../../../src/renderer/stores/settingsStore', () => ({
   useSettingsStore: {
-    getState: () => ({ lock: mockLock, setLocked: mockSetLocked, isPasswordSetup: passwordSetup }),
+    getState: () => ({ lock: mockLock, lockAfterIdle: mockLockAfterIdle, setLocked: mockSetLocked, isPasswordSetup: passwordSetup }),
   },
 }))
 
@@ -28,6 +30,7 @@ describe('useAutoLock', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mockLock.mockReset()
+    mockLockAfterIdle.mockClear()
     mockSetLocked.mockReset()
     mockInvoke.mockClear()
     mockOn.mockClear()
@@ -44,7 +47,8 @@ describe('useAutoLock', () => {
     // Advance past 5 minutes
     vi.advanceTimersByTime(5 * 60 * 1000)
 
-    expect(mockLock).toHaveBeenCalledTimes(1)
+    // The idle timer's own lock, so the lock screen says why (UX-A-29)
+    expect(mockLockAfterIdle).toHaveBeenCalledTimes(1)
   })
 
   it('does not lock when already locked', () => {
@@ -106,6 +110,7 @@ describe('useAutoLock', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', ctrlKey: true }))
 
     expect(mockLock).toHaveBeenCalled()
+    expect(mockLockAfterIdle).not.toHaveBeenCalled()
     expect(mockSetLocked).toHaveBeenCalledWith(true)
   })
 

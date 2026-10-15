@@ -105,7 +105,8 @@ describe('checkBackupReminder', () => {
     respond({}, status({ lastOffsiteISO: new Date(Date.now() - MS_PER_DAY).toISOString() }), false)
     await checkBackupReminder()
     expect(mockToast).toHaveBeenCalledTimes(1)
-    expect(mockToast.mock.calls[0]![0]).toContain('recovery key')
+    // The reminder with "Save it now" / "Later" buttons (UX-A-25)
+    expect(mockToast.mock.calls[0]![1]).toMatchObject({ id: 'recovery-key-reminder' })
   })
 
   it('shows one reminder at a time: an overdue backup first, the recovery key later', async () => {

@@ -270,8 +270,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         </div>
       )}
 
-      {/* Recovery Key Management */}
-      <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+      {/* Recovery Key Management (the recovery-key reminder's "Save it now" scrolls here) */}
+      <div id="settings-recovery-key" className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Recovery Key</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
