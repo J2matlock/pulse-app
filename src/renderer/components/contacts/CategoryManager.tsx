@@ -6,6 +6,7 @@ import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
 import { normalizeHexColor } from '../../../shared/color'
+import { PrimaryButton, SecondaryButton, DangerButton, IconButton } from '../ui/Button'
 
 
 const PRESET_COLORS = [
@@ -126,12 +127,8 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                         style={{ fontSize: 15, minHeight: 40 }}
                         autoFocus
                       />
-                      <button onClick={commitEdit} aria-label="Save name" className="hit-44 p-2 rounded-md bg-blue-600 text-white hover:bg-blue-700" style={{ minHeight: 40, minWidth: 40 }}>
-                        <Check size={16} />
-                      </button>
-                      <button onClick={() => setEditingId(null)} aria-label="Cancel" className="hit-44 p-2 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" style={{ minHeight: 40, minWidth: 40 }}>
-                        <XIcon size={16} />
-                      </button>
+                      <IconButton label="Save name" variant="primary" icon={<Check size={16} />} onClick={commitEdit} />
+                      <IconButton label="Cancel" icon={<XIcon size={16} />} onClick={() => setEditingId(null)} />
                     </div>
                     {/* Color swatches */}
                     <div className="flex flex-wrap gap-2">
@@ -218,7 +215,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                             <option value="url">URL</option>
                             <option value="number">Number</option>
                           </select>
-                          <button
+                          <PrimaryButton
+                            size="compact"
+                            icon={<Plus size={14} />}
                             onClick={() => {
                               if (newFieldName.trim()) {
                                 createCustomField(editingId!, newFieldName.trim(), newFieldType)
@@ -226,12 +225,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                               }
                             }}
                             disabled={!newFieldName.trim()}
-                            className="hit-44 inline-flex items-center gap-1 px-2 py-1.5 rounded-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
-                            style={{ minHeight: 32, minWidth: 32, fontSize: 15 }}
                           >
-                            <Plus size={14} aria-hidden="true" />
                             Add detail
-                          </button>
+                          </PrimaryButton>
                         </div>
                       )}
                     </div>
@@ -243,20 +239,12 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                       Delete &ldquo;{cat.name}&rdquo;? Contacts will become Uncategorized.
                     </p>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDelete(cat.id)}
-                        className="hit-44 px-3 py-1.5 rounded-md bg-red-600 text-white text-base hover:bg-red-700 focus:outline-hidden focus:ring-3 focus:ring-red-500"
-                        style={{ minHeight: 36, fontSize: 15 }}
-                      >
+                      <DangerButton size="compact" onClick={() => handleDelete(cat.id)}>
                         Delete
-                      </button>
-                      <button
-                        onClick={() => setDeletingId(null)}
-                        className="hit-44 px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                        style={{ minHeight: 36, fontSize: 15 }}
-                      >
+                      </DangerButton>
+                      <SecondaryButton size="compact" onClick={() => setDeletingId(null)}>
                         Cancel
-                      </button>
+                      </SecondaryButton>
                     </div>
                   </div>
                 ) : (
@@ -270,15 +258,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                       <span className="block text-slate-900 dark:text-white" style={{ fontSize: 15 }}>{cat.name}</span>
                       <span className="block text-sm text-slate-500 dark:text-slate-400">Fields: {cat.field_count ?? 0}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(cat.id, cat.name, cat.color)}
-                      aria-label={`Edit ${cat.name}`}
-                      className="px-3 rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                      style={{ minHeight: 44, fontSize: 15 }}
-                    >
+                    <SecondaryButton size="compact" onClick={() => startEdit(cat.id, cat.name, cat.color)} aria-label={`Edit ${cat.name}`}>
                       Edit
-                    </button>
+                    </SecondaryButton>
                     <button
                       type="button"
                       onClick={() => { setDeletingId(cat.id); setEditingId(null) }}
@@ -316,15 +298,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
               className="flex-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white focus:outline-hidden focus:ring-3 focus:ring-blue-500"
               style={{ fontSize: 15, minHeight: 44 }}
             />
-            <button
-              onClick={handleAdd}
-              disabled={!newName.trim()}
-              className="flex items-center gap-1 px-3 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-              style={{ minHeight: 44, fontSize: 15 }}
-            >
-              <Plus size={16} />
+            <PrimaryButton onClick={handleAdd} disabled={!newName.trim()} icon={<Plus size={16} />}>
               Add
-            </button>
+            </PrimaryButton>
           </div>
         </div>
       </motion.div>

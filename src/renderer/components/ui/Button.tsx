@@ -6,6 +6,7 @@
  *   <SecondaryButton onClick={cancel}>Cancel</SecondaryButton>      every other action
  *   <DangerButton onClick={remove}>Delete</DangerButton>            deletes or loses something
  *   <IconButton label="Close" icon={<X />} onClick={close} />       icon only; the label is its name and tooltip
+ *                                                                   (variant: ghost | secondary | primary)
  *
  * All of them:
  * - are 44 px tall (size="compact": 36 px drawn inside a 44 px click area, for toolbars);
@@ -86,14 +87,15 @@ export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLBut
   /** normal: 44 × 44; compact: 36 × 36 drawn inside a 44 px click area */
   size?: ButtonSize
   tone?: ButtonTone
-  /** ghost (default): no background until hovered; secondary: outlined like SecondaryButton */
-  variant?: 'ghost' | 'secondary'
+  /** ghost (default): no background until hovered; secondary: outlined; primary: accent fill (a Save tick) */
+  variant?: IconVariant
   tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right'
   busy?: boolean
 }
 
+export type IconVariant = 'ghost' | 'secondary' | 'primary'
 const ICON_SIZE: Record<ButtonSize, string> = { normal: 'w-11 h-11', compact: 'w-9 h-9 hit-44' }
-const ICON_VARIANT: Record<'ghost' | 'secondary', Record<ButtonTone, string>> = {
+const ICON_VARIANT: Record<IconVariant, Record<ButtonTone, string>> = {
   ghost: {
     default: 'text-slate-600 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100',
     inverse: 'text-slate-200 hover:bg-white/10 hover:text-white',
@@ -101,6 +103,10 @@ const ICON_VARIANT: Record<'ghost' | 'secondary', Record<ButtonTone, string>> = 
   secondary: {
     default: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
     inverse: 'border border-white/30 text-white hover:bg-white/10',
+  },
+  primary: {
+    default: 'bg-accent text-white hover:bg-accent-hover dark:bg-accent-hover dark:hover:bg-blue-700',
+    inverse: 'bg-accent text-white hover:bg-accent-hover dark:bg-accent-hover dark:hover:bg-blue-700',
   },
 }
 

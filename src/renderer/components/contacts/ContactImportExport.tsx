@@ -10,6 +10,7 @@ import { useContactsStore } from '../../stores/contactsStore'
 import { rlog } from '../../utils/rendererLogger'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { PrimaryButton, SecondaryButton, IconButton } from '../ui/Button'
 
 interface Props {
   open: boolean
@@ -192,14 +193,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               {mode === 'import' ? `Import ${t('contact', { many: true, cap: true })} (vCard)` : `Export ${t('contact', { many: true, cap: true })} (vCard)`}
             </h2>
           </div>
-          <button
-            onClick={handleClose}
-            className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-slate-700 dark:hover:text-gray-200 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-            style={{ minHeight: 44, minWidth: 44 }}
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <IconButton label="Close" icon={<X className="h-5 w-5" />} onClick={handleClose} />
         </div>
 
         {/* Body */}
@@ -229,16 +223,13 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
           <p className="text-center text-gray-600 dark:text-gray-300 max-w-md" style={{ fontSize: 15 }}>
             Import {t('contact', { many: true })} from .vcf (vCard) files — a standard contact format supported by most address books.
           </p>
-          <button
+          <PrimaryButton
             onClick={handlePickFile}
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3 dark:focus:ring-offset-slate-800"
-            style={{ minHeight: 44, fontSize: 15 }}
-            title="Choose a vCard file to import"
             aria-label="Choose a vCard file to import"
+            icon={<Upload className="h-4 w-4" />}
           >
-            <Upload className="h-4 w-4" />
             Choose a file…
-          </button>
+          </PrimaryButton>
         </div>
       )
     }
@@ -324,19 +315,12 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
 
           {/* Actions */}
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => { setStep('pick'); setParsedRows([]); setError(null) }}
-              className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-              style={{ minHeight: 44, fontSize: 15 }}
-            >
+            <SecondaryButton onClick={() => { setStep('pick'); setParsedRows([]); setError(null) }}>
               Back
-            </button>
-            <button
+            </SecondaryButton>
+            <PrimaryButton
               onClick={handleConfirmImport}
               disabled={selectedCount === 0 || importing}
-              className="flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3 dark:focus:ring-offset-slate-800"
-              style={{ minHeight: 44, fontSize: 15 }}
-              title={`Import selected ${t('contact', { many: true })}`}
               aria-label={`Import selected ${t('contact', { many: true })}`}
             >
               {importing ? (
@@ -347,7 +331,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                   Import {selectedCount} Contact{selectedCount !== 1 ? 's' : ''}
                 </>
               )}
-            </button>
+            </PrimaryButton>
           </div>
         </div>
       )
@@ -367,13 +351,9 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               {uncategorizedCount} {t('contact', { count: uncategorizedCount })} {uncategorizedCount !== 1 ? 'were' : 'was'} imported without a category because the category in the file didn't match any existing category. You can open each {t('contact')} and add a category.
             </p>
           )}
-          <button
-            onClick={handleClose}
-            className="rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3 dark:focus:ring-offset-slate-800"
-            style={{ minHeight: 44, fontSize: 15 }}
-          >
+          <PrimaryButton onClick={handleClose}>
             Done
-          </button>
+          </PrimaryButton>
         </div>
       )
     }
@@ -393,13 +373,9 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
           <p className="text-center text-gray-900 dark:text-gray-100" style={{ fontSize: 15 }}>
             Done. Your {t('contact', { many: true })} were saved.
           </p>
-          <button
-            onClick={handleClose}
-            className="rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3 dark:focus:ring-offset-slate-800"
-            style={{ minHeight: 44, fontSize: 15 }}
-          >
+          <PrimaryButton onClick={handleClose}>
             Done
-          </button>
+          </PrimaryButton>
         </div>
       )
     }
@@ -411,12 +387,9 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
           Export all {t('contact', { many: true })} as a .vcf file that can be opened in other apps.
           You will be asked to choose where to save the file.
         </p>
-        <button
+        <PrimaryButton
           onClick={handleExport}
           disabled={exporting}
-          className="flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3 dark:focus:ring-offset-slate-800"
-          style={{ minHeight: 44, fontSize: 15 }}
-          title={`Export all ${t('contact', { many: true })} as vCard`}
           aria-label={`Export all ${t('contact', { many: true })} as vCard`}
         >
           {exporting ? (
@@ -427,7 +400,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               Export all {t('contact', { many: true })}
             </>
           )}
-        </button>
+        </PrimaryButton>
       </div>
     )
   }

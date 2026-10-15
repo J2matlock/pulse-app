@@ -19,6 +19,7 @@ vi.mock('motion/react', () => ({
       React.createElement('div', { ...props, ref })
     ),
   },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
 }))
 
 // Mock useFocusTrap
@@ -132,8 +133,8 @@ describe('CategoryManager', () => {
     fireEvent.click(deleteButtons[0]!)
     // The confirmation row has a Delete button with red bg styling
     const confirmBtns = screen.getAllByRole('button', { name: 'Delete' })
-    // The confirm delete button is the one with bg-red-600 class
-    const confirmDeleteBtn = confirmBtns.find(btn => btn.className.includes('bg-red-600'))!
+    // The confirm delete button is the shared red button
+    const confirmDeleteBtn = confirmBtns.find(btn => btn.className.includes('btn-compact-danger'))!
     fireEvent.click(confirmDeleteBtn)
     expect(mockDeleteCategory).toHaveBeenCalledWith(1)
   })
