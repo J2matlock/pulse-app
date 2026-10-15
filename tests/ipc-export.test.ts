@@ -417,6 +417,46 @@ describe('a restore that fails before anything is replaced (polish R5)', () => {
   })
 })
 
+describe('a restore leaves a line in the change history (persona study #19)', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+  const history = () => {
+    const row = testDb.db.prepare("SELECT value FROM settings WHERE key = 'restore_history'").get() as { value: string } | undefined
+    return row ? JSON.parse(row.value) as Array<{ restoredAt: string; backupMadeAt: string | null; appVersion: string }> : []
+  }
+  const otherSettings = () => testDb.db.prepare("SELECT key, value FROM settings WHERE key != 'restore_history' ORDER BY key").all()
+
+  it.each([IPC.BACKUP_RESTORE_FILE, IPC.BACKUP_RESTORE_AUTO])('%s writes one entry and changes nothing else', async (channel) => {
+    testDb.db.prepare("DELETE FROM settings WHERE key = 'restore_history'").run()
+    const before = otherSettings()
+    const result = await invoke(channel, path) as { ok: boolean }
+    expect(result.ok).toBe(true)
+    const h = history()
+    expect(h).toHaveLength(1)
+    expect(h[0]).toEqual({ restoredAt: expect.any(String), backupMadeAt: '2026-10-09T08:00:00.000Z', appVersion: '0.0.0-test' })
+    expect(Date.now() - Date.parse(h[0]!.restoredAt)).toBeLessThan(60_000)
+    expect(otherSettings()).toEqual(before)
+  })
+
+  it('keeps earlier restores, newest last, and at most 50', async () => {
+    const old = Array.from({ length: 50 }, (_, i) => ({ restoredAt: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), backupMadeAt: null, appVersion: '2.5.0' }))
+    testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('restore_history', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(old))
+    expect((await invoke(IPC.BACKUP_RESTORE_FILE, path) as { ok: boolean }).ok).toBe(true)
+    const h = history()
+    expect(h).toHaveLength(50)
+    expect(h[0]!.restoredAt).toBe(old[1]!.restoredAt)
+    expect(h[49]!.appVersion).toBe('0.0.0-test')
+  })
+
+  it('a restore that fails writes nothing', async () => {
+    testDb.db.prepare("DELETE FROM settings WHERE key = 'restore_history'").run()
+    backupMock.restoreError = new Error('end of central directory record signature not found')
+    try {
+      expect((await invoke(IPC.BACKUP_RESTORE_FILE, path) as { ok: boolean }).ok).toBe(false)
+    } finally { backupMock.restoreError = null }
+    expect(history()).toEqual([])
+  })
+})
+
 describe('BACKUP_PREVIEW', () => {
   it('fails with empty path', async () => {
     const result = await invoke(IPC.BACKUP_PREVIEW, '') as { ok: false }

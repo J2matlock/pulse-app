@@ -17,6 +17,14 @@ export type FeatureKey =
 
 export type FeatureGroup = 'Records' | 'Notes & activity' | 'Planning' | 'Reports'
 
+/** What Settings → Features calls each group, in the workspace's words ({word} tokens; fill with useVocab().f) */
+export const FEATURE_GROUP_LABEL: Record<FeatureGroup, string> = {
+  Records: '{Record:many}',
+  'Notes & activity': '{Activity:many} and activity',
+  Planning: 'Planning',
+  Reports: 'Reports',
+}
+
 /** label and description may contain {word} tokens (fill with fillVocab / useVocab().f) */
 export interface FeatureDef {
   key: FeatureKey

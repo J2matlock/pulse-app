@@ -122,6 +122,21 @@ function dumpAll(db: Database): Record<string, unknown[]> {
   return out
 }
 
+/**
+ * A restore adds one line to settings.restore_history (persona study #19, for the
+ * Change history PDF): check that line, then compare everything else.
+ */
+function afterRestore(db: Database): Record<string, unknown[]> {
+  const dump = dumpAll(db)
+  const settings = dump.settings as Array<{ key: string; value: string }>
+  const history = settings.filter(r => r.key === 'restore_history')
+  expect(history).toHaveLength(1)
+  const entries = JSON.parse(history[0]!.value) as Array<{ restoredAt: string; backupMadeAt: string | null; appVersion: string }>
+  expect(entries).toHaveLength(1)
+  expect(typeof entries[0]!.backupMadeAt).toBe('string')
+  return { ...dump, settings: settings.filter(r => r.key !== 'restore_history') }
+}
+
 const count = (db: Database, table: string, where = '1=1') => (db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`).get() as { n: number }).n
 const preRestoreCopies = () => existsSync(join(dir, 'backups')) ? readdirSync(join(dir, 'backups')).filter(f => f.startsWith('pulse-pre-restore-')) : []
 
@@ -158,7 +173,7 @@ describe('Restore from Settings brings back exactly what was backed up', () => {
     const res = await invoke<{ safetyPath: string }>(IPC.BACKUP_RESTORE_FILE, made.data.destPath)
     expect(res).toMatchObject({ ok: true })
 
-    expect(dumpAll(getDb())).toEqual(before)
+    expect(afterRestore(getDb())).toEqual(before)
     expect(getDb().pragma('integrity_check', { simple: true })).toBe('ok')
   })
 
@@ -171,7 +186,7 @@ describe('Restore from Settings brings back exactly what was backed up', () => {
     changeEverything(getDb())
     const res = await invoke(IPC.BACKUP_RESTORE_AUTO, auto)
     expect(res).toMatchObject({ ok: true })
-    expect(dumpAll(getDb())).toEqual(before)
+    expect(afterRestore(getDb())).toEqual(before)
   })
 })
 

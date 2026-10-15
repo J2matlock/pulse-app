@@ -15,9 +15,13 @@ import { PulseMark } from '../components/ui/PulseMark'
 
 type LockView = 'password' | 'recovery-key' | 'no-recovery' | 'restore' | 'open-failed'
 
+/** Letters and numbers in a recovery key: 7 groups of 4 */
+const RECOVERY_KEY_LENGTH = 28
+const RECOVERY_KEY_TOO_SHORT = 'That key is too short. It has 28 letters and numbers, in 7 groups of 4.'
+
 /** Strip non-alphanumeric, uppercase, cap at 28 chars, insert dashes every 4 */
 function formatRecoveryKey(raw: string): string {
-  const clean = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 28)
+  const clean = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, RECOVERY_KEY_LENGTH)
   return clean.replace(/(.{4})(?=.)/g, '$1-')
 }
 
@@ -151,6 +155,12 @@ export function LockScreenView(): React.ReactElement {
   async function handleRecoveryUnlock(e: React.FormEvent) {
     e.preventDefault()
     if (!recoveryKey || isSubmitting) return
+    // A part of a key can't match, and "didn't match" would send them hunting for a typo
+    if (recoveryKey.replace(/[^A-Za-z0-9]/g, '').length < RECOVERY_KEY_LENGTH) {
+      setKeyError(RECOVERY_KEY_TOO_SHORT)
+      setTimeout(() => keyRef.current?.focus(), 0)
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -346,7 +356,7 @@ export function LockScreenView(): React.ReactElement {
               </div>
 
               <p className="text-slate-500 dark:text-slate-400 text-base mb-5">
-                Enter the 28-character recovery key you saved during setup.
+                Enter your 28-character recovery key (from the card or note you saved).
               </p>
 
               <form onSubmit={handleRecoveryUnlock} className="space-y-5">

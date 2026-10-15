@@ -37,7 +37,13 @@ function scrollToControl(id: string): void {
  * Live version of the "recommended setup" checklist, so a worker can see at a
  * glance whether their setup is what their supervisor would expect.
  */
-export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: boolean | null; onGoToBackup?: () => void }): React.ReactElement {
+export function SecurityCheckup({ hasRecovery, recoveryUsed = false, onMakeRecoveryKey, onGoToBackup }: {
+  hasRecovery: boolean | null
+  /** The recovery key has unlocked Pulse once: someone has seen it, so suggest a new one */
+  recoveryUsed?: boolean
+  onMakeRecoveryKey?: () => void
+  onGoToBackup?: () => void
+}): React.ReactElement {
   const autoLockMinutes = useSettingsStore(s => s.autoLockMinutes)
   const [backup, setBackup] = useState<{ enabled: boolean; destinationDir: string; lastError?: string | null } | null>(null)
   const [dbPath, setDbPath] = useState<string | null>(null)
@@ -59,8 +65,14 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
   const cloud = dbPath ? detectCloudSyncService(dbPath) : null
   const backupFailing = !!(backup?.enabled && backup.lastError)
 
+  const usedKey = hasRecovery === true && recoveryUsed
   const checks: Check[] = [
-    {
+    usedKey ? {
+      ok: false,
+      label: 'Your recovery key was used',
+      fix: 'Make a new one, so a lost password can be recovered again.',
+      action: { label: 'Make a new recovery key', onClick: onMakeRecoveryKey ?? (() => scrollToControl(CHECKUP_TARGETS.recoveryKey)) },
+    } : {
       ok: hasRecovery === true,
       label: hasRecovery === true ? 'Recovery key saved' : hasRecovery === null ? 'Checking for a recovery key…' : 'No recovery key yet',
       fix: 'Without one, a forgotten password means losing your data. Create it below and store it somewhere safe.',

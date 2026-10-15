@@ -244,7 +244,7 @@ export function exportWorkspaceStarter(): Starter {
   const data = {
     pulse_template: STARTER_FORMAT, type: 'workspace', id: 'my-setup', icon: 'users',
     name: 'Shared setup',
-    description: `Lists, columns and deadline rules shared on ${localDateString()}. No records or notes are included.`,
+    description: `Lists, columns and deadline rules shared on ${localDateString()}. No ${word('record', { many: true })} or ${word('activity', { many: true })} are included.`,
     ...(Object.keys(vocab).length ? { vocab } : {}),
     ...(Object.keys(features).length ? { suggestedFeatures: features } : {}),
     lists,

@@ -702,6 +702,10 @@ export interface IPCContract {
   /** An empty draft deletes it; false: the record can't take notes now (nothing stored) */
   'note-draft:put':  { args: [rowId: number, draft: NoteDraft]; return: boolean }
   'note-draft:list': { args: [];                                return: NoteDraftSummary[] }
+
+  /** Only a file Pulse itself saved this session (a backup) */
+  'app:show-in-folder':    { args: [filePath: string];                                         return: boolean }
+  'auth:recovery-key-used': { args: [];                                                        return: boolean }
 }
 
 /** Union of all typed channel names */

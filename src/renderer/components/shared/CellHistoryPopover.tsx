@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Clock } from 'lucide-react';
 import { IPC } from '../../../shared/ipc-channels';
 import { parseDbTimestamp } from '../../../shared/dates';
+import { formatDateAs } from '../../../shared/cellText';
 import { safeInvoke } from '../../utils/safeInvoke';
 import { dropdownVariants } from '../../utils/animations';
 
@@ -48,9 +49,14 @@ function formatRelativeTime(dateStr: string): string {
   return `${years} year${years === 1 ? '' : 's'} ago`;
 }
 
-function displayValue(val: string | null): string {
+/**
+ * A stored date (YYYY-MM-DD) reads the way the grid shows it, 10/30/2025, not
+ * 2025-10-30 (persona study #19). Built from the text's own parts, so no time zone
+ * can move it a day.
+ */
+export function displayValue(val: string | null): string {
   if (val === null || val === '') return '(empty)';
-  return val;
+  return /^\d{4}-\d{2}-\d{2}$/.test(val) ? formatDateAs(val, 'us') : val;
 }
 
 export function CellHistoryPopover({

@@ -27,8 +27,8 @@ export function ProfileSection({
   const fields = [
     { label: 'Full name', key: 'profile_name', value: profileName, setter: setProfileName, placeholder: 'Jane Smith' },
     { label: 'Title', key: 'profile_title', value: profileTitle, setter: setProfileTitle, placeholder: t('worker', { cap: true }) },
-    { label: 'Organization', key: 'profile_org', value: profileOrg, setter: setProfileOrg, placeholder: 'Community Services Agency' },
-    { label: 'Email', key: 'profile_email', value: profileEmail, setter: setProfileEmail, placeholder: 'jane.smith@agency.org' },
+    { label: 'Organization', key: 'profile_org', value: profileOrg, setter: setProfileOrg, placeholder: 'Your organization' },
+    { label: 'Email', key: 'profile_email', value: profileEmail, setter: setProfileEmail, placeholder: 'name@example.org' },
     { label: 'Phone', key: 'profile_phone', value: profilePhone, setter: setProfilePhone, placeholder: '(555) 123-4567' },
   ] as const
 

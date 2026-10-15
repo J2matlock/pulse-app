@@ -16,6 +16,7 @@ import { useWorkspaceStore } from '../../../../src/renderer/stores/workspaceStor
 import { IPC } from '../../../../src/shared/ipc-channels'
 import { FEATURES } from '../../../../src/shared/features'
 import { setWords } from '../../vocabFixture'
+import { GENERIC_VOCAB } from '../../../../src/shared/vocab'
 
 beforeEach(() => {
   mockInvoke.mockReset()
@@ -31,6 +32,13 @@ describe('FeaturesSection', () => {
     expect(screen.getByRole('checkbox', { name: /Time on case notes/ })).toBeTruthy()
     // Not built yet, so not offered
     expect(screen.getByRole('checkbox', { name: /^Files/ })).toBeTruthy()
+  })
+
+  it('heads the groups in the workspace words, so a school sees "Students" (persona study #14)', () => {
+    setWords({ ...GENERIC_VOCAB, record: { one: 'student', many: 'students', article: 'a' }, activity: { one: 'note', many: 'notes', article: 'a' } })
+    render(<FeaturesSection />)
+    const headings = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)
+    expect(headings).toEqual(['Students', 'Notes and activity', 'Planning', 'Reports'])
   })
 
   // E-02 (d): a switch alone doesn't tell anyone where the feature lives once it's on

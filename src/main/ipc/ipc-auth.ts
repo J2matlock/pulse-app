@@ -9,7 +9,8 @@ import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
 import { KEYRING_UNAVAILABLE } from '../../shared/authErrors'
-import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
+import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock, getBackupMadeInfo } from '../backup'
+import { recordRestore } from '../restore-history'
 import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
 import { ensureMaterialized } from '../appointments'
@@ -26,6 +27,7 @@ import {
   lockApp,
   getPasswordHint,
   hasRecoveryKey,
+  recoveryKeyWasUsed,
   getLoginLockoutRemaining,
   setStoredDbPath,
   areCredentialsUnreadable
@@ -76,6 +78,7 @@ export function registerAuthHandlers(): void {
   secureWrap(IPC.AUTH_GET_HINT, 'ipc-auth', () => ok(getPasswordHint()))
 
   secureWrap(IPC.AUTH_HAS_RECOVERY_KEY, 'ipc-auth', () => ok(hasRecoveryKey()))
+  secureWrap(IPC.AUTH_RECOVERY_KEY_USED, 'ipc-auth', () => ok(recoveryKeyWasUsed()))
 
   // Seconds left in a wrong-password lockout, so the lock screen can count down (audit F-27)
   secureWrap(IPC.AUTH_LOCKOUT_REMAINING, 'ipc-auth', () => ok(getLoginLockoutRemaining()))
@@ -170,6 +173,9 @@ export function registerAuthHandlers(): void {
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
       if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
       assertSafePath(backupPath)
+      // For the restore history (persona study #19); never a reason to fail
+      let madeAt: string | null = null
+      try { madeAt = (await getBackupMadeInfo(backupPath)).madeAt } catch (err) { logger.warn('ipc-auth', `[${corrId}] could not read when the backup was made: ${String(err)}`) }
 
       try {
         await restoreBackupOnNewInstall({ backupPath, secret, newPassword, hint })
@@ -182,6 +188,7 @@ export function registerAuthHandlers(): void {
       // three plain messages, and the key isn't kept, as after an unlock (F-031)
       const openFailure = openAfterUnlock()
       if (openFailure) return openFailure
+      recordRestore(madeAt)
       startScheduledBackup()
       logger.info('ipc-auth', `[${corrId}] restored from backup on new install`)
       return ok({ cloudWarning: checkCloudSyncPath(resolveDatabasePath()) })

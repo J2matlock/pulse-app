@@ -483,6 +483,12 @@ export const IPC = {
   NOTE_DRAFT_GET: 'note-draft:get',
   NOTE_DRAFT_PUT: 'note-draft:put',
   NOTE_DRAFT_LIST: 'note-draft:list',
+
+  // Show a file Pulse saved (a backup) in the system file manager
+  APP_SHOW_IN_FOLDER: 'app:show-in-folder',
+
+  // The current recovery key has unlocked Pulse once (Settings suggests a new one)
+  AUTH_RECOVERY_KEY_USED: 'auth:recovery-key-used',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

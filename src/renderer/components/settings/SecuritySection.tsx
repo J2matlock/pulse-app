@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { IPC } from '../../../shared/ipc-channels'
@@ -12,6 +12,7 @@ import { FieldError, fieldErrorProps } from '../shared/FieldError'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
 import { modHelp } from '../../utils/keys'
 import { saveBackupArchive } from '../../utils/saveBackupArchive'
+import { showBackupSaved } from '../shared/BackupSavedToast'
 
 /** What "Also re-encrypt my data" does, in plain words (P-001) */
 const REENCRYPT_HELP =
@@ -30,7 +31,10 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   // Which box the error is about, so that box can point at it (audit A06-14)
   const [pwError, setPwError] = useState<{ text: string; field: 'current' | 'next' | 'confirm' | null } | null>(null)
   const [pwSaving, setPwSaving] = useState(false)
+  const currentPwRef = useRef<HTMLInputElement>(null)
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null)
+  // The key unlocked Pulse after a forgotten password, so suggest a new one (persona study #19)
+  const [recoveryUsed, setRecoveryUsed] = useState(false)
   const [showRecoveryKeyModal, setShowRecoveryKeyModal] = useState(false)
   const [generatedRecoveryKey, setGeneratedRecoveryKey] = useState('')
   // Recovery-key changes need the current password (someone at an unlocked
@@ -68,7 +72,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
     setSavingBackup(true)
     try {
       const res = await saveBackupArchive()
-      if (res.status === 'saved') { toast.success('Backup saved.'); setReencrypted(false); setRecoveryRemoved(false) }
+      if (res.status === 'saved') { showBackupSaved(res.path); setReencrypted(false); setRecoveryRemoved(false) }
       else if (res.status === 'failed') toast.error(friendlyError(res.error, "The backup couldn't be saved. Try again, or choose a different folder."))
     } finally {
       setSavingBackup(false)
@@ -95,6 +99,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "We couldn't turn off the recovery key — try again")); return }
         closeKeyAction()
         setHasRecovery(false)
+        setRecoveryUsed(false)
         if (reencrypt) setReencrypted(true)
         toast.success(reencrypt ? 'Recovery key revoked and your data re-encrypted.' : 'Recovery key revoked.')
       }
@@ -106,11 +111,17 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   // Load recovery key status
   useEffect(() => {
     async function loadRecoveryStatus() {
-      const res = await safeInvoke(IPC.AUTH_HAS_RECOVERY_KEY)
+      const [res, used] = await Promise.all([safeInvoke(IPC.AUTH_HAS_RECOVERY_KEY), safeInvoke(IPC.AUTH_RECOVERY_KEY_USED)])
       if (res.ok) setHasRecovery(res.data)
+      if (used.ok) setRecoveryUsed(used.data === true)
     }
     loadRecoveryStatus()
   }, [])
+
+  function makeNewRecoveryKey() {
+    setPendingKeyAction('generate')
+    document.getElementById(CHECKUP_TARGETS.recoveryKey)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
 
   async function handleAutoLockChange(minutes: number) {
     useSettingsStore.setState({ autoLockMinutes: minutes })
@@ -134,8 +145,13 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         ? await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint, { reencrypt: true })
         : await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
       if (!res.ok) {
+        // Main's own words (auth.ts): a wrong password, or the lockout with its wait time
         const wrong = res.error === 'Incorrect password'
-        setPwError({ text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "We couldn't change your password — try again"), field: wrong ? 'current' : null })
+        const lockedOut = res.error.startsWith('Too many failed attempts')
+        setPwError({
+          text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "We couldn't change your password — try again"),
+          field: wrong || lockedOut ? 'current' : null,
+        })
         return
       }
       setPwForm({ current: '', next: '', confirm: '', hint: '' })
@@ -154,10 +170,28 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
     }
   }
 
+  // The form is long: a wrong current password is said by its box, and the box is
+  // brought into view and focused, so the message isn't scrolled past (persona study #9)
+  useEffect(() => {
+    if (pwError?.field !== 'current') return
+    const el = currentPwRef.current
+    if (!el) return
+    el.focus()
+    el.select()
+    el.scrollIntoView?.({ block: 'center' })
+  }, [pwError])
+
+  const pwErrorText = (field: 'current' | 'next' | 'confirm' | null): React.ReactElement | null =>
+    pwError && pwError.field === field
+      ? <p id="settings-pw-error" role="alert" className="mt-1 text-base text-red-600 dark:text-red-400 font-medium">{pwError.text}</p>
+      : null
+  const invalidBorder = (field: 'current' | 'next'): string =>
+    pwError?.field === field ? ' border-red-500 dark:border-red-400' : ''
+
   return (
     <>
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Security</h2>
-      <SecurityCheckup hasRecovery={hasRecovery} onGoToBackup={onGoToSection ? () => onGoToSection('backup') : undefined} />
+      <SecurityCheckup hasRecovery={hasRecovery} recoveryUsed={recoveryUsed} onMakeRecoveryKey={makeNewRecoveryKey} onGoToBackup={onGoToSection ? () => onGoToSection('backup') : undefined} />
 
       <div className="space-y-2">
         <label htmlFor="settings-auto-lock" className="block text-base font-medium text-slate-700 dark:text-slate-300">
@@ -199,20 +233,19 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
 
         {isChangingPassword && (
           <form onSubmit={e => void handleChangePassword(e)} className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            {pwError && (
-              <p id="settings-pw-error" role="alert" className="text-sm text-red-600 dark:text-red-400 font-medium">{pwError.text}</p>
-            )}
             <div>
               <label htmlFor="settings-pw-current" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Current password</label>
-              <input id="settings-pw-current" type="password" autoFocus className="input w-full" style={{ minHeight: 44 }}
+              <input id="settings-pw-current" ref={currentPwRef} type="password" autoFocus className={`input w-full${invalidBorder('current')}`} style={{ minHeight: 44 }}
                 aria-invalid={pwError?.field === 'current' || undefined} aria-describedby={pwError?.field === 'current' ? 'settings-pw-error' : undefined}
                 value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} required />
+              {pwErrorText('current')}
             </div>
             <div>
               <label htmlFor="settings-pw-new" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">New password</label>
-              <input id="settings-pw-new" type="password" className="input w-full" style={{ minHeight: 44 }}
+              <input id="settings-pw-new" type="password" className={`input w-full${invalidBorder('next')}`} style={{ minHeight: 44 }}
                 aria-invalid={pwError?.field === 'next' || undefined} aria-describedby={pwError?.field === 'next' ? 'settings-pw-strength settings-pw-error' : 'settings-pw-strength'}
                 value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} required minLength={12} />
+              {pwErrorText('next')}
               <PasswordStrength password={pwForm.next} id="settings-pw-strength" />
             </div>
             <div>
@@ -222,6 +255,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 {...fieldErrorProps('settings-pw-confirm', confirmMismatch, pwError?.field === 'confirm' ? 'settings-pw-error' : undefined)}
                 aria-invalid={confirmMismatch || pwError?.field === 'confirm' ? true : undefined} />
               <FieldError fieldId="settings-pw-confirm" error={confirmMismatch} announce={false} />
+              {!confirmMismatch && pwErrorText('confirm')}
             </div>
             <div>
               <label htmlFor="settings-pw-hint" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -248,6 +282,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 </span>
               </label>
             </details>
+            {/* Anything not about one box sits by the button the person just pressed */}
+            {pwErrorText(null)}
             <button type="submit" className="btn-primary w-full" style={{ minHeight: 44 }}
               disabled={pwSaving || (pwForm.next.length > 0 && pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm)}>
               {pwSaving ? (pwReencrypt ? 'Re-encrypting…' : 'Saving…') : 'Save new password'}
@@ -291,7 +327,9 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           <>
             <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
               <div className="w-2 h-2 bg-green-500 rounded-full" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">Recovery key active</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                {recoveryUsed ? 'Recovery key active, and it has been used once. Make a new one.' : 'Recovery key active'}
+              </span>
             </div>
             <div className="flex gap-3">
               <button
@@ -300,7 +338,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 className="btn-secondary"
                 style={{ minHeight: 44 }}
               >
-                Regenerate
+                {recoveryUsed ? 'Make a new recovery key' : 'Regenerate'}
               </button>
               <button
                 type="button"
@@ -397,6 +435,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           onClose={() => {
             setShowRecoveryKeyModal(false)
             setHasRecovery(true)
+            setRecoveryUsed(false)
           }}
         />
       )}

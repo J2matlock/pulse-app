@@ -109,6 +109,7 @@ vi.mock('../src/main/auth', () => ({
   lockApp: () => mockLockApp(),
   getPasswordHint: () => 'my pet name',
   hasRecoveryKey: () => true,
+  recoveryKeyWasUsed: () => true,
   setStoredDbPath: () => {},
   normalizePassword: (pw: string) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -303,6 +304,12 @@ describe('AUTH_VERIFY_RECOVERY_KEY', () => {
   })
 })
 
+describe('AUTH_RECOVERY_KEY_USED', () => {
+  it('says whether the current recovery key has unlocked Pulse (Settings suggests a new one)', async () => {
+    expect(await invoke(IPC.AUTH_RECOVERY_KEY_USED)).toEqual({ ok: true, data: true })
+  })
+})
+
 describe('AUTH_CHANGE_PASSWORD', () => {
   it('changes password with valid inputs', async () => {
     const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'new-password-123', 'new hint') as any
@@ -313,7 +320,8 @@ describe('AUTH_CHANGE_PASSWORD', () => {
   it('fails with wrong old password', async () => {
     const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'wrong-old', 'new-password-123', 'hint') as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/Incorrect/)
+    // Exactly this text: Settings → Security matches it to say "Your current password is incorrect." by the box
+    expect(r.error).toBe('Incorrect password')
   })
 
   it('checks the current password at the edge too: wrong type or over 1024 characters (Q-056)', async () => {

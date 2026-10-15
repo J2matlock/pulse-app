@@ -66,6 +66,7 @@ interface SecureStore {
   salt_recovery: string        // hex — salt for recovery key PBKDF2 (if enabled)
   wrapped_db_key_recovery: string  // hex — DB key encrypted by recovery-derived key (if enabled)
   recovery_key_hash: string    // bcrypt hash of recovery key for pre-validation
+  recovery_used_at: string     // ISO time the current recovery key last unlocked Pulse (not secret): Settings nudges for a new one
   // Pending slot (P-001): the new DB key wrapped by the new password, present only
   // while a re-encrypt is in progress or was cut short by a crash
   pending_password_hash: string
@@ -78,7 +79,7 @@ interface SecureStore {
 const HEX64 = /^[0-9a-f]{64}$/
 
 const PENDING_FIELDS = ['pending_password_hash', 'pending_password_hint', 'pending_salt_password', 'pending_wrapped_db_key_password'] as const
-const RECOVERY_FIELDS = ['recovery_key_hash', 'salt_recovery', 'wrapped_db_key_recovery'] as const
+const RECOVERY_FIELDS = ['recovery_key_hash', 'salt_recovery', 'wrapped_db_key_recovery', 'recovery_used_at'] as const
 
 const dataDir = getPortableDataDir()
 ensurePrivateDir(dataDir)
@@ -316,6 +317,11 @@ export function isPasswordSetup(): boolean {
 
 export function hasRecoveryKey(): boolean {
   return store.has('recovery_key_hash')
+}
+
+/** The current recovery key has unlocked Pulse once already: someone saw it, so make a new one (persona study #19) */
+export function recoveryKeyWasUsed(): boolean {
+  return store.has('recovery_key_hash') && store.has('recovery_used_at')
 }
 
 // Known limitation: when safeStorage.isEncryptionAvailable() is false (e.g., Linux
@@ -683,6 +689,8 @@ export async function generateRecoveryKey(currentPassword?: string): Promise<str
     salt_recovery: saltRecovery.toString('hex') as never,
     wrapped_db_key_recovery: secureValue(wrappedDbKey) as never,
   })
+  // A new key hasn't been used
+  store.delete('recovery_used_at')
   snapshotSecureStore()
 
   logger.info('auth', 'Recovery key generated')
@@ -725,6 +733,11 @@ export async function verifyAndUnlockRecovery(recoveryKey: string): Promise<void
   setLiveKey(Buffer.from(rawDbKey, 'hex'))
   liveKeySlot = 'recovery'
   credentialGrace = 'recovery'
+  // Not a secret, and it doesn't change how the key unlocks: Settings uses it to suggest a new key
+  try {
+    store.set('recovery_used_at', new Date().toISOString())
+    snapshotSecureStore()
+  } catch (err) { logNonFatal('auth', 'could not note that the recovery key was used', err) }
   logger.info('auth', 'Recovery unlock successful')
 }
 
@@ -766,6 +779,7 @@ export async function revokeRecoveryKey(currentPassword?: string): Promise<void>
   store.delete('recovery_key_hash')
   store.delete('salt_recovery')
   store.delete('wrapped_db_key_recovery')
+  store.delete('recovery_used_at')
   snapshotSecureStore()
 }
 

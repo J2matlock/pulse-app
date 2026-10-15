@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { FEATURES, isOn, type FeatureGroup, type FeatureKey } from '../../../shared/features'
+import { FEATURES, FEATURE_GROUP_LABEL, isOn, type FeatureGroup, type FeatureKey } from '../../../shared/features'
 import { FEATURE_PLACES } from '../../../shared/featurePlaces'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useVocab } from '../../hooks/useVocab'
@@ -57,7 +57,7 @@ export function FeaturesSection(): React.ReactElement {
         if (items.length === 0) return null
         return (
           <section key={group} className="space-y-2" aria-labelledby={`features-${group}`}>
-            <h3 id={`features-${group}`} className="text-base font-semibold text-slate-700 dark:text-slate-200">{group}</h3>
+            <h3 id={`features-${group}`} className="text-base font-semibold text-slate-700 dark:text-slate-200">{f(FEATURE_GROUP_LABEL[group])}</h3>
             {items.map(def => (
               <label key={def.key} className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
                 <input

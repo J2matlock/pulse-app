@@ -35,7 +35,7 @@ Only two things, both over HTTPS, and neither sends client data:
 - Shared setup files (Settings → Workspace → "Share your setup") hold structure only: lists, columns, rules, checklists, note types, words and letter templates. No records or notes.
 
 ### Business associate agreement
-Because BaringaSoft has no access to the data Pulse stores, we are not a business associate under HHS guidance on software vendors, so a BAA is generally not required. *(Have your compliance office confirm for your situation.)*
+BaringaSoft never receives, stores or sends the data Pulse holds. A software maker with no access to the data is generally not a business associate, but your privacy or compliance officer decides whether a BAA is needed for your situation.
 
 ### More detail
 - Safeguard-by-safeguard map: *HIPAA Safeguards Map*

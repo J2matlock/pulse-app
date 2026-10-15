@@ -30,6 +30,12 @@ describe('ProfileSection', () => {
     expect((screen.getByLabelText('Title') as HTMLInputElement).placeholder).toBe('Case manager')
   })
 
+  it('suggests a neutral organization and email, not an agency (persona study #14)', () => {
+    renderSection()
+    expect((screen.getByLabelText('Organization') as HTMLInputElement).placeholder).toBe('Your organization')
+    expect((screen.getByLabelText('Email') as HTMLInputElement).placeholder).toBe('name@example.org')
+  })
+
   it('uses general words in a new workspace', () => {
     setWords(GENERIC_VOCAB)
     renderSection()

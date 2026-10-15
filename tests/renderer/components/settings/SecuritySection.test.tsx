@@ -78,6 +78,58 @@ describe('SecuritySection — change password', () => {
     expect(described).toContain('Passwords do not match')
   })
 
+  it('says a wrong current password under that box, focuses it and brings it into view (persona study #9)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:change-password') return Promise.resolve({ ok: false, error: 'Incorrect password' })
+      return Promise.resolve({ ok: true, data: true })
+    })
+    const scrolled = vi.fn()
+    Element.prototype.scrollIntoView = scrolled
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(screen.getByText('Change…'))
+    fillForm('wrong', 'a much stronger passphrase 42!')
+    const save = screen.getByRole('button', { name: 'Save new password' })
+    save.focus()
+    fireEvent.click(save)
+    const message = await screen.findByText('Your current password is incorrect.')
+    const current = screen.getByLabelText('Current password') as HTMLInputElement
+    // Right under the box, not at the top of the form
+    expect(current.nextElementSibling).toBe(message)
+    expect(current.className).toContain('border-red-500')
+    await waitFor(() => expect(document.activeElement).toBe(current))
+    expect(scrolled).toHaveBeenCalledWith({ block: 'center' })
+  })
+
+  it('shows the lockout with its wait time under the current password too', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:change-password') return Promise.resolve({ ok: false, error: 'Too many failed attempts. Try again in 30 seconds.' })
+      return Promise.resolve({ ok: true, data: true })
+    })
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(screen.getByText('Change…'))
+    fillForm('wrong', 'a much stronger passphrase 42!')
+    fireEvent.click(screen.getByRole('button', { name: 'Save new password' }))
+    const message = await screen.findByText('Too many failed attempts. Try again in 30 seconds.')
+    const current = screen.getByLabelText('Current password')
+    expect(current.nextElementSibling).toBe(message)
+    expect(current.getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('puts an error that is about no one box next to the Save button', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:change-password') return Promise.resolve({ ok: false, error: 'The disk is full, so nothing could be saved.' })
+      return Promise.resolve({ ok: true, data: true })
+    })
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(screen.getByText('Change…'))
+    fillForm('old', 'a much stronger passphrase 42!')
+    const save = screen.getByRole('button', { name: 'Save new password' })
+    fireEvent.click(save)
+    const message = await screen.findByText('The disk is full, so nothing could be saved.')
+    expect(message.nextElementSibling).toBe(save)
+    expect(screen.getByLabelText('Current password').getAttribute('aria-invalid')).toBeNull()
+  })
+
   it('keeps Save disabled while the two new passwords differ', () => {
     render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
     fireEvent.click(screen.getByText('Change…'))
@@ -103,6 +155,23 @@ describe('SecuritySection — recovery key (F-032)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Regenerate' }))
     expect(screen.getByText(/will no longer unlock Pulse\. Backups made before now still open with the old key/)).toBeTruthy()
     expect(screen.queryByText(/will stop working/)).toBeNull()
+  })
+})
+
+describe('SecuritySection — a used recovery key (persona study #19)', () => {
+  beforeEach(() => {
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'auth:has-recovery-key' || channel === 'auth:recovery-key-used' ? { ok: true, data: true } : { ok: false, error: 'nope' }))
+  })
+
+  it('nudges for a new key, and the checkup button opens the new-key form', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    expect(await screen.findByText('Your recovery key was used')).toBeTruthy()
+    expect(screen.getByText(/it has been used once\. Make a new one\./)).toBeTruthy()
+    // The checkup's button (the recovery key section has one too)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Make a new recovery key' })[0]!)
+    expect(await screen.findByText('Create a new recovery key?')).toBeTruthy()
   })
 })
 

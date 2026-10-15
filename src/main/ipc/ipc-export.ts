@@ -47,6 +47,8 @@ import { atomicWriteFileAsync } from '../export-shared'
 import { describeRestoreError } from '../restore-errors'
 import { fileWord, safeFileName } from '../../shared/fileName'
 import { deleteKeepingCopy } from '../library-restore'
+import { rememberSavedFile } from '../saved-files'
+import { readRestoreHistory, recordRestore, type RestoreEntry } from '../restore-history'
 
 /** Row and column choices for an export: whole positive ids, and not absurdly many */
 function validIdList(v: unknown): v is number[] {
@@ -117,6 +119,17 @@ function openRestoredOrRollBack(corrId: string, safetyPath: string): ReturnType<
   return fail("That backup couldn't be opened, so Pulse put your previous data back. Nothing was lost.")
 }
 
+/**
+ * Read before a restore replaces the data: when the backup was made, and the
+ * restore history so far, so the restored data keeps it (persona study #19).
+ * Neither can fail the restore.
+ */
+async function restoreTrace(backupPath: string): Promise<{ madeAt: string | null; carried: RestoreEntry[] }> {
+  let madeAt: string | null = null
+  try { madeAt = (await getBackupMadeInfo(backupPath)).madeAt } catch (err) { logNonFatal('ipc-export', 'read when a backup was made', err) }
+  return { madeAt, carried: readRestoreHistory() }
+}
+
 const define = handlersFor('ipc-export')
 
 export function registerExportHandlers(): void {
@@ -157,7 +170,10 @@ export function registerExportHandlers(): void {
   define(IPC.BACKUP_MANUAL_CREATE, [z.custom<string>()], async (destPath) => {
     assertSafePath(destPath)
     try {
-      return ok(await runManualBackup(destPath))
+      const result = await runManualBackup(destPath)
+      // So "Backup saved to … · Show" can reveal this file, and only files like it
+      rememberSavedFile(result.destPath)
+      return ok(result)
     } catch (err) {
       logger.error('ipc-export', 'Manual backup failed', err)
       return fail(describeBackupError(err))
@@ -172,6 +188,7 @@ export function registerExportHandlers(): void {
       logger.info('ipc-export', `[${corrId}] restoring from auto backup: ${backupDbPath}`)
       const unusable = await refuseUnusableBackup(backupDbPath)
       if (unusable) return unusable
+      const trace = await restoreTrace(backupDbPath)
       let safetyPath: string
       try {
         safetyPath = await restoreFromDb(backupDbPath)
@@ -180,6 +197,7 @@ export function registerExportHandlers(): void {
       }
       const openFailure = openRestoredOrRollBack(corrId, safetyPath)
       if (openFailure) return openFailure
+      recordRestore(trace.madeAt, trace.carried)
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
@@ -194,6 +212,7 @@ export function registerExportHandlers(): void {
       const isPulseBak = backupPath.endsWith('.pulse-backup')
       const unusable = await refuseUnusableBackup(backupPath)
       if (unusable) return unusable
+      const trace = await restoreTrace(backupPath)
       let safetyPath: string
       try {
         safetyPath = isPulseBak ? await restoreFromPulseBackup(backupPath) : await restoreFromDb(backupPath)
@@ -202,6 +221,7 @@ export function registerExportHandlers(): void {
       }
       const openFailure = openRestoredOrRollBack(corrId, safetyPath)
       if (openFailure) return openFailure
+      recordRestore(trace.madeAt, trace.carried)
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
@@ -218,6 +238,7 @@ export function registerExportHandlers(): void {
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
       if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
       assertSafePath(backupPath)
+      const trace = await restoreTrace(backupPath)
       let result: { safetyPath: string }
       try {
         result = await restoreOtherPulseBackup({ backupPath, secret, newPassword, hint })
@@ -239,6 +260,7 @@ export function registerExportHandlers(): void {
         try { _e.sender.send(IPC.AUTH_FORCE_LOCK) } catch (sendErr) { logNonFatal('ipc-export', 'send force-lock after a failed open', sendErr) }
         return fail(dbOpenFailedCode(kind))
       }
+      recordRestore(trace.madeAt, trace.carried)
       logger.info('ipc-export', `[${corrId}] restored another Pulse's backup, safety copy at ${result.safetyPath}`)
       return ok({ safetyPath: result.safetyPath })
     })
