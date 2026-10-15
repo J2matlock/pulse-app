@@ -1,10 +1,10 @@
 // Must stay the first import: pins the data folder and key-store name before anything reads them
 import './app-identity'
 import { isOpenableExternal } from './external-links'
-import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu, screen } from 'electron'
+import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu, screen, nativeTheme } from 'electron'
 import { buildMacMenuTemplate } from './app-menu'
 import { configureSpellchecker, spellcheckAllowed } from './spellcheck'
-import { windowStateToSave, restorableWindowState, type SavedWindowState } from './window-state'
+import { windowStateToSave, restorableWindowState, windowBackground, type SavedWindowState } from './window-state'
 import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
@@ -224,7 +224,7 @@ function createWindow(): void {
     icon: isDev
       ? join(__dirname, '../../build/icon-256.png')
       : join(process.resourcesPath, 'icon.png'),
-    backgroundColor: '#F8FAFC',  // light mode bg, prevents white flash
+    backgroundColor: windowBackground(nativeTheme.shouldUseDarkColors),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       // sandbox, contextIsolation, nodeIntegration off, webSecurity, no insecure content, no <webview>:

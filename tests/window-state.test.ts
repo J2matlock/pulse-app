@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { windowStateToSave, restorableWindowState } from '../src/main/window-state'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { windowStateToSave, restorableWindowState, windowBackground } from '../src/main/window-state'
 
 const laptop = { x: 0, y: 0, width: 1440, height: 870 }
 const external = { x: 1440, y: 0, width: 2560, height: 1400 }
@@ -35,5 +37,18 @@ describe('window state', () => {
   it('leaves a state with no saved position alone', () => {
     const saved = { width: 1280, height: 800, maximized: true }
     expect(restorableWindowState(saved, [laptop])).toEqual(saved)
+  })
+})
+
+describe('window background before the page paints (Q8)', () => {
+  it('is dark when the computer is in dark mode, light otherwise', () => {
+    expect(windowBackground(true)).toBe('#0F172A')
+    expect(windowBackground(false)).toBe('#F8FAFC')
+  })
+
+  it('createWindow asks the computer which one, instead of a fixed light colour', () => {
+    const src = readFileSync(join(__dirname, '../src/main/index.ts'), 'utf8')
+    expect(src).toMatch(/backgroundColor: windowBackground\(nativeTheme\.shouldUseDarkColors\)/)
+    expect(src).not.toMatch(/backgroundColor: '#/)
   })
 })
