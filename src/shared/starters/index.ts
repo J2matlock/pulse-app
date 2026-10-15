@@ -55,6 +55,7 @@ import familyHealth from './family-health.json'
 import volunteerManager from './volunteer-manager.json'
 import drivingSchool from './driving-school.json'
 import homeServices from './home-services.json'
+import homeHealthNursing from './home-health-nursing.json'
 
 export const BUILTIN_STARTERS: readonly unknown[] = [
   // Human services
@@ -66,6 +67,7 @@ export const BUILTIN_STARTERS: readonly unknown[] = [
   vocationalRehab,
   victimAdvocate,
   // Health
+  homeHealthNursing,
   providerCredentialing,
   priorAuthorization,
   behaviorAnalyst,

@@ -227,6 +227,8 @@ export const starterSchema = z.object({
     list: key,
     /** One line on what it answers, shown with the report */
     description: optionalText(200),
+    /** Shown on the dashboard, when the example's features are turned on (like `dashboardCards`) */
+    pinned: z.boolean().optional(),
     config: z.record(z.string(), z.unknown()),
   }).strict()).max(20).optional(),
 }).strict().refine(s => (s.lists ? 1 : 0) + (s.variants ? 1 : 0) === 1, { message: 'A starter has either lists or variants' })

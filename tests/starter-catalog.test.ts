@@ -139,6 +139,10 @@ const EXPECTED: Record<string, Expected> = {
       'care-team': { columns: ['Role', 'Looks after'] },
     },
   },
+  'home-health-nursing': {
+    disclaimer: true,
+    lists: { patients: { columns: ['Last visit', 'Next visit', 'Recertification due', 'Plan of care signed', 'Physician', 'Insurance', 'Status'], rules: ['Every 7 days', 'Due date', 'Every 60 days'], required: ['Name', 'Phone'] } },
+  },
   'prior-authorization': {
     lists: { patients: { columns: ['Visits authorized', 'Authorization start', 'Authorization end', 'Visits left'], rules: ['Visits left'] } },
   },

@@ -503,6 +503,53 @@ describe('human-services starter', () => {
   })
 })
 
+describe('home health nursing starter (R8)', () => {
+  const pinnedIds = () => JSON.parse(setting('dashboard_reports') ?? '[]') as number[]
+  const reportId = (name: string) => (testDb.db.prepare('SELECT id FROM report_definitions WHERE name = ?').get(name) as { id: number } | undefined)?.id
+
+  it('turns on time, mileage and appointments, speaks of patients and visit notes, and pins the miles report', async () => {
+    const { applyStarter, previewStarter } = await starters()
+    const p = previewStarter({ builtinId: 'home-health-nursing' })
+    expect(p.features.map(f => f.key)).toEqual(expect.arrayContaining(['timeTracking', 'mileage', 'appointments']))
+    expect(p.words.map(w => w.proposed)).toEqual(expect.arrayContaining(['patients', 'visit notes']))
+    const res = applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: true, applyFeatures: true, sampleData: true })
+    expect(res.warnings).toEqual([])
+    expect(JSON.parse(setting('workspace_features')!)).toMatchObject({ timeTracking: true, mileage: true, appointments: true, requirements: false })
+    expect(JSON.parse(setting('workspace_vocab')!)).toMatchObject({ record: { one: 'patient' }, activity: { one: 'visit note' }, appointment: { one: 'visit' } })
+    const miles = reportId('Miles and minutes this month')
+    expect(miles).toBeTypeOf('number')
+    expect(pinnedIds()).toEqual([miles])
+    // The ready-made reports say visit notes, not case notes (Candy's "Case notes per month")
+    const names = (testDb.db.prepare('SELECT name FROM report_definitions').all() as Array<{ name: string }>).map(r => r.name)
+    expect(names).toContain('Visit notes per month')
+    expect(names.join(' ')).not.toMatch(/case note/i)
+    // Logging a Visit note moves Last visit
+    const lastVisit = testDb.db.prepare("SELECT config FROM columns WHERE grid_id = ? AND name = 'Last visit'").get(res.gridIds.patients) as { config: string }
+    expect(JSON.parse(lastVisit.config)).toMatchObject({ note_updates: ['visit'] })
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM appointments').get() as { n: number }).n).toBeGreaterThan(0)
+  })
+
+  it('adds the lists without samples, and pins nothing when its features are left alone', async () => {
+    const { applyStarter } = await starters()
+    const res = applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(res.warnings).toEqual([])
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?').get(res.gridIds.patients) as { n: number }).n).toBe(0)
+    expect(reportId('Miles and minutes this month')).toBeTypeOf('number')
+    expect(pinnedIds()).toEqual([])
+  })
+
+  it('keeps reports already on the dashboard and doesn\'t pin twice', async () => {
+    const { applyStarter } = await starters()
+    testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('dashboard_reports', '[999]')").run()
+    applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: false, applyFeatures: true, sampleData: false })
+    applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: false, applyFeatures: true, sampleData: false })
+    const ids = pinnedIds()
+    expect(ids[0]).toBe(999)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids.length).toBe(3) // 999, then the miles report on each of the two lists
+  })
+})
+
 describe('sharing a setup', () => {
   function seedWorkspace() {
     const db = testDb.db

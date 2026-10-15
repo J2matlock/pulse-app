@@ -461,7 +461,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
     if (opts.applyFeatures && s.dashboardCards?.length) saveSetting.run('dashboard_layout', JSON.stringify(s.dashboardCards))
 
     // Ready-made reports for the lists just added, after the words so they're named in them
-    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key)))
+    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key), opts.applyFeatures))
 
     // Note formats and document templates are added next to the user's own
     if (s.noteFormats?.length) {
