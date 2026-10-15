@@ -32,10 +32,7 @@
     "spacing": 2
   },
   "components/calendar/AppointmentActions.tsx": {
-    "inline-size": 2,
-    "native-title": 1,
-    "raw-button": 12,
-    "raw-menu": 1
+    "raw-button": 11
   },
   "components/calendar/AppointmentDialog.tsx": {
     "radius": 2,
@@ -105,14 +102,12 @@
     "raw-button": 1
   },
   "components/contacts/CategoryManager.tsx": {
-    "action-colour": 1,
-    "inline-size": 9,
+    "inline-size": 2,
     "native-title": 3,
-    "radius": 17,
-    "raw-button": 3,
+    "radius": 10,
     "raw-dialog": 1,
-    "spacing": 7,
-    "text-size": 16
+    "spacing": 4,
+    "text-size": 11
   },
   "components/contacts/ContactCard.tsx": {
     "native-title": 3,
@@ -145,13 +140,9 @@
     "text-size": 33
   },
   "components/contacts/ContactImportExport.tsx": {
-    "inline-size": 7,
-    "native-title": 3,
-    "radius": 9,
-    "raw-button": 5,
+    "radius": 2,
     "raw-dialog": 1,
-    "spacing": 10,
-    "text-size": 14
+    "text-size": 8
   },
   "components/contacts/ContactInteractionLog.tsx": {
     "inline-size": 7,
@@ -214,7 +205,6 @@
   "components/grid/AcuityConfigPanel.tsx": {
     "native-title": 5,
     "radius": 3,
-    "raw-switch": 1,
     "spacing": 4
   },
   "components/grid/AddColumnPanel.tsx": {
@@ -225,11 +215,10 @@
     "text-size": 5
   },
   "components/grid/BulkActionBar.tsx": {
-    "action-colour": 5,
+    "action-colour": 4,
     "inline-size": 2,
     "native-title": 2,
-    "raw-button": 2,
-    "spacing": 10
+    "spacing": 7
   },
   "components/grid/BulkEditDialog.tsx": {
     "inline-size": 2,
@@ -268,8 +257,7 @@
     "text-size": 1
   },
   "components/grid/ColorKeyPopover.tsx": {
-    "native-title": 1,
-    "radius": 1
+    "native-title": 1
   },
   "components/grid/ColumnHeader.tsx": {
     "native-title": 6,
@@ -341,11 +329,9 @@
     "text-size": 3
   },
   "components/grid/FindReplaceBar.tsx": {
-    "inline-size": 2,
-    "native-title": 5,
+    "native-title": 3,
     "radius": 4,
-    "raw-button": 1,
-    "spacing": 9
+    "spacing": 5
   },
   "components/grid/GridContextMenu.tsx": {
     "raw-menu": 1
@@ -375,7 +361,6 @@
     "spacing": 3
   },
   "components/grid/GridStatusFooter.tsx": {
-    "radius": 2,
     "spacing": 1
   },
   "components/grid/GridToolbar.tsx": {
@@ -407,7 +392,7 @@
   "components/grid/ImportWizard.tsx": {
     "radius": 4,
     "raw-dialog": 1,
-    "spacing": 4,
+    "spacing": 1,
     "text-size": 1
   },
   "components/grid/LinkCell.tsx": {
@@ -440,10 +425,6 @@
     "raw-button": 2,
     "text-size": 8
   },
-  "components/grid/SettingSwitchRow.tsx": {
-    "radius": 1,
-    "raw-switch": 1
-  },
   "components/grid/SortableRow.tsx": {
     "native-title": 4,
     "radius": 3,
@@ -456,7 +437,7 @@
     "raw-button": 2,
     "raw-dialog": 1,
     "spacing": 10,
-    "text-size": 13
+    "text-size": 11
   },
   "components/grid/importWizardShared.tsx": {
     "radius": 1,
@@ -467,11 +448,9 @@
     "spacing": 1
   },
   "components/layout/Sidebar.tsx": {
-    "action-colour": 1,
     "inline-size": 3,
     "native-title": 6,
     "radius": 5,
-    "raw-button": 2,
     "raw-dialog": 1,
     "raw-menu": 1,
     "spacing": 4,
@@ -505,27 +484,24 @@
     "native-title": 3,
     "radius": 6,
     "raw-button": 1,
-    "raw-menu": 1,
-    "spacing": 9,
+    "spacing": 7,
     "text-size": 2
   },
   "components/profile/CaseLogEditHistory.tsx": {
     "spacing": 1
   },
   "components/profile/CaseLogEntry.tsx": {
-    "action-colour": 2,
     "native-title": 5,
-    "radius": 13,
+    "radius": 11,
     "raw-button": 3,
     "spacing": 4,
     "text-size": 2
   },
   "components/profile/Checklist.tsx": {
     "native-title": 4,
-    "radius": 8,
+    "radius": 7,
     "raw-dialog": 1,
-    "raw-switch": 1,
-    "spacing": 25,
+    "spacing": 20,
     "text-size": 7
   },
   "components/profile/ChecklistAddDialog.tsx": {
@@ -552,17 +528,13 @@
     "text-size": 1
   },
   "components/profile/ChecklistToolbar.tsx": {
-    "inline-size": 1,
-    "native-title": 1,
-    "raw-button": 1,
-    "raw-menu": 1
+    "raw-button": 1
   },
   "components/profile/DeadlinePanel.tsx": {
-    "inline-size": 4,
-    "native-title": 3,
-    "radius": 6,
-    "raw-button": 1,
-    "text-size": 7
+    "inline-size": 2,
+    "native-title": 2,
+    "radius": 5,
+    "text-size": 6
   },
   "components/profile/GridDataSummary.tsx": {
     "inline-size": 1,
@@ -617,17 +589,11 @@
     "raw-dialog": 1
   },
   "components/profile/ProfileHeader.tsx": {
-    "inline-size": 4,
-    "native-title": 5,
-    "radius": 18,
-    "raw-button": 3,
-    "spacing": 10,
-    "text-size": 9
-  },
-  "components/profile/ProfileMoreMenu.tsx": {
     "inline-size": 2,
-    "raw-menu": 1,
-    "text-size": 1
+    "native-title": 5,
+    "radius": 16,
+    "spacing": 9,
+    "text-size": 8
   },
   "components/profile/RecordAppointments.tsx": {
     "radius": 1,
@@ -711,22 +677,19 @@
   "components/settings/AppearanceSection.tsx": {
     "inline-size": 3,
     "radius": 1,
-    "raw-switch": 1,
     "spacing": 1,
     "text-size": 1
   },
   "components/settings/BackupSection.tsx": {
     "inline-size": 6,
-    "radius": 6,
+    "radius": 5,
     "raw-button": 7,
-    "raw-dialog": 1,
     "spacing": 6,
-    "text-size": 5
+    "text-size": 4
   },
   "components/settings/DataSection.tsx": {
-    "action-colour": 1,
-    "inline-size": 7,
-    "raw-button": 10,
+    "inline-size": 6,
+    "raw-button": 9,
     "spacing": 1,
     "text-size": 4
   },
@@ -745,10 +708,7 @@
     "raw-button": 4
   },
   "components/settings/MoveComputerWizard.tsx": {
-    "radius": 2,
-    "raw-button": 1,
-    "raw-dialog": 1,
-    "spacing": 3
+    "spacing": 1
   },
   "components/settings/NotesSection.tsx": {
     "radius": 1,
@@ -775,52 +735,23 @@
   "components/settings/WorkspaceSection.tsx": {
     "raw-button": 3
   },
-  "components/shared/AuditReportDialog.tsx": {
-    "radius": 2,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "spacing": 1
-  },
   "components/shared/CellHistoryPopover.tsx": {
     "text-size": 5
-  },
-  "components/shared/ChooseListDialog.tsx": {
-    "radius": 1,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "text-size": 1
   },
   "components/shared/CollapsibleSection.tsx": {
     "inline-size": 1
   },
   "components/shared/ColumnSelectDialog.tsx": {
-    "inline-size": 2,
-    "radius": 3,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "spacing": 1,
-    "text-size": 9
+    "radius": 2,
+    "text-size": 6
   },
   "components/shared/CommandPalette.tsx": {
     "radius": 12,
     "spacing": 11,
     "text-size": 8
   },
-  "components/shared/ConfirmDialog.tsx": {
-    "action-colour": 1,
-    "inline-size": 2,
-    "native-title": 3,
-    "radius": 2,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "spacing": 2,
-    "text-size": 2
-  },
   "components/shared/EmptyState.tsx": {
-    "inline-size": 1,
-    "raw-button": 1,
-    "spacing": 1,
-    "text-size": 1
+    "spacing": 1
   },
   "components/shared/ErrorBoundary.tsx": {
     "raw-button": 2,
@@ -845,17 +776,11 @@
     "radius": 1
   },
   "components/shared/ImportPreviewModal.tsx": {
-    "radius": 3,
-    "raw-button": 1,
-    "raw-dialog": 1,
-    "spacing": 5,
-    "text-size": 1
+    "radius": 1
   },
   "components/shared/KeyboardShortcutsModal.tsx": {
-    "native-title": 1,
-    "radius": 5,
-    "raw-dialog": 1,
-    "spacing": 4
+    "radius": 3,
+    "spacing": 3
   },
   "components/shared/LoadingSpinner.tsx": {
     "spacing": 1
@@ -874,23 +799,12 @@
     "spacing": 3,
     "text-size": 2
   },
-  "components/shared/RecoveryKeyDisplayModal.tsx": {
-    "inline-size": 3,
-    "radius": 1,
-    "raw-button": 3,
-    "raw-dialog": 1,
-    "spacing": 1
-  },
   "components/shared/RecoveryKeyReminderToast.tsx": {
     "inline-size": 2,
     "raw-button": 2
   },
   "components/shared/ResetPasswordAfterRecoveryDialog.tsx": {
-    "inline-size": 1,
-    "radius": 1,
-    "raw-button": 1,
-    "raw-dialog": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "components/shared/RestoreFromBackupForm.tsx": {
     "inline-size": 2,
@@ -904,11 +818,6 @@
     "raw-button": 3,
     "raw-dialog": 1,
     "spacing": 1
-  },
-  "components/shared/SecuritySummaryDialog.tsx": {
-    "radius": 2,
-    "raw-button": 1,
-    "raw-dialog": 1
   },
   "components/shared/Tooltip.tsx": {
     "radius": 1,
@@ -931,11 +840,6 @@
     "radius": 3,
     "spacing": 7
   },
-  "components/shared/UndoToast.tsx": {
-    "inline-size": 1,
-    "radius": 2,
-    "spacing": 3
-  },
   "components/shared/UnknownPlaceholders.tsx": {
     "radius": 1
   },
@@ -947,10 +851,6 @@
     "radius": 1
   },
   "components/shared/WhatsNewModal.tsx": {
-    "inline-size": 1,
-    "radius": 2,
-    "raw-button": 1,
-    "raw-dialog": 1,
     "spacing": 1
   },
   "components/stages/StageSettingsDialog.tsx": {
@@ -968,11 +868,10 @@
     "spacing": 7
   },
   "components/tasks/TaskItem.tsx": {
-    "inline-size": 1,
-    "native-title": 7,
-    "radius": 10,
-    "raw-menu": 3,
-    "spacing": 11,
+    "native-title": 6,
+    "radius": 9,
+    "raw-menu": 2,
+    "spacing": 10,
     "text-size": 3
   },
   "views/CalendarView.tsx": {
@@ -992,18 +891,17 @@
     "text-size": 10
   },
   "views/DashboardView.tsx": {
-    "inline-size": 3,
+    "inline-size": 2,
     "native-title": 1,
     "radius": 1,
-    "raw-button": 5,
-    "spacing": 7
+    "raw-button": 4,
+    "spacing": 6
   },
   "views/FocusModeView.tsx": {
     "action-colour": 1,
-    "inline-size": 4,
+    "inline-size": 2,
     "radius": 1,
-    "raw-button": 2,
-    "spacing": 8,
+    "spacing": 6,
     "text-size": 1
   },
   "views/GridView.tsx": {
@@ -1021,9 +919,9 @@
     "text-size": 2
   },
   "views/LetterTemplateView.tsx": {
-    "native-title": 6,
+    "native-title": 4,
     "radius": 2,
-    "spacing": 9,
+    "spacing": 6,
     "text-size": 1
   },
   "views/LockScreenView.tsx": {
@@ -1062,10 +960,9 @@
     "text-size": 3
   },
   "views/SnippetsView.tsx": {
-    "action-colour": 1,
-    "native-title": 4,
-    "radius": 8,
-    "raw-button": 3,
+    "native-title": 2,
+    "radius": 7,
+    "raw-button": 2,
     "raw-dialog": 1,
     "spacing": 9,
     "text-size": 7
@@ -1103,18 +1000,6 @@
     "radius": 2,
     "spacing": 10
   },
-  "views/dashboard/DoneOnDayDialog.tsx": {
-    "radius": 1,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "text-size": 1
-  },
-  "views/dashboard/ExtendDeadlineDialog.tsx": {
-    "radius": 1,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "text-size": 1
-  },
   "views/dashboard/FollowUpDashRow.tsx": {
     "native-title": 1,
     "radius": 2,
@@ -1128,10 +1013,7 @@
     "text-size": 1
   },
   "views/dashboard/MeterReadingDialog.tsx": {
-    "radius": 2,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "text-size": 1
+    "radius": 1
   },
   "views/dashboard/MissingInfoNotice.tsx": {
     "raw-button": 1
@@ -1145,16 +1027,7 @@
     "text-size": 1
   },
   "views/dashboard/OneOffDoneDialog.tsx": {
-    "radius": 1,
-    "raw-button": 2,
-    "raw-dialog": 1,
-    "spacing": 1,
-    "text-size": 1
-  },
-  "views/dashboard/PrintExportMenu.tsx": {
-    "inline-size": 1,
-    "raw-button": 1,
-    "raw-menu": 1
+    "spacing": 1
   },
   "views/dashboard/RecentlyArchivedTab.tsx": {
     "inline-size": 1,
@@ -1302,10 +1175,8 @@
     "native-title": 3
   },
   "views/template-manager/SetupTemplateCard.tsx": {
-    "action-colour": 1,
     "native-title": 2,
     "radius": 1,
-    "raw-button": 1,
     "spacing": 2
   }
 }

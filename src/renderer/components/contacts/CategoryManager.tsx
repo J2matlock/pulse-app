@@ -124,7 +124,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                         onChange={e => setEditName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null) }}
                         className="flex-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-1.5 text-slate-900 dark:text-white focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-                        style={{ fontSize: 15, minHeight: 40 }}
+                        style={{ fontSize: 15, minHeight: 44 }}
                         autoFocus
                       />
                       <IconButton label="Save name" variant="primary" icon={<Check size={16} />} onClick={commitEdit} />
