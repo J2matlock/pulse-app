@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookUser, Plus, X, Search, ChevronRight, Phone, Mail, Copy, Check } from 'lucide-react'
+import { BookUser, Plus, Search, ChevronRight, Phone, Mail, Copy, Check } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Provider, ProviderClientLink } from '../../../shared/types'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -213,13 +213,8 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
       ref={containerRef}
       className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <BookUser className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
-          Linked {t('contact', { many: true, cap: true })}
-          <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">({links.length})</span>
-        </h2>
+      {/* The section around this already says "Linked … (2)", so no second title here (C-18) */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setSearching(!searching)}
           className="hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700
@@ -230,7 +225,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
           title={`Link ${t('contact', { article: true })} to this ${t('record')}`}
         >
           <Plus className="w-3.5 h-3.5" />
-          Link {t('contact', { cap: true })}
+          Link {t('contact', { article: true })}
         </button>
       </div>
 
@@ -345,15 +340,15 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
                 >
                   {open ? 'Less' : 'Details'}
                 </button>
+                {/* Words, not an ×, which reads as "close" or "delete" (C-18) */}
                 <button
+                  type="button"
                   onClick={() => handleUnlink(link.id)}
-                  title={`Unlink this ${t('contact')}`}
+                  title={`Unlink this ${t('contact')} (the ${t('contact')} stays in the ${t('contactDirectory')})`}
                   aria-label={`Unlink ${link.provider_name ?? t('contact')}`}
-                  className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                  style={{ minWidth: 44, minHeight: 44 }}
+                  className="btn-compact-secondary hover:text-red-700 dark:hover:text-red-300"
                 >
-                  <X className="w-4 h-4" />
+                  Unlink
                 </button>
               </div>
 

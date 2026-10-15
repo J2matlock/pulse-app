@@ -12,6 +12,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { AppointmentActions } from '../calendar/AppointmentActions'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { AppointmentDialog } from '../calendar/AppointmentDialog'
+import { useVocab } from '../../hooks/useVocab'
 
 interface RecordAppts { upcoming: Appointment[]; past: Appointment[]; upcomingTotal: number; pastTotal: number }
 
@@ -23,6 +24,7 @@ export function RecordAppointments({ rowId, gridId, name, onCount }: {
   onCount?: (total: number, upcoming: number) => void
 }): React.ReactElement {
   const clock = useSettingsStore(s => s.clockFormat)
+  const { t } = useVocab(gridId)
   const [data, setData] = useState<RecordAppts>({ upcoming: [], past: [], upcomingTotal: 0, pastTotal: 0 })
   const [editing, setEditing] = useState<Appointment | 'new' | null>(null)
   const today = localDateString()
@@ -50,13 +52,18 @@ export function RecordAppointments({ rowId, gridId, name, onCount }: {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <button type="button" className="btn-compact-secondary" onClick={() => setEditing('new')}><Plus className="w-4 h-4" />Schedule…</button>
-      </div>
-      <div>
-        <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">Coming up</h3>
-        {data.upcoming.length ? <ul className="divide-y divide-slate-100 dark:divide-slate-700">{data.upcoming.map(a => row(a, false))}</ul>
-          : <p className="text-sm text-slate-500 dark:text-slate-400">Nothing scheduled.</p>}
+      {/* One left-aligned line when nothing is coming up, not a button floating over an empty list (C-37) */}
+      {data.upcoming.length ? (
+        <div>
+          <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">Coming up</h3>
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700">{data.upcoming.map(a => row(a, false))}</ul>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {!data.upcoming.length && <p className="text-base text-slate-500 dark:text-slate-400">Nothing scheduled.</p>}
+        <button type="button" className="btn-compact-secondary" onClick={() => setEditing('new')}>
+          <Plus className="w-4 h-4" />Schedule {t('appointment', { article: true })}
+        </button>
       </div>
       {data.past.length > 0 && (
         <div>

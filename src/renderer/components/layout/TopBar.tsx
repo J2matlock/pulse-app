@@ -150,7 +150,7 @@ export function TopBar(): React.ReactElement {
     if (profileRow && nameCol) {
       return (profileRow[`col_${nameCol.id}` as keyof typeof profileRow] as string | null) ?? `Unknown ${t('record')}`
     }
-    return `Unknown ${t('record')}`
+    return '' // not in the list yet (still loading, archived, not found): no name rather than "Unknown" (C-22)
   }, [columns, rows, rowId, t])
 
   const canUndo = undoStack.length > 0

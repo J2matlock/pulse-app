@@ -245,11 +245,16 @@ export default function ProfileView(): React.ReactElement {
   })
   useEffect(() => { recordVisit() }, [rowId, knownName])
 
-  // Prev / Next based on sortedRowIds
-  const currentIndex = rowId != null ? sortedRowIds.indexOf(rowId) : -1
-  const total = sortedRowIds.length
-  const prevRowId = currentIndex > 0 ? sortedRowIds[currentIndex - 1] : null
-  const nextRowId = currentIndex < total - 1 ? sortedRowIds[currentIndex + 1] : null
+  // Prev / Next based on sortedRowIds, without records that have left the list since
+  // it was sorted (archived or trashed from here), so "10 of 48" counts what's there (C-17)
+  const listedIds = useMemo(() => {
+    const present = new Set(rows.map(r => r.row_id))
+    return sortedRowIds.filter(id => present.has(id))
+  }, [rows, sortedRowIds])
+  const currentIndex = rowId != null ? listedIds.indexOf(rowId) : -1
+  const total = listedIds.length
+  const prevRowId = currentIndex > 0 ? listedIds[currentIndex - 1] : null
+  const nextRowId = currentIndex >= 0 && currentIndex < total - 1 ? listedIds[currentIndex + 1] : null
 
   const handleRowUpdate = useCallback(
     (updates: Partial<{ is_starred: 0 | 1 }>) => {
@@ -284,28 +289,34 @@ export default function ProfileView(): React.ReactElement {
     else noteUnencryptedExport()
   }
 
-  // Back goes where the user came from (the dashboard, another record…), or to the list
-  const goBack = useCallback(() => {
-    if (canGoBack()) navigate(-1)
-    else navigate('/grid')
-  }, [navigate])
+  // Back goes where the user came from (the dashboard, the calendar…), or to the list.
+  // From another record (Prev/Next, a link) it goes to the list, so the label and the
+  // place it leads agree (C-17)
   const cameFrom = previousPage(location.pathname)
-  const backLabel = !cameFrom || !canGoBack() ? (activeGrid?.name ?? t('list', { cap: true }))
-    : cameFrom.startsWith('/grid') || cameFrom === '/' ? (activeGrid?.name ?? t('list', { cap: true }))
-      : pageTitle(cameFrom, t) ?? 'Back'
+  const fromOtherPage = !!cameFrom && canGoBack() && !cameFrom.startsWith('/profile/')
+  const goBack = useCallback(() => {
+    if (fromOtherPage) navigate(-1)
+    else navigate('/grid')
+  }, [navigate, fromOtherPage])
+  const listName = activeGrid?.name ?? t('list', { cap: true })
+  const backLabel = !fromOtherPage || cameFrom.startsWith('/grid') || cameFrom === '/' ? listName
+    : pageTitle(cameFrom, t) ?? listName
 
+  // Prev/Next mark the move, so leaving a record after archiving it goes on to the next only then
+  const stepped = (location.state as { stepped?: boolean } | null)?.stepped === true
   function goPrev() {
-    if (prevRowId != null) navigate(`/profile/${prevRowId}`)
+    if (prevRowId != null) navigate(`/profile/${prevRowId}`, { state: { stepped: true } })
   }
 
   function goNext() {
-    if (nextRowId != null) navigate(`/profile/${nextRowId}`)
+    if (nextRowId != null) navigate(`/profile/${nextRowId}`, { state: { stepped: true } })
   }
 
-  /** After archiving or trashing: on to the next record, or back to the list */
+  /** After archiving or trashing: on to the next record when going through them with
+   *  Prev/Next, otherwise back to the list, where the row visibly goes (C-17) */
   function leaveRecord() {
     const next = nextRowId ?? prevRowId
-    if (next != null) navigate(`/profile/${next}`)
+    if (stepped && next != null) navigate(`/profile/${next}`, { state: { stepped: true } })
     else goBack()
   }
 
@@ -377,10 +388,10 @@ export default function ProfileView(): React.ReactElement {
         goBack()
       } else if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault()
-        if (prevRowIdRef.current != null) navigate(`/profile/${prevRowIdRef.current}`)
+        if (prevRowIdRef.current != null) navigate(`/profile/${prevRowIdRef.current}`, { state: { stepped: true } })
       } else if (e.altKey && e.key === 'ArrowRight') {
         e.preventDefault()
-        if (nextRowIdRef.current != null) navigate(`/profile/${nextRowIdRef.current}`)
+        if (nextRowIdRef.current != null) navigate(`/profile/${nextRowIdRef.current}`, { state: { stepped: true } })
       }
     }
     window.addEventListener('keydown', handler)
@@ -447,7 +458,7 @@ export default function ProfileView(): React.ReactElement {
             aria-label={`Back to ${backLabel}`}
           >
             <ChevronLeft className="w-4 h-4" />
-            {backLabel}
+            Back to {backLabel}
           </button>
         </Tooltip>
 
@@ -490,9 +501,7 @@ export default function ProfileView(): React.ReactElement {
           </Tooltip>
         </div>
 
-        <span className="text-sm text-slate-500 dark:text-slate-400 select-none ml-1">
-          Alt+←/→ to navigate
-        </span>
+        {/* The Alt+arrow keys are in the Prev/Next tooltips, not on the bar (C-28) */}
       </div>
 
       {isArchived && (
@@ -646,7 +655,7 @@ export default function ProfileView(): React.ReactElement {
       <ConfirmDialog
         open={askArchive}
         title={`Archive ${clientName}?`}
-        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time (Show archived).`}
+        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time from the ${t('list')}: Show ▾ → Show archived ${t('record', { many: true })}, then Unarchive.`}
         confirmLabel="Archive"
         destructive={false}
         onConfirm={() => void confirmArchive()}
@@ -661,7 +670,7 @@ export default function ProfileView(): React.ReactElement {
       <ConfirmDialog
         open={askTrash}
         title={`Move ${clientName} to the Trash?`}
-        message={`It stays in the Trash for 30 days, and you can restore it from there or with Undo.`}
+        message={`${clientName} stays in the Trash for 30 days, and you can restore ${holdsPeople ? 'them' : 'it'} from there or with Undo.`}
         confirmLabel="Move to the Trash"
         onConfirm={() => void confirmTrash()}
         onCancel={() => setAskTrash(false)}
