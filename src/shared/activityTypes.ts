@@ -15,6 +15,8 @@ export interface ActivityType {
   color: ActivityColor | null
   position: number
   is_archived: 0 | 1
+  /** How many notes use it, and how many rules, forms, columns or appointments do (sent with the full list, for Settings) */
+  in_use?: { notes: number; other: number }
 }
 
 export const SYSTEM_ACTIVITY_TYPES = ['system', 'manual', 'import', 'followup'] as const

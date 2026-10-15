@@ -6,6 +6,13 @@ import { modHelp } from '../../utils/keys'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { UI_SCALE_MIN, UI_SCALE_MAX } from '../../utils/uiScale'
 
+/** Three sizes to pick without reading a percentage; the slider stays for anything between */
+const TEXT_SIZE_PRESETS = [
+  { label: 'Normal', scale: 100 },
+  { label: 'Larger', scale: 125 },
+  { label: 'Largest', scale: 150 },
+] as const
+
 interface AppearanceSectionProps {
   theme: Theme
   handleThemeChange: (t: Theme) => void
@@ -108,12 +115,24 @@ export function AppearanceSection({
         </div>
       </div>
 
-      {/* Subsection 2: UI Scale */}
+      {/* Subsection 2: text and button size (E-40: "UI scale" meant nothing to anyone) */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-3">
+        <div role="group" aria-label="Text and button size presets" className="flex flex-wrap gap-2">
+          {TEXT_SIZE_PRESETS.map(p => (
+            <button key={p.label} type="button" aria-pressed={uiScale === p.scale} onClick={() => setUiScale(p.scale)}
+              className={`hit-44 px-4 py-2 rounded-lg border-2 text-base transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
+                uiScale === p.scale
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                  : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-400'}`}
+              style={{ minHeight: 44 }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center justify-between">
           <label htmlFor="settings-ui-scale" className="block text-base font-medium text-slate-700 dark:text-slate-300">
-            UI Scale
-            <span className="block text-sm text-slate-500 dark:text-slate-400 font-normal mt-0.5">Adjust the overall interface size (100% is default)</span>
+            Text and button size
+            <span className="block text-sm text-slate-500 dark:text-slate-400 font-normal mt-0.5">Makes everything on the screen bigger or smaller (100% is normal)</span>
             {' '}
             <input
               type="number"

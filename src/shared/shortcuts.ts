@@ -28,7 +28,7 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
     shortcuts: [
       { keys: ['Mod', 'K'], description: 'Open the command palette', handledIn: 'hooks/useGlobalKeyboard.ts' },
       { keys: ['Mod', 'Z'], description: 'Undo', handledIn: 'hooks/useGlobalKeyboard.ts' },
-      { keys: ['Mod', 'Y'], description: 'Redo (or Mod+Shift+Z)', handledIn: 'hooks/useGlobalKeyboard.ts' },
+      { keys: ['Mod', 'Y'], description: 'Redo (or Ctrl+Shift+Z)', handledIn: 'hooks/useGlobalKeyboard.ts' },
       { keys: ['Mod', 'Shift', 'D'], description: 'Go to the dashboard', handledIn: 'hooks/useGlobalKeyboard.ts' },
       { keys: ['Mod', 'Shift', 'F'], description: 'Focus mode: only what needs attention today', feature: 'focusMode', handledIn: 'hooks/useGlobalKeyboard.ts' },
       { keys: ['Mod', 'L'], description: 'Lock the app', handledIn: 'hooks/useAutoLock.ts' },

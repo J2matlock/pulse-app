@@ -8,6 +8,7 @@ import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
 import { RemoveSampleDataDialog, sampleDataChanged } from '../shared/SampleDataBanner'
+import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { ImportWizard } from '../grid/ImportWizard'
@@ -72,6 +73,15 @@ export function DataSection(): React.ReactElement {
   const [resetPassword, setResetPassword] = useState('')
   const [pulseRegistered, setPulseRegistered] = useState<boolean | null>(null)
   const [platform, setPlatform] = useState<string>('')
+  const [confirmDeleteHistory, setConfirmDeleteHistory] = useState(false)
+
+  /** months = 0 removes every cell change */
+  async function compactHistory(months: number) {
+    const res = await safeInvoke<number>(IPC.CELL_HISTORY_COMPACT, months)
+    // "records removed" read as if entries were deleted; these are old cell changes
+    if (res.ok) toast.success(res.data === 0 ? 'There were no old cell changes to remove.' : `Removed ${res.data} old cell ${res.data === 1 ? 'change' : 'changes'} from the edit history.`)
+    else toast.error("We couldn't clean up the edit history. Please try again.")
+  }
   const [exportingAllCsv, setExportingAllCsv] = useState(false)
   const [backingUp, setBackingUp] = useState(false)
   const grids = useGridStore(s => s.grids)
@@ -220,14 +230,13 @@ export function DataSection(): React.ReactElement {
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <p className="text-base font-medium text-slate-700 dark:text-slate-300">Cell history</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Clean up old cell edit history to save space</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Every cell edit is stored to allow future audit and undo capabilities. You can compact the history to free space.
+          Pulse keeps a record of every cell change so you can see what a value used to be ("View history" on a cell). Removing old changes frees space.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="history-retention" className="text-base text-slate-700 dark:text-slate-300">Keep</label>
           <select
             id="history-retention"
-            aria-label="How much cell history to keep"
             className="input"
             style={{ minHeight: 44, width: 'auto' }}
             defaultValue="12"
@@ -237,26 +246,35 @@ export function DataSection(): React.ReactElement {
             }}
             data-months="12"
           >
-            <option value="6">Keep 6 months</option>
-            <option value="12">Keep 12 months</option>
-            <option value="24">Keep 24 months</option>
-            <option value="0">Delete all history</option>
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
+            <option value="24">24 months</option>
           </select>
           <button
             className="btn-secondary"
             style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
-            onClick={async () => {
-              const sel = document.getElementById('history-retention') as HTMLSelectElement | null
-              const months = parseInt(sel?.value ?? '12', 10)
-              const res = await safeInvoke<number>(IPC.CELL_HISTORY_COMPACT, months)
-              // "records removed" read as if entries were deleted; these are old cell changes
-              if (res.ok) toast.success(res.data === 0 ? 'There were no old cell changes to remove.' : `Removed ${res.data} old cell ${res.data === 1 ? 'change' : 'changes'} from the edit history.`)
-              else toast.error("We couldn't clean up the edit history. Please try again.")
-            }}
+            onClick={() => void compactHistory(parseInt((document.getElementById('history-retention') as HTMLSelectElement | null)?.value ?? '12', 10))}
           >
             Compact Now
           </button>
         </div>
+        {/* Destructive, so not an option in the "keep" dropdown (E-32) */}
+        <button
+          className="btn-secondary text-red-700 dark:text-red-300"
+          style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
+          onClick={() => setConfirmDeleteHistory(true)}
+        >
+          Delete all history…
+        </button>
+        <ConfirmDialog
+          open={confirmDeleteHistory}
+          title="Delete all cell history?"
+          message='Every record of what a cell used to say goes away, for every cell. "View history" will be empty until values change again. Your current values stay as they are.'
+          confirmLabel="Delete all history"
+          destructive
+          onConfirm={() => { setConfirmDeleteHistory(false); void compactHistory(0) }}
+          onCancel={() => setConfirmDeleteHistory(false)}
+        />
       </div>
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -309,9 +327,8 @@ export function DataSection(): React.ReactElement {
           </button>
         )}
         {platform === 'linux' && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 italic">
-            On Linux, .pulse file association is handled automatically for .deb installs.
-            For AppImage, use AppImageLauncher for desktop integration.
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            On Linux, double-clicking a .pulse file isn't set up automatically. Open the file from Templates → "Import .pulse File" instead.
           </p>
         )}
       </div>

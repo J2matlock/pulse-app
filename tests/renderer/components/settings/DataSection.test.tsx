@@ -52,6 +52,28 @@ describe('DataSection — reset everything', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Removed 340 old cell changes from the edit history.'))
   })
 
+  // E-32: deleting every cell change is its own button with a confirm, not a choice in the "keep" dropdown
+  it('keeps "Delete all history" out of the retention dropdown and asks before deleting it all', async () => {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'cell-history:compact' ? { ok: true, data: 12 } : { ok: false, error: 'not in this test' }))
+    render(<DataSection />)
+    const keep = screen.getByLabelText('Keep') as HTMLSelectElement
+    expect([...keep.options].map(o => o.text)).toEqual(['6 months', '12 months', '24 months'])
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all history…' }))
+    expect(mockInvoke).not.toHaveBeenCalledWith('cell-history:compact', 0)
+    expect(screen.getByRole('alertdialog', { name: 'Delete all cell history?' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all history' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('cell-history:compact', 0))
+  })
+
+  it('tells Linux users how to open a .pulse file instead of naming a .deb (E-38)', () => {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'app:get-info' ? { ok: true, data: { platform: 'linux', version: '1' } } : { ok: false, error: 'not in this test' }))
+    render(<DataSection />)
+    return waitFor(() => {
+      expect(screen.getByText(/Open the file from Templates/)).toBeTruthy()
+      expect(screen.queryByText(/\.deb|AppImageLauncher/)).toBeNull()
+    })
+  })
+
   it('offers "Import a spreadsheet…" into a chosen list (audit X-22)', () => {
     useGridStore.setState({ grids: [{ id: 3, name: 'Intake' }, { id: 4, name: 'Closed' }] as never, activeGridId: 4 })
     render(<DataSection />)

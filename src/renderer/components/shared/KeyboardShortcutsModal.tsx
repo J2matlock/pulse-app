@@ -6,7 +6,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { isOn } from '../../../shared/features'
-import { IS_MAC } from '../../utils/keys'
+import { IS_MAC, modHelp } from '../../utils/keys'
 import { SHORTCUT_SECTIONS, keyLabel, type ShortcutSection } from '../../../shared/shortcuts'
 
 interface Props {
@@ -77,7 +77,7 @@ export function KeyboardShortcutsModal({ open, onClose }: Props): React.ReactEle
                   <div className="space-y-1">
                     {section.shortcuts.map((row, i) => (
                       <div key={i} className="flex items-center justify-between gap-4 py-1.5">
-                        <span className="text-base text-slate-600 dark:text-slate-300">{f(row.description)}</span>
+                        <span className="text-base text-slate-600 dark:text-slate-300">{modHelp(f(row.description))}</span>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {row.keys.map((key, j) => (
                             <React.Fragment key={j}>

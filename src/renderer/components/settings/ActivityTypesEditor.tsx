@@ -32,11 +32,21 @@ async function run(channel: Parameters<typeof safeInvoke>[0], ...args: unknown[]
   return true
 }
 
-function TypeRow({ type, onlyOne }: { type: ActivityType; onlyOne: boolean }): React.ReactElement {
+/** Why a type can't be deleted, in words; null when it can (E-21) */
+function deleteBlocker(type: ActivityType, activity: (opts: { many?: boolean; count?: number }) => string): string | null {
+  const use = type.in_use
+  if (!use) return null
+  if (use.notes > 0) return `Used by ${use.notes} ${activity({ count: use.notes })} — archive instead`
+  if (use.other > 0) return `Used by a rule, form or column — archive instead`
+  return null
+}
+
+function TypeRow({ type, onlyOne, onArchived }: { type: ActivityType; onlyOne: boolean; onArchived: (type: ActivityType) => void }): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: type.id })
   const [label, setLabel] = useState(type.label)
   const [icon, setIcon] = useState(type.icon ?? '')
   const { t } = useVocab(null)
+  const blocker = deleteBlocker(type, opts => t('activity', opts))
 
   async function save(patch: { label?: string; icon?: string; color?: ActivityColor | null }) {
     const next = { label: patch.label ?? type.label, icon: patch.icon ?? type.icon ?? '', color: patch.color !== undefined ? patch.color : type.color }
@@ -69,14 +79,18 @@ function TypeRow({ type, onlyOne }: { type: ActivityType; onlyOne: boolean }): R
       </div>
       <button type="button" className="btn-compact-secondary" disabled={onlyOne}
         title={onlyOne ? 'Keep at least one type' : `Hide from new ${t('activity', { many: true })}; old ${t('activity', { many: true })} keep it`}
-        onClick={() => void run(IPC.ACTIVITY_TYPE_ARCHIVE, type.id, true)}>
+        onClick={() => void run(IPC.ACTIVITY_TYPE_ARCHIVE, type.id, true).then(ok => { if (ok) onArchived(type) })}>
         Archive
       </button>
-      <button type="button" className="btn-compact-secondary" disabled={onlyOne}
-        title={`Only types no ${t('activity')} uses can be deleted`}
-        onClick={() => void run(IPC.ACTIVITY_TYPE_DELETE, type.id)}>
-        Delete
-      </button>
+      <span className="inline-flex flex-col">
+        <button type="button" className="btn-compact-secondary" disabled={onlyOne || blocker !== null}
+          aria-describedby={blocker ? `type-${type.id}-blocker` : undefined}
+          title={blocker ?? `Only types no ${t('activity')} uses can be deleted`}
+          onClick={() => void run(IPC.ACTIVITY_TYPE_DELETE, type.id)}>
+          Delete
+        </button>
+        {blocker && <span id={`type-${type.id}-blocker`} className="text-sm text-slate-500 dark:text-slate-400">{blocker}</span>}
+      </span>
     </li>
   )
 }
@@ -87,6 +101,8 @@ export function ActivityTypesEditor(): React.ReactElement {
   const archived = all.filter(type => type.is_archived)
   const [newLabel, setNewLabel] = useState('')
   const [adding, setAdding] = useState(false)
+  // Archiving removes a choice from every note box at once, so the row is followed by a way back (E-21)
+  const [justArchived, setJustArchived] = useState<ActivityType | null>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -132,10 +148,20 @@ export function ActivityTypesEditor(): React.ReactElement {
             accessibility={dndAccessibility(id => all.find(type => type.id === id)?.label)}>
             <SortableContext items={active.map(type => type.id)} strategy={verticalListSortingStrategy}>
               <ul className="space-y-2">
-                {active.map(type => <TypeRow key={`${type.id}-${type.label}-${type.icon}`} type={type} onlyOne={active.length <= 1} />)}
+                {active.map(type => <TypeRow key={`${type.id}-${type.label}-${type.icon}`} type={type} onlyOne={active.length <= 1} onArchived={setJustArchived} />)}
               </ul>
             </SortableContext>
           </DndContext>
+
+          {justArchived && justArchived.is_archived === 0 && all.find(type => type.id === justArchived.id)?.is_archived === 1 && (
+            <p role="status" className="flex flex-wrap items-center gap-2 text-base text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+              <span>{justArchived.label} archived. It stays on older {t('activity', { many: true })}.</span>
+              <button type="button" className="btn-compact-secondary"
+                onClick={() => void run(IPC.ACTIVITY_TYPE_ARCHIVE, justArchived.id, false).then(ok => { if (ok) setJustArchived(null) })}>
+                Restore
+              </button>
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <input className="input flex-1 min-w-48" aria-label="New kind" placeholder="e.g. No-show" maxLength={ACTIVITY_LABEL_MAX}

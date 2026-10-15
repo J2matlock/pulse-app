@@ -77,6 +77,30 @@ describe('BackupSection', () => {
     expect(mockInvoke).toHaveBeenCalledWith('backup:scheduled-set-config', expect.objectContaining({ enabled: true }))
   })
 
+  // E-11: copies kept in the data folder defeat the point, so turning the schedule on asks where they should go
+  it('turning the schedule on with the default folder opens the folder picker and warns until it changes', async () => {
+    scheduled = { enabled: false, intervalHours: 24, destinationDir: '', lastRunISO: null }
+    render(<BackupSection saveSetting={vi.fn()} />)
+    const box = await screen.findByLabelText('Enable scheduled backups')
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('backup:scheduled-get-config'))
+    fireEvent.click(box)
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('app:show-file-dialog', expect.objectContaining({ properties: ['openDirectory'] })))
+    expect(mockInvoke).toHaveBeenCalledWith('backup:scheduled-set-config', expect.objectContaining({ enabled: true }))
+    expect(await screen.findByText(/same folder as your data/)).toBeTruthy()
+  })
+
+  it('a folder inside the data folder gets the same warning; another drive does not', async () => {
+    scheduled = { enabled: true, intervalHours: 24, destinationDir: '/data/backups', lastRunISO: null }
+    const { unmount } = render(<BackupSection saveSetting={vi.fn()} />)
+    expect(await screen.findByText(/same folder as your data/)).toBeTruthy()
+    expect(mockInvoke).not.toHaveBeenCalledWith('app:show-file-dialog', expect.anything())
+    unmount()
+    scheduled = { enabled: true, intervalHours: 24, destinationDir: '/usb/backups', lastRunISO: null }
+    render(<BackupSection saveSetting={vi.fn()} />)
+    await screen.findByText('/usb/backups')
+    expect(screen.queryByText(/same folder as your data/)).toBeNull()
+  })
+
   it('shows when scheduled backups keep failing, with the reason', async () => {
     scheduled = { ...scheduled, enabled: true, lastRunISO: '2026-09-01T10:00:00.000Z', lastError: 'The backup folder can\'t be found.' }
     render(<BackupSection saveSetting={vi.fn()} />)

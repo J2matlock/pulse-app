@@ -9,7 +9,7 @@ import { ok, fail, validId } from './ipc-utils'
 import { handlersFor, idArg } from './ipc-define'
 import {
   ActivityTypeError, listActivityTypes, saveActivityType, setActivityTypeArchived,
-  deleteActivityType, reorderActivityTypes,
+  deleteActivityType, reorderActivityTypes, activityTypeUsage,
 } from '../activity-types'
 
 function notifyChanged(): void {
@@ -36,8 +36,12 @@ const define = handlersFor('ipc-activity-types')
 const typeInput = z.custom<Record<string, unknown>>(v => !!v && typeof v === 'object', 'Invalid type')
 
 export function registerActivityTypeHandlers(): void {
+  // The full list (Settings) says what each type is used by, so Delete can be greyed out
+  // with the reason instead of failing on click (UX review E-21)
   define(IPC.ACTIVITY_TYPE_GET_ALL, [z.unknown()], (includeArchived) =>
-    ok(listActivityTypes(includeArchived === true)))
+    ok(includeArchived === true
+      ? listActivityTypes(true).map(type => { const u = activityTypeUsage(type.key); return { ...type, in_use: { notes: u.notes, other: u.rules } } })
+      : listActivityTypes(false)))
 
   define(IPC.ACTIVITY_TYPE_SAVE, [typeInput], (input) => {
     const { id, label, icon, color } = input
