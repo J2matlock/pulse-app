@@ -93,12 +93,12 @@ function resolveColumns(config: unknown, cols: Col[], gridId: number): unknown {
  * first is the main list). Returns warnings for any of the starter's own that
  * couldn't be added.
  */
-export function addStarterReports(s: Starter, gridIds: Record<string, number>, order: string[]): string[] {
+export function addStarterReports(s: Starter, gridIds: Record<string, number>, order: string[], pin = false): string[] {
   const warnings: string[] = []
-  const existing = (gridId: number) => new Set(listReports(gridId).map(r => r.name.toLowerCase()))
-  const save = (gridId: number, name: string, config: unknown) => {
-    if (existing(gridId).has(name.toLowerCase())) return
-    saveReport({ name, gridId, config })
+  const pinned: number[] = []
+  const save = (gridId: number, name: string, config: unknown): number => {
+    const same = listReports(gridId).find(r => r.name.toLowerCase() === name.toLowerCase())
+    return same ? same.id : saveReport({ name, gridId, config }).id
   }
   order.forEach((key, i) => {
     const gridId = gridIds[key]
@@ -112,10 +112,25 @@ export function addStarterReports(s: Starter, gridIds: Record<string, number>, o
     if (!gridId) continue // that list wasn't added
     try {
       const config = resolveColumns(r.config, columnsOf(gridId), gridId) as Record<string, unknown>
-      save(gridId, r.name, { ...config, ...(r.description ? { about: r.description } : {}) })
+      const id = save(gridId, r.name, { ...config, ...(r.description ? { about: r.description } : {}) })
+      if (pin && r.pinned) pinned.push(id)
     } catch (err) {
       warnings.push(`The report "${r.name}" wasn't added. ${err instanceof ReportError ? err.message : "Its settings aren't valid."}`)
     }
   }
+  if (pinned.length) pinReports(pinned)
   return warnings
+}
+
+/** Adds reports to the dashboard (settings `dashboard_reports`, a list of ids), after any already there */
+function pinReports(ids: number[]): void {
+  const db = getDb()
+  const raw = (db.prepare("SELECT value FROM settings WHERE key = 'dashboard_reports'").get() as { value: string } | undefined)?.value
+  let now: number[] = []
+  try {
+    const v = raw ? JSON.parse(raw) as unknown : []
+    if (Array.isArray(v)) now = v.filter((x): x is number => Number.isInteger(x) && x > 0)
+  } catch { /* unreadable: start again */ }
+  const next = [...now, ...ids.filter(id => !now.includes(id))]
+  db.prepare("INSERT INTO settings (key, value) VALUES ('dashboard_reports', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(next))
 }

@@ -106,7 +106,7 @@
     },
     {
       "title": "Background checks",
-      "body": "Set Needs background check to Yes for volunteers whose roles involve children, vulnerable adults, money or keys. Only they get the every-2-years reminder."
+      "body": "Set Needs background check to Yes for volunteers whose roles involve children, vulnerable adults, money or keys. Only they get the every-2-years reminder, and so does anyone whose Needs background check isn't filled in yet."
     },
     {
       "title": "Keeping in touch",
@@ -242,7 +242,7 @@
         },
         {
           "name": "Background check",
-          "description": "Every 2 years, only for volunteers who need one",
+          "description": "Every 2 years, for volunteers who need one (or when that isn't filled in yet)",
           "interval_months": 24,
           "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
           "rule_condition": "{\"columnId\": {\"column\": \"Needs background check\"}, \"op\": \"is\", \"values\": [\"Yes\"], \"whenFalse\": \"hide\"}"

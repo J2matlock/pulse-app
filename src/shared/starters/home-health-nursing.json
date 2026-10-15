@@ -1,0 +1,712 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "home-health-nursing",
+  "name": "Home health nursing",
+  "description": "For home health nurses and nurse case managers: a visit every week, recertifications, plan-of-care signatures, visits on the calendar, and minutes and miles on every visit note for your mileage claim. Pulse is a tracking aid, not your official record system.",
+  "icon": "stethoscope",
+  "group": "Health",
+  "keywords": [
+    "home health",
+    "nurse",
+    "nursing",
+    "rn",
+    "lpn",
+    "patient",
+    "visits",
+    "hospice",
+    "skilled nursing",
+    "recertification",
+    "oasis",
+    "mileage"
+  ],
+  "vocab": {
+    "record": {
+      "one": "patient",
+      "many": "patients",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "visit note",
+      "many": "visit notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "visit log",
+      "many": "visit logs",
+      "article": "a"
+    },
+    "worker": {
+      "one": "nurse case manager",
+      "many": "nurse case managers",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "visit",
+      "many": "visits",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": true,
+    "mileage": true,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true,
+    "appointments": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "visit",
+      "label": "Visit",
+      "icon": "🏠",
+      "color": "teal"
+    },
+    {
+      "key": "phone",
+      "label": "Phone",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "coordination",
+      "label": "Coordination",
+      "icon": "🤝",
+      "color": "purple"
+    },
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Minutes and miles",
+      "body": "Type the minutes and miles in the boxes under each visit note. Miles and minutes this month, on the dashboard and in Reports, adds them up for your mileage claim and timesheet."
+    },
+    {
+      "title": "Last visit moves on its own",
+      "body": "Logging a Visit note fills in Last visit, so the 7-day reminder starts again without typing the date twice."
+    },
+    {
+      "title": "Recertifications",
+      "body": "Put the end of each 60-day episode in Recertification due. It turns yellow 14 days ahead, so there's time for the recertification visit and the paperwork."
+    }
+  ],
+  "lists": [
+    {
+      "key": "patients",
+      "name": "Patients",
+      "description": "Patients with weekly visits, recertifications and plan-of-care signatures",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Last visit",
+          "column_type": "date",
+          "position": 1,
+          "width": 130,
+          "description": "Date of the last visit. Logging a Visit note fills it in; the next one is due 7 days later",
+          "config": "{\"note_updates\": [\"visit\"], \"alert_rule_name\": \"Every 7 days\", \"log_changes\": true}"
+        },
+        {
+          "name": "Next visit",
+          "column_type": "date",
+          "position": 2,
+          "width": 130,
+          "description": "Date of the next scheduled visit",
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}"
+        },
+        {
+          "name": "Recertification due",
+          "column_type": "date",
+          "position": 3,
+          "width": 170,
+          "description": "End of this 60-day episode: recertify by this date",
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}"
+        },
+        {
+          "name": "Plan of care signed",
+          "column_type": "date",
+          "position": 4,
+          "width": 170,
+          "description": "Date the physician signed the plan of care; due again 60 days later",
+          "config": "{\"alert_rule_name\": \"Every 60 days\", \"log_changes\": true}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 5,
+          "width": 130
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 6,
+          "width": 130,
+          "is_required": 1
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 7,
+          "width": 200
+        },
+        {
+          "name": "Physician",
+          "column_type": "text",
+          "position": 8,
+          "width": 160
+        },
+        {
+          "name": "Physician phone",
+          "column_type": "phone",
+          "position": 9,
+          "width": 140
+        },
+        {
+          "name": "Insurance",
+          "column_type": "text",
+          "position": 10,
+          "width": 140
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 11,
+          "width": 140,
+          "config": "{\"options\": [\"Active\", \"On hold\", \"Transitioning\", \"Discharged\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 7 days",
+          "description": "Due 7 days after the last visit",
+          "interval_days": 7,
+          "thresholds": "[{\"daysBefore\":2,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":1,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 60 days",
+          "description": "Due 60 days after the date entered",
+          "interval_days": 60,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "today",
+    "summary",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "patients": [
+        {
+          "Name": "Keisha Thompson",
+          "Date of birth": {
+            "daysFromToday": -28661
+          },
+          "Phone": "555-0126",
+          "Address": "100 Maple Ave\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -9
+          },
+          "Next visit": {
+            "daysFromToday": -2
+          },
+          "Recertification due": {
+            "daysFromToday": 5
+          },
+          "Plan of care signed": {
+            "daysFromToday": -5
+          },
+          "Physician": "Dr. Walker",
+          "Physician phone": "555-0104",
+          "Insurance": "Medicaid",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Date of birth": {
+            "daysFromToday": -19415
+          },
+          "Phone": "555-0133",
+          "Address": "137 Birch Lane\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -6
+          },
+          "Next visit": {
+            "daysFromToday": 0
+          },
+          "Recertification due": {
+            "daysFromToday": 24
+          },
+          "Plan of care signed": {
+            "daysFromToday": -61
+          },
+          "Physician": "Dr. Miller",
+          "Physician phone": "555-0111",
+          "Insurance": "Medicare",
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Date of birth": {
+            "daysFromToday": -15333
+          },
+          "Phone": "555-0140",
+          "Address": "174 Cedar Court\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -3
+          },
+          "Next visit": {
+            "daysFromToday": 4
+          },
+          "Recertification due": {
+            "daysFromToday": 75
+          },
+          "Plan of care signed": {
+            "daysFromToday": -51
+          },
+          "Physician": "Dr. Chen",
+          "Physician phone": "555-0118",
+          "Insurance": "Blue Plan",
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Date of birth": {
+            "daysFromToday": -22887
+          },
+          "Phone": "555-0147",
+          "Address": "211 Willow Way\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -2
+          },
+          "Next visit": {
+            "daysFromToday": 5
+          },
+          "Recertification due": {
+            "daysFromToday": 48
+          },
+          "Plan of care signed": {
+            "daysFromToday": -22
+          },
+          "Physician": "Dr. Morales",
+          "Physician phone": "555-0125",
+          "Insurance": "Medicare",
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -28511
+          },
+          "Phone": "555-0154",
+          "Address": "248 Elm Street\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -5
+          },
+          "Next visit": {
+            "daysFromToday": 2
+          },
+          "Recertification due": {
+            "daysFromToday": -3
+          },
+          "Plan of care signed": {
+            "daysFromToday": -63
+          },
+          "Physician": "Dr. Wong",
+          "Physician phone": "555-0132",
+          "Insurance": "Medicaid",
+          "Status": "Transitioning"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Date of birth": {
+            "daysFromToday": -22548
+          },
+          "Phone": "555-0161",
+          "Address": "285 Pine Road\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -1
+          },
+          "Next visit": {
+            "daysFromToday": 6
+          },
+          "Recertification due": {
+            "daysFromToday": 33
+          },
+          "Plan of care signed": {
+            "daysFromToday": -27
+          },
+          "Physician": "Dr. Rahman",
+          "Physician phone": "555-0139",
+          "Insurance": "Medicare",
+          "Status": "Active"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Date of birth": {
+            "daysFromToday": -24954
+          },
+          "Phone": "555-0168",
+          "Address": "322 Oak Terrace\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -4
+          },
+          "Next visit": {
+            "daysFromToday": 1
+          },
+          "Recertification due": {
+            "daysFromToday": 12
+          },
+          "Plan of care signed": {
+            "daysFromToday": -36
+          },
+          "Physician": "Dr. Ferreira",
+          "Physician phone": "555-0146",
+          "Insurance": "Blue Plan",
+          "Status": "Active"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Date of birth": {
+            "daysFromToday": -27831
+          },
+          "Phone": "555-0175",
+          "Address": "359 Aspen Drive\nSpringfield",
+          "Last visit": {
+            "daysFromToday": -20
+          },
+          "Next visit": {
+            "daysFromToday": 30
+          },
+          "Recertification due": {
+            "daysFromToday": 90
+          },
+          "Plan of care signed": {
+            "daysFromToday": -10
+          },
+          "Physician": "Dr. Johnson",
+          "Physician phone": "555-0153",
+          "Insurance": "Medicare",
+          "Status": "On hold"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 9,
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 45,
+        "miles": 12.4
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 16,
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 50,
+        "miles": 12.4
+      },
+      {
+        "record": "patients#0",
+        "type": "phone",
+        "daysAgo": 12,
+        "text": "Phone call with the patient about the next visit time.",
+        "minutes": 10
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 6,
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 50,
+        "miles": 23.4
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 13,
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 55,
+        "miles": 23.4
+      },
+      {
+        "record": "patients#1",
+        "type": "coordination",
+        "daysAgo": 9,
+        "text": "Coordinated with the physician's office about the plan of care.",
+        "minutes": 15
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 3,
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 55,
+        "miles": 8.7
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 10,
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 60,
+        "miles": 8.7
+      },
+      {
+        "record": "patients#2",
+        "type": "note",
+        "daysAgo": 6,
+        "text": "Pharmacy confirmed the new prescription is ready.",
+        "minutes": 20
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 2,
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 60,
+        "miles": 17.8
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 9,
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 50,
+        "miles": 17.8
+      },
+      {
+        "record": "patients#3",
+        "type": "phone",
+        "daysAgo": 5,
+        "text": "Phone call with the patient about the next visit time.",
+        "minutes": 10
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 5,
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 45,
+        "miles": 31.2
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 12,
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 55,
+        "miles": 31.2
+      },
+      {
+        "record": "patients#4",
+        "type": "coordination",
+        "daysAgo": 8,
+        "text": "Coordinated with the physician's office about the plan of care.",
+        "minutes": 15
+      },
+      {
+        "record": "patients#5",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Skilled nursing visit. Wound measured and dressed; healing well. Taught daughter dressing change.",
+        "minutes": 50,
+        "miles": 6.5
+      },
+      {
+        "record": "patients#5",
+        "type": "visit",
+        "daysAgo": 8,
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 60,
+        "miles": 6.5
+      },
+      {
+        "record": "patients#5",
+        "type": "note",
+        "daysAgo": 4,
+        "text": "Pharmacy confirmed the new prescription is ready.",
+        "minutes": 20
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 4,
+        "text": "Skilled nursing visit. BP 148/90, 1+ ankle edema. Called physician; diuretic dose increased.",
+        "minutes": 55,
+        "miles": 14.9
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 11,
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 50,
+        "miles": 14.9
+      },
+      {
+        "record": "patients#6",
+        "type": "phone",
+        "daysAgo": 7,
+        "text": "Phone call with the patient about the next visit time.",
+        "minutes": 10
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 20,
+        "text": "Skilled nursing visit. Blood sugar log reviewed, A1C due next month. Foot check done.",
+        "minutes": 60,
+        "miles": 19.3
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 27,
+        "text": "Skilled nursing visit. Vitals stable, lungs clear. Reviewed medications; no changes.",
+        "minutes": 55,
+        "miles": 19.3
+      },
+      {
+        "record": "patients#7",
+        "type": "coordination",
+        "daysAgo": 23,
+        "text": "Coordinated with the physician's office about the plan of care.",
+        "minutes": 15
+      }
+    ],
+    "appointments": [
+      {
+        "record": "patients#1",
+        "title": "Skilled nursing visit",
+        "dayOffset": 0,
+        "time": "09:30",
+        "minutes": 60,
+        "type": "visit",
+        "location": "Home"
+      },
+      {
+        "record": "patients#6",
+        "title": "Skilled nursing visit",
+        "dayOffset": 1,
+        "time": "10:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Home",
+        "repeatWeekly": 4
+      },
+      {
+        "record": "patients#4",
+        "title": "Skilled nursing visit",
+        "dayOffset": 2,
+        "time": "13:00",
+        "minutes": 60,
+        "type": "visit",
+        "location": "Home"
+      },
+      {
+        "record": "patients#2",
+        "title": "Skilled nursing visit",
+        "dayOffset": 4,
+        "time": "11:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Home",
+        "repeatWeekly": 4
+      },
+      {
+        "record": "patients#3",
+        "title": "Recertification visit",
+        "dayOffset": 5,
+        "time": "14:00",
+        "minutes": 75,
+        "type": "visit",
+        "location": "Home"
+      },
+      {
+        "record": "patients#0",
+        "title": "Skilled nursing visit",
+        "dayOffset": -9,
+        "time": "09:00",
+        "minutes": 60,
+        "type": "visit",
+        "location": "Home"
+      }
+    ]
+  },
+  "reports": [
+    {
+      "name": "Miles and minutes this month",
+      "list": "patients",
+      "description": "This month's miles and minutes from your visit notes, for the mileage claim and timesheet.",
+      "pinned": true,
+      "config": {
+        "source": "activities",
+        "filters": [],
+        "groupBy": [
+          {
+            "field": "act:date",
+            "bucket": "month"
+          }
+        ],
+        "values": [
+          {
+            "fn": "count",
+            "label": "Visit notes"
+          },
+          {
+            "fn": "sum",
+            "field": "act:minutes",
+            "label": "Minutes"
+          },
+          {
+            "fn": "sum",
+            "field": "act:miles",
+            "label": "Miles"
+          }
+        ],
+        "dateRange": {
+          "field": "act:date",
+          "preset": "this_month"
+        }
+      }
+    }
+  ]
+}

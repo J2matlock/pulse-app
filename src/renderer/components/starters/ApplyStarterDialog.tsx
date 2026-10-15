@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { LayoutTemplate, Search, X, Sparkles, ArrowLeft } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
-import { searchStarters, type ApplyResult, type StarterPreview, type StarterRef, type StarterSummary } from '../../../shared/starters/schema'
+import { matchingVariants, searchStarters, type ApplyResult, type StarterPreview, type StarterRef, type StarterSummary } from '../../../shared/starters/schema'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
@@ -99,11 +99,13 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
     setLists(new Set(r.data.lists.map(l => l.key)))
   }
 
-  function pick(s: StarterSummary) {
+  /** `matched`: the layouts the search found it by. One opens straight at review; several start the layout question on the first */
+  function pick(s: StarterSummary, matched: Array<{ key: string }> = []) {
     const src = { builtinId: s.id }
     setChosen(s)
     setSource(src)
-    if (s.variants.length > 0) { setVariant(s.variants[0]!.key); setStep('variant') }
+    if (matched.length === 1) { setVariant(matched[0]!.key); void loadPreview(src, matched[0]!.key) }
+    else if (s.variants.length > 0) { setVariant((matched[0] ?? s.variants[0]!).key); setStep('variant') }
     else { setVariant(undefined); void loadPreview(src, undefined) }
   }
 
@@ -147,25 +149,35 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
   // First run shows the first group open and the rest behind "More examples": about 25 cards at
   // once is the first "too many options" moment (UX-A-27). A search shows everything that matches.
   const collapseRest = mode === 'setup' && !query.trim()
+  // The collapsed examples aren't drawn until opened: hidden cards would count as the
+  // dialog's last stop, and Tab from "More examples" would leave the dialog (Mark, R8)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   const renderGroup = ([group, items]: [string, StarterSummary[]]) => (
     <section key={group} className="space-y-2" aria-label={group}>
       <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group}</h3>
-      {items.map(s => (
-        <button key={s.id} type="button" onClick={() => pick(s)}
-          className="w-full text-left flex gap-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 44 }}>
-          <StarterIcon name={s.icon} className="w-6 h-6 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-          <span className="flex-1 min-w-0">
-            <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{s.name}</span>
-            <span className="block text-base text-slate-600 dark:text-slate-300">{s.description}</span>
-            <span className="block text-base text-slate-500 dark:text-slate-400 mt-1">
-              {s.variants.length > 0 ? `${s.variants.length} layouts to choose from` : s.listNames.join(' · ')}
-              {s.hasSampleData && someLackSamples && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
+      {items.map(s => {
+        // "foster" finds Human services through one of its layouts: say which, and open it
+        const matched = matchingVariants(s, query)
+        const shown = matched.slice(0, 3).map(v => v.name).join(', ')
+        return (
+          <button key={s.id} type="button" onClick={() => pick(s, matched)}
+            className="w-full text-left flex gap-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            style={{ minHeight: 44 }}>
+            <StarterIcon name={s.icon} className="w-6 h-6 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{s.name}</span>
+              <span className="block text-base text-slate-600 dark:text-slate-300">{s.description}</span>
+              <span className="block text-base text-slate-500 dark:text-slate-400 mt-1">
+                {matched.length > 0
+                  ? <span className="font-semibold text-slate-800 dark:text-slate-100">Matches: {shown}{matched.length > 3 ? ` and ${matched.length - 3} more` : ''}</span>
+                  : s.variants.length > 0 ? `${s.variants.length} layouts to choose from` : s.listNames.join(' · ')}
+                {s.hasSampleData && someLackSamples && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
+              </span>
             </span>
-          </span>
-        </button>
-      ))}
+          </button>
+        )
+      })}
     </section>
   )
 
@@ -213,11 +225,11 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                 ? <>
                     {renderGroup(groups[0]!)}
                     {groups.length > 1 && (
-                      <details className="pt-1">
+                      <details className="pt-1" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}>
                         <summary className="hit-44 cursor-pointer text-base font-medium text-blue-700 dark:text-blue-300 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
                           More examples ({groups.slice(1).map(([g]) => g.toLowerCase()).join(', ')})
                         </summary>
-                        <div className="space-y-4 pt-3">{groups.slice(1).map(renderGroup)}</div>
+                        {moreOpen && <div className="space-y-4 pt-3">{groups.slice(1).map(renderGroup)}</div>}
                       </details>
                     )}
                   </>

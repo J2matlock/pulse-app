@@ -3,7 +3,7 @@
   "type": "workspace",
   "id": "veterans-service-officer",
   "name": "Veterans service officer",
-  "description": "For county and nonprofit veterans service officers: intent-to-file deadlines one year out, claims, decisions and appeal windows. Pulse is a tracking aid, not your official record system.",
+  "description": "For county and nonprofit veterans service officers: intent-to-file deadlines one year out, claims, the VA's 30-day evidence requests, decisions and appeal windows. Pulse is a tracking aid, not your official record system.",
   "icon": "shield-check",
   "group": "Legal and government",
   "keywords": [
@@ -77,49 +77,64 @@
           "config": "{\"alert_rule_name\":\"Appeal window\",\"log_changes\":true}"
         },
         {
-          "name": "Next appointment",
+          "name": "Evidence sent",
           "column_type": "date",
           "position": 3,
+          "width": 150,
+          "description": "Date you sent the evidence the VA asked for. Due 30 days after the VA letter date",
+          "config": "{\"alert_rule_name\": \"Evidence due\", \"log_changes\": true}"
+        },
+        {
+          "name": "Next appointment",
+          "column_type": "date",
+          "position": 4,
           "width": 150,
           "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
         },
         {
           "name": "Branch",
           "column_type": "dropdown",
-          "position": 4,
+          "position": 5,
           "width": 130,
           "config": "{\"options\":[\"Army\",\"Navy\",\"Air Force\",\"Marine Corps\",\"Coast Guard\",\"Space Force\"]}"
         },
         {
           "name": "Phone",
           "column_type": "phone",
-          "position": 5,
+          "position": 6,
           "width": 140,
           "is_required": 1
         },
         {
           "name": "Claim type",
           "column_type": "dropdown",
-          "position": 6,
+          "position": 7,
           "width": 190,
           "config": "{\"options\":[\"Disability compensation\",\"Pension\",\"Education\",\"Health care\",\"Burial\"]}"
         },
         {
           "name": "Intent to file date",
           "column_type": "date",
-          "position": 7,
+          "position": 8,
           "width": 150
         },
         {
           "name": "Decision date",
           "column_type": "date",
-          "position": 8,
+          "position": 9,
           "width": 150
+        },
+        {
+          "name": "VA letter date",
+          "column_type": "date",
+          "position": 10,
+          "width": 150,
+          "description": "Date on the VA's letter asking for evidence"
         },
         {
           "name": "Status",
           "column_type": "dropdown",
-          "position": 9,
+          "position": 11,
           "width": 160,
           "config": "{\"options\":[\"Gathering evidence\",\"Filed\",\"Decided\",\"Appealing\",\"Closed\"]}"
         }
@@ -140,6 +155,14 @@
           "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
           "kind": "relative",
           "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Decision date\"},\"offset\":{\"months\":12,\"direction\":\"after\"}}"
+        },
+        {
+          "name": "Evidence due",
+          "description": "30 days from the date on the VA's evidence request letter",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"VA letter date\"},\"offset\":{\"days\":30,\"direction\":\"after\"}}"
         },
         {
           "name": "Due date",
@@ -181,7 +204,10 @@
           "Next appointment": {
             "daysFromToday": 3
           },
-          "Status": "Gathering evidence"
+          "Status": "Gathering evidence",
+          "VA letter date": {
+            "daysFromToday": -20
+          }
         },
         {
           "Name": "Samuel Rahman",
@@ -197,7 +223,10 @@
           "Next appointment": {
             "daysFromToday": 10
           },
-          "Status": "Gathering evidence"
+          "Status": "Gathering evidence",
+          "VA letter date": {
+            "daysFromToday": -34
+          }
         },
         {
           "Name": "Grace Okafor",
@@ -213,7 +242,13 @@
           "Next appointment": {
             "daysFromToday": 40
           },
-          "Status": "Gathering evidence"
+          "Status": "Gathering evidence",
+          "VA letter date": {
+            "daysFromToday": -45
+          },
+          "Evidence sent": {
+            "daysFromToday": -21
+          }
         },
         {
           "Name": "Omar Brown",
@@ -401,11 +436,29 @@
         "type": "phone",
         "daysAgo": 49,
         "text": "Called about the exam letter."
+      },
+      {
+        "record": "veterans#0",
+        "type": "note",
+        "daysAgo": 20,
+        "text": "VA letter asks for private treatment records within 30 days. Requested them from the clinic."
+      },
+      {
+        "record": "veterans#2",
+        "type": "evidence",
+        "daysAgo": 21,
+        "text": "Buddy statement and treatment records sent to the VA."
       }
     ]
   },
   "dashboardCards": [
     "summary",
     "missingInfo"
+  ],
+  "helpTips": [
+    {
+      "title": "Evidence letters",
+      "body": "When the VA writes asking for evidence, type the letter's date in VA letter date. Evidence sent then shows the 30-day deadline; fill it in with the date you send the evidence."
+    }
   ]
 }

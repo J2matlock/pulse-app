@@ -141,6 +141,9 @@ const sampleDataSchema = z.object({
     type: z.string().check(textLength({ max: 40 })),
     daysAgo: z.number().int().min(0).max(3650),
     text: text(5000),
+    /** Time and mileage on the note, so a mileage report has something to add up */
+    minutes: z.number().int().min(1).max(1440).optional(),
+    miles: z.number().min(0).max(1000).optional(),
   }).strict()).max(1000).optional(),
   /** Sample links: "<list key>#<index>" to "<list key>#<index>", by the from-list's link name */
   links: z.array(z.object({
@@ -227,6 +230,8 @@ export const starterSchema = z.object({
     list: key,
     /** One line on what it answers, shown with the report */
     description: optionalText(200),
+    /** Shown on the dashboard, when the example's features are turned on (like `dashboardCards`) */
+    pinned: z.boolean().optional(),
     config: z.record(z.string(), z.unknown()),
   }).strict()).max(20).optional(),
 }).strict().refine(s => (s.lists ? 1 : 0) + (s.variants ? 1 : 0) === 1, { message: 'A starter has either lists or variants' })
@@ -308,11 +313,10 @@ export interface StarterSummary {
  * "Caring for a parent" (audit F-16).
  */
 export function starterSearchScore(s: StarterSummary, query: string): number {
-  const terms = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const terms = searchTerms(query)
   if (terms.length === 0) return 1
   const phrases = s.keywords.map(k => k.toLowerCase())
-  const words = [s.name, s.description, s.group ?? '', ...s.listNames, ...s.variants.map(v => v.name), ...s.keywords]
-    .join(' ').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const words = wordsOf([s.name, s.description, s.group ?? '', ...s.listNames, ...s.variants.map(v => v.name), ...s.keywords])
   let score = 0
   for (const t of terms) {
     if (words.includes(t) || words.includes(`${t}s`) || phrases.includes(t)) score += 3
@@ -322,12 +326,41 @@ export function starterSearchScore(s: StarterSummary, query: string): number {
   return score
 }
 
+const searchTerms = (query: string) => query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+const wordsOf = (texts: string[]) => texts.join(' ').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+const hasEveryTerm = (words: string[], terms: string[]) => terms.length > 0 && terms.every(t => words.includes(t) || words.includes(`${t}s`))
+
+/**
+ * Among equally good matches, the starter named for what was typed comes
+ * first: its own name, then its keywords, then its other words, and last a
+ * starter that matched only through one of its layouts. "foster" puts Foster
+ * home licensing above Human services' Foster Care Caseworker layout.
+ */
+function closeness(s: StarterSummary, terms: string[]): number {
+  if (hasEveryTerm(wordsOf([s.name]), terms)) return 3
+  if (s.keywords.some(k => k.toLowerCase() === terms.join(' ')) || hasEveryTerm(wordsOf(s.keywords), terms)) return 2
+  if (hasEveryTerm(wordsOf([s.description, s.group ?? '', ...s.listNames]), terms)) return 1
+  return 0
+}
+
 /** The starters to show for a search, best first */
 export function searchStarters(starters: StarterSummary[], query: string): StarterSummary[] {
-  const scored = starters.map(s => ({ s, score: starterSearchScore(s, query) })).filter(x => x.score > 0)
-  const terms = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).length
-  const whole = scored.filter(x => x.score === 3 * terms)
-  return (terms > 0 && whole.length > 0 ? whole : scored).map(x => x.s)
+  const terms = searchTerms(query)
+  const scored = starters.map(s => ({ s, score: starterSearchScore(s, query), close: closeness(s, terms) })).filter(x => x.score > 0)
+  const whole = scored.filter(x => x.score === 3 * terms.length)
+  // Array sort is stable, so equal matches keep the catalog's order
+  return (terms.length > 0 && whole.length > 0 ? whole : scored).sort((a, b) => b.score - a.score || b.close - a.close).map(x => x.s)
+}
+
+/**
+ * The layouts of a starter a search found it by: those whose name or list
+ * names hold every typed word whole, so the gallery can say "Matches: Foster
+ * Care Caseworker" and open that layout directly.
+ */
+export function matchingVariants(s: StarterSummary, query: string): Array<{ key: string; name: string }> {
+  const terms = searchTerms(query)
+  if (terms.length === 0) return []
+  return s.variants.filter(v => hasEveryTerm(wordsOf([v.name, ...v.listNames]), terms)).map(v => ({ key: v.key, name: v.name }))
 }
 
 /** The sample data that goes with the chosen (default: first) variant, if any. */

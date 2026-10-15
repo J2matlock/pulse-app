@@ -461,7 +461,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
     if (opts.applyFeatures && s.dashboardCards?.length) saveSetting.run('dashboard_layout', JSON.stringify(s.dashboardCards))
 
     // Ready-made reports for the lists just added, after the words so they're named in them
-    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key)))
+    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key), opts.applyFeatures))
 
     // Note formats and document templates are added next to the user's own
     if (s.noteFormats?.length) {
@@ -531,7 +531,7 @@ function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, war
       if (hasDisplayFormat(gridId)) refreshDisplayNames(gridId, listRowIds)
       rowsByGrid.set(gridId, listRowIds)
     }
-    const insNote = db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, ?, datetime('now', ?), datetime('now', ?))")
+    const insNote = db.prepare("INSERT INTO case_log (row_id, content, log_type, minutes, miles, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?))")
     // A sample note of a type this workspace doesn't have becomes its first type
     const noteTypes = userTypeKeys()
     const fallbackType = noteTypes.has('note') ? 'note' : [...noteTypes][0] ?? 'note'
@@ -539,7 +539,7 @@ function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, war
       const rowId = byRef.get(a.record)
       if (!rowId) continue
       const ago = `-${a.daysAgo} days`
-      insNote.run(rowId, a.text, noteTypes.has(a.type) ? a.type : fallbackType, ago, ago)
+      insNote.run(rowId, a.text, noteTypes.has(a.type) ? a.type : fallbackType, a.minutes ?? null, a.miles ?? null, ago, ago)
     }
     for (const sl of sd.links ?? []) {
       const typeId = linkTypes.get(`${sl.from.split('#')[0]}:${sl.link.toLowerCase()}`)

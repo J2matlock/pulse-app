@@ -120,7 +120,7 @@ const EXPECTED: Record<string, Expected> = {
   },
   'veterans-service-officer': {
     disclaimer: true,
-    lists: { veterans: { columns: ['Intent to file date', 'Claim filed', 'Decision date', 'Appeal filed'], rules: ['Intent to file expires', 'Appeal window'] } },
+    lists: { veterans: { columns: ['Intent to file date', 'Claim filed', 'Decision date', 'Appeal filed', 'VA letter date', 'Evidence sent'], rules: ['Intent to file expires', 'Appeal window', 'Evidence due'] } },
   },
   'hr-generalist': {
     lists: { employees: { columns: ['Hire date', 'Probation review done', 'Benefits enrolled', 'Yearly review'], rules: ['Probation ends', 'Review on hire anniversary'] } },
@@ -138,6 +138,14 @@ const EXPECTED: Record<string, Expected> = {
       parents: { columns: ['Care team', 'Medication review', 'Wellness visit', 'Insurance renews', 'Benefits renewal', 'Power of attorney'], rules: ['Every 3 months', 'Every year', 'Renews (60-day warning)'] },
       'care-team': { columns: ['Role', 'Looks after'] },
     },
+  },
+  'foster-home-licensing': {
+    disclaimer: true,
+    lists: { homes: { columns: ['Home', 'Parents', 'License renewal', 'Last inspection', 'Fire inspection', 'Well water test', 'Training hours this year', 'County', 'Status'], rules: ['Every year', 'Every 3 months'], required: ['Home', 'Parents', 'Phone'] } },
+  },
+  'home-health-nursing': {
+    disclaimer: true,
+    lists: { patients: { columns: ['Last visit', 'Next visit', 'Recertification due', 'Plan of care signed', 'Physician', 'Insurance', 'Status'], rules: ['Every 7 days', 'Due date', 'Every 60 days'], required: ['Name', 'Phone'] } },
   },
   'prior-authorization': {
     lists: { patients: { columns: ['Visits authorized', 'Authorization start', 'Authorization end', 'Visits left'], rules: ['Visits left'] } },

@@ -503,6 +503,103 @@ describe('human-services starter', () => {
   })
 })
 
+describe('home health nursing starter (R8)', () => {
+  const pinnedIds = () => JSON.parse(setting('dashboard_reports') ?? '[]') as number[]
+  const reportId = (name: string) => (testDb.db.prepare('SELECT id FROM report_definitions WHERE name = ?').get(name) as { id: number } | undefined)?.id
+
+  it('turns on time, mileage and appointments, speaks of patients and visit notes, and pins the miles report', async () => {
+    const { applyStarter, previewStarter } = await starters()
+    const p = previewStarter({ builtinId: 'home-health-nursing' })
+    expect(p.features.map(f => f.key)).toEqual(expect.arrayContaining(['timeTracking', 'mileage', 'appointments']))
+    expect(p.words.map(w => w.proposed)).toEqual(expect.arrayContaining(['patients', 'visit notes']))
+    const res = applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: true, applyFeatures: true, sampleData: true })
+    expect(res.warnings).toEqual([])
+    expect(JSON.parse(setting('workspace_features')!)).toMatchObject({ timeTracking: true, mileage: true, appointments: true, requirements: false })
+    expect(JSON.parse(setting('workspace_vocab')!)).toMatchObject({ record: { one: 'patient' }, activity: { one: 'visit note' }, appointment: { one: 'visit' } })
+    const miles = reportId('Miles and minutes this month')
+    expect(miles).toBeTypeOf('number')
+    expect(pinnedIds()).toEqual([miles])
+    // The ready-made reports say visit notes, not case notes (Candy's "Case notes per month")
+    const names = (testDb.db.prepare('SELECT name FROM report_definitions').all() as Array<{ name: string }>).map(r => r.name)
+    expect(names).toContain('Visit notes per month')
+    expect(names.join(' ')).not.toMatch(/case note/i)
+    // Logging a Visit note moves Last visit
+    const lastVisit = testDb.db.prepare("SELECT config FROM columns WHERE grid_id = ? AND name = 'Last visit'").get(res.gridIds.patients) as { config: string }
+    expect(JSON.parse(lastVisit.config)).toMatchObject({ note_updates: ['visit'] })
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM appointments').get() as { n: number }).n).toBeGreaterThan(0)
+    // Sample visit notes carry minutes and miles, so the report has something to add up
+    const sums = testDb.db.prepare("SELECT SUM(minutes) AS minutes, SUM(miles) AS miles FROM case_log WHERE log_type = 'visit'").get() as { minutes: number; miles: number }
+    expect(sums.minutes).toBeGreaterThan(0)
+    expect(sums.miles).toBeGreaterThan(0)
+  })
+
+  it('adds the lists without samples, and pins nothing when its features are left alone', async () => {
+    const { applyStarter } = await starters()
+    const res = applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(res.warnings).toEqual([])
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?').get(res.gridIds.patients) as { n: number }).n).toBe(0)
+    expect(reportId('Miles and minutes this month')).toBeTypeOf('number')
+    expect(pinnedIds()).toEqual([])
+  })
+
+  it('keeps reports already on the dashboard and doesn\'t pin twice', async () => {
+    const { applyStarter } = await starters()
+    testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('dashboard_reports', '[999]')").run()
+    applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: false, applyFeatures: true, sampleData: false })
+    applyStarter({ builtinId: 'home-health-nursing' }, { lists: ['patients'], applyWords: false, applyFeatures: true, sampleData: false })
+    const ids = pinnedIds()
+    expect(ids[0]).toBe(999)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids.length).toBe(3) // 999, then the miles report on each of the two lists
+  })
+})
+
+describe('foster home licensing starter (R8)', () => {
+  it('adds homes with renewals, quarterly inspections and the lapsed license first among the late ones', async () => {
+    const { applyStarter } = await starters()
+    const { loadDeadlines } = await import('../src/main/deadlines')
+    const res = applyStarter({ builtinId: 'foster-home-licensing' }, { lists: ['homes'], applyWords: true, applyFeatures: true, sampleData: true })
+    expect(res.warnings).toEqual([])
+    const gridId = res.gridIds.homes!
+    // The deadline dates sit right after the name, nothing to rename
+    const cols = (testDb.db.prepare('SELECT name FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ name: string }>).map(c => c.name)
+    expect(cols.slice(0, 5)).toEqual(['Home', 'License renewal', 'Last inspection', 'Fire inspection', 'Well water test'])
+    expect(JSON.parse(setting('workspace_vocab')!)).toMatchObject({ record: { one: 'home', many: 'homes' } })
+    const rule = (col: string) => testDb.db.prepare(`SELECT r.interval_months FROM columns c JOIN alert_rules r ON r.id = CAST(json_extract(c.config, '$.alert_rule_id') AS INTEGER)
+      WHERE c.grid_id = ? AND c.name = ?`).get(gridId, col) as { interval_months: number }
+    expect(rule('License renewal').interval_months).toBe(12)
+    expect(rule('Last inspection').interval_months).toBe(3)
+    const late = loadDeadlines({ gridId }).filter(d => d.daysUntil !== null && d.daysUntil < 0).sort((a, b) => a.daysUntil! - b.daysUntil!)
+    expect(late[0]).toMatchObject({ column_name: 'License renewal' })
+    // A home on city water has no well test, and that's never late
+    const peterson = testDb.db.prepare("SELECT r.id FROM rows r WHERE r.grid_id = ? AND r.display_name = 'Peterson home'").get(gridId) as { id: number }
+    expect(loadDeadlines({ gridId, rowIds: [peterson.id] }).filter(d => d.column_name === 'Well water test' && d.daysUntil !== null)).toEqual([])
+  })
+
+  it('adds the list on its own without samples', async () => {
+    const { applyStarter } = await starters()
+    const res = applyStarter({ builtinId: 'foster-home-licensing' }, { lists: ['homes'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(res.warnings).toEqual([])
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?').get(res.gridIds.homes) as { n: number }).n).toBe(0)
+    expect(setting('workspace_vocab')).toBeUndefined()
+  })
+})
+
+describe('veterans service officer evidence letters (R8)', () => {
+  it('works out the 30-day evidence deadline from the VA letter date, and shows its maths', async () => {
+    const { applyStarter } = await starters()
+    const { loadDeadlines } = await import('../src/main/deadlines')
+    const res = applyStarter({ builtinId: 'veterans-service-officer' }, { lists: ['veterans'], applyWords: false, applyFeatures: false, sampleData: false })
+    const gridId = res.gridIds.veterans!
+    const col = (name: string) => (testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND name = ?').get(gridId, name) as { id: number }).id
+    const rowId = Number(testDb.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))").run(gridId).lastInsertRowid)
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, '2026-09-28', datetime('now'))").run(rowId, col('VA letter date'))
+    const due = loadDeadlines({ gridId, rowIds: [rowId] }).find(d => d.column_name === 'Evidence sent')
+    expect(due?.due).toBe('2026-10-28')
+    expect(due?.detail).toBe('Due Oct 28, 2026 (30 days after Sep 28, 2026)')
+  })
+})
+
 describe('sharing a setup', () => {
   function seedWorkspace() {
     const db = testDb.db
