@@ -132,6 +132,14 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     setShowMenu(false)
   }
 
+  // "Show only the date" off: the words ("due Oct 25 · in 11 days") need room, so the
+  // column is fitted to them once they're saved; otherwise they'd be cut off (B-05)
+  async function handleToggleDateOnly() {
+    const showWords = dateOnlyOn(colConfig)
+    const saved = await updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: showWords ? false : undefined }) })
+    if (saved && showWords) pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })
+  }
+
   async function handleSetDoneChecklist(templateId: number | null) {
     await updateColumn(column.id, { config: JSON.stringify({ ...colConfig, done_checklist_id: templateId ?? undefined }) })
   }
@@ -503,7 +511,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             onClose={() => setShowColumnSettings(false)}
             onToggleLogChanges={() => void handleToggleLogChanges()}
             onToggleRequired={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
-            onToggleDateOnly={() => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: dateOnlyOn(colConfig) ? false : undefined }) })}
+            onToggleDateOnly={() => void handleToggleDateOnly()}
             onOpenColorRules={() => { setShowColFormat(true); setShowMenu(false) }}
             onOpenEditOptions={handleOpenEditOptions}
             onOpenStageSettings={() => { setShowMenu(false); setShowStageSettings(true) }}

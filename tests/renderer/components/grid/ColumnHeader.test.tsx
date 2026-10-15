@@ -195,26 +195,48 @@ describe('ColumnHeader', () => {
       fireEvent.click(screen.getByText('Column settings…'))
     }
 
-    it('is on by default, and turning it off saves date_only: false in the column config, keeping the rest', () => {
-      const updateColumn = vi.fn()
+    it('is on by default; turning it off saves date_only: false, keeping the rest, and fits the column to the words (B-05)', async () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
       setupStores({ updateColumn })
       useAlertStore.setState({ rules: [rule] } as never)
+      const heard: unknown[] = []
+      const off = pulseEvents.on('column:resize', p => { heard.push(p) })
       openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, log_changes: true })))
       const toggle = screen.getByRole('switch', { name: 'Show only the date' })
       expect(toggle.getAttribute('aria-checked')).toBe('true')
       fireEvent.click(toggle)
       expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5, log_changes: true, date_only: false }) })
+      await waitFor(() => expect(heard).toEqual([{ columnId: 3, change: 'fit' }]))
+      off()
     })
 
-    it('turning it back on removes the key, so the config is as it was', () => {
-      const updateColumn = vi.fn()
+    it('turning it back on removes the key, so the config is as it was, and leaves the width alone', async () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
       setupStores({ updateColumn })
       useAlertStore.setState({ rules: [rule] } as never)
+      const heard: unknown[] = []
+      const off = pulseEvents.on('column:resize', p => { heard.push(p) })
       openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, date_only: false })))
       const toggle = screen.getByRole('switch', { name: 'Show only the date' })
       expect(toggle.getAttribute('aria-checked')).toBe('false')
       fireEvent.click(toggle)
       expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5 }) })
+      await act(async () => { await Promise.resolve() })
+      expect(heard).toEqual([])
+      off()
+    })
+
+    it('does not fit the column when the change could not be saved', async () => {
+      const updateColumn = vi.fn().mockResolvedValue(false)
+      setupStores({ updateColumn })
+      useAlertStore.setState({ rules: [rule] } as never)
+      const heard: unknown[] = []
+      const off = pulseEvents.on('column:resize', p => { heard.push(p) })
+      openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5 })))
+      fireEvent.click(screen.getByRole('switch', { name: 'Show only the date' }))
+      await act(async () => { await Promise.resolve() })
+      expect(heard).toEqual([])
+      off()
     })
 
     it('is not offered on a date column without a rule', () => {
