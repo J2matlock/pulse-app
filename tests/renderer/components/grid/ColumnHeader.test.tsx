@@ -491,7 +491,7 @@ describe('ColumnHeader', () => {
       render(<ColumnHeader column={makeColumn(1, 'Name')} />)
       // jsdom draws the header at the top: the menu starts at its bottom edge, 0
       fireEvent.doubleClick(screen.getByText('Name'))
-      const menu = screen.getByText('Move column to the Trash…').closest('.fixed') as HTMLElement
+      const menu = screen.getByText('Move column to the Trash').closest('.fixed') as HTMLElement
       expect(menu.style.top).toBe('0px')
       expect(menu.style.maxHeight).toBe('592px')
       expect(screen.getByRole('textbox', { name: 'Column name' })).toBeTruthy()
