@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { IPC } from '../../../shared/ipc-channels'
@@ -30,6 +30,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   // Which box the error is about, so that box can point at it (audit A06-14)
   const [pwError, setPwError] = useState<{ text: string; field: 'current' | 'next' | 'confirm' | null } | null>(null)
   const [pwSaving, setPwSaving] = useState(false)
+  const currentPwRef = useRef<HTMLInputElement>(null)
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null)
   const [showRecoveryKeyModal, setShowRecoveryKeyModal] = useState(false)
   const [generatedRecoveryKey, setGeneratedRecoveryKey] = useState('')
@@ -134,8 +135,13 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         ? await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint, { reencrypt: true })
         : await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
       if (!res.ok) {
+        // Main's own words (auth.ts): a wrong password, or the lockout with its wait time
         const wrong = res.error === 'Incorrect password'
-        setPwError({ text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "We couldn't change your password — try again"), field: wrong ? 'current' : null })
+        const lockedOut = res.error.startsWith('Too many failed attempts')
+        setPwError({
+          text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "We couldn't change your password — try again"),
+          field: wrong || lockedOut ? 'current' : null,
+        })
         return
       }
       setPwForm({ current: '', next: '', confirm: '', hint: '' })
@@ -153,6 +159,24 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
       setPwSaving(false)
     }
   }
+
+  // The form is long: a wrong current password is said by its box, and the box is
+  // brought into view and focused, so the message isn't scrolled past (persona study #9)
+  useEffect(() => {
+    if (pwError?.field !== 'current') return
+    const el = currentPwRef.current
+    if (!el) return
+    el.focus()
+    el.select()
+    el.scrollIntoView?.({ block: 'center' })
+  }, [pwError])
+
+  const pwErrorText = (field: 'current' | 'next' | 'confirm' | null): React.ReactElement | null =>
+    pwError && pwError.field === field
+      ? <p id="settings-pw-error" role="alert" className="mt-1 text-base text-red-600 dark:text-red-400 font-medium">{pwError.text}</p>
+      : null
+  const invalidBorder = (field: 'current' | 'next'): string =>
+    pwError?.field === field ? ' border-red-500 dark:border-red-400' : ''
 
   return (
     <>
@@ -199,20 +223,19 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
 
         {isChangingPassword && (
           <form onSubmit={e => void handleChangePassword(e)} className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            {pwError && (
-              <p id="settings-pw-error" role="alert" className="text-sm text-red-600 dark:text-red-400 font-medium">{pwError.text}</p>
-            )}
             <div>
               <label htmlFor="settings-pw-current" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Current password</label>
-              <input id="settings-pw-current" type="password" autoFocus className="input w-full" style={{ minHeight: 44 }}
+              <input id="settings-pw-current" ref={currentPwRef} type="password" autoFocus className={`input w-full${invalidBorder('current')}`} style={{ minHeight: 44 }}
                 aria-invalid={pwError?.field === 'current' || undefined} aria-describedby={pwError?.field === 'current' ? 'settings-pw-error' : undefined}
                 value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} required />
+              {pwErrorText('current')}
             </div>
             <div>
               <label htmlFor="settings-pw-new" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">New password</label>
-              <input id="settings-pw-new" type="password" className="input w-full" style={{ minHeight: 44 }}
+              <input id="settings-pw-new" type="password" className={`input w-full${invalidBorder('next')}`} style={{ minHeight: 44 }}
                 aria-invalid={pwError?.field === 'next' || undefined} aria-describedby={pwError?.field === 'next' ? 'settings-pw-strength settings-pw-error' : 'settings-pw-strength'}
                 value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} required minLength={12} />
+              {pwErrorText('next')}
               <PasswordStrength password={pwForm.next} id="settings-pw-strength" />
             </div>
             <div>
@@ -222,6 +245,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 {...fieldErrorProps('settings-pw-confirm', confirmMismatch, pwError?.field === 'confirm' ? 'settings-pw-error' : undefined)}
                 aria-invalid={confirmMismatch || pwError?.field === 'confirm' ? true : undefined} />
               <FieldError fieldId="settings-pw-confirm" error={confirmMismatch} announce={false} />
+              {!confirmMismatch && pwErrorText('confirm')}
             </div>
             <div>
               <label htmlFor="settings-pw-hint" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -248,6 +272,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 </span>
               </label>
             </details>
+            {/* Anything not about one box sits by the button the person just pressed */}
+            {pwErrorText(null)}
             <button type="submit" className="btn-primary w-full" style={{ minHeight: 44 }}
               disabled={pwSaving || (pwForm.next.length > 0 && pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm)}>
               {pwSaving ? (pwReencrypt ? 'Re-encrypting…' : 'Saving…') : 'Save new password'}

@@ -313,7 +313,8 @@ describe('AUTH_CHANGE_PASSWORD', () => {
   it('fails with wrong old password', async () => {
     const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'wrong-old', 'new-password-123', 'hint') as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/Incorrect/)
+    // Exactly this text: Settings → Security matches it to say "Your current password is incorrect." by the box
+    expect(r.error).toBe('Incorrect password')
   })
 
   it('checks the current password at the edge too: wrong type or over 1024 characters (Q-056)', async () => {
