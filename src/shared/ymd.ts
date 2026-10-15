@@ -53,3 +53,33 @@ export function daysBetween(a: string, b: string): number {
   const [by, bm, bd] = b.split('-').map(Number)
   return Math.round((Date.UTC(by!, bm! - 1, bd!) - Date.UTC(ay!, am! - 1, ad!)) / 86_400_000)
 }
+
+/**
+ * Two-digit years from here up are read as 19xx, below it as 20xx: a deadline
+ * typed as 26 or 35 is 2026 or 2035, and a birth year typed as 54 is 1954.
+ */
+export const TWO_DIGIT_CENTURY_SPLIT = 50
+
+/**
+ * A date typed with a two-digit year ("7/15/26" reaches us as '0026-07-15')
+ * read as 20yy, or 19yy for 50–99. Only the year's digits change, so the
+ * month and day stay exactly as typed. Anything else comes back unchanged,
+ * including a year typed in full.
+ */
+export function normalizeTwoDigitYear(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd)
+  if (!m) return ymd
+  const year = Number(m[1])
+  if (year >= 100) return ymd
+  const full = year >= TWO_DIGIT_CENTURY_SPLIT ? 1900 + year : 2000 + year
+  return `${full}-${m[2]}-${m[3]}`
+}
+
+/**
+ * Whether a date box holds a whole, real date: the browser doesn't call it
+ * bad input (a half-typed or impossible date shows as '' with badInput set),
+ * and the value is a YYYY-MM-DD that exists, in the years Pulse accepts.
+ */
+export function isCompleteDate(value: string | null | undefined, badInput: boolean): boolean {
+  return !badInput && !!value && toYmd(value) === value
+}
