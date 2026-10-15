@@ -60,7 +60,12 @@ const engineRules = new WeakMap<ParsedAlertRule, EngineRule>()
 function engineRuleOf(rule: ParsedAlertRule): EngineRule {
   let engineRule = engineRules.get(rule)
   if (!engineRule) { engineRule = engineRuleFrom(rule); engineRules.set(rule, engineRule) }
-  return engineRule
+  const condId = engineRule.condition?.columnId
+  if (condId === undefined) return engineRule
+  // Named at call time, so a renamed column reads right ("Counted because Needs check is blank")
+  const { columns, hiddenColumns } = useGridStore.getState()
+  const name = (columns.find(c => c.id === condId) ?? hiddenColumns.find(c => c.id === condId))?.name
+  return name ? { ...engineRule, conditionColumnName: name } : engineRule
 }
 const holidaySets = new WeakMap<string[], Set<string>>()
 const NO_HOLIDAYS = new Set<string>()

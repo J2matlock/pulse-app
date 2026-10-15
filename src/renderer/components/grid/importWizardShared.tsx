@@ -18,6 +18,8 @@ export interface ImportPreview {
     lastFirstNames?: boolean
     /** A date column's cells that say "TBD", "n/a" and the like, in the whole file */
     placeholders?: { count: number; example: string }
+    /** A date column: up to 200 of its dates as they will be stored (YYYY-MM-DD) */
+    dateValues?: string[]
   }>
   detectedHeaderRow: number
   headerDetectionConfidence: 'high' | 'medium' | 'low'

@@ -23,9 +23,10 @@ import type { Column } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
+import { useActivityTypeStore } from '../../stores/activityTypeStore'
 import { friendlyError } from '../../utils/friendlyError'
 import { useAlertStore } from '../../stores/alertStore'
-import type { DateAnswer } from '../../utils/repeatGuess'
+import { unansweredDates, type DateAnswer } from '../../utils/repeatGuess'
 import {
   STEP_LABELS, OLD_SPREADSHEET, OLD_SPREADSHEET_MESSAGE, findNameParts,
   type ImportPreview, type ColumnMapping, type ImportOptions, type ImportResult, type Step,
@@ -79,6 +80,8 @@ const linkButton = 'min-h-[44px] px-2 text-base text-blue-700 dark:text-blue-300
 
 export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDone, onFileChosen, summaryFirst = SUMMARY_FIRST }: Props): React.ReactElement | null {
   const { t } = useVocab(gridId)
+  // Contact note types (loaded on unlock), for a Last Contact column that follows notes after import (R4)
+  const noteTypes = useActivityTypeStore(s => s.types)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, open)
   const [step, setStep] = useState<Step>(1)
@@ -290,7 +293,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
     setCleanData(plan.cleanData)
     setFlipNames(plan.flipNames)
     setSkipHiddenRows(plan.skipHiddenRows)
-    setDateAnswers(guessDateAnswers(plan.mappings, p))
+    setDateAnswers(guessDateAnswers(plan.mappings, p, noteTypes))
     setImportResult(null)
     setUndo('idle')
     setImportFailed(false)
@@ -421,7 +424,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
     if (!input) return
     setDatesAsked(false)
     // Answers already given on the summary (before "Match the columns myself…") are kept
-    setDateAnswers(prev => ({ ...guessDateAnswers(input.mappings, input.preview), ...prev }))
+    setDateAnswers(prev => ({ ...guessDateAnswers(input.mappings, input.preview, noteTypes), ...prev }))
     setStep(6)
     await runImport(input)
   }
@@ -481,7 +484,9 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
       if (!c.created || c.type !== 'date') return []
       const a = dateAnswers[c.sourceIndex]
       if (!a || a.repeat === 'no') return []
-      return a.repeat === 'due' ? [{ columnId: c.id, repeat: 'due' }] : [{ columnId: c.id, repeat: 'every', n: a.n, unit: a.unit }]
+      // A Last Contact column follows contact notes, unless turned off on the summary (R4)
+      const follows = a.followsNotes?.length && !a.followsNotesOff ? { followsNotes: a.followsNotes } : {}
+      return a.repeat === 'due' ? [{ columnId: c.id, repeat: 'due' }] : [{ columnId: c.id, repeat: 'every', n: a.n, unit: a.unit, ...follows }]
     })
     if (answers.length === 0) return
     try {
@@ -558,7 +563,9 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
   const onSummary = step === 6
   const before = onSummary && !importResult
   const rowsToImport = preview ? (preview.dataRowCount ?? preview.rows.length) : 0
+  // "Next due or last done?" for partly-future dates is answered before going on (R4)
   const dateColumns = preview ? newDateColumns(mappings, preview) : []
+  const datesWaiting = unansweredDates(dateAnswers).some(id => dateColumns.some(c => c.id === id))
 
   return (
     <>
@@ -840,7 +847,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
             )}
 
             {before && !loading && preview && (
-              <PrimaryButton disabled={rowsToImport === 0}
+              <PrimaryButton disabled={rowsToImport === 0 || (datesAsked && datesWaiting)}
                 onClick={() => { const input = currentInput(); if (input) void runImport(input) }}>
                 Import
               </PrimaryButton>
@@ -853,7 +860,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, slot, beforeDo
                     {undo === 'busy' ? 'Undoing…' : 'Undo this import'}
                   </SecondaryButton>
                 )}
-                <PrimaryButton busy={closing} onClick={() => void done()}>
+                <PrimaryButton busy={closing} disabled={!datesAsked && undo !== 'done' && datesWaiting} onClick={() => void done()}>
                   Done
                 </PrimaryButton>
               </>

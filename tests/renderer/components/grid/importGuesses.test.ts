@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planImport, needsAdvancedFor, newDateColumns, guessDateAnswers, NEEDS_ADVANCED_REASON } from '../../../../src/renderer/components/grid/importGuesses'
+import { planImport, needsAdvancedFor, newDateColumns, guessDateAnswers, contactNoteTypes, NEEDS_ADVANCED_REASON } from '../../../../src/renderer/components/grid/importGuesses'
 import type { ImportPreview, ColumnMapping } from '../../../../src/renderer/components/grid/importWizardShared'
 import type { Column } from '../../../../src/shared/types'
 
@@ -115,5 +115,28 @@ describe('the dates the import makes', () => {
       4: { repeat: 'every', n: 1, unit: 'months' },
       5: { repeat: 'every', n: 1, unit: 'years' },
     })
+  })
+
+  it('a Last Contact column follows the contact note types there are (persona study R4)', () => {
+    const p = preview({ headers: ['First Name', 'Last Name', 'DOB', 'Phone', 'Last Contact', 'Annual review', 'Notes'] })
+    const withName = { ...p, detectedColumns: p.detectedColumns.map(c => c.index === 4 ? { ...c, originalName: 'Last Contact' } : c) }
+    const det = detected.map(m => m.sourceIndex === 4 ? { ...m, newName: 'Last Contact' } : m)
+    const plan = planImport(withName, det, [nameCol], 0)
+    const types = [{ key: 'note' }, { key: 'email' }, { key: 'visit' }, { key: 'phone' }, { key: 'meeting', is_archived: 1 }]
+    const answers = guessDateAnswers(plan.mappings, withName, types)
+    expect(answers[4]).toEqual({ repeat: 'every', n: 1, unit: 'months', followsNotes: ['visit', 'phone', 'email'] })
+    expect(answers[5]!.followsNotes).toBeUndefined()
+    // Without note types, or none that are contacts, nothing follows
+    expect(guessDateAnswers(plan.mappings, withName)[4]!.followsNotes).toBeUndefined()
+    expect(guessDateAnswers(plan.mappings, withName, [{ key: 'inspection' }])[4]!.followsNotes).toBeUndefined()
+    expect(contactNoteTypes(types)).toEqual(['visit', 'phone', 'email'])
+  })
+
+  it('reads the dates the preview parsed: mostly future is a due date (persona study R4)', () => {
+    const future = ['2099-12-04', '2099-11-27', '2099-01-02', '2099-03-04', '2020-01-01']
+    const p = preview()
+    const withDates = preview({ detectedColumns: p.detectedColumns.map(c => c.index === 5 ? { ...c, dateValues: future } : c) })
+    const plan = planImport(withDates, detected, [nameCol], 0)
+    expect(guessDateAnswers(plan.mappings, withDates)[5]).toEqual({ repeat: 'due' })
   })
 })

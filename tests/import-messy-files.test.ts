@@ -89,6 +89,14 @@ describe('placeholders in date columns', () => {
     expect(DATE_PLACEHOLDERS.has('tbd')).toBe(true)
   })
 
+  it('the preview hands over a date column\'s dates as they will be stored, for "due or done?" (R4)', async () => {
+    const file = join(dir, 'dates.csv')
+    writeFileSync(file, 'Name,Plan Review\nAl,3/14/2026\nBea,TBD\nCal,2026-05-01\nDot,\nEd,June 2 2026\n')
+    const preview = await parseImportFile(file)
+    expect(preview.detectedColumns[1]!.dateValues).toEqual(['2026-03-14', '2026-05-01', '2026-06-02'])
+    expect(preview.detectedColumns[0]!.dateValues).toBeUndefined()
+  })
+
   it('"TBD" and "n/a" keep a column a date column, and are kept as typed', async () => {
     const file = join(dir, 'tbd.csv')
     writeFileSync(file, 'Name,Annual review\nAl,3/14/2026\nBea,TBD\nCal,2026-05-01\nDot,n/a\nEd,June 2 2026\n')

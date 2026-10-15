@@ -17,6 +17,8 @@ vi.mock('../../src/renderer/hooks/useActivityTypes', () => ({
 
 import { ContactRequirementsDialog } from '../../src/renderer/components/contact-req/ContactRequirementsDialog'
 import { setWords } from './vocabFixture'
+import { useGridStore } from '../../src/renderer/stores/gridStore'
+import type { Column } from '../../src/shared/types'
 
 beforeEach(() => { setWords(); invoke.mockClear() })
 
@@ -28,5 +30,26 @@ describe('ContactRequirementsDialog', () => {
     fireEvent.click(add)
     expect(screen.getByLabelText('Name')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add another' })).toBeTruthy()
+  })
+
+  it('says a note counts toward every requirement, and that a date following notes counts once a day (persona study R4)', async () => {
+    useGridStore.setState({
+      activeGridId: 1,
+      columns: [
+        { id: 3, grid_id: 1, name: 'Last Contact', column_type: 'date', config: JSON.stringify({ note_updates: ['visit'] }) },
+        { id: 4, grid_id: 1, name: 'Plan Review', column_type: 'date', config: '{}' },
+      ] as Column[],
+      hiddenColumns: [],
+    })
+    invoke.mockImplementation(async (channel: string) => channel === 'contact-req:get'
+      ? { ok: true, data: [{ id: 1, grid_id: 1, label: 'Visit', note_types: ['inspection'], per_month: 1, period: 'month' }] }
+      : { ok: true, data: null })
+    render(<ContactRequirementsDialog gridId={1} gridName="Caseload" onClose={vi.fn()} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.getByTestId('requirements-how-counted').textContent).toBe(
+      'A case note counts toward every contact requirement it matches.Dates in Last Contact count too, once per day, for clients without a case note that day.')
+    // Another list's columns say nothing about this one
+    act(() => { useGridStore.setState({ activeGridId: 2 }) })
+    expect(screen.getByTestId('requirements-how-counted').textContent).not.toContain('Last Contact')
   })
 })

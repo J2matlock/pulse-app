@@ -337,7 +337,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-requirement-setup',
     question: 'How do I set how many contacts each {record} needs a month?',
-    answer: 'Go to Settings > Deadlines & reminders > {Requirement:many} and click "Set up…" next to your {list} (or open the menu next to the {list} in the sidebar and choose "{Requirement:many}…"). Pick one of the ready-made choices or add your own, like 1 visit and 2 phone calls a month, counted from the {activity:many} you log. The Dashboard then shows who is behind, and each {record}\'s page shows progress for the current month.',
+    answer: 'Go to Settings > Deadlines & reminders > {Requirement:many} and click "Set up…" next to your {list} (or open the menu next to the {list} in the sidebar and choose "{Requirement:many}…"). Pick one of the ready-made choices or add your own, like 1 visit and 2 phone calls a month, counted from the {activity:many} you log. A date column that updates from {activity:many} (like Last Contact) counts too: its date is one contact that day, unless {a activity} of that kind was logged that day. The Dashboard then shows who is behind, and each {record}\'s page shows progress for the current month.',
     category: 'client-profiles',
     feature: 'requirements',
     keywords: ['contacts per month', 'minimum visits', 'required calls', 'face to face', 'monthly contact', 'compliance'],

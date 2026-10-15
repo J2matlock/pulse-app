@@ -10,6 +10,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { PERIODS, PERIOD_MAX, type Period } from '../../../shared/periods'
 import { friendlyError } from '../../utils/friendlyError'
+import { useGridStore } from '../../stores/gridStore'
 
 // Built on the five built-in types; only shown for the types this workspace still has
 const SUGGESTIONS: ContactRequirement[] = [
@@ -19,6 +20,23 @@ const SUGGESTIONS: ContactRequirement[] = [
 ]
 
 interface Draft { label: string; note_types: string[]; per_month: string; period: Period }
+
+/** Date columns of the open list that follow notes ("Update from notes"): their dates count too (R4) */
+function useFollowedDateColumns(gridId: number): string[] {
+  const active = useGridStore(s => s.activeGridId === gridId)
+  const columns = useGridStore(s => s.columns)
+  const hidden = useGridStore(s => s.hiddenColumns)
+  if (!active) return []
+  return [...columns, ...hidden].filter(c => {
+    if (c.column_type !== 'date' && c.column_type !== 'deadline') return false
+    try { return ((JSON.parse(c.config || '{}') as { note_updates?: unknown }).note_updates as unknown[] | undefined)?.length } catch { return false }
+  }).map(c => c.name)
+}
+
+/** "a", "a and b", "a, b and c" */
+function andList(items: string[]): string {
+  return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
 
 /** Edit a list's requirements: how many notes of which kinds per week, month, quarter or year. */
 export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
@@ -35,6 +53,7 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
   const [drafts, setDrafts] = useState<Draft[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const followed = useFollowedDateColumns(gridId)
 
   // Load once per caseload; a new onClose identity must not wipe the user's edits
   useEffect(() => {
@@ -116,6 +135,19 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
             </div>
           </fieldset>
         ))}
+
+        {drafts && drafts.length > 0 && (
+          <div className="space-y-1" data-testid="requirements-how-counted">
+            <p className="text-base text-slate-700 dark:text-slate-200">
+              {t('activity', { article: true, cap: true })} counts toward every {t('requirement')} it matches.
+            </p>
+            {followed.length > 0 && (
+              <p className="text-base text-slate-700 dark:text-slate-200">
+                Dates in {andList(followed)} count too, once per day, for {t('record', { many: true })} without {t('activity', { article: true })} that day.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Always a way in, even with no suggestions (a starter can archive the built-in note types) */}
         {drafts && drafts.length < 10 && (

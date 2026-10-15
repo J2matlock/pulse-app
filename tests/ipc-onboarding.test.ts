@@ -471,6 +471,19 @@ describe('IPC Onboarding — ONBOARDING_DATE_RULES', () => {
     expect(testDb.db.prepare("SELECT COUNT(*) AS n FROM alert_rules WHERE name LIKE 'Every 4 months%'").get()).toEqual({ n: 1 })
   })
 
+  it('a Last Contact answer that follows notes turns on "update from notes", with only real note types (persona study R4)', async () => {
+    const g = gridWithDates()
+    const res = await invoke(IPC.ONBOARDING_DATE_RULES, g.gridId, [
+      { columnId: g.oil, repeat: 'every', n: 1, unit: 'months', followsNotes: ['visit', 'phone', 'made_up', 'visit'] },
+      { columnId: g.inspection, repeat: 'every', n: 1, unit: 'years' },
+    ]) as any
+    expect(res).toEqual({ ok: true, data: 2 })
+    expect(cfg(g.oil)).toMatchObject({ note_updates: ['visit', 'phone'], log_changes: true })
+    expect(cfg(g.inspection).note_updates).toBeUndefined()
+    // Not a note type key at all: refused by the schema
+    expect(((await invoke(IPC.ONBOARDING_DATE_RULES, g.gridId, [{ columnId: g.oil, repeat: 'due', followsNotes: ['Not A Key!'] }])) as any).ok).toBe(false)
+  })
+
   it("refuses columns that aren't dates in that list, and bad answers", async () => {
     const g = gridWithDates()
     expect(((await invoke(IPC.ONBOARDING_DATE_RULES, g.gridId, [{ columnId: g.name, repeat: 'due' }])) as any).error).toMatch(/isn't in this list/)

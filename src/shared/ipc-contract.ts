@@ -64,7 +64,10 @@ export interface SetupProgress {
 }
 
 /** Setup's "Which of these dates repeat?" answer for one date column */
-export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
+export type DateRuleAnswer = ({ columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }) & {
+  /** Note types that move this date when logged ("update from notes"), set by the import for a Last Contact column */
+  followsNotes?: string[]
+}
 
 // ── Helper types for complex return shapes ────────────────────────────────
 
@@ -183,6 +186,8 @@ export interface ImportFilePreview {
     samples: string[]
     /** Most values look like "Smith, Jane" */
     lastFirstNames?: boolean
+    /** A date column: up to 200 of its dates as they will be stored (YYYY-MM-DD) */
+    dateValues?: string[]
   }>
   /** 0-based header row, detected or chosen */
   detectedHeaderRow: number

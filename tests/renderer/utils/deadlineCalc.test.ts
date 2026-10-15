@@ -12,7 +12,7 @@ import {
   classifyDeadline,
   computeAge,
 } from '../../../src/renderer/utils/deadlineCalc'
-import type { AlertThreshold } from '../../../src/shared/types'
+import type { AlertThreshold, Column, ParsedAlertRule } from '../../../src/shared/types'
 
 function dateString(offsetDays: number): string {
   const d = new Date()
@@ -231,5 +231,27 @@ describe('computeAge', () => {
 
   it('returns dash for invalid date', () => {
     expect(computeAge('not-a-date')).toBe('—')
+  })
+})
+
+describe('evaluateRuleForRow with a blank condition column (persona study R4)', () => {
+  it('counts it, names the column, and agrees with the shared engine', async () => {
+    const { evaluateRuleForRow } = await import('../../../src/renderer/utils/deadlineCalc')
+    const { useGridStore } = await import('../../../src/renderer/stores/gridStore')
+    const { evaluate, engineRuleFrom } = await import('../../../src/shared/deadlineEngine')
+    const rule = {
+      id: 7, name: 'Background check', thresholds: [], interval_days: 0, interval_months: 24, end_of_month: 0,
+      kind: 'interval', rule_config: null, business_days: 0,
+      rule_condition: JSON.stringify({ columnId: 12, op: 'is', values: ['Yes'], whenFalse: 'hide' }),
+    } as unknown as ParsedAlertRule
+    useGridStore.setState({ columns: [], hiddenColumns: [{ id: 12, name: 'Needs background check' } as unknown as Column] })
+    const stored = dateString(-720)
+    const res = evaluateRuleForRow(rule, stored, { row_id: 1, col_12: '' }, 3)
+    const engine = evaluate(engineRuleFrom(rule), { today: dateString(0), columnDate: stored, values: { 12: '' } })
+    expect(res.due).toBe(engine.due)
+    expect(res.state).toBe(engine.state)
+    expect(res.due).not.toBeNull()
+    expect(res.detail).toMatch(/Counted because Needs background check is blank$/)
+    expect(evaluateRuleForRow(rule, stored, { row_id: 1, col_12: 'No' }, 3).due).toBeNull()
   })
 })
