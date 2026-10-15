@@ -24,7 +24,8 @@ import { BackgroundSection } from '../../../../src/renderer/components/settings/
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { useWorkspaceStore } from '../../../../src/renderer/stores/workspaceStore'
 import { setWords } from '../../vocabFixture'
-import type { ParsedAlertRule } from '../../../../src/shared/types'
+import type { Column, ParsedAlertRule } from '../../../../src/shared/types'
+import { ColumnSettingsDialog } from '../../../../src/renderer/components/grid/ColumnSettingsDialog'
 
 beforeEach(() => { setWords(); mockInvoke.mockReset() })
 afterEach(() => cleanup())
@@ -210,3 +211,34 @@ describe('Deadlines & reminders', () => {
     await waitFor(() => expect((screen.getByTestId('background-more') as HTMLDetailsElement).open).toBe(true))
   })
 })
+
+describe('Column settings', () => {
+  const column = (column_type: Column['column_type']): Column => ({
+    id: 7, grid_id: 1, name: 'Review', column_type, width: 150, position: 1, is_visible: 1, is_required: 0,
+    is_identifier: 0, is_name_column: 0, default_value: null, description: null, config: '{}', conditional_format: '[]', created_at: '',
+  })
+  const rule = { id: 5, name: 'Yearly', description: null, is_system: 0, interval_days: 365, created_at: '', thresholds: [] } as unknown as ParsedAlertRule
+  function renderDialog(type: Column['column_type'], colConfig: Record<string, unknown> = {}, withRule = false) {
+    const noop = () => {}
+    mockInvoke.mockImplementation(() => Promise.resolve({ ok: true, data: [] }))
+    return render(<ColumnSettingsDialog column={column(type)} colConfig={colConfig} hasLinkType={false} currentAlertRule={withRule ? rule : undefined}
+      onClose={noop} onToggleLogChanges={noop} onToggleRequired={noop} onToggleDateOnly={noop} onOpenColorRules={noop}
+      onOpenEditOptions={noop} onOpenStageSettings={noop} onOpenLinkSettings={noop} onNoteUpdatesChange={noop} onDoneChecklistChange={noop} />)
+  }
+  const more = () => screen.getByTestId('column-settings-more') as HTMLDetailsElement
+
+  it('a text column: "Must be filled in" and Color rules in view, history of changes under a closed "More settings"', () => {
+    renderDialog('text')
+    expect(screen.getByRole('switch', { name: 'Must be filled in' }).closest('details')).toBeNull()
+    expect(screen.getByText('Color rules for this column…').closest('details')).toBeNull()
+    expect(screen.getByRole('switch', { name: 'Keep a history of changes' }).closest('details')).toBe(more())
+    expect(more().open).toBe(false)
+  })
+
+  it('opens by itself when the history of changes is on', () => {
+    renderDialog('date', { log_changes: true }, true)
+    expect(more().open).toBe(true)
+    expect(screen.getByRole('switch', { name: 'Show only the date' }).closest('details')).toBeNull()
+  })
+})
+

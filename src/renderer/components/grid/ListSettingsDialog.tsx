@@ -20,6 +20,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { RECORD_KINDS } from '../../views/setup/GuidedBlankStart'
 import { DeletedColumnsSection } from './DeletedColumnsSection'
+import { MoreSettings } from '../settings/MoreSettings'
 
 interface Props {
   gridId: number
@@ -94,6 +95,14 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
   }, [onClose])
 
   const workspaceRecord = resolveVocab(workspaceVocab).record
+  // The kind most lists here hold: a list that holds something else has had it chosen on purpose
+  const grids = useGridStore(s => s.grids)
+  const usualKind = useMemo(() => {
+    const counts = new Map<RecordKind, number>()
+    for (const g of grids) { const k = g.record_kind ?? 'person'; counts.set(k, (counts.get(k) ?? 0) + 1) }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'person'
+  }, [grids])
+  const listSettingsChanged = !!loaded && ((loaded.grid.record_kind ?? 'person') !== usualKind || !!listVocab?.record || !!loaded.grid.display_format)
   const nameColumn = loaded?.columns.find(c => c.is_name_column === 1)
 
   const preview = useMemo(() => {
@@ -217,64 +226,6 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
               <input id="list-settings-name" className="input w-full" maxLength={200} value={name} onChange={e => setName(e.target.value)} />
             </div>
 
-            <fieldset>
-              <legend className={label}>What does this {t('list')} hold?</legend>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {RECORD_KINDS.map(k => (
-                  <label key={k.kind} className="flex items-start gap-2 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
-                    <input type="radio" name="list-settings-kind" className="w-5 h-5 mt-0.5" checked={kind === k.kind} onChange={() => setKind(k.kind)} />
-                    <span>
-                      <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{k.label}</span>
-                      <span className="block text-sm text-slate-600 dark:text-slate-300">{k.example}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {note && <p role="status" className="mt-2 text-base text-amber-800 dark:text-amber-200">{note}</p>}
-            </fieldset>
-
-            <fieldset className="space-y-2">
-              <legend className={label}>What do you call one of them? And more than one?</legend>
-              <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
-                <input type="checkbox" className="w-5 h-5" checked={!ownWords} onChange={e => setOwnWords(!e.target.checked)} />
-                Use the workspace words ({workspaceRecord.one} / {workspaceRecord.many})
-              </label>
-              {ownWords && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="list-settings-one" className="block text-base text-slate-700 dark:text-slate-200 mb-1">One</label>
-                    <input id="list-settings-one" className="input w-full" maxLength={VOCAB_WORD_MAX} value={one} onChange={e => setOne(e.target.value)} />
-                  </div>
-                  <div>
-                    <label htmlFor="list-settings-many" className="block text-base text-slate-700 dark:text-slate-200 mb-1">More than one</label>
-                    <input id="list-settings-many" className="input w-full" maxLength={VOCAB_WORD_MAX} value={many} onChange={e => setMany(e.target.value)} />
-                  </div>
-                </div>
-              )}
-            </fieldset>
-
-            <div className="space-y-2">
-              <label htmlFor="list-settings-format" className={label}>How to show each one's name</label>
-              {/* What the chips are for, before the chips, so they aren't taken for filters (UX-B-37) */}
-              <p className={hint}>
-                Usually {nameColumn ? <>the <strong>{nameColumn.name}</strong> column</> : 'the name column'} is enough. To show more, click the columns to add them.
-              </p>
-              <div className="flex flex-wrap gap-2" aria-label="Columns you can add">
-                {loaded.columns.map(c => (
-                  <button key={c.id} type="button" onClick={() => insertToken(c.name)}
-                    className="hit-44 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-              <input id="list-settings-format" ref={formatRef} className="input w-full font-mono" maxLength={DISPLAY_FORMAT_MAX}
-                placeholder={formatPlaceholder} value={format} onChange={e => setFormat(e.target.value)} />
-              <p className="text-base text-slate-700 dark:text-slate-200">
-                <span className="text-slate-500 dark:text-slate-400">{loaded.firstRow ? 'Example: ' : 'Looks like: '}</span>
-                <strong>{preview || '—'}</strong>
-              </p>
-            </div>
-
             {(priorityOn || (requirementsOn && onOpenRequirements)) && (
               <div className="space-y-2">
                 {priorityOn && (
@@ -292,6 +243,67 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
             )}
 
             <DeletedColumnsSection gridId={gridId} />
+
+            {/* Set once at setup and rarely again; open when this list differs (Q1c) */}
+            <MoreSettings changed={listSettingsChanged} data-testid="list-settings-more">
+                <fieldset>
+                  <legend className={label}>What does this {t('list')} hold?</legend>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {RECORD_KINDS.map(k => (
+                      <label key={k.kind} className="flex items-start gap-2 p-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
+                        <input type="radio" name="list-settings-kind" className="w-5 h-5 mt-0.5" checked={kind === k.kind} onChange={() => setKind(k.kind)} />
+                        <span>
+                          <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{k.label}</span>
+                          <span className="block text-sm text-slate-600 dark:text-slate-300">{k.example}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {note && <p role="status" className="mt-2 text-base text-amber-800 dark:text-amber-200">{note}</p>}
+                </fieldset>
+
+                <fieldset className="space-y-2">
+                  <legend className={label}>What do you call one of them? And more than one?</legend>
+                  <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                    <input type="checkbox" className="w-5 h-5" checked={!ownWords} onChange={e => setOwnWords(!e.target.checked)} />
+                    Use the workspace words ({workspaceRecord.one} / {workspaceRecord.many})
+                  </label>
+                  {ownWords && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="list-settings-one" className="block text-base text-slate-700 dark:text-slate-200 mb-1">One</label>
+                        <input id="list-settings-one" className="input w-full" maxLength={VOCAB_WORD_MAX} value={one} onChange={e => setOne(e.target.value)} />
+                      </div>
+                      <div>
+                        <label htmlFor="list-settings-many" className="block text-base text-slate-700 dark:text-slate-200 mb-1">More than one</label>
+                        <input id="list-settings-many" className="input w-full" maxLength={VOCAB_WORD_MAX} value={many} onChange={e => setMany(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+                </fieldset>
+
+                <div className="space-y-2">
+                  <label htmlFor="list-settings-format" className={label}>How to show each one's name</label>
+                  {/* What the chips are for, before the chips, so they aren't taken for filters (UX-B-37) */}
+                  <p className={hint}>
+                    Usually {nameColumn ? <>the <strong>{nameColumn.name}</strong> column</> : 'the name column'} is enough. To show more, click the columns to add them.
+                  </p>
+                  <div className="flex flex-wrap gap-2" aria-label="Columns you can add">
+                    {loaded.columns.map(c => (
+                      <button key={c.id} type="button" onClick={() => insertToken(c.name)}
+                        className="hit-44 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                  <input id="list-settings-format" ref={formatRef} className="input w-full font-mono" maxLength={DISPLAY_FORMAT_MAX}
+                    placeholder={formatPlaceholder} value={format} onChange={e => setFormat(e.target.value)} />
+                  <p className="text-base text-slate-700 dark:text-slate-200">
+                    <span className="text-slate-500 dark:text-slate-400">{loaded.firstRow ? 'Example: ' : 'Looks like: '}</span>
+                    <strong>{preview || '—'}</strong>
+                  </p>
+                </div>
+            </MoreSettings>
 
             {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
           </div>

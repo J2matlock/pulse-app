@@ -238,7 +238,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-activity-tracking',
     question: 'Can Pulse record when a status or date changed?',
-    answer: 'Yes. Click the \u22ef on the column\'s header (or right-click it), open the column\'s settings and turn on "Keep a history of changes". From then on, every change to a cell in that column is written to the {record}\'s {activityLog} as a "Change" entry with the old and new values. It\'s set per column, and it carries over when you save the {list}\'s layout to share.',
+    answer: 'Yes. Click the \u22ef on the column\'s header (or right-click it), open the column\'s settings, open "More settings" and turn on "Keep a history of changes". From then on, every change to a cell in that column is written to the {record}\'s {activityLog} as a "Change" entry with the old and new values. It\'s set per column, and it carries over when you save the {list}\'s layout to share.',
     category: 'caseload-grid',
     keywords: ['track changes', 'log changes', 'history', 'status changed', 'audit trail'],
   },
