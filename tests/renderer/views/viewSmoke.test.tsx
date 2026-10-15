@@ -401,22 +401,22 @@ describe('DashboardView', () => {
     expect(cardLabels).toContain('Overdue deadlines')
     expect(cardLabels).toContain('Due in the next 7 days')
     expect(cardLabels).toContain('Due in the next 30 days')
-    expect(cardLabels).toContain('Tasks & follow-ups due or late')
+    expect(cardLabels).toContain('Tasks, checklist items and follow-ups due or late')
   })
 
-  it('renders top tab bar with Priority List selected by default', async () => {
+  it('renders top tab bar with What\'s due selected by default', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    const priorityTab = screen.getByRole('tab', { name: /Priority List/i })
+    const priorityTab = screen.getByRole('tab', { name: /What's due/i })
     expect(priorityTab).toBeDefined()
     expect(priorityTab.getAttribute('aria-selected')).toBe('true')
-    // Recently archived is a link now, and Overdue is one tab, not two (D-21)
-    expect(screen.getByRole('button', { name: /Recently archived/i })).toBeDefined()
-    expect(screen.getAllByRole('tab', { name: /^Overdue$/i }).length).toBe(1)
+    // Recently archived is a card now, and Overdue is one tab, not two (D-21, UX D-20)
+    expect(screen.getByTestId('archived-tab')).toBeDefined()
+    expect(screen.getAllByRole('tab', { name: /^Overdue/i }).length).toBe(1)
     expect(screen.getAllByRole('tab').length).toBe(4)
   })
 
-  it('renders search input on Priority List tab', async () => {
+  it('renders search input on the What\'s due tab', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
     const searchInput = screen.getByPlaceholderText('Search…')

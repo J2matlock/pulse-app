@@ -197,10 +197,10 @@ describe('DashboardView — data smoke tests (5 deadlines, 3 follow-ups)', () =>
     expect(names).toContain('Alice Johnson')
   })
 
-  it('renders Priority List tab as default', async () => {
+  it('renders the What\'s due tab as default', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    const tab = screen.getByRole('tab', { name: /Priority List/i })
+    const tab = screen.getByRole('tab', { name: /What's due/i })
     expect(tab.getAttribute('aria-selected')).toBe('true')
   })
 

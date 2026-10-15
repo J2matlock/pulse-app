@@ -5,7 +5,7 @@
  */
 import type { FeatureKey } from '../../../../shared/features'
 
-export type CardKey = 'summary' | 'whatsDue' | 'today' | 'requirements' | 'stages' | 'missingInfo' | 'dueForService' | 'quotas' | 'recentActivity'
+export type CardKey = 'summary' | 'whatsDue' | 'today' | 'requirements' | 'stages' | 'missingInfo' | 'dueForService' | 'quotas' | 'recentActivity' | 'recentlyArchived'
 
 export interface CardDef {
   key: CardKey
@@ -27,6 +27,8 @@ export const CARD_DEFS: CardDef[] = [
   { key: 'dueForService', title: 'Due for service', needsRuleKind: 'meter', defaultOn: true },
   { key: 'quotas', title: 'Running low', needsRuleKind: 'quota', defaultOn: true },
   { key: 'recentActivity', title: 'Recent {activity:many}', defaultOn: false },
+  // Used to be a link beside the deadline tabs; a card at the end now (UX D-20)
+  { key: 'recentlyArchived', title: 'Recently archived {record:many}', defaultOn: true },
 ]
 
 export interface SavedLayout { order: string[]; hidden: string[] }

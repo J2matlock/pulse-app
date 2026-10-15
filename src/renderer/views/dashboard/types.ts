@@ -69,7 +69,7 @@ export interface ExtendedDeadlineInfo extends DeadlineInfo {
   meter?: MeterInfo
 }
 
-export type TopTab = 'priority' | 'overdue' | 'week' | 'month' | 'archived'
+export type TopTab = 'priority' | 'overdue' | 'week' | 'month'
 
 export type PriorityItem =
   | { kind: 'deadline'; data: ExtendedDeadlineInfo; sortKey: number }

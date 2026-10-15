@@ -8,14 +8,11 @@ import { getEffectiveDate } from './getEffectiveDate'
 import { DeadlineRow } from './DeadlineRow'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { isUsedUp } from '../../../shared/deadlineEngine'
+import { daysLeftInWeek, deadlineInWeekTab } from './tabCounts'
+
+export { daysLeftInWeek }
 
 const OVERDUE = 'overdue'
-
-/** Days from today to the last day of this calendar week (0 on that day). */
-export function daysLeftInWeek(today: Date, weekStart: 'sunday' | 'monday'): number {
-  const dayOfWeek = weekStart === 'monday' ? (today.getDay() + 6) % 7 : today.getDay()
-  return 6 - dayOfWeek
-}
 
 type WeekItem =
   | { kind: 'deadline'; data: ExtendedDeadlineInfo; dateKey: string }
@@ -51,7 +48,8 @@ export function WeekViewTab({
 
     for (const d of deadlines) {
       const late = d.daysUntil < 0 || isUsedUp({ state: d.state, daysUntil: d.daysUntil })
-      if (late || inWeek(d.daysUntil)) items.push({ kind: 'deadline', data: d, dateKey: late ? OVERDUE : keyFor(d.daysUntil, getEffectiveDate(d)) })
+      // The same test the tab's count uses (tabCounts.ts)
+      if (deadlineInWeekTab(d, daysLeft)) items.push({ kind: 'deadline', data: d, dateKey: late ? OVERDUE : keyFor(d.daysUntil, getEffectiveDate(d)) })
     }
 
     for (const { task, daysUntil } of tasksWithDays) {
@@ -92,7 +90,7 @@ export function WeekViewTab({
     <div className="p-4">
       <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
         <Clock className="w-5 h-5 text-blue-500" />
-        This Week
+        This week
       </h2>
       {dayGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-500 dark:text-slate-400">

@@ -52,11 +52,12 @@ describe('the card area', () => {
   })
 
   it('shows cards in order, skips switched-off features, and saves changes from Customize', async () => {
-    render(<MemoryRouter><DashboardCards summary={<div>SUMMARY TILES</div>} whatsDue={<div>WHATS DUE</div>} customizing onDoneCustomizing={vi.fn()} /></MemoryRouter>)
+    render(<MemoryRouter><DashboardCards summary={<div>SUMMARY TILES</div>} whatsDue={<div>WHATS DUE</div>} recentlyArchived={<div>ARCHIVED</div>} customizing onDoneCustomizing={vi.fn()} /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     const list = screen.getByRole('list', { name: 'Dashboard cards' })
     const labels = within(list).getAllByRole('checkbox').map(c => c.closest('label')!.textContent)
-    expect(labels).toEqual(['Summary counts', "What's due", 'Missing information', 'Due for service', expect.stringMatching(/^Recent /)])
+    // An unticked card says "(off)" so it reads as one you can add (UX D-46)
+    expect(labels).toEqual(['Summary counts', "What's due", 'Missing information', 'Due for service', expect.stringMatching(/^Recent .*\(off\)$/), 'Recently archived clients'])
     expect(screen.getByText('SUMMARY TILES')).toBeTruthy()
     expect(screen.getByText('WHATS DUE')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Due for service' })).toBeTruthy()
@@ -65,7 +66,7 @@ describe('the card area', () => {
     expect(screen.queryByText('SUMMARY TILES')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Move Due for service up' }))
     const saves = invoke.mock.calls.filter(c => c[0] === 'settings:update' && c[1] === 'dashboard_layout')
-    expect(JSON.parse(saves.at(-1)![2] as string)).toMatchObject({ order: ['summary', 'whatsDue', 'dueForService', 'missingInfo', 'recentActivity'], hidden: expect.arrayContaining(['summary', 'recentActivity']) })
+    expect(JSON.parse(saves.at(-1)![2] as string)).toMatchObject({ order: ['summary', 'whatsDue', 'dueForService', 'missingInfo', 'recentActivity', 'recentlyArchived'], hidden: expect.arrayContaining(['summary', 'recentActivity']) })
   })
 })
 
