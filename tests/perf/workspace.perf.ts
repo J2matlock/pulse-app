@@ -88,6 +88,9 @@ vi.mock('../../src/main/database', async () => {
   }
 })
 
+// First, so contacts.ts binds to the database mock above: database.ts imports contacts.ts, and
+// loaded the other way round (through importActual) contacts.ts would see the real, closed database
+import '../../src/main/contacts'
 import { createTestDb, openEncryptedDb, cleanupTestDb, setDbWords, type TestDb } from '../helpers'
 import { seedWorkspace, type SeedResult } from '../seedWorkspace'
 import { IPC } from '../../src/shared/ipc-channels'
@@ -221,6 +224,17 @@ beforeAll(async () => {
   ])
   mods[0].registerGridHandlers(); mods[1].registerCellHandlers(); mods[2].registerDashboardHandlers()
   mods[3].registerDeadlineHandlers(); mods[4].registerRowHandlers()
+  // What a record's page reads (profile open)
+  const page = await Promise.all([
+    import('../../src/main/ipc/ipc-checklists'), import('../../src/main/ipc/ipc-caselog'), import('../../src/main/ipc/ipc-tags'),
+    import('../../src/main/ipc/ipc-compliance'), import('../../src/main/ipc/ipc-attachments'), import('../../src/main/ipc/ipc-settings'),
+    import('../../src/main/ipc/ipc-appointments'), import('../../src/main/ipc/ipc-links'), import('../../src/main/ipc/ipc-contacts'),
+    import('../../src/main/ipc/ipc-tasks'),
+  ])
+  page[0].registerChecklistHandlers(); page[1].registerCaseLogHandlers(); page[2].registerTagHandlers()
+  page[3].registerComplianceHandlers(); page[4].registerAttachmentHandlers(); page[5].registerSettingsHandlers()
+  page[6].registerAppointmentHandlers(); page[7].registerLinkHandlers(); page[8].registerContactHandlers()
+  page[9].registerTaskHandlers()
 }, 600_000)
 
 afterAll(() => {
@@ -281,6 +295,45 @@ describe(`main process at ${RECORDS} records × ${COLUMNS} columns`, () => {
     await time('All deadlines (DEADLINES_GET)', async () => { n = (await invoke<unknown[]>(IPC.DEADLINES_GET, {})).length })
     expect(n).toBeGreaterThan(0)
     await time('Grid deadline context (GRID_DEADLINE_CONTEXT)', () => invoke(IPC.GRID_DEADLINE_CONTEXT, s.gridId))
+  })
+
+  it('profile open: every read the page makes', async () => {
+    // A record with notes, a file and an appointment, like most of a real caseload
+    const rowId = s.activeRowIds.find(id => (t.db.prepare('SELECT COUNT(*) n FROM attachments WHERE row_id = ?').get(id) as { n: number }).n > 0) ?? s.activeRowIds[0]!
+    const numberCols = (t.db.prepare("SELECT id FROM columns WHERE grid_id = ? AND column_type = 'number' ORDER BY position").all(s.gridId) as Array<{ id: number }>).map(c => c.id)
+    const notes = { query: '', oldestFirst: false }
+    // The calls a record's page makes on open, in the order it makes them (tests/perf/profile.perf.tsx
+    // records this list in jsdom: Human services features plus Files, Appointments and Linked lists)
+    const reads: Array<[string, ...unknown[]]> = [
+      [IPC.CHECKLIST_GET, rowId], [IPC.CHECKLIST_GROUP_GET_ALL, rowId], [IPC.SCRAP_NOTE_GET, rowId],
+      [IPC.TAG_GET_ALL, s.gridId], [IPC.TAG_GET_FOR_ROW, rowId], [IPC.ROW_GET_MANUAL_CONTACTS, rowId],
+      [IPC.CONTACT_REQ_STATUS, undefined, s.gridId], [IPC.ATTACHMENT_LIST, rowId], [IPC.ATTACHMENT_LIST, rowId],
+      [IPC.SETTINGS_GET, 'note_type_last'], [IPC.SETTINGS_GET, 'unit_minutes'], [IPC.SETTINGS_GET, 'mileage_rate'],
+      [IPC.SETTINGS_GET, 'note_formats'], [IPC.SETTINGS_GET, 'feature_offers_dismissed'],
+      [IPC.CASE_LOG_GET, rowId, false, false, 51, 0, notes], [IPC.CASE_LOG_COUNT, rowId, false, false, notes],
+      [IPC.CASE_LOG_COUNT, rowId, true, false, { logType: 'system' }], [IPC.CASE_LOG_COUNT, rowId, true, true], [IPC.CASE_LOG_COUNT, rowId, true, false],
+      [IPC.SETTINGS_GET_ALL], [IPC.CELL_HISTORY_SERIES, rowId, numberCols], [IPC.APPT_FOR_RECORD, rowId],
+      [IPC.RECORD_LINKS_GET, rowId], [IPC.CONTACTS_GET_CLIENT_LINKS, { rowId }], [IPC.SNIPPET_GET_ALL],
+    ]
+    await time(`Profile reads (${reads.length} calls, ${new Set(reads.map(r => r[0])).size} channels)`, async () => {
+      for (const [ch, ...args] of reads) await invoke(ch, ...args)
+    })
+    // Each channel alone (all its calls), so a slow one shows by name
+    const channels = [...new Set(reads.map(r => r[0]))]
+    for (const ch of channels) {
+      const mine = reads.filter(r => r[0] === ch)
+      await time(`  ${ch}${mine.length > 1 ? ` ×${mine.length}` : ''}`, async () => { for (const [c, ...args] of mine) await invoke(c, ...args) })
+    }
+  })
+
+  it('command palette: other lists search and the Recent check', async () => {
+    // Three letters, as typed before the palette's 200 ms pause; 'par' matches the seed's "Park" family
+    let found = 0
+    await time("Cross-list search 'par' (SEARCH_CLIENTS_CROSS_GRID)", async () => { found = (await invoke<unknown[]>(IPC.SEARCH_CLIENTS_CROSS_GRID, 'par')).length })
+    expect(found).toBeGreaterThan(0)
+    // Opening the palette checks every Recent record still exists (up to 10)
+    const recent = s.activeRowIds.slice(0, 10)
+    await time('Recent check: ROW_LOCATE ×10', () => Promise.all(recent.map(id => invoke(IPC.ROW_LOCATE, id))))
   })
 
   it('Empty Trash (rolled back after each run)', async () => {

@@ -33,6 +33,7 @@
     "test:tz": "bash scripts/test-tz.sh",
     "gate": "bash scripts/gate.sh",
     "perf": "bash scripts/run-tests.sh --config vitest.perf.config.ts",
+    "perf:e2e": "npm run build && PULSE_PERF=1 playwright test e2e/perf",
     "test:coverage": "bash scripts/run-tests.sh --coverage",
     "test:watch": "echo 'NOTE: DB-dependent tests may fail in watch mode (ABI mismatch). Use npm test for full suite.' && vitest --watch",
     "test:e2e": "npm run build && npx playwright test",
