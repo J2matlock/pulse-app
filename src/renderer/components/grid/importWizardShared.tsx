@@ -118,9 +118,10 @@ export function isNotesColumn(name: string): boolean {
   return /^(notes?|comments?|remarks?)$/i.test(name.trim())
 }
 
-const FIRST_NAME = /^(first|first[ _]?name|given[ _]?name|fname|forename)$/i
+// A merged group cell above the headers can put a word in front ("Client First Name")
+const FIRST_NAME = /^([a-z]+ )?(first|first[ _]?name|given[ _]?name|fname|forename)$/i
 // The same names the default record name adds as a last name (src/main/display-names.ts)
-const LAST_NAME = /^(last|last[ _]?name|surname|family[ _]?name|lname)$/i
+const LAST_NAME = /^([a-z]+ )?(last|last[ _]?name|surname|family[ _]?name|lname)$/i
 
 /** A first-name and a last-name column in the file, to offer putting them together (UX-A-07) */
 export function findNameParts(preview: ImportPreview): { firstIndex: number; lastIndex: number; first: string; last: string; example: string | null } | null {
