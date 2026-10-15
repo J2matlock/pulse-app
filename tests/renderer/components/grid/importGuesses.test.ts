@@ -48,6 +48,34 @@ describe('planImport', () => {
     expect(planImport(p, detected.slice(0, 2), [nameCol], 0).combineNames).toBe(true)
   })
 
+  it('a "Client ID" first in the file doesn\'t take the name: the whole name goes there, the ID gets its own column', () => {
+    const p = preview({ headers: ['Client ID', 'First', 'Last'], detectedColumns: [
+      { index: 0, originalName: 'Client ID', detectedType: 'text', samples: ['C-1'] },
+      { index: 1, originalName: 'First', detectedType: 'text', samples: ['Maria'] },
+      { index: 2, originalName: 'Last', detectedType: 'text', samples: ['Garcia'] },
+    ] })
+    // autoMatchColumns' fallback gives the name column to the first new column
+    const fallback: ColumnMapping[] = [{ sourceIndex: 0, action: 7 }, { sourceIndex: 1, action: 'create', newName: 'First' }, { sourceIndex: 2, action: 'create', newName: 'Last' }]
+    const plan = planImport(p, fallback, [nameCol], 0)
+    expect(plan.combineNames).toBe(true)
+    expect(plan.mappings).toEqual([
+      { sourceIndex: 0, action: 'create', newName: 'Client ID', newType: 'text' },
+      { sourceIndex: 1, action: 7 },
+      { sourceIndex: 2, action: 'skip' },
+    ])
+  })
+
+  it('a real name column in the file keeps the name, and first and last stay apart', () => {
+    const p = preview({ headers: ['Client name', 'First', 'Last'], detectedColumns: [
+      { index: 0, originalName: 'Client name', detectedType: 'text', samples: ['Maria Garcia'] },
+      { index: 1, originalName: 'First', detectedType: 'text', samples: ['Maria'] },
+      { index: 2, originalName: 'Last', detectedType: 'text', samples: ['Garcia'] },
+    ] })
+    const plan = planImport(p, [{ sourceIndex: 0, action: 7 }, { sourceIndex: 1, action: 'create', newName: 'First' }, { sourceIndex: 2, action: 'create', newName: 'Last' }], [nameCol], 0)
+    expect(plan.combineNames).toBe(false)
+    expect(plan.mappings.map(m => m.action)).toEqual([7, 'create', 'create'])
+  })
+
   it('duplicates: none for an empty list, by name and birth date when one comes in, by name otherwise', () => {
     expect(planImport(preview(), detected, [nameCol], 0).duplicateStrategy).toBe('none')
     expect(planImport(preview(), detected, [nameCol], 12).duplicateStrategy).toBe('name_and_dob')

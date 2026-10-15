@@ -27,7 +27,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-import-excel',
     question: 'Can I import {record:many} from an Excel spreadsheet?',
-    answer: 'Yes! Click the "Import" button in the toolbar. Pick an Excel (.xlsx) or CSV file, then say which Pulse column each spreadsheet column goes into. Pulse shows a preview first, and you can undo the whole import afterwards if something went wrong.',
+    answer: 'Yes! Click the "Import" button in the toolbar and pick an Excel (.xlsx) or CSV file. Pulse matches the columns, puts first and last names together and guesses which dates come due again, then shows you a summary before anything is added. Click "Import" to bring them in; "Undo this import" takes it all back if something went wrong.',
     keywords: ['spreadsheet', 'xlsx', 'csv', 'bring in'],
     category: 'getting-started',
     tourStepIds: ['import-btn'],
@@ -475,7 +475,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-import-excel',
     question: 'How do I import from Excel or CSV?',
-    answer: 'In {a list}, click "Import" in the toolbar and pick your Excel (.xlsx) or CSV file. Pulse shows a preview and lets you say which Pulse column each spreadsheet column goes into. Click "Import" to bring the data in; a bar shows progress, and "Undo this import" takes it all back if something\'s wrong.',
+    answer: 'In {a list}, click "Import" in the toolbar and pick your Excel (.xlsx) or CSV file. Pulse reads it and shows one summary: how many {record:many}, the columns, and which dates come due again (click "Change these" to change them). Click "Import" to bring the data in; "Undo this import" takes it all back if something\'s wrong. To say where each column goes yourself, click "Match the columns myself instead" before choosing the file.',
     category: 'import-export',
     tourStepIds: ['import-btn'],
     demo: <DemoImportFlow />,

@@ -66,10 +66,11 @@ describe('ImportSummary before the import', () => {
     expect(onDateAnswers).toHaveBeenCalledWith(expect.objectContaining({ 3: { repeat: 'no' } }))
   })
 
-  it('more than six dates wait behind "Change these"', () => {
-    const many = Array.from({ length: 7 }, (_, i) => ({ id: 10 + i, name: `Visit ${i + 1}` }))
-    render(<ImportSummary {...props({ dateColumns: many, dateAnswers: guessRepeats(many) })} />)
-    expect(screen.getByText('Change these').closest('details')?.open).toBe(false)
+  it('the picker waits behind "Change these", so the summary fits a laptop screen', () => {
+    render(<ImportSummary {...props()} />)
+    const details = screen.getByText('Change these').closest('details')!
+    expect(details.open).toBe(false)
+    expect(details.contains(screen.getByLabelText('Last visit'))).toBe(true)
   })
 
   it('things to check are folded away with their count', () => {

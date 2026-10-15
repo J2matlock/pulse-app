@@ -13,8 +13,6 @@ import { DateRepeatPicker } from '../../views/setup/DateRepeatPicker'
 import { SecondaryButton } from '../ui/Button'
 import { TypeBadge, findNameParts, splitWarning, type ColumnMapping, type ImportOptions, type ImportPreview, type ImportResult } from './importWizardShared'
 
-/** More date columns than this and the picker waits behind "Change these" */
-const PICKER_OPEN_MAX = 6
 /** Column chips shown before "and N more" */
 const CHIPS_MAX = 12
 
@@ -255,14 +253,15 @@ export function ImportSummary({
             {repeats ?? 'None of these dates repeat, so they won\'t change color.'}
             {repeats && ' They turn yellow, then red, as they come due.'}
           </p>
-          {askDates && (dateColumns.length > PICKER_OPEN_MAX ? (
+          {/* The sentence states the guesses; the picker waits a click away, so the summary fits a laptop screen */}
+          {askDates && (
             <details className="rounded-lg border border-slate-200 dark:border-slate-700">
-              <summary className="cursor-pointer min-h-[44px] flex items-center px-4 text-base font-medium text-slate-700 dark:text-slate-200 rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">Change these</summary>
+              <summary className="cursor-pointer min-h-[44px] flex items-center px-4 text-base font-medium text-blue-700 dark:text-blue-300 rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                Change these
+              </summary>
               <div className="px-4 pb-4"><DateRepeatPicker columns={dateColumns} value={dateAnswers} onChange={onDateAnswers} /></div>
             </details>
-          ) : (
-            <DateRepeatPicker columns={dateColumns} value={dateAnswers} onChange={onDateAnswers} />
-          ))}
+          )}
         </section>
       )}
 

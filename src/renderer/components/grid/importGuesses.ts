@@ -50,20 +50,35 @@ export function guessMappings(preview: ImportPreview, detected: ColumnMapping[],
     }
   })
   const parts = findNameParts(preview)
+  let combineNames = !!parts
   if (parts) {
     const nameCol = existingColumns.find(c => c.is_name_column === 1)
     const fi = filled.findIndex(m => m.sourceIndex === parts.firstIndex)
     const li = filled.findIndex(m => m.sourceIndex === parts.lastIndex)
     if (fi >= 0 && li >= 0) {
-      if (nameCol && filled[li]!.action === nameCol.id && filled[fi]!.action === 'create') {
-        filled[fi] = { sourceIndex: parts.firstIndex, action: nameCol.id }
+      if (nameCol && filled[fi]!.action !== nameCol.id) {
+        // The name column may have gone to another file column only because nothing else
+        // matched it (a "Client ID" first in the file): the whole name goes there instead.
+        // A real name column in the file ("Client name") keeps it, and the parts stay apart
+        const holder = filled.findIndex((m, i) => m.action === nameCol.id && i !== fi && i !== li)
+        const header = holder >= 0 ? (preview.headers[filled[holder]!.sourceIndex] ?? '').trim().toLowerCase() : ''
+        const holderIsName = holder >= 0 && (/\bnames?\b/.test(header) || header === nameCol.name.trim().toLowerCase())
+        if (holderIsName) {
+          combineNames = false
+        } else {
+          if (holder >= 0) {
+            const col = preview.detectedColumns.find(c => c.index === filled[holder]!.sourceIndex)
+            filled[holder] = { sourceIndex: filled[holder]!.sourceIndex, action: 'create', newName: col?.originalName ?? preview.headers[filled[holder]!.sourceIndex], newType: col?.detectedType ?? 'text' }
+          }
+          filled[fi] = { sourceIndex: parts.firstIndex, action: nameCol.id }
+        }
       }
-      if (filled[li]!.action === 'create' || (nameCol && filled[li]!.action === nameCol.id)) {
+      if (combineNames && (filled[li]!.action === 'create' || (nameCol && filled[li]!.action === nameCol.id))) {
         filled[li] = { sourceIndex: parts.lastIndex, action: 'skip' }
       }
     }
   }
-  return { mappings: filled, combineNames: !!parts }
+  return { mappings: filled, combineNames }
 }
 
 /** Why the quick path can't go on by itself, or null when it can */
