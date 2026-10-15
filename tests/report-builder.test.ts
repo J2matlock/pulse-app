@@ -234,6 +234,64 @@ describe('appointments and deadlines', () => {
   })
 })
 
+describe("deadline states in the screen's words (persona study R7)", () => {
+  // An appeal with 30 days to file: green, then Due soon at 30, Urgent at 15, Overdue after
+  const thresholds = JSON.stringify([
+    { daysBefore: 60, bgClass: 'alert-green', label: 'Coming up' }, { daysBefore: 30, bgClass: 'alert-yellow', label: 'Due soon' },
+    { daysBefore: 15, bgClass: 'alert-red', label: 'Urgent' }, { daysBefore: -1, bgClass: 'alert-pulse', label: 'Overdue' },
+  ])
+  beforeEach(() => {
+    const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Appeal', ?, 30)").run(thresholds).lastInsertRowid)
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: rule }), dueCol)
+    cell(rows[0]!, dueCol, '2026-09-30') // due Oct 30: 15 days
+    cell(rows[1]!, dueCol, '2026-10-05') // due Nov 4: 20 days
+    cell(rows[2]!, dueCol, '2026-12-01') // due Dec 31: 77 days, no colour yet
+    cell(rows[3]!, dueCol, '2026-09-01') // due Oct 1: late
+  })
+  const states = (extra: object = {}) => runReport(gridId, { source: 'deadlines', columns: [`col:${nameCol}`, 'dl:state'], ...extra }, NOW).rows
+
+  it("uses the rule's label for the colour each deadline is in, like the grid", () => {
+    expect(states()).toEqual(expect.arrayContaining([
+      { [`col:${nameCol}`]: 'Civic', 'dl:state': 'Urgent' },
+      { [`col:${nameCol}`]: 'Accord', 'dl:state': 'Due soon' },
+      { [`col:${nameCol}`]: 'F-150', 'dl:state': 'On track' },
+      { [`col:${nameCol}`]: 'Prius', 'dl:state': 'Overdue' },
+    ]))
+  })
+
+  it('offers those labels to filter on, most urgent first, and groups in that order', () => {
+    expect(reportFields(gridId, 'deadlines').find(f => f.id === 'dl:state')!.options)
+      .toEqual(['Overdue', 'Due', 'Urgent', 'Due soon', 'Coming up', 'On track', 'Paused', 'Done', 'Nothing due'])
+    const grouped = runReport(gridId, { source: 'deadlines', groupBy: [{ field: 'dl:state' }], values: [{ fn: 'count' }] }, NOW).rows.map(r => r.g0)
+    expect(grouped).toEqual(['Overdue', 'Urgent', 'Due soon', 'On track'])
+    expect(states({ filters: [{ field: 'dl:state', operator: 'equals', value: 'Urgent' }] })).toEqual([{ [`col:${nameCol}`]: 'Civic', 'dl:state': 'Urgent' }])
+  })
+
+  it('a report saved with the old words ("On track") still finds what the engine calls on track', () => {
+    // Before: everything not late was "On track"; the saved filter keeps meaning that
+    const saved = saveReport({ name: 'Fine for now', gridId, config: { source: 'deadlines', columns: [`col:${nameCol}`], filters: [{ field: 'dl:state', operator: 'equals', value: 'On track' }] } })
+    expect(runReport(gridId, getReport(saved.id)!.config, NOW).rows.map(r => r[`col:${nameCol}`]).sort()).toEqual(['Accord', 'Civic', 'F-150'])
+    expect(states({ filters: [{ field: 'dl:state', operator: 'not_equals', value: 'On track' }] }).map(r => r[`col:${nameCol}`])).toEqual(['Prius'])
+  })
+
+  it('a rule without colours keeps the engine words', () => {
+    t.db.prepare("UPDATE alert_rules SET thresholds = '[]'").run()
+    expect(states().map(r => r['dl:state']).sort()).toEqual(['On track', 'On track', 'On track', 'Overdue'])
+  })
+
+  it('a range can look ahead: the next 7, 30 and 90 days from today', () => {
+    expect(presetRange('next_7_days', NOW)).toEqual({ from: '2026-10-15', to: '2026-10-22' })
+    expect(presetRange('next_30_days', NOW)).toEqual({ from: '2026-10-15', to: '2026-11-14' })
+    expect(presetRange('next_90_days', new Date(2026, 11, 20, 12))).toEqual({ from: '2026-12-20', to: '2027-03-20' })
+    const next30 = runReport(gridId, { source: 'deadlines', columns: [`col:${nameCol}`, 'dl:state'], dateRange: { field: 'dl:due', preset: 'next_30_days' } }, NOW)
+    expect(next30.rows.map(r => r[`col:${nameCol}`])).toEqual(['Civic', 'Accord'])
+    const fields = reportFields(gridId, 'deadlines')
+    const config = { source: 'deadlines' as const, filters: [], groupBy: [], values: [], columns: ['dl:rule'], dateRange: { field: 'dl:due', preset: 'next_30_days' as const } }
+    expect(explainReport(config, fields, { one: 'deadline', many: 'deadlines' }, 'Vehicles')).toBe('Listing deadlines in Vehicles, in the next 30 days, showing Deadline.')
+    expect(describeReport(config, fields, 'Vehicles', 'Deadlines')).toBe('Deadlines in Vehicles · Due date: in the next 30 days')
+  })
+})
+
 describe('limits', () => {
   it('shows at most 2,000 lines and says so', () => {
     t.db.transaction(() => {
@@ -376,6 +434,18 @@ describe('export', () => {
     const text = buildReportPdf(long, 'Vehicles', r).toString('latin1')
     expect(text).not.toContain(`(${long}) Tj`)
     expect(text).toContain('(Total Estimate by Stage')
+  })
+
+  it('lines the Total up under the numbers in the PDF (persona study R7)', async () => {
+    const { buildReportPdf } = await import('../src/main/export-report')
+    const r = { columns: [{ key: 'g0', label: 'Kind', kind: 'text' as const }, { key: 'v0', label: 'How many', kind: 'number' as const }],
+      rows: [{ g0: 'Visit', v0: 2 }, { g0: 'Call', v0: 1 }], totals: { v0: 3 }, matched: 3, truncated: null }
+    const pdf = buildReportPdf('Notes by kind', 'Notes in Students · Date: this month', r).toString('latin1')
+    // One digit each, so right-aligned numbers start at the same x
+    const xOf = (s: string) => Number(new RegExp(`([\\d.]+) [\\d.]+ Td\\s*\\(${s}\\) Tj`).exec(pdf)?.[1])
+    expect(xOf('2')).toBeGreaterThan(0)
+    expect(xOf('3')).toBeCloseTo(xOf('2'), 1)
+    expect(xOf('1')).toBeCloseTo(xOf('2'), 1)
   })
 
   it('says in the CSV when lines were left out, as the screen and the PDF do (F-023)', async () => {

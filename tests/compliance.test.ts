@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { existsSync, statSync } from 'fs'
+import { existsSync, statSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { createTestDb, cleanupTestDb, seedGrid, setDbFeatures, type TestDb } from './helpers'
 
@@ -138,5 +138,40 @@ describe('compliance summary', () => {
     const dest = join(testDb.tmpDir, 'compliance.pdf')
     await exportComplianceSummary('2026-03', undefined, dest, 'Jordan')
     expect(existsSync(dest) && statSync(dest).size > 1000).toBe(true)
+  })
+})
+
+describe('the monthly summary, proofread (persona study R7)', () => {
+  const pdfText = async () => {
+    const dest = join(testDb.tmpDir, 'summary.pdf')
+    await exportComplianceSummary('2026-03', undefined, dest)
+    return readFileSync(dest, 'latin1')
+  }
+
+  it('says "4 counseling sessions a month" and wraps a long requirement line inside the page', async () => {
+    saveRequirements(gridId, [
+      { label: 'Counseling session', note_types: ['visit'], per_month: 4 },
+      { label: 'Face-to-face visit', note_types: ['visit'], per_month: 1 },
+      { label: 'Parent check-in', note_types: ['visit'], per_month: 2 },
+    ])
+    const labels = getComplianceSummary('2026-03').grids[0]!.contacts!.requirementLabels
+    expect(labels.map(l => l.replace(/ \(.*\)$/, ''))).toEqual(['4 counseling sessions a month', '1 face-to-face visit a month', '2 parent check-ins a month'])
+    const pdf = await pdfText()
+    // The whole line no longer goes out as one string: it's split onto lines that fit
+    expect(pdf).not.toContain(`required: ${labels.join(', ')})`)
+    // (PDF text escapes its brackets) the first line stops where the page does
+    expect(pdf).toContain('(0%  \\(0 of 3 records; required: 4 counseling sessions a month \\(March) Tj')
+  })
+
+  it('adds the minutes per record when time on notes is on', async () => {
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, minutes, occurred_at, created_at, updated_at) VALUES (?, 'x', 'visit', ?, ?, ?, datetime('now'))")
+      .run(rows[1], 50, utc('2026-03-10 10:00:00'), utc('2026-03-10 10:00:00'))
+    setDbFeatures(testDb.db, { requirements: true, timeTracking: false })
+    expect(await pdfText()).not.toContain('Minutes this month')
+    setDbFeatures(testDb.db, { requirements: true, timeTracking: true })
+    const pdf = await pdfText()
+    expect(pdf).toContain('(Minutes this month)')
+    expect(pdf).toContain('(50 \\(50 min\\))')
+    expect(pdf).toContain('(Ben)')
   })
 })

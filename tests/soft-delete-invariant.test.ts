@@ -93,7 +93,7 @@ import { seedWorkspace, SEED_INTERVAL_DAYS, type SeedResult } from './seedWorksp
 import { setDbFeatures } from './helpers'
 import { featuresForExistingInstall } from '../src/shared/features'
 import { loadIcsItems, exportIcs } from '../src/main/export-ics'
-import { loadPlannerRows, exportWeeklyPlanner } from '../src/main/export-planner'
+import { loadDueRows, exportWhatsDue } from '../src/main/export-planner'
 import { getRequirementStatus, saveRequirements } from '../src/main/contact-requirements'
 import { columnDependents } from '../src/main/column-usage'
 import { previewTypeChange } from '../src/main/column-type'
@@ -254,7 +254,7 @@ async function readAll(): Promise<Record<string, unknown>> {
     'column dependents (format rules)': columnDependents(seed.customColumnIds[0]!),
     'change-type preview': previewTypeChange(seed.customColumnIds[0]!, 'number'),
     'ICS items': loadIcsItems({}),
-    'weekly planner rows': loadPlannerRows(TODAY, addDays(TODAY, 6)),
+    "what's due rows (print)": loadDueRows(90, { includeAppointments: true }),
     'batch print records': batchRowIds({ gridId: g }),
     'audit trail': loadAuditTrail({}),
     'note-draft:list': await invoke(IPC.NOTE_DRAFT_LIST),
@@ -314,7 +314,7 @@ describe('Trashed records appear only in the Trash', () => {
     const sup = { gridId: g, columnIds: cols, dateRange: { start: addDays(TODAY, -30), end: TODAY }, includeActivityLog: true, includeSystemActivity: true, includeTaskSummary: true, workerName: 'Jo', workerTitle: 'Lead', workerOrg: 'Org' }
     await exportSupervisorReport({ ...sup, format: 'pdf', destPath: f('sup.pdf') })
     await exportSupervisorReport({ ...sup, format: 'csv', destPath: f('sup.csv') })
-    await exportWeeklyPlanner(TODAY, f('week.pdf'), 'Jo')
+    await exportWhatsDue(90, f('due.pdf'), 'Jo', { includeAppointments: true })
     await exportIcs(f('cal.ics'))
     await exportMissingInfoCsv(f('missing.csv'))
     await exportTotalsCsv(MONTH, undefined, f('totals.csv'))

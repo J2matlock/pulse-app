@@ -172,7 +172,6 @@ export const IPC = {
   DASHBOARD_RECENT_ACTIVITY: 'dashboard:recent-activity',
   DASHBOARD_GET_FOLLOWUPS: 'dashboard:get-followups',
   DASHBOARD_GET_BRIEFING: 'dashboard:get-briefing',
-  EXPORT_WEEKLY_PLANNER: 'export:weekly-planner',
   EXPORT_AUDIT_REPORT: 'export:audit-report',
   EXPORT_HANDOFF_PACKET: 'export:handoff-packet',
   EXPORT_ICS: 'export:ics',
@@ -494,6 +493,8 @@ export const IPC = {
   ROW_DISCARD_IF_EMPTY: 'row:discard-if-empty',
   /** Search found nothing in the list: is a match in the Trash or archived? (names and counts only) */
   ROW_SEARCH_ELSEWHERE: 'row:search-elsewhere',
+  // Print what's due (overdue and the next N days, as a PDF)
+  EXPORT_WHATS_DUE: 'export:whats-due',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

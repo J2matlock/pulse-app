@@ -36,6 +36,7 @@ import { SavedReportCard } from '../../src/renderer/views/dashboard/cards/SavedR
 import ReportsView from '../../src/renderer/views/ReportsView'
 import { useGridStore } from '../../src/renderer/stores/gridStore'
 import { setWords } from './vocabFixture'
+import { useWorkspaceStore } from '../../src/renderer/stores/workspaceStore'
 
 const wait = (ms = 700) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 const calls = (ch: string) => invoke.mock.calls.filter(c => c[0] === ch)
@@ -284,6 +285,73 @@ describe('builder defaults and safety', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save$/ })) })
     expect((calls('reports:save').at(-1)![1] as { name: string }).name).toMatch(/by Stage$/)
     expect(onSaved).toHaveBeenCalled()
+  })
+
+  it('a new filter or value takes focus, so the keyboard carries on in the new row (persona study R7)', async () => {
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: /Add a filter/ }))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Filter 1 field')))
+    fireEvent.click(screen.getByRole('button', { name: /Add a value/ }))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Value 2')))
+  })
+
+  it("a ready-made report's description goes as soon as its settings change, and the sentence follows the settings (persona study R7)", async () => {
+    const actFields = [{ id: 'act:date', label: 'Date', kind: 'date', group: 'Note' }, { id: 'act:type', label: 'Type', kind: 'text', group: 'Note', options: ['Visit'] }]
+    invoke.mockImplementation(async (channel: string, ...args: unknown[]) => {
+      if (channel === 'reports:fields') return { ok: true, data: args[1] === 'activities' ? [...actFields, ...rich] : rich }
+      if (channel === 'reports:run') return { ok: true, data: result }
+      if (channel === 'reports:save') return { ok: true, data: { ...saved, id: 9, name: (args[0] as { name: string }).name } }
+      return { ok: true, data: null }
+    })
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: /by kind$/ }))
+    await wait()
+    expect(screen.getByText(/most this year\.$/)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Date range'), { target: { value: 'this_month' } })
+    await wait()
+    expect(screen.queryByText(/this year/)).toBeNull()
+    expect(screen.getByText(/, this month, one line per/)).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save$/ })) })
+    expect((calls('reports:save').at(-1)![1] as { config: { about?: string } }).config.about).toBeUndefined()
+  })
+
+  it('offers "Miles and minutes this month" only when mileage or time on notes is on (persona study R7)', async () => {
+    useWorkspaceStore.setState({ features: { mileage: false, timeTracking: false } } as never)
+    const first = render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    expect(screen.queryByRole('button', { name: /this month$/ })).toBeNull()
+    first.unmount()
+    useWorkspaceStore.setState({ features: { mileage: true, timeTracking: true } } as never)
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: 'Miles and minutes this month' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save$/ })) })
+    const config = (calls('reports:save').at(-1)![1] as { config: { source: string; dateRange: unknown; values: Array<{ fn: string; field?: string }>; groupBy: Array<{ field: string }> } }).config
+    expect(config.source).toBe('activities')
+    expect(config.dateRange).toEqual({ field: 'act:date', preset: 'this_month' })
+    expect(config.values.map(v => `${v.fn}:${v.field ?? ''}`)).toEqual(['count:', 'sum:act:minutes', 'sum:act:miles'])
+    expect(config.groupBy).toEqual([{ field: 'col:1' }])
+    useWorkspaceStore.setState({ features: {} } as never)
+  })
+
+  it('looks ahead (next 7, 30, 90 days) only on a due date (persona study R7)', async () => {
+    invoke.mockImplementation(async (channel: string, ...args: unknown[]) => {
+      if (channel === 'reports:fields') return { ok: true, data: args[1] === 'deadlines' ? [...rich, { id: 'dl:due', label: 'Due date', kind: 'date', group: 'Deadline' }] : rich }
+      if (channel === 'reports:run') return { ok: true, data: result }
+      return { ok: true, data: null }
+    })
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    fireEvent.change(screen.getByLabelText('Date range field'), { target: { value: 'rec:created' } })
+    const labels = () => [...(screen.getByLabelText('Date range') as HTMLSelectElement).options].map(o => o.textContent)
+    expect(labels()).not.toContain('Next 30 days')
+    fireEvent.click(screen.getByRole('radio', { name: 'Deadlines' }))
+    await wait()
+    fireEvent.change(screen.getByLabelText('Date range field'), { target: { value: 'dl:due' } })
+    expect(labels()).toEqual(expect.arrayContaining(['Next 7 days', 'Next 30 days', 'Next 90 days']))
+    expect((screen.getByLabelText('Date range') as HTMLSelectElement).value).toBe('this_month')
   })
 
   it('deletes a saved report at once, no question; Undo brings it back (Q4)', async () => {

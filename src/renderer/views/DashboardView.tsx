@@ -8,12 +8,10 @@ import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, Ref
 import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
 import { Tooltip } from '../components/shared/Tooltip'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
+import { PrintDueDialog } from './dashboard/PrintDueDialog'
 import { ComplianceSummaryDialog } from '../components/reports/ComplianceSummaryDialog'
 import toast from 'react-hot-toast'
-import { useSettingsStore } from '../stores/settingsStore'
-import { localDateString } from '../../shared/dates'
 import { useToday } from '../hooks/useToday'
-import { noteUnencryptedExport } from '../utils/exportNotice'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
 import type { DashboardStats, AlertThreshold, ParsedAlertRule, CaseloadTask, ChecklistDueItem } from '../../shared/types'
@@ -132,6 +130,7 @@ export default function DashboardView(): React.ReactElement {
   const closeCompliance = useCallback(() => setShowCompliance(false), [])
   const [showCalendar, setShowCalendar] = useState(false)
   const closeCalendar = useCallback(() => setShowCalendar(false), [])
+  const [printingDue, setPrintingDue] = useState(false)
 
   // Debounce spinner to prevent flash on fast loads
   useEffect(() => {
@@ -472,17 +471,6 @@ export default function DashboardView(): React.ReactElement {
     }
   }
 
-  async function printWeeklyPlanner() {
-    // Start of this week per the user's preference (Sunday or Monday)
-    const startsMonday = useSettingsStore.getState().weekStart === 'monday'
-    const d = new Date()
-    const back = startsMonday ? (d.getDay() + 6) % 7 : d.getDay()
-    d.setDate(d.getDate() - back)
-    const res = await safeInvoke(IPC.EXPORT_WEEKLY_PLANNER, localDateString(d))
-    if (!res.ok) { toast.error("We couldn't make the PDF of this week — try again"); return }
-    if (res.data) { toast.success('Saved the PDF of this week.'); noteUnencryptedExport() }
-  }
-
   // "Select several…" in the toolbar row; the checkboxes and this bar follow
   function renderSelectToggle() {
     return (
@@ -738,7 +726,8 @@ export default function DashboardView(): React.ReactElement {
   )
 
   const printExportItems = [
-    { label: 'Print this week', hint: 'A one-page PDF of everything due this week, to print or carry', icon: <Printer className="w-4 h-4" />, onSelect: () => void printWeeklyPlanner() },
+    // The What's due rows on paper, worst first, 12 pt black (persona study R7)
+    { label: "Print what's due", hint: 'Overdue and the next 30 days, worst first, on paper', icon: <Printer className="w-4 h-4" />, onSelect: () => setPrintingDue(true) },
     { label: 'Monthly summary', hint: `How the month is going: ${t('requirement', { many: true })}, deadlines on time, missing information. A PDF.`, icon: <ShieldCheck className="w-4 h-4" />, onSelect: () => setShowCompliance(true) },
     { label: 'Add to my calendar…', hint: 'Save deadlines and follow-ups to Outlook or Google Calendar', icon: <CalendarPlus className="w-4 h-4" />, onSelect: () => setShowCalendar(true) },
     ...(lettersOn && allGrids.length > 0 ? [{ label: 'Print reminder letters', hint: 'Letters or postcards for everyone with a deadline next month', icon: <Mail className="w-4 h-4" />, onSelect: () => setPickingLettersList(true) }] : []),
@@ -771,6 +760,7 @@ export default function DashboardView(): React.ReactElement {
           </div>
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
+          {printingDue && <PrintDueDialog onClose={() => setPrintingDue(false)} />}
         </div>
 
         {showNextStep && <NextStepBanner step={step} />}

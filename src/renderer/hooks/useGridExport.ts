@@ -75,10 +75,14 @@ export function useGridExport({ activeGridId, closeMenu }: { activeGridId: numbe
         filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
+      // "All" on paper still follows the screen's sort (a deadline sort prints worst first,
+      // persona study R7): the shown records in screen order, then the rest
+      const shownSet = new Set(shown)
+      const allInScreenOrder = [...shown, ...useGridStore.getState().rows.map(r => r.row_id).filter(id => !shownSet.has(id))]
       const result = await safeInvoke<boolean>(IPC.EXPORT_PDF_GRID, {
         gridId: activeGridId,
         columnIds: selectedIds,
-        activeRowIds,
+        activeRowIds: scope === 'all' ? allInScreenOrder : activeRowIds,
         destPath: saveRes.data.filePath
       })
       if (!result.ok) toast.error(friendlyError(result.error, "We couldn't export the file — try again"))

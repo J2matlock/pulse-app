@@ -6,6 +6,7 @@ import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
 import { ContactRequirementsDialog } from './ContactRequirementsDialog'
 import type { ContactRequirement } from '../../../shared/types'
+import { requirementPhrase } from '../../../shared/contactRequirements'
 import { useVocab } from '../../hooks/useVocab'
 
 /** Settings → Deadlines: set up monthly contact requirements per caseload. */
@@ -35,7 +36,7 @@ export function ContactRequirementsSettings(): React.ReactElement {
             <li key={g.id} className="flex flex-wrap items-center gap-x-3 min-h-[44px]">
               <span className="text-base font-medium text-slate-800 dark:text-slate-100">{g.name}</span>
               <span className="text-base text-slate-600 dark:text-slate-300 flex-1">
-                {mine.length === 0 ? 'Not set up' : mine.map(r => `${r.per_month} ${r.label.toLowerCase()} a ${r.period ?? 'month'}`).join(', ')}
+                {mine.length === 0 ? 'Not set up' : mine.map(requirementPhrase).join(', ')}
               </span>
               <button type="button" className="btn-compact-secondary" onClick={() => setEditing({ gridId: g.id, gridName: g.name })}>
                 {mine.length === 0 ? 'Set up…' : 'Change…'}

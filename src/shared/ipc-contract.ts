@@ -387,7 +387,6 @@ export interface IPCContract {
   'dashboard:get-deadlines': { args: [];  return: unknown[] }
   'dashboard:get-followups': { args: [];  return: unknown[] }
   'dashboard:get-briefing': { args: []; return: { overdue: number; dueToday: number; dueThisWeek: number; followUpsDue: number; tasksDue: number; checklistDue: number } }
-  'export:weekly-planner':  { args: [weekStart: string]; return: string | null }
 
   // ── Auth & Security ─────────────────────────────────────────────────────
   'auth:setup-password':                { args: [password: string, hint: string];                                return: { cloudWarning: string | null } }
@@ -710,6 +709,9 @@ export interface IPCContract {
   /** true: it was empty and is gone; false: something was put in it, so it stays */
   'row:discard-if-empty':  { args: [rowId: number];                                            return: boolean }
   'row:search-elsewhere':  { args: [gridId: number, query: string];                            return: SearchElsewhere }
+  // ── Print what's due ────────────────────────────────────────────────────
+  /** null: the save dialog was cancelled */
+  'export:whats-due': { args: [days: number, opts?: { includeAppointments?: boolean }]; return: { filePath: string; count: number } | null }
 }
 
 /** Union of all typed channel names */

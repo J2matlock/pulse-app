@@ -34,6 +34,7 @@ import { loadDeadlines } from './deadlines'
 import { deadlineSummary } from '../shared/deadlineSummary'
 import { availabilityLabel } from '../shared/availability'
 import { normalizeHexColor } from '../shared/color'
+import { COLUMN_TRAITS } from '../shared/columnTraits'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Letter Template PDF Export
@@ -69,6 +70,56 @@ export async function exportLetterPdf(text: string, destPath: string): Promise<v
 // 4.6 — PDF Grid Export
 // ──────────────────────────────────────────────────────────────────────────────
 
+/** The smallest text on a list's PDF */
+export const GRID_PDF_MIN_PT = 11
+/** Dates, numbers and worked-out days (the numeric-text trait), but not a checkbox's Yes/No */
+const rightAligned = (type: string): boolean =>
+  type !== 'checkbox' && (COLUMN_TRAITS as Record<string, { numericText: boolean } | undefined>)[type]?.numericText === true
+
+const GRID_CELL_PADDING = 1.8
+
+/**
+ * Column widths for a list's PDF (persona study R7): each column is at least
+ * as wide as its longest word (so "11/03/2025" and "Parent/guardian" never
+ * break in the middle), and the room left goes to the columns with longer text.
+ * Only when even the words can't fit are they squeezed, in proportion.
+ */
+export function gridColumnWidths(doc: InstanceType<typeof jsPDF>, head: string[], body: string[][], fontSize: number, usable: number): number[] {
+  const pad = GRID_CELL_PADDING * 2 + 0.5
+  const sample = body.slice(0, 300)
+  const prevSize = doc.getFontSize()
+  // The widest word (byWord) or the widest line of a text
+  const measure = (style: 'normal' | 'bold', text: string, byWord: boolean): number => {
+    doc.setFont('helvetica', style)
+    const parts = byWord ? text.split(/\s+/) : text.split('\n')
+    return Math.max(0, ...parts.filter(Boolean).map(p => doc.getTextWidth(p)))
+  }
+  doc.setFontSize(fontSize)
+  const need: number[] = [], want: number[] = []
+  head.forEach((h, i) => {
+    let word = measure('bold', h, true), line = measure('bold', h, false)
+    for (const r of sample) {
+      const v = r[i] ?? ''
+      if (!v) continue
+      word = Math.max(word, measure('normal', v, true))
+      line = Math.max(line, measure('normal', v, false))
+    }
+    need.push(word + pad)
+    want.push(Math.max(word, Math.min(line, 90)) + pad)
+  })
+  doc.setFontSize(prevSize)
+  doc.setFont('helvetica', 'normal')
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+  if (sum(need) >= usable) return need.map(n => n * usable / sum(need))
+  if (sum(want) <= usable) {
+    const extra = (usable - sum(want)) / want.length
+    return want.map(w => w + extra)
+  }
+  const room = usable - sum(need)
+  const gap = want.map((w, i) => w - need[i]!)
+  return need.map((n, i) => n + room * gap[i]! / sum(gap))
+}
+
 export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const { gridId, columnIds, activeRowIds, destPath, title } = options
   const { grid, columns, rows } = loadGridData(gridId, { includeHidden: true })
@@ -92,11 +143,11 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const titleLines = doc.splitTextToSize(exportTitle, doc.internal.pageSize.width - 28) as string[]
   const titleExtra = (titleLines.length - 1) * lineHeight(doc)
   doc.text(titleLines, 14, 18)
-  doc.setFontSize(9)
+  // Black, and no smaller than the body: people read this on paper (persona study R7)
+  doc.setFontSize(GRID_PDF_MIN_PT)
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(100)
-  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24 + titleExtra)
   doc.setTextColor(0)
+  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24 + titleExtra)
 
   const head = [selectedColumns.map(c => c.name)]
   // Read the date format once, not once per cell
@@ -105,37 +156,35 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
     selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type, dateFormat))
   )
 
-  // Compute column widths: Name gets more space
+  // 11 pt at the least, black on white with a black rule under the header (persona study R7):
+  // wide lists wrap onto more lines instead of shrinking the letters
   const gridColCount = selectedColumns.length
+  const gridFontSize = gridColCount > 6 ? GRID_PDF_MIN_PT : 12
   const gridUsable = 297 - 28 // A4 landscape minus margins
-  const gridColStyles: Record<number, { cellWidth?: number }> = {}
+  const gridColStyles: Record<number, { cellWidth?: number; halign?: 'right' }> = {}
   if (gridColCount > 1) {
-    const nameW = Math.min(gridUsable * 0.25, 60)
-    const otherW = (gridUsable - nameW) / (gridColCount - 1)
-    gridColStyles[0] = { cellWidth: nameW }
-    for (let i = 1; i < gridColCount; i++) {
-      gridColStyles[i] = { cellWidth: otherW }
-    }
+    gridColumnWidths(doc, head[0]!, body, gridFontSize, gridUsable).forEach((w, i) => { gridColStyles[i] = { cellWidth: w } })
   }
-  const gridFontSize = gridColCount > 16 ? 6 : gridColCount > 10 ? 7 : 8
+  // Dates, numbers and days-left line up on the right, like the table on screen
+  selectedColumns.forEach((c, i) => { if (i > 0 && rightAligned(c.column_type)) gridColStyles[i] = { ...gridColStyles[i], halign: 'right' } })
 
   autoTable(doc, {
     head,
     body,
-    startY: 28 + titleExtra,
-    styles: { fontSize: gridFontSize, cellPadding: 2 },
-    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    startY: 30 + titleExtra,
+    styles: { fontSize: gridFontSize, cellPadding: GRID_CELL_PADDING, textColor: 0, lineColor: 0, lineWidth: 0 },
+    headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold', lineColor: 0, lineWidth: { bottom: 0.35 } },
+    bodyStyles: { lineColor: 0, lineWidth: { bottom: 0.1 } },
+    alternateRowStyles: { fillColor: 255 },
     columnStyles: gridColStyles,
     margin: { left: 14, right: 14 },
     didDrawPage: () => {
       // Footer
       const pageNum = doc.getNumberOfPages()
-      doc.setFontSize(7)
-      doc.setTextColor(120)
+      doc.setFontSize(GRID_PDF_MIN_PT)
+      doc.setTextColor(0)
       doc.text('CONFIDENTIAL', 14, doc.internal.pageSize.height - 8)
       doc.text(`Page ${pageNum}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 8, { align: 'right' })
-      doc.setTextColor(0)
     }
   })
 
