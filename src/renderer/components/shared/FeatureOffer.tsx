@@ -21,14 +21,15 @@ async function readDismissed(): Promise<string[]> {
  * list in Settings holds every "Not now", keyed by feature or by the offer's own
  * key (the record page's "More you can add" line uses `profileSections`).
  */
-export function useOfferDismissed(key: FeatureKey | 'profileSections'): { dismissed: boolean | null; dismiss: () => Promise<void> } {
+export function useOfferDismissed(key: FeatureKey | 'profileSections', skip = false): { dismissed: boolean | null; dismiss: () => Promise<void> } {
   const [dismissed, setDismissed] = useState<boolean | null>(null)
 
   useEffect(() => {
+    if (skip) return
     let alive = true
     void readDismissed().then(list => { if (alive) setDismissed(list.includes(key)) })
     return () => { alive = false }
-  }, [key])
+  }, [key, skip])
 
   async function dismiss() {
     setDismissed(true)
@@ -58,7 +59,7 @@ export function FeatureOffer({ feature, message, onDone, always = false }: {
   const { f } = useVocab()
   const on = useFeature(feature)
   const update = useWorkspaceStore(s => s.update)
-  const { dismissed, dismiss } = useOfferDismissed(feature)
+  const { dismissed, dismiss } = useOfferDismissed(feature, always)
   const def = FEATURES.find(x => x.key === feature)
 
   if (on || (!always && dismissed !== false) || !def?.available) return null

@@ -365,7 +365,7 @@ export const STEPS: TourStep[] = [
     title: 'Create and manage tasks',
     subtitle: 'Due dates, priorities, and recurrence',
     description:
-      'Click "Add Task" or press Ctrl+Shift+T to create a new task. Set a priority level (low, medium, high, urgent), assign a due date, and optionally make it recurring — daily, weekly, or monthly.',
+      'Click "+ Add task" or press Ctrl+Shift+T to create a new task. Set a priority level (low, medium, high, urgent), assign a due date, and optionally make it recurring — daily, weekly, or monthly.',
     icon: <ClipboardList className="w-6 h-6" />,
     position: 'bottom',
     route: '#/tasks',

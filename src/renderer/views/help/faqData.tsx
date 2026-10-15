@@ -346,7 +346,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-activity',
     question: 'How do I see {a record}\'s full activity history?',
-    answer: 'Open the {record}\'s page \u2014 below the {activity} box, deadlines and details, the {activityLog} lists everything in date order. Set "Show" to "{Activity:many} and changes" to include what the app recorded (edits, status changes and more), pick one kind to see only that, and tick "Show voided {activity:many}" to see voided ones as well.',
+    answer: 'Open the {record}\'s page \u2014 below the {activity} box, deadlines and details, the {activityLog} lists everything in date order. Set "Show" to "{Activity:many} and column changes" to include what the app recorded (edits, status changes and more), pick one kind to see only that, and tick "Show voided {activity:many}" to see voided ones as well.',
     category: 'client-profiles',
     demo: <DemoActivityTimeline />,
   },
@@ -405,7 +405,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tasks-create',
     question: 'How do I create a task?',
-    answer: 'Click "Tasks" in the sidebar, then "+ Add Task" (or press Ctrl+Shift+T from anywhere). Give the task a title, and if you like a priority and a due date, then click "Add task". It appears in the matching section of the page.',
+    answer: 'Click "Tasks" in the sidebar, then "+ Add task" (or press Ctrl+Shift+T from anywhere). Give the task a title, and if you like a priority and a due date, then click "Add task". It appears in the matching section of the page.',
     category: 'tasks',
     tourStepIds: ['tasks', 'tasks-area'],
     keywords: ['to-do', 'todo', 'reminder for me', 'new task'],
@@ -711,7 +711,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'appt-schedule',
     question: 'How do I schedule {appointment:many}, including repeating ones?',
-    answer: 'On the calendar, click "New {appointment}", click an empty time in the week or day view, or press N. On {a record}\'s page, use "Schedule…". Choose who it\'s with, the date and time, and where. Under "Repeats", pick daily, weekly on chosen days, or monthly, and when it ends: on a date, after a number of times, or on a date in one of the {record}\'s columns, such as when an authorization ends. Drag {a appointment} in the week view to move it, or drag its bottom edge to change its length. For repeating ones, Pulse asks whether to change only this one, this and the following ones, or all of them.',
+    answer: 'On the calendar, click "Add…" and choose {Appointment}, click an empty time in the week or day view, or press N. On {a record}\'s page, use "Schedule {a appointment}". Choose who it\'s with, the date and time, and where. Under "Repeats", pick daily, weekly on chosen days, or monthly, and when it ends: on a date, after a number of times, or on a date in one of the {record}\'s columns, such as when an authorization ends. Drag {a appointment} in the week view to move it, or drag its bottom edge to change its length. For repeating ones, Pulse asks whether to change only this one, this and the following ones, or all of them.',
     category: 'dashboard-deadlines',
     feature: 'appointments',
   },
@@ -761,7 +761,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'reports-pin',
     question: 'Can a report show on my dashboard?',
-    answer: 'Yes. Click "Pin to dashboard" on any report (a new one is saved first). The dashboard shows its first 10 lines as a card, with Open to see the whole report and Unpin to take it off. Deleting a report, which asks first, also takes it off the dashboard.',
+    answer: 'Yes. Click "Show on dashboard" on any report (a new one is saved first). The dashboard shows its first 10 lines as a card, with Open to see the whole report and Unpin to take it off. Deleting a report, which asks first, also takes it off the dashboard.',
     category: 'dashboard-deadlines',
   },
   {
