@@ -13,7 +13,7 @@ const RENDERER = join(__dirname, '../../src/renderer')
 /** The date box itself */
 const EXEMPT = new Set(['components/ui/DateField.tsx'])
 /** 33 in 24 files before R1; R1 converted 8 (the cell editor, the checklist's 3, the dashboard's 4) */
-const BASELINE = 25
+const BASELINE = 23
 
 function tsxFiles(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {

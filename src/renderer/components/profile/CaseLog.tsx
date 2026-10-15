@@ -38,6 +38,7 @@ import type { IPCResult } from '../../../shared/types'
 import type { CaseLogCounts } from '../../../shared/ipc-contract'
 import { EmptyState } from '../shared/EmptyState'
 import { ROW_FLASH_MS } from '../../utils/reducedMotion'
+import { DateField, DATE_FIELD_TEXT } from '../ui/DateField'
 
 /** How long "Case note saved" stays beside Add */
 const SAVED_MESSAGE_MS = 5000
@@ -168,6 +169,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [newFollowUp, setNewFollowUp] = useState(draft0?.followUp ?? '')
   // The day it happened; empty means today
   const [newDay, setNewDay] = useState(draft0?.day ?? '')
+  // A half-typed When or follow-up date keeps the note from saving, rather than dropping the date (R1/R2)
+  const [halfTyped, setHalfTyped] = useState<{ day: boolean; followUp: boolean }>({ day: false, followUp: false })
   const [showFollowUp, setShowFollowUp] = useState(!!draft0?.followUp)
   const [adding, setAdding] = useState(false)
   // After a save: "Case note saved", and the new entry lit up for a moment
@@ -394,6 +397,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
   async function handleAdd({ byKeyboard = false }: { byKeyboard?: boolean } = {}) {
     if (!composedContent || adding) return
+    if (halfTyped.day || (showFollowUp && halfTyped.followUp)) { toast.error(DATE_FIELD_TEXT.partial, { id: 'note-date-partial' }); return }
     setAdding(true)
     const res = await safeInvoke<CreatedCaseLogEntry>(
       IPC.CASE_LOG_CREATE,
@@ -748,9 +752,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         {moreOpen && (
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
-            <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
-              value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
-              title="The day it happened, if that wasn't today" />
+            <DateField id={`note-day-${rowId}`} max={localDateString()} allowClear={false} className="w-auto"
+              value={newDay || localDateString()}
+              onChange={(value, partial) => { setHalfTyped(h => ({ ...h, day: partial })); if (!partial && value) setNewDay(value) }} />
             {newDay && newDay !== localDateString() && (
               <button type="button" onClick={() => setNewDay('')}
                 className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -784,15 +788,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             {showFollowUp ? <><X className="w-3.5 h-3.5 inline mr-1" />Remove follow-up</> : '+ Follow-up date'}
           </button>
           {showFollowUp && (
-            <input
-              type="date"
-              value={newFollowUp}
-              onChange={e => setNewFollowUp(e.target.value)}
-              aria-label="Follow-up date"
-              className="rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                         text-base text-slate-900 dark:text-slate-100 px-2 py-1
-                         focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-            />
+            <DateField aria-label="Follow-up date" className="w-auto"
+              value={newFollowUp || null}
+              onChange={(value, partial) => { setHalfTyped(h => ({ ...h, followUp: partial })); if (!partial) setNewFollowUp(value ?? '') }} />
           )}
           <button type="button" onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen}
             className="hit-44 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300
