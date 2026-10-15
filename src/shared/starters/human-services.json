@@ -2983,7 +2983,7 @@
     {
       "key": "foster-care-caseworker",
       "name": "Foster Care Caseworker",
-      "description": "Monthly home visits, court dates, case plan reviews, and medical exams",
+      "description": "Monthly home visits, court dates, case plan reviews, and medical exams. (For licensing foster homes, see Foster home licensing.)",
       "lists": [
         {
           "key": "caseload",
@@ -3411,7 +3411,7 @@
     {
       "key": "home-health-coordinator",
       "name": "Home Health Coordinator",
-      "description": "Visits, recertifications, and plan-of-care signatures",
+      "description": "Visits, recertifications, and plan-of-care signatures. (For nurses who log minutes and miles, see Home health nursing: it has them switched on.)",
       "lists": [
         {
           "key": "caseload",

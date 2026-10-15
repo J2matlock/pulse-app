@@ -550,6 +550,37 @@ describe('home health nursing starter (R8)', () => {
   })
 })
 
+describe('foster home licensing starter (R8)', () => {
+  it('adds homes with renewals, quarterly inspections and the lapsed license first among the late ones', async () => {
+    const { applyStarter } = await starters()
+    const { loadDeadlines } = await import('../src/main/deadlines')
+    const res = applyStarter({ builtinId: 'foster-home-licensing' }, { lists: ['homes'], applyWords: true, applyFeatures: true, sampleData: true })
+    expect(res.warnings).toEqual([])
+    const gridId = res.gridIds.homes!
+    // The deadline dates sit right after the name, nothing to rename
+    const cols = (testDb.db.prepare('SELECT name FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ name: string }>).map(c => c.name)
+    expect(cols.slice(0, 5)).toEqual(['Home', 'License renewal', 'Last inspection', 'Fire inspection', 'Well water test'])
+    expect(JSON.parse(setting('workspace_vocab')!)).toMatchObject({ record: { one: 'home', many: 'homes' } })
+    const rule = (col: string) => testDb.db.prepare(`SELECT r.interval_months FROM columns c JOIN alert_rules r ON r.id = CAST(json_extract(c.config, '$.alert_rule_id') AS INTEGER)
+      WHERE c.grid_id = ? AND c.name = ?`).get(gridId, col) as { interval_months: number }
+    expect(rule('License renewal').interval_months).toBe(12)
+    expect(rule('Last inspection').interval_months).toBe(3)
+    const late = loadDeadlines({ gridId }).filter(d => d.daysUntil !== null && d.daysUntil < 0).sort((a, b) => a.daysUntil! - b.daysUntil!)
+    expect(late[0]).toMatchObject({ column_name: 'License renewal' })
+    // A home on city water has no well test, and that's never late
+    const peterson = testDb.db.prepare("SELECT r.id FROM rows r WHERE r.grid_id = ? AND r.display_name = 'Peterson home'").get(gridId) as { id: number }
+    expect(loadDeadlines({ gridId, rowIds: [peterson.id] }).filter(d => d.column_name === 'Well water test' && d.daysUntil !== null)).toEqual([])
+  })
+
+  it('adds the list on its own without samples', async () => {
+    const { applyStarter } = await starters()
+    const res = applyStarter({ builtinId: 'foster-home-licensing' }, { lists: ['homes'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(res.warnings).toEqual([])
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?').get(res.gridIds.homes) as { n: number }).n).toBe(0)
+    expect(setting('workspace_vocab')).toBeUndefined()
+  })
+})
+
 describe('sharing a setup', () => {
   function seedWorkspace() {
     const db = testDb.db

@@ -139,6 +139,10 @@ const EXPECTED: Record<string, Expected> = {
       'care-team': { columns: ['Role', 'Looks after'] },
     },
   },
+  'foster-home-licensing': {
+    disclaimer: true,
+    lists: { homes: { columns: ['Home', 'Parents', 'License renewal', 'Last inspection', 'Fire inspection', 'Well water test', 'Training hours this year', 'County', 'Status'], rules: ['Every year', 'Every 3 months'], required: ['Home', 'Parents', 'Phone'] } },
+  },
   'home-health-nursing': {
     disclaimer: true,
     lists: { patients: { columns: ['Last visit', 'Next visit', 'Recertification due', 'Plan of care signed', 'Physician', 'Insurance', 'Status'], rules: ['Every 7 days', 'Due date', 'Every 60 days'], required: ['Name', 'Phone'] } },

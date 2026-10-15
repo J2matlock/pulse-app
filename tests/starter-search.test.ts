@@ -36,6 +36,9 @@ describe('searchStarters', () => {
     // CASA's keywords say "foster"; Human services has it only in a layout's name
     const foster = ids('foster')
     expect(foster.indexOf('casa-advocate')).toBeLessThan(foster.indexOf('human-services'))
+    // Joe licenses foster homes: his example first, and it's there for the words of the job
+    expect(foster[0]).toBe('foster-home-licensing')
+    for (const q of ['license', 'licence', 'inspection', 'foster home', 'well water']) expect(ids(q), q).toContain('foster-home-licensing')
     // Candy typed her job: the nursing example first, then whatever else has the words
     expect(ids('home health')[0]).toBe('home-health-nursing')
     for (const q of ['hospice', 'patient', 'visit', 'mileage']) expect(ids(q), q).toContain('home-health-nursing')
