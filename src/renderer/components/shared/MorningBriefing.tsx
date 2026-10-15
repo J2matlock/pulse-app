@@ -83,8 +83,10 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
     [b.dueToday, ['deadline due today', 'deadlines due today'], 'text-orange-700 dark:text-orange-300'],
     [b.dueThisWeek, ['more due in the next 7 days', 'more due in the next 7 days'], 'text-slate-800 dark:text-slate-100'],
     [b.followUpsDue, ['follow-up due', 'follow-ups due'], 'text-slate-800 dark:text-slate-100'],
-    [b.tasksDue + b.checklistDue, ['task due', 'tasks due'], 'text-slate-800 dark:text-slate-100'],
-    [b.needsOutcome ?? 0, [`past ${t('appointment')} without an outcome`, `past ${t('appointment', { many: true })} without an outcome`], 'text-amber-800 dark:text-amber-200'],
+    // Each line says what it counts, so the dashboard tile and the Tasks badge add up (UX D-05)
+    [b.tasksDue, ['task due', 'tasks due'], 'text-slate-800 dark:text-slate-100'],
+    [b.checklistDue, ['checklist item due', 'checklist items due'], 'text-slate-800 dark:text-slate-100'],
+    [b.needsOutcome ?? 0, [`past ${t('appointment')} still needs marking done, no-show or cancelled`, `past ${t('appointment', { many: true })} still need marking done, no-show or cancelled`], 'text-amber-800 dark:text-amber-200'],
   ]
 
   return (
