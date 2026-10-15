@@ -32,10 +32,10 @@ beforeEach(() => {
         ? [note({ id: 6, content: 'Wrong person', voided_at: '2026-10-09 11:00:00', voided_reason: 'Entered on the wrong record' }), note({ edited_at: '2026-10-09 12:00:00', updated_at: '2026-10-09 12:00:00' })]
         : [note({ edited_at: '2026-10-09 12:00:00', updated_at: '2026-10-09 12:00:00' })] })
     }
-    if (channel === 'case-log:count') {
-      const [, , includeVoided, opts] = args as [number, boolean, boolean, { logType?: string } | undefined]
+    if (channel === 'case-log:counts') {
+      const includeVoided = args[2] as boolean | undefined
       // Three change entries, one voided note, one live note
-      return Promise.resolve({ ok: true, data: opts?.logType === 'system' ? 3 : includeVoided ? 5 : 4 })
+      return Promise.resolve({ ok: true, data: { total: includeVoided ? 5 : 4, changes: 3, voided: 1 } })
     }
     return Promise.resolve({ ok: true, data: null })
   })
@@ -89,7 +89,7 @@ describe('one log', () => {
   it('offers "Show voided" only when a voided note exists (C-26)', async () => {
     mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
       if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: [note()] })
-      if (channel === 'case-log:count') return Promise.resolve({ ok: true, data: (args[3] as { logType?: string } | undefined)?.logType === 'system' ? 0 : 1 })
+      if (channel === 'case-log:counts') return Promise.resolve({ ok: true, data: { total: 1, changes: 0, voided: 0 } })
       return Promise.resolve({ ok: true, data: null })
     })
     render(<CaseLog rowId={10} />)

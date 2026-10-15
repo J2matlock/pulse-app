@@ -115,6 +115,26 @@ describe('CASE_LOG_GET search and sort', () => {
     expect(page.data.every((e: { log_type: string }) => e.log_type === 'visit')).toBe(true)
   })
 
+  it('CASE_LOG_COUNTS answers what the four CASE_LOG_COUNT calls did, voided and change entries included', async () => {
+    testDb.db.prepare("UPDATE case_log SET voided_at = datetime('now'), voided_reason = 'Wrong record' WHERE row_id = ? AND content = 'Rent is 50% of income'").run(rowId)
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at, voided_at) VALUES (?, 'Old change', 'system', '2024-01-01 10:00:00', '2024-01-01 10:00:00', '2024-01-02 10:00:00')").run(rowId)
+    const count = async (...args: unknown[]) => (await invoke(IPC.CASE_LOG_COUNT, rowId, ...args)).data as number
+    const filters: Array<[boolean, boolean, Record<string, unknown>?]> = [
+      [false, false], [true, false], [true, true], [false, true], [true, false, { logType: 'phone' }], [false, false, { query: 'hospital' }],
+    ]
+    for (const [includeSystem, includeVoided, opts] of filters) {
+      const res = await invoke(IPC.CASE_LOG_COUNTS, rowId, includeSystem, includeVoided, opts)
+      expect(res.ok).toBe(true)
+      expect(res.data).toEqual({
+        total: await count(includeSystem, includeVoided, opts),
+        changes: await count(true, false, { logType: 'system' }),
+        voided: await count(true, true) - await count(true, false),
+      })
+    }
+    expect((await invoke(IPC.CASE_LOG_COUNTS, rowId)).data).toEqual({ total: 300, changes: 1, voided: 2 })
+    expect((await invoke(IPC.CASE_LOG_COUNTS, -1)).ok).toBe(false)
+  })
+
   it('sorts by the day a note happened, not when it was written', async () => {
     testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at, occurred_at) VALUES (?, 'Written today about 2023', 'note', '2025-01-01 10:00:00', '2025-01-01 10:00:00', '2023-06-01 10:00:00')").run(rowId)
     const oldest = await invoke(IPC.CASE_LOG_GET, rowId, false, false, 1, 0, { oldestFirst: true })

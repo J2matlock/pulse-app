@@ -33,6 +33,13 @@ import { localDateString, parseDbTimestamp, ymdLocalDate } from '../../../shared
 import { friendlyError } from '../../utils/friendlyError'
 import { daysOverdueLabel } from '../../../shared/deadlineTiles'
 import type { NoteSuggestion } from '../../utils/suggestedNote'
+import type { IPCResult } from '../../../shared/types'
+import type { CaseLogCounts } from '../../../shared/ipc-contract'
+
+/** What the notes filter hides, from a CASE_LOG_COUNTS answer (none when it failed) */
+function hiddenFrom(res: IPCResult<CaseLogCounts | null>): { changes: number; voided: number } {
+  return { changes: (res.ok && res.data?.changes) || 0, voided: (res.ok && res.data?.voided) || 0 }
+}
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
 function applyDatesLocally(rowId: number, values: Array<[columnId: number, value: string | null]>): void {
@@ -243,31 +250,26 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   // What the current filter hides: change entries (C-01) and voided notes (C-26), so the
   // page can say "3 changes are hidden" and offer "Show voided" only when there's one
   const [hidden, setHidden] = useState<{ changes: number; voided: number }>({ changes: 0, voided: 0 })
+  // One call answers the filter's count and what it hides (CASE_LOG_COUNTS)
   const refreshHidden = useCallback(async () => {
-    const [changes, all, live] = await Promise.all([
-      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, false, { logType: 'system' }),
-      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, true),
-      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, false),
-    ])
-    const n = (r: { ok: boolean; data?: unknown }) => r.ok && typeof r.data === 'number' ? r.data : 0
-    setHidden({ changes: n(changes), voided: Math.max(0, n(all) - n(live)) })
+    setHidden(hiddenFrom(await safeInvoke(IPC.CASE_LOG_COUNTS, rowId)))
   }, [rowId])
   const load = useCallback(async () => {
     setLoading(true)
     const opts = { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) }
-    const [res, count] = await Promise.all([
+    const [res, counts] = await Promise.all([
       safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, 0, opts),
-      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, includeSystem, showVoided, opts),
-      refreshHidden(),
+      safeInvoke(IPC.CASE_LOG_COUNTS, rowId, includeSystem, showVoided, opts),
     ])
     if (res.ok) {
       const data = res.data
       setHasMore(data.length > PAGE_SIZE)
       setEntries(data.slice(0, PAGE_SIZE))
     }
-    setTotal(count.ok ? count.data : null)
+    setTotal(counts.ok && typeof counts.data?.total === 'number' ? counts.data.total : null)
+    setHidden(hiddenFrom(counts))
     setLoading(false)
-  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter, refreshHidden])
+  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
   // One page at a time: a second click before the first page arrives would ask for the same page again (AUDIT-136)
   const loadingMoreRef = useRef(false)

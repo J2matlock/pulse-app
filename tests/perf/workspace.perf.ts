@@ -310,8 +310,7 @@ describe(`main process at ${RECORDS} records × ${COLUMNS} columns`, () => {
       [IPC.CONTACT_REQ_STATUS, undefined, s.gridId], [IPC.ATTACHMENT_LIST, rowId], [IPC.ATTACHMENT_LIST, rowId],
       [IPC.SETTINGS_GET, 'note_type_last'], [IPC.SETTINGS_GET, 'unit_minutes'], [IPC.SETTINGS_GET, 'mileage_rate'],
       [IPC.SETTINGS_GET, 'note_formats'], [IPC.SETTINGS_GET, 'feature_offers_dismissed'],
-      [IPC.CASE_LOG_GET, rowId, false, false, 51, 0, notes], [IPC.CASE_LOG_COUNT, rowId, false, false, notes],
-      [IPC.CASE_LOG_COUNT, rowId, true, false, { logType: 'system' }], [IPC.CASE_LOG_COUNT, rowId, true, true], [IPC.CASE_LOG_COUNT, rowId, true, false],
+      [IPC.CASE_LOG_GET, rowId, false, false, 51, 0, notes], [IPC.CASE_LOG_COUNTS, rowId, false, false, notes],
       [IPC.SETTINGS_GET_ALL], [IPC.CELL_HISTORY_SERIES, rowId, numberCols], [IPC.APPT_FOR_RECORD, rowId],
       [IPC.RECORD_LINKS_GET, rowId], [IPC.CONTACTS_GET_CLIENT_LINKS, { rowId }], [IPC.SNIPPET_GET_ALL],
     ]

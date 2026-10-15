@@ -102,6 +102,8 @@ export const IPC = {
   CASE_LOG_GET: 'case-log:get',
   /** How many notes match (for "Showing 50 of 312") */
   CASE_LOG_COUNT: 'case-log:count',
+  /** The count for the current filter plus what it hides (changes, voided notes), in one call */
+  CASE_LOG_COUNTS: 'case-log:counts',
   CASE_LOG_CREATE: 'case-log:create',
   CASE_LOG_UPDATE: 'case-log:update',
   CASE_LOG_DELETE: 'case-log:delete',

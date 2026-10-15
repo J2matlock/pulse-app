@@ -38,6 +38,7 @@ function payload(channel: string): unknown {
         original_content: null, edited_at: null, voided_at: null, voided_reason: null, source_action_id: null, minutes: null, miles: null,
       }))
     case IPC.CASE_LOG_COUNT: return 8
+    case IPC.CASE_LOG_COUNTS: return { total: 8, changes: 0, voided: 0 }
     case IPC.CHECKLIST_GET:
       return Array.from({ length: 4 }, (_, i) => ({
         id: 200 + i, row_id: 1, title: `Checklist step ${i + 1}`, description: null, is_completed: i === 0 ? 1 : 0, due_date: i === 2 ? '2026-10-30' : null,

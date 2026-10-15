@@ -8,7 +8,7 @@ import { ok, fail, notifyCaseLogChanged, logNonFatal } from './ipc-utils'
 import { handlersFor, idArg, textArg } from './ipc-define'
 import { getDb, cachedStmt } from '../database'
 import type { CaseLogEntry, NoteDateUpdate, NoteDateRevert } from '../../shared/types'
-import type { CaseLogQuery } from '../../shared/ipc-contract'
+import type { CaseLogQuery, CaseLogCounts } from '../../shared/ipc-contract'
 import { isValidLogType } from '../activity-types'
 import { cleanExtraMeasures } from '../measures'
 import { parseExtraMeasures } from '../../shared/measures'
@@ -80,6 +80,18 @@ export function registerCaseLogHandlers(): void {
     const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
     const r = cachedStmt(`case_log_count_${f.key}`, `SELECT COUNT(*) AS n FROM case_log WHERE ${f.where}`).get(...f.params) as { n: number }
     return ok(r.n)
+  })
+
+  // The notes log asked CASE_LOG_COUNT four times on every load; this is the same four in one pass
+  define(IPC.CASE_LOG_COUNTS, [idArg(), z.custom<boolean | undefined>(), z.custom<boolean | undefined>(), z.custom<CaseLogQuery | undefined>()], (rowId, includeSystem, includeVoided, opts) => {
+    const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
+    const r = cachedStmt(`case_log_counts_${f.key}`, `
+      SELECT COUNT(CASE WHEN ${f.where} THEN 1 END) AS total,
+             COUNT(CASE WHEN log_type = 'system' AND voided_at IS NULL THEN 1 END) AS changes,
+             COUNT(CASE WHEN voided_at IS NOT NULL THEN 1 END) AS voided
+      FROM case_log WHERE row_id = ?
+    `).get(...f.params, rowId) as CaseLogCounts
+    return ok({ total: r.total, changes: r.changes, voided: r.voided })
   })
 
   // occurredOn: the day it happened when that isn't today (a visit written up the next morning)
