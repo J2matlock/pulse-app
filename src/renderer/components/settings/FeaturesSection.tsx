@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FEATURES, isOn, type FeatureGroup, type FeatureKey } from '../../../shared/features'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
@@ -18,6 +18,18 @@ export function FeaturesSection(): React.ReactElement {
   const features = useWorkspaceStore(s => s.features)
   const update = useWorkspaceStore(s => s.update)
   const [saving, setSaving] = useState<FeatureKey | null>(null)
+
+  // "#/settings?tab=workspace&feature=attachments" (the record page's "More you can
+  // add" line) lands on that switch, so the person sees what they came to turn on
+  useEffect(() => {
+    const hash = window.location.hash
+    const wanted = new URLSearchParams(hash.slice(hash.indexOf('?'))).get('feature')
+    if (!wanted || hash.indexOf('?') < 0) return
+    const box = document.getElementById(`feature-${wanted}`)
+    if (!box) return
+    box.scrollIntoView({ block: 'center' })
+    box.focus()
+  }, [])
 
   async function toggle(key: FeatureKey, on: boolean) {
     setSaving(key)
@@ -49,6 +61,7 @@ export function FeaturesSection(): React.ReactElement {
               <label key={def.key} className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
                 <input
                   type="checkbox"
+                  id={`feature-${def.key}`}
                   checked={isOn(features, def.key)}
                   disabled={saving === def.key}
                   onChange={e => void toggle(def.key, e.target.checked)}

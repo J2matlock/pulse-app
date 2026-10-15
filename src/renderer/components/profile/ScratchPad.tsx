@@ -13,6 +13,7 @@ import { pulseEvents } from '../../events'
 import { rlog } from '../../utils/rendererLogger'
 import { useFeature } from '../../hooks/useFeature'
 import { modHelp } from '../../utils/keys'
+import { useVocab } from '../../hooks/useVocab'
 
 /** Sanitize HTML before loading into tiptap to prevent XSS from corrupted data */
 function sanitizeHtml(html: string): string {
@@ -41,6 +42,8 @@ function persistPad(globalScope: string | undefined, rowId: number | undefined, 
 
 export function ScratchPad({ rowId, clientName, globalScope, snippets: externalSnippets }: Props) {
   const snippetsOn = useFeature('snippets')
+  const { t } = useVocab()
+  const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
   // The saved notes couldn't be read: the pad stays read-only, and nothing is saved over them (Q-047)
@@ -53,7 +56,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // With snippets switched off the "/" menu finds nothing to offer
   const snippets = snippetsOn ? (externalSnippets ?? internalSnippets) : NO_SNIPPETS
   const [snippetMenu, setSnippetMenu] = useState<{ items: Snippet[]; query: string } | null>(null)
-  const [snippetMenuPos, setSnippetMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const [snippetMenuPos, setSnippetMenuPos] = useState<{ top: number; left: number; maxWidth: number } | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirtyRef = useRef(false)
@@ -120,8 +123,9 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
             const rect = editorEl?.getBoundingClientRect()
             if (rect) {
               const top = Math.min(coords.bottom - rect.top + 4, rect.height - 200)
-              const left = Math.min(Math.max(coords.left - rect.left, 0), rect.width - 220)
-              setSnippetMenuPos({ top, left })
+              const left = Math.max(0, Math.min(Math.max(coords.left - rect.left, 0), rect.width - 220))
+              // No wider than the room to the pad's right edge, so it isn't cut off in a narrow column (C-29)
+              setSnippetMenuPos({ top, left, maxWidth: Math.max(160, rect.width - left - 8) })
             }
           } catch { /* non-fatal — fall back to default position */ }
         } else {
@@ -182,6 +186,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       setLoadFailed(false)
       editor.commands.setContent(res.data?.content ? sanitizeHtml(res.data.content) : '', { emitUpdate: false })
       loadedRef.current = true
+      setLoaded(true)
       editor.setEditable(true, false)
     })
   }, [rowId, globalScope, editor])
@@ -200,6 +205,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       underline: ed?.isActive('underline') ?? false,
       bulletList: ed?.isActive('bulletList') ?? false,
       orderedList: ed?.isActive('orderedList') ?? false,
+      empty: ed?.isEmpty ?? true,
     }),
   })
 
@@ -328,6 +334,12 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         onKeyDownCapture={handleKeyDownCapture}
       >
         <EditorContent editor={editor} />
+        {/* What the pad is for, until something's written in it (C-9): only on a record's page */}
+        {!globalScope && loaded && !loadFailed && (active?.empty ?? true) && (
+          <p aria-hidden="true" className="absolute top-0 left-0 right-0 p-4 pointer-events-none text-base text-slate-500 dark:text-slate-400">
+            Private jottings for you — reminders, numbers, things to ask. Not part of the {t('activityLog')}, and left out of printouts unless you choose to include them.
+          </p>
+        )}
 
         <span role="status" className="sr-only">
           {menuOpen ? `${snippetMenu.items.length} ${snippetMenu.items.length === 1 ? 'snippet matches' : 'snippets match'}. Tab inserts the first, or the one you choose with the up and down arrows.` : ''}
@@ -335,8 +347,10 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
 
         {snippetMenu && snippetMenu.items.length > 0 && (
           <div
-            className="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 min-w-52 max-w-72"
-            style={snippetMenuPos ? { top: snippetMenuPos.top, left: snippetMenuPos.left } : { left: 4, top: '100%', marginTop: 4 }}
+            className="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 max-w-72"
+            style={snippetMenuPos
+              ? { top: snippetMenuPos.top, left: snippetMenuPos.left, maxWidth: Math.min(288, snippetMenuPos.maxWidth) }
+              : { left: 4, right: 4, top: '100%', marginTop: 4 }}
           >
             <div id={menuId} role="listbox" aria-label="Snippets">
             {snippetMenu.items.map((s, i) => (

@@ -17,6 +17,8 @@ import { Checklist } from '../components/profile/Checklist'
 import { ScratchPad } from '../components/profile/ScratchPad'
 import { CaseLog } from '../components/profile/CaseLog'
 import { GridDataSummary } from '../components/profile/GridDataSummary'
+import { isEmptyCell } from '../utils/emptyCell'
+import { MoreSectionsOffer, settingsFeaturePath, useHiddenSections } from '../components/profile/MoreSectionsOffer'
 import { LinkedProviders } from '../components/profile/LinkedProviders'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -28,7 +30,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { MoveToGridModal } from '../components/grid/MoveToGridModal'
 import { CancelAppointmentsCheckbox, useUpcomingAppointments } from '../components/grid/GridDialogs'
 import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
-import type { GridRow, SaveDialogResult } from '../../shared/types'
+import { isPersonKind, type GridRow, type SaveDialogResult } from '../../shared/types'
 import type { RowLocation } from '../../shared/ipc-contract'
 import { Tooltip } from '../components/shared/Tooltip'
 import { clientFileName, noteUnencryptedExport } from '../utils/exportNotice'
@@ -85,7 +87,7 @@ export default function ProfileView(): React.ReactElement {
   const closeAuditTrail = useCallback(() => setShowAuditTrail(false), [])
   const [showHandoff, setShowHandoff] = useState(false)
   const closeHandoff = useCallback(() => setShowHandoff(false), [])
-  // Sections chosen in "Print / PDF…" while the print layout is up
+  // Sections chosen in "Save as PDF…" while the print layout is up
   const [printSections, setPrintSections] = useState<ProfileSections | null>(null)
   const showPrintLayout = printSections !== null
   const closePrintLayout = useCallback(() => setPrintSections(null), [])
@@ -226,6 +228,8 @@ export default function ProfileView(): React.ReactElement {
     return getClientName(row, columns, '') || null
   }, [row, nameCol, columns])
   const clientName = knownName ?? `Unknown ${t('record')}`
+  // "Client details (4 filled)": how many typed-in columns have something in them (C-02)
+  const filledCount = useMemo(() => row ? [...columns, ...hiddenColumns].filter(c => !isEmptyCell(c, (row[`col_${c.id}` as keyof GridRow] as string | null) ?? null)).length : 0, [row, columns, hiddenColumns])
 
   // Track as recently visited: once per record, and again when its name loads,
   // not every time the list of lists reloads
@@ -241,11 +245,16 @@ export default function ProfileView(): React.ReactElement {
   })
   useEffect(() => { recordVisit() }, [rowId, knownName])
 
-  // Prev / Next based on sortedRowIds
-  const currentIndex = rowId != null ? sortedRowIds.indexOf(rowId) : -1
-  const total = sortedRowIds.length
-  const prevRowId = currentIndex > 0 ? sortedRowIds[currentIndex - 1] : null
-  const nextRowId = currentIndex < total - 1 ? sortedRowIds[currentIndex + 1] : null
+  // Prev / Next based on sortedRowIds, without records that have left the list since
+  // it was sorted (archived or trashed from here), so "10 of 48" counts what's there (C-17)
+  const listedIds = useMemo(() => {
+    const present = new Set(rows.map(r => r.row_id))
+    return sortedRowIds.filter(id => present.has(id))
+  }, [rows, sortedRowIds])
+  const currentIndex = rowId != null ? listedIds.indexOf(rowId) : -1
+  const total = listedIds.length
+  const prevRowId = currentIndex > 0 ? listedIds[currentIndex - 1] : null
+  const nextRowId = currentIndex >= 0 && currentIndex < total - 1 ? listedIds[currentIndex + 1] : null
 
   const handleRowUpdate = useCallback(
     (updates: Partial<{ is_starred: 0 | 1 }>) => {
@@ -280,28 +289,34 @@ export default function ProfileView(): React.ReactElement {
     else noteUnencryptedExport()
   }
 
-  // Back goes where the user came from (the dashboard, another record…), or to the list
-  const goBack = useCallback(() => {
-    if (canGoBack()) navigate(-1)
-    else navigate('/grid')
-  }, [navigate])
+  // Back goes where the user came from (the dashboard, the calendar…), or to the list.
+  // From another record (Prev/Next, a link) it goes to the list, so the label and the
+  // place it leads agree (C-17)
   const cameFrom = previousPage(location.pathname)
-  const backLabel = !cameFrom || !canGoBack() ? (activeGrid?.name ?? t('list', { cap: true }))
-    : cameFrom.startsWith('/grid') || cameFrom === '/' ? (activeGrid?.name ?? t('list', { cap: true }))
-      : pageTitle(cameFrom, t) ?? 'Back'
+  const fromOtherPage = !!cameFrom && canGoBack() && !cameFrom.startsWith('/profile/')
+  const goBack = useCallback(() => {
+    if (fromOtherPage) navigate(-1)
+    else navigate('/grid')
+  }, [navigate, fromOtherPage])
+  const listName = activeGrid?.name ?? t('list', { cap: true })
+  const backLabel = !fromOtherPage || cameFrom.startsWith('/grid') || cameFrom === '/' ? listName
+    : pageTitle(cameFrom, t) ?? listName
 
+  // Prev/Next mark the move, so leaving a record after archiving it goes on to the next only then
+  const stepped = (location.state as { stepped?: boolean } | null)?.stepped === true
   function goPrev() {
-    if (prevRowId != null) navigate(`/profile/${prevRowId}`)
+    if (prevRowId != null) navigate(`/profile/${prevRowId}`, { state: { stepped: true } })
   }
 
   function goNext() {
-    if (nextRowId != null) navigate(`/profile/${nextRowId}`)
+    if (nextRowId != null) navigate(`/profile/${nextRowId}`, { state: { stepped: true } })
   }
 
-  /** After archiving or trashing: on to the next record, or back to the list */
+  /** After archiving or trashing: on to the next record when going through them with
+   *  Prev/Next, otherwise back to the list, where the row visibly goes (C-17) */
   function leaveRecord() {
     const next = nextRowId ?? prevRowId
-    if (next != null) navigate(`/profile/${next}`)
+    if (stepped && next != null) navigate(`/profile/${next}`, { state: { stepped: true } })
     else goBack()
   }
 
@@ -321,11 +336,34 @@ export default function ProfileView(): React.ReactElement {
     leaveRecord()
   }
 
+  const hiddenSections = useHiddenSections()
+
+  /** The copy is named "<name> (copy)" and its page opens, so the two aren't mistaken for each other (C-03) */
+  async function duplicateHere() {
+    if (rowId == null) return
+    const copyId = await duplicateRow(rowId)
+    if (copyId == null) return
+    navigate(`/profile/${copyId}`)
+    toast.success('Opened the copy — rename it', { id: 'duplicate-opened' })
+  }
+
+  // "Print or save ▾": every PDF this page makes, in one place (C-08)
+  const holdsPeople = isPersonKind(recordKind)
+  const printItems: MoreMenuItem[] = [
+    { label: 'Save as PDF…', description: 'Print or save this page', onSelect: () => setShowExportDialog(true) },
+    { label: 'Change history PDF…', description: `The audit trail: every change and ${t('activity')}, with dates`, onSelect: () => setShowAuditTrail(true) },
+    ...(handoffOn ? [{
+      label: holdsPeople ? 'Handoff packet…' : `${t('record', { cap: true })} packet…`,
+      description: 'For a transfer or discharge',
+      onSelect: () => setShowHandoff(true),
+    }] : []),
+  ]
+
   const moreItems: MoreMenuItem[] = [
-    { label: 'Print / PDF…', onSelect: () => setShowExportDialog(true) },
     ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
-    ...(rowInList ? [{ label: 'Duplicate', onSelect: () => { if (rowId != null) void duplicateRow(rowId) } }] : []),
+    ...(rowInList ? [{ label: `Duplicate (copies details, not ${t('activity', { many: true })})`, onSelect: () => void duplicateHere() }] : []),
     ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
+    ...(hiddenSections.length > 0 ? [{ label: 'Add more sections…', onSelect: () => navigate(settingsFeaturePath()) }] : []),
     { label: 'Move to the Trash…', onSelect: () => setAskTrash(true), danger: true },
   ]
 
@@ -350,10 +388,10 @@ export default function ProfileView(): React.ReactElement {
         goBack()
       } else if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault()
-        if (prevRowIdRef.current != null) navigate(`/profile/${prevRowIdRef.current}`)
+        if (prevRowIdRef.current != null) navigate(`/profile/${prevRowIdRef.current}`, { state: { stepped: true } })
       } else if (e.altKey && e.key === 'ArrowRight') {
         e.preventDefault()
-        if (nextRowIdRef.current != null) navigate(`/profile/${nextRowIdRef.current}`)
+        if (nextRowIdRef.current != null) navigate(`/profile/${nextRowIdRef.current}`, { state: { stepped: true } })
       }
     }
     window.addEventListener('keydown', handler)
@@ -420,7 +458,7 @@ export default function ProfileView(): React.ReactElement {
             aria-label={`Back to ${backLabel}`}
           >
             <ChevronLeft className="w-4 h-4" />
-            {backLabel}
+            Back to {backLabel}
           </button>
         </Tooltip>
 
@@ -463,9 +501,7 @@ export default function ProfileView(): React.ReactElement {
           </Tooltip>
         </div>
 
-        <span className="text-sm text-slate-500 dark:text-slate-400 select-none ml-1">
-          Alt+←/→ to navigate
-        </span>
+        {/* The Alt+arrow keys are in the Prev/Next tooltips, not on the bar (C-28) */}
       </div>
 
       {isArchived && (
@@ -486,7 +522,7 @@ export default function ProfileView(): React.ReactElement {
       <div key={rowId} className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar — Checklist + ScratchPad, scrolls independently */}
-        <div className="w-[28%] min-w-[300px] max-w-[420px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
+        <div className="w-[28%] min-w-[340px] max-w-[420px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
           <div className="p-4 space-y-4">
             {showChecklists && (
               <div data-tour="checklist">
@@ -509,27 +545,17 @@ export default function ProfileView(): React.ReactElement {
               gridId={activeGridId!}
               onRowUpdate={handleRowUpdate}
               onAddNote={() => noteFocusRef.current?.()}
+              printItems={printItems}
               moreItems={moreItems}
               onGenerateLetter={showLetters ? () => setShowLetterModal(true) : undefined}
-              onAuditTrail={() => setShowAuditTrail(true)}
-              onHandoff={handoffOn ? () => setShowHandoff(true) : undefined}
             />
 
             {activeGridId && showRequirements && <ContactStatusLine rowId={rowId} gridId={activeGridId} />}
 
-            {/* W08 — Fill a form for this record */}
-            {formsOn && activeGridId && profileForms.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-base text-slate-600 dark:text-slate-300">Fill in a form:</span>
-                {profileForms.map(f => (
-                  <button key={f.id} type="button" className="btn-compact-secondary"
-                    onClick={() => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId, rowId })}>{f.name}</button>
-                ))}
-              </div>
-            )}
-
+            {/* Note box, deadlines, then the notes log: "what happened last time?" is why the
+                page was opened, so the details block comes after it, collapsed (C-02) */}
             <div data-tour="case-log" className="space-y-6">
-              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={<>
+              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={
                 <div data-tour="deadline-panel">
                   <DeadlinePanel
                     row={row}
@@ -538,8 +564,21 @@ export default function ProfileView(): React.ReactElement {
                     onDateSave={handleDateSave}
                   />
                 </div>
+              } />
 
-                <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey={`profile-client-data-${activeGridId}`} defaultExpanded>
+              <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey={`profile-client-data-${activeGridId}`}
+                defaultExpanded={false} count={filledCount} countLabel={`${filledCount} filled`} keepMounted>
+                <div className="space-y-3">
+                  {/* W08 — a form fills this record in (C-40: lives with the details it fills) */}
+                  {formsOn && activeGridId && profileForms.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 px-2">
+                      <span className="text-base text-slate-600 dark:text-slate-300">Fill in from a form:</span>
+                      {profileForms.map(f => (
+                        <button key={f.id} type="button" className="btn-compact-secondary"
+                          onClick={() => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId, rowId })}>{f.name}</button>
+                      ))}
+                    </div>
+                  )}
                   <GridDataSummary
                     row={row}
                     columns={[...columns, ...hiddenColumns]}
@@ -547,8 +586,8 @@ export default function ProfileView(): React.ReactElement {
                     gridId={activeGridId!}
                     onCellSave={updateCell}
                   />
-                </CollapsibleSection>
-              </>} />
+                </div>
+              </CollapsibleSection>
             </div>
 
             {/* The rest: collapsed when empty, with counts in the titles; open/closed is remembered per list */}
@@ -583,12 +622,15 @@ export default function ProfileView(): React.ReactElement {
                 <LinkedProviders rowId={rowId} gridId={activeGridId} onCount={countContacts} />
               </CollapsibleSection>
             )}
+
+            {/* Sections a switched-off feature hides, so they can be found (C-04) */}
+            <MoreSectionsOffer />
           </div>
         </div>
 
       </div>
 
-      {/* Generate Letter modal */}
+      {/* Handoff, PDF, audit trail and letter dialogs */}
       {showHandoff && rowId != null && activeGridId != null && (
         <HandoffDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={closeHandoff} />
       )}
@@ -613,7 +655,7 @@ export default function ProfileView(): React.ReactElement {
       <ConfirmDialog
         open={askArchive}
         title={`Archive ${clientName}?`}
-        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time (Show archived).`}
+        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time from the ${t('list')}: Show ▾ → Show archived ${t('record', { many: true })}, then Unarchive.`}
         confirmLabel="Archive"
         destructive={false}
         onConfirm={() => void confirmArchive()}
@@ -628,7 +670,7 @@ export default function ProfileView(): React.ReactElement {
       <ConfirmDialog
         open={askTrash}
         title={`Move ${clientName} to the Trash?`}
-        message={`It stays in the Trash for 30 days, and you can restore it from there or with Undo.`}
+        message={`${clientName} stays in the Trash for 30 days, and you can restore ${holdsPeople ? 'them' : 'it'} from there or with Undo.`}
         confirmLabel="Move to the Trash"
         onConfirm={() => void confirmTrash()}
         onCancel={() => setAskTrash(false)}

@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast'
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { MessageSquare, Search, Plus, X, ArrowUpDown } from 'lucide-react'
+import { MessageSquare, Search, Plus, X, ArrowUpDown, Pencil } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CaseLogEntry as CaseLogEntryType, CreatedCaseLogEntry, Snippet } from '../../../shared/types'
 import { guessArticle } from '../../../shared/vocab'
@@ -163,8 +163,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [newExtra, setNewExtra] = useState<Record<string, string>>(draft0?.extra ?? {})
   // Structured formats (DAP, SOAP…): one box per section, saved as one note
   const [customFormats, setCustomFormats] = useState<NoteFormat[]>([])
-  const [formatId, setFormatId] = useState('')
+  // Free text each time (C-06): a DAP picked once for one note shouldn't turn every
+  // record's box into three empty sections; an unsaved draft keeps its own format
+  const [formatId, setFormatId] = useState(draft0?.format ?? '')
   const [fieldValues, setFieldValues] = useState<string[]>(draft0?.fieldValues ?? [])
+  // When and Format live under "More options", open when a draft uses them (C-12)
+  const [moreOpen, setMoreOpen] = useState(!!(draft0?.day || draft0?.format))
   // The note box starts as one line, "Add a note…", and opens when used (3.4)
   const [composerOpen, setComposerOpen] = useState(!!draft0)
   const openComposer = useCallback(() => {
@@ -177,8 +181,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     return () => { focusRef.current = null }
   }, [focusRef, openComposer])
   useEffect(() => {
-    setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay })
-  }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay])
+    setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay, format: formatId })
+  }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay, formatId])
   const [editingFormats, setEditingFormats] = useState(false)
   const builtinFormats = builtinFormatsFor(t('record'))
   const allFormats = [...builtinFormats, ...customFormats]
@@ -200,21 +204,13 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   useEffect(() => { setSelectedIndex(-1) }, [snippetMenu?.items.length])
 
   useEffect(() => {
-    void Promise.all([safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_formats'), safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_format_last')])
-      .then(([formatsRes, lastRes]) => {
-        const custom = formatsRes.ok ? parseCustomFormats(formatsRes.data) : []
-        setCustomFormats(custom)
-        const last = lastRes.ok ? lastRes.data : null
-        if (last && [...builtinFormats, ...custom].some(f => f.id === last)) setFormatId(last)
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the note box opens
+    void safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_formats')
+      .then(formatsRes => { setCustomFormats(formatsRes.ok ? parseCustomFormats(formatsRes.data) : []) })
   }, [])
 
   function chooseFormat(id: string) {
-    if (id === '__edit') { setEditingFormats(true); return }
     setFormatId(id)
     setFieldValues([])
-    void safeInvoke(IPC.SETTINGS_UPDATE, 'note_format_last', id)
   }
 
   // Search and sort run in the database so they cover every note, not just the
@@ -225,17 +221,30 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     return () => clearTimeout(id)
   }, [search])
   const [total, setTotal] = useState<number | null>(null)
-  // One timeline (3.4): notes by default; changes the app made, one kind, or voided notes on request
+  // One log (3.4): notes by default; changes the app recorded, one kind, or voided notes on request
   const [show, setShow] = useState<string>('notes')
   const [showVoided, setShowVoided] = useState(false)
   const includeSystem = show === 'everything' || show === 'changes'
   const kindFilter = show === 'changes' ? 'system' : show === 'notes' || show === 'everything' ? undefined : show
+  // What the current filter hides: change entries (C-01) and voided notes (C-26), so the
+  // page can say "3 changes are hidden" and offer "Show voided" only when there's one
+  const [hidden, setHidden] = useState<{ changes: number; voided: number }>({ changes: 0, voided: 0 })
+  const refreshHidden = useCallback(async () => {
+    const [changes, all, live] = await Promise.all([
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, false, { logType: 'system' }),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, true),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, false),
+    ])
+    const n = (r: { ok: boolean; data?: unknown }) => r.ok && typeof r.data === 'number' ? r.data : 0
+    setHidden({ changes: n(changes), voided: Math.max(0, n(all) - n(live)) })
+  }, [rowId])
   const load = useCallback(async () => {
     setLoading(true)
     const opts = { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) }
     const [res, count] = await Promise.all([
       safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, 0, opts),
       safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, includeSystem, showVoided, opts),
+      refreshHidden(),
     ])
     if (res.ok) {
       const data = res.data
@@ -244,7 +253,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     }
     setTotal(count.ok ? count.data : null)
     setLoading(false)
-  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
+  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter, refreshHidden])
 
   // One page at a time: a second click before the first page arrives would ask for the same page again (AUDIT-136)
   const loadingMoreRef = useRef(false)
@@ -518,6 +527,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     if (!res.ok) { toast.error(`We couldn't void that ${t('activity')}. Please try again.`); return }
     setEntries(prev => prev.filter(e => e.id !== id))
     showDateChanges(rowId, res.data)
+    void refreshHidden()
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Voided ${t('activity')}`,
@@ -536,6 +546,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     setEntries(prev => prev.map(e => e.id === id ? { ...e, voided_at: null, voided_reason: null } : e))
     // Counting again, it moves its dates again (Track B)
     showDateChanges(rowId, res.data)
+    void refreshHidden()
     const reason = entry?.voided_reason ?? 'Voided'
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
@@ -582,9 +593,11 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
   return (
     <>
-    {/* The note box comes first on the record page (3.4); past notes follow further down */}
-    <section aria-label={`New ${t('activity')}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-      {!composerOpen && (
+    {/* The note box comes first on the record page (3.4); past notes follow further down.
+        With a header button to open it (focusRef), the box stays out of the way until then (C-34) */}
+    <section aria-label={`New ${t('activity')}`} hidden={!composerOpen && !!focusRef}
+      className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {!composerOpen && !focusRef && (
         <button type="button" onClick={openComposer}
           className="w-full text-left px-4 text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ minHeight: 52 }}>
@@ -642,29 +655,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
-          <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
-            value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
-            title="The day it happened, if that wasn't today" />
-          {newDay && newDay !== localDateString() && (
-            <button type="button" onClick={() => setNewDay('')}
-              className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-              Today
-            </button>
-          )}
-          {/* Format only when one exists (built-in under human-services words, or the user's own); Settings → Notes adds them */}
-          {allFormats.length > 0 && (<>
-            <span className="w-2" aria-hidden />
-            <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
-            <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
-              <option value="">Free text</option>
-              {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-              <option value="__edit">Edit formats…</option>
-            </select>
-          </>)}
-        </div>
-
         {format && (
           <div className="space-y-2">
             {format.fields.map((label, i) => (
@@ -678,7 +668,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                   style={{ fontSize: 15 }} />
               </div>
             ))}
-            <p className="text-sm text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings. Empty sections are left out. {modHelp('Ctrl+Enter')} saves.</p>
+            <p className="text-base text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings; empty ones are left out. {modHelp('Ctrl+Enter')} saves.</p>
           </div>
         )}
 
@@ -692,7 +682,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             onKeyDown={handleTextareaKeyDown}
             aria-controls={snippetMenu && snippetMenu.items.length > 0 ? snippetMenuId : undefined}
             aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 && selectedIndex >= 0 ? `${snippetMenuId}-opt-${selectedIndex}` : undefined}
-            placeholder={modHelp(`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry… (Ctrl+Enter to save, type / for snippets)`)}
+            placeholder={`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry…`}
             rows={3}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                        bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
@@ -739,7 +729,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             </div>
           )}
         </div>
-        {snippetsOn && <p className="text-base text-slate-500 dark:text-slate-400">Type / to insert a snippet</p>}
+        {/* Static help, not in the placeholder, so it's still there once typing starts (C-12) */}
+        <p className="text-base text-slate-500 dark:text-slate-400">{modHelp('Ctrl+Enter')} saves{snippetsOn ? ' · Type / to insert a snippet' : ''}</p>
         </>}
 
         {(tracking.trackTime || tracking.trackMileage || measures.active.length > 0) && (
@@ -760,8 +751,37 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           </div>
         )}
 
-        {/* Follow-up date */}
-        <div className="flex items-center gap-2">
+        {/* When it happened and the format, out of the way until wanted (C-12) */}
+        {moreOpen && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
+            <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
+              value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
+              title="The day it happened, if that wasn't today" />
+            {newDay && newDay !== localDateString() && (
+              <button type="button" onClick={() => setNewDay('')}
+                className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                Today
+              </button>
+            )}
+            {/* Format only when one exists (built-in under human-services words, or the user's own); the pencil edits them (C-33) */}
+            {allFormats.length > 0 && (<>
+              <span className="w-2" aria-hidden />
+              <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
+              <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
+                <option value="">Free text</option>
+                {allFormats.map(f => <option key={f.id} value={f.id}>{f.name} — {f.fields.join(', ')}</option>)}
+              </select>
+              <button type="button" onClick={() => setEditingFormats(true)} aria-label="Edit formats" title="Add or change formats"
+                className="hit-44 p-2 rounded-sm text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                <Pencil className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </>)}
+          </div>
+        )}
+
+        {/* Follow-up date, more options, Add */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setShowFollowUp(p => !p)}
@@ -775,11 +795,17 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
               type="date"
               value={newFollowUp}
               onChange={e => setNewFollowUp(e.target.value)}
+              aria-label="Follow-up date"
               className="rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                          text-base text-slate-900 dark:text-slate-100 px-2 py-1
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             />
           )}
+          <button type="button" onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen}
+            className="hit-44 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
+            {moreOpen ? 'Fewer options' : `More options (when${allFormats.length > 0 ? ', format' : ''})`}
+          </button>
           <div className="flex-1" />
           <button
             onClick={handleAdd}
@@ -799,7 +825,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             <FeatureOffer feature={offer} onDone={() => setOffer(null)}
               message={offer === 'timeTracking'
                 ? `This ${t('activity')} mentions time. Record minutes on ${t('activity', { many: true })} and total them each month?`
-                : `This ${t('activity')} mentions miles. Record mileage on ${t('activity', { many: true })} for your monthly claim?`} />
+                : `This ${t('activity')} mentions miles. Record mileage on ${t('activity', { many: true })} for your monthly claim? (This one won't have them — add miles when you edit it.)`} />
           </div>
         )}
       </div>
@@ -832,22 +858,39 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         </button>
       </div>
 
-      {/* What the timeline shows */}
+      {/* What the log shows: a view, or one kind of note (C-23) */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
         <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200">
           Show:
           <select className="input w-auto" value={show} onChange={e => setShow(e.target.value)} aria-label="What to show">
-            <option value="notes">All {t('activity', { many: true })}</option>
-            <option value="everything">{t('activity', { many: true, cap: true })} and changes</option>
-            <option value="changes">Changes only</option>
-            {activity.all.map(k => <option key={k.key} value={k.key}>{k.label}{k.is_archived ? ' (archived)' : ''}</option>)}
+            <optgroup label="Show">
+              <option value="notes">{t('activity', { many: true, cap: true })} only</option>
+              <option value="everything">{t('activity', { many: true, cap: true })} and column changes</option>
+              <option value="changes">Column changes only</option>
+            </optgroup>
+            <optgroup label="Only one kind">
+              {activity.all.map(k => <option key={k.key} value={k.key}>{k.label}{k.is_archived ? ' (archived)' : ''}</option>)}
+            </optgroup>
           </select>
         </label>
-        <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
-          <input type="checkbox" className="w-5 h-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
-          Show voided {t('activity', { many: true })}
-        </label>
+        {/* Only when there is a voided note to show (C-26) */}
+        {(hidden.voided > 0 || showVoided) && (
+          <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
+            Show {hidden.voided} voided {t('activity', { many: hidden.voided !== 1 })}
+          </label>
+        )}
       </div>
+      {/* Changes a column keeps a history of are findable even when the filter hides them (C-01) */}
+      {show === 'notes' && hidden.changes > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 px-4 py-1 border-b border-slate-100 dark:border-slate-700/50 text-base text-slate-600 dark:text-slate-300" role="status">
+          <span>{hidden.changes} {hidden.changes === 1 ? 'change is' : 'changes are'} hidden —</span>
+          <button type="button" onClick={() => setShow('everything')}
+            className="hit-44 text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+            Show {hidden.changes === 1 ? 'it' : 'them'}
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
@@ -878,7 +921,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             {search ? 'No entries match your search.'
               : show === 'notes' || show === 'everything' ? `No ${t('activity', { many: true })} yet.`
               // "Changes only" or one note type: the record may have plenty of other entries
-              : `Nothing of this kind yet. Choose "All ${t('activity', { many: true })}" under Show to see the rest.`}
+              : `Nothing of this kind yet. Choose "${t('activity', { many: true, cap: true })} only" under Show to see the rest.`}
           </p>
         )}
 

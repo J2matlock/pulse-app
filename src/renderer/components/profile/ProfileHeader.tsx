@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react'
-import { Star, FileText, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil, History, Send } from 'lucide-react'
+import { Star, FileText, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil } from 'lucide-react'
 import type { GridRow, Column } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -39,10 +39,25 @@ export interface ProfileHeaderProps {
   onRowUpdate: (updates: Partial<{ is_starred: 0 | 1 }>) => void
   onAddNote?: () => void
   onGenerateLetter?: () => void
-  onAuditTrail?: () => void
-  onHandoff?: () => void
-  /** "More ▾": print / PDF, archive, duplicate, move, trash (3.6) */
+  /** "Print or save ▾": the PDFs of this record — the profile, its change history, a handoff packet (C-08) */
+  printItems?: MoreMenuItem[]
+  /** "More ▾": archive, duplicate, move, trash (3.6) */
   moreItems?: MoreMenuItem[]
+}
+
+const STAR_HINT_KEY = 'pulse-star-hint-shown'
+
+/** The first star says what starring is for, once (C-25) */
+function showStarHintOnce(message: string) {
+  try {
+    if (localStorage.getItem(STAR_HINT_KEY) === '1') return
+    localStorage.setItem(STAR_HINT_KEY, '1')
+  } catch { /* storage unavailable: the tooltip still says it */ }
+  toast(message, { id: 'star-hint' })
+}
+
+function contactTypeWord(type: ContactType): string {
+  return type === 'phone' ? 'Phone' : type === 'email' ? 'Email' : 'Address'
 }
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -82,8 +97,7 @@ export function ProfileHeader({
   onRowUpdate,
   onAddNote,
   onGenerateLetter,
-  onAuditTrail,
-  onHandoff,
+  printItems,
   moreItems,
 }: ProfileHeaderProps): React.ReactElement {
   const { t } = useVocab(gridId)
@@ -104,7 +118,9 @@ export function ProfileHeader({
   const { copiedKey, copyToClipboard } = useCopyFeedbackKeyed()
   const [showAddContact, setShowAddContact] = useState(false)
   const [newContactType, setNewContactType] = useState<ContactType>('phone')
-  const [addAsColumn, setAddAsColumn] = useState(false)
+  // After a save: "Want a Phone column for every client?" — a list-wide change, so it's
+  // asked after the one-off entry is safe, not mixed into the form (C-10)
+  const [columnOffer, setColumnOffer] = useState<ManualContact | null>(null)
   const [newContactLabel, setNewContactLabel] = useState('')
   const [newContactValue, setNewContactValue] = useState('')
 
@@ -163,26 +179,30 @@ export function ProfileHeader({
   async function addManualContact() {
     const value = newContactValue.trim()
     if (!value) return
-    const label = newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')
-    if (addAsColumn) {
-      // A real column: every record gets one, and it's in the list, search and exports (R-27)
-      const grid = useGridStore.getState()
-      await grid.addColumn(label, newContactType)
-      const added = useGridStore.getState().columns
-        .filter(c => c.name === label && c.column_type === newContactType)
-        .sort((a, b) => b.id - a.id)[0]
-      if (!added) return // addColumn already said what went wrong
-      await useGridStore.getState().updateCell(row.row_id, added.id, value)
-    } else {
-      const updated = [...manualContacts, { type: newContactType, label, value }]
-      // Keep what was typed if the save failed, so it can be tried again
-      if (!await saveManualContacts(updated)) return
-    }
-    setAddAsColumn(false)
+    const label = newContactLabel.trim() || contactTypeWord(newContactType)
+    const entry: ManualContact = { type: newContactType, label, value }
+    // Keep what was typed if the save failed, so it can be tried again
+    if (!await saveManualContacts([...manualContacts, entry])) return
+    const hasColumn = columns.some(c => c.name.toLowerCase() === label.toLowerCase())
+    setColumnOffer(hasColumn ? null : entry)
     setNewContactValue('')
     setNewContactLabel('')
     setNewContactType('phone')
     setShowAddContact(false)
+  }
+
+  /** A real column: every record gets one, and it's in the list, search and exports (R-27) */
+  async function makeColumnFrom(entry: ManualContact) {
+    setColumnOffer(null)
+    await useGridStore.getState().addColumn(entry.label, entry.type)
+    const added = useGridStore.getState().columns
+      .filter(c => c.name === entry.label && c.column_type === entry.type)
+      .sort((a, b) => b.id - a.id)[0]
+    if (!added) return // addColumn already said what went wrong
+    await useGridStore.getState().updateCell(row.row_id, added.id, entry.value)
+    // The value now lives in the column, so it isn't shown twice
+    const index = manualContacts.findIndex(c => c.type === entry.type && c.label === entry.label && c.value === entry.value)
+    if (index >= 0) await saveManualContacts(manualContacts.filter((_, i) => i !== index))
   }
 
   async function removeManualContact(index: number) {
@@ -226,6 +246,8 @@ export function ProfileHeader({
     setAllTags(prev => [...prev, newTag])
     setNewTagName('')
     setRowTagIds(prev => [...prev, newTag.id])
+    // Made it and put it on: done (C-27)
+    setShowTagPicker(false)
     try {
       await invoke(IPC.TAG_ASSIGN, row.row_id, newTag.id)
     } catch (err) {
@@ -396,9 +418,12 @@ export function ProfileHeader({
           <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
             {/* Star toggle */}
             <button
-              onClick={() => onRowUpdate({ is_starred: isStarred ? 0 : 1 })}
+              onClick={() => {
+                onRowUpdate({ is_starred: isStarred ? 0 : 1 })
+                if (!isStarred) showStarHintOnce(`Starred. The ${t('list')} has a Starred filter to find starred ${t('record', { many: true })} quickly.`)
+              }}
               className="hit-44 p-1 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              title={isStarred ? 'Remove star' : `Star this ${t('record')}`}
+              title={isStarred ? 'Remove star' : `Star this ${t('record')} to find it quickly (the ${t('list')} has a Starred filter)`}
               aria-label={isStarred ? 'Remove star' : `Star this ${t('record')}`}
             >
               <Star
@@ -449,11 +474,20 @@ export function ProfileHeader({
             {showTagPicker && (
               <div
                 className="absolute left-0 top-8 z-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-3"
-                style={{ minWidth: 210 }}
+                style={{ minWidth: 260, maxWidth: 320 }}
               >
-                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">
-                  Tags
-                </p>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="text-base text-slate-600 dark:text-slate-300">
+                    Tags are quick labels you can filter the {t('list')} by.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowTagPicker(false)}
+                    className="hit-44 flex-shrink-0 px-2 text-base font-medium text-blue-600 dark:text-blue-400 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                  >
+                    Done
+                  </button>
+                </div>
                 <div className="space-y-0.5 max-h-48 overflow-y-auto mb-2">
                   {allTags.map(tag => (
                     editingTagId === tag.id ? (
@@ -607,13 +641,13 @@ export function ProfileHeader({
         {showAddContact ? (
           <div className="mt-2 flex items-end gap-2 flex-wrap">
             <div>
-              <label htmlFor="profile-contact-type" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Type</label>
+              <label htmlFor="profile-contact-type" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Kind</label>
               <select
                 id="profile-contact-type"
                 value={newContactType}
                 onChange={e => setNewContactType(e.target.value as ContactType)}
                 className="text-base px-2 py-1.5 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-                style={{ fontSize: 15, minHeight: 36 }}
+                style={{ fontSize: 15, minHeight: 44 }}
               >
                 <option value="phone">Phone</option>
                 <option value="email">Email</option>
@@ -621,18 +655,18 @@ export function ProfileHeader({
               </select>
             </div>
             <div>
-              <label htmlFor="profile-contact-label" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Label</label>
+              <label htmlFor="profile-contact-label" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Name</label>
               <input
                 id="profile-contact-label"
                 value={newContactLabel}
                 onChange={e => setNewContactLabel(e.target.value)}
-                placeholder={newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address'}
+                placeholder={newContactType === 'phone' ? 'e.g. Work phone' : newContactType === 'email' ? 'e.g. Work email' : 'e.g. Home'}
                 className="text-base px-2 py-1.5 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-                style={{ fontSize: 15, minHeight: 36, width: 120 }}
+                style={{ fontSize: 15, minHeight: 44, width: 150 }}
               />
             </div>
             <div className="flex-1" style={{ minWidth: 160 }}>
-              <label htmlFor="profile-contact-value" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Value</label>
+              <label htmlFor="profile-contact-value" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Number or address</label>
               <input
                 id="profile-contact-value"
                 value={newContactValue}
@@ -648,7 +682,7 @@ export function ProfileHeader({
                 }}
                 placeholder={newContactType === 'phone' ? '(555) 123-4567' : newContactType === 'email' ? 'name@example.com' : '123 Main St'}
                 className="w-full text-base px-2 py-1.5 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-                style={{ fontSize: 15, minHeight: 36 }}
+                style={{ fontSize: 15, minHeight: 44 }}
                 autoFocus
               />
             </div>
@@ -656,27 +690,37 @@ export function ProfileHeader({
               onClick={() => void addManualContact()}
               disabled={!newContactValue.trim()}
               className="hit-44 px-3 py-1.5 text-base bg-blue-600 text-white rounded-sm hover:bg-blue-700 disabled:opacity-40 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              style={{ minHeight: 36 }}
+              style={{ minHeight: 44 }}
             >
               Add
             </button>
             <button
               onClick={() => setShowAddContact(false)}
               className="hit-44 px-2 py-1.5 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              style={{ minHeight: 36 }}
+              style={{ minHeight: 44 }}
             >
               Cancel
             </button>
-            <label className="basis-full flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
-              <input type="checkbox" className="w-5 h-5" checked={addAsColumn} onChange={e => setAddAsColumn(e.target.checked)} />
-              Add &ldquo;{newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')}&rdquo; as a column, so every {t('record')} has one and it shows in the {t('list')}, search and exports
-            </label>
+          </div>
+        ) : columnOffer ? (
+          <div role="status" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-slate-600 dark:text-slate-300">
+            <span>
+              Want a &ldquo;{columnOffer.label}&rdquo; column for every {t('record')}, so it shows in the {t('list')}, search and exports?
+            </span>
+            <button type="button" onClick={() => void makeColumnFrom(columnOffer)}
+              className="hit-44 font-medium text-blue-600 dark:text-blue-400 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              Add the column
+            </button>
+            <button type="button" onClick={() => setColumnOffer(null)}
+              className="hit-44 text-slate-500 dark:text-slate-400 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              No thanks
+            </button>
           </div>
         ) : holdsPeople && (
           // Extra phone numbers and emails are for people; a car or a job doesn't need them (R-27)
           <div className={hasAnyContacts ? 'mt-2' : 'mt-3 pt-3 border-t border-slate-100 dark:border-slate-700'}>
             <button
-              onClick={() => setShowAddContact(true)}
+              onClick={() => { setColumnOffer(null); setShowAddContact(true) }}
               className="hit-44 inline-flex items-center gap-1 text-base text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -697,40 +741,19 @@ export function ProfileHeader({
               {t('activity', { cap: true })}
             </button>
           )}
-          {moreItems && <ProfileMoreMenu items={moreItems} />}
           {onGenerateLetter && (
             <button
               onClick={onGenerateLetter}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700 hover:bg-violet-100 dark:hover:bg-violet-900/70 shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-violet-500 focus-visible:ring-offset-3 transition-colors"
-              style={{ minHeight: 44, fontSize: 15 }}
-              title="Generate a letter from a template"
-            >
-              <FileText className="w-4 h-4" />
-              Generate Letter
-            </button>
-          )}
-          {onAuditTrail && (
-            <button
-              onClick={onAuditTrail}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-600 shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-slate-400 focus-visible:ring-offset-3 transition-colors"
               style={{ minHeight: 44, fontSize: 15 }}
-              title={`Every change and ${t('activity')} for this ${t('record')}, as a PDF`}
+              title={`Fill in a letter template with this ${t('record')}'s details`}
             >
-              <History className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              Audit trail
+              <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              Make a letter…
             </button>
           )}
-          {onHandoff && (
-            <button
-              onClick={onHandoff}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-600 shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-slate-400 focus-visible:ring-offset-3 transition-colors"
-              style={{ minHeight: 44, fontSize: 15 }}
-              title="Transfer or discharge: profile and audit trail in one PDF"
-            >
-              <Send className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              {holdsPeople ? 'Handoff packet' : `${t('record', { cap: true })} packet`}
-            </button>
-          )}
+          {printItems && <ProfileMoreMenu items={printItems} label="Print or save" menuLabel="Print or save" />}
+          {moreItems && <ProfileMoreMenu items={moreItems} />}
         </div>
       </div>
     </div>

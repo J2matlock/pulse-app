@@ -20,8 +20,21 @@ export interface ActivityType {
 export const SYSTEM_ACTIVITY_TYPES = ['system', 'manual', 'import', 'followup'] as const
 export type SystemActivityType = (typeof SYSTEM_ACTIVITY_TYPES)[number]
 
+// Pulse's own entries are "changes" in the notes log (a column with "Keep a
+// history of changes" on, a checklist tick, archiving…), not "system" events
 const SYSTEM_LABELS: Record<SystemActivityType, string> = {
-  system: 'System', manual: 'Manual', import: 'Import', followup: 'Follow-up',
+  system: 'Change', manual: 'Manual', import: 'Import', followup: 'Follow-up',
+}
+
+/**
+ * The heading for a change entry: "Program changed" / "Program cleared" from the
+ * text main writes ("Program changed from A to B", "Program cleared (was A)",
+ * "Status changed to \"Open\""). Null for other entries (checklist, Trash…).
+ */
+export function changeHeading(content: string): string | null {
+  const m = /^(.{1,100}?) (changed (?:from|to)\b|cleared\b)/.exec(content)
+  if (!m) return null
+  return `${m[1]} ${m[2]!.startsWith('changed') ? 'changed' : 'cleared'}`
 }
 
 export function isSystemActivityType(key: string): key is SystemActivityType {
@@ -42,7 +55,7 @@ export const DEFAULT_ACTIVITY_TYPES: readonly ActivityType[] = [
 ]
 
 export const SYSTEM_ACTIVITY_ICONS: Record<SystemActivityType, string> = {
-  system: '🔧', manual: '✏️', import: '📥', followup: '🔄',
+  system: '✏️', manual: '✏️', import: '📥', followup: '🔄',
 }
 
 export const ACTIVITY_LABEL_MAX = 40

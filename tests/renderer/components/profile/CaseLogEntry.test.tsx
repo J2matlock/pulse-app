@@ -81,14 +81,23 @@ describe('CaseLogEntry', () => {
     expect((textarea as HTMLTextAreaElement).value).toBe('Called client about appointment.')
   })
 
-  it('shows "edited" tag when the text was edited', () => {
+  it('says an edited note was edited once, on the earlier-versions line (C-32)', () => {
     const entry = makeEntry({
       created_at: '2026-01-01T10:00:00Z',
       updated_at: '2026-01-02T10:00:00Z',
       edited_at: '2026-01-02T10:00:00Z',
     })
     render(<CaseLogEntry entry={entry} {...handlers} />)
-    expect(screen.getByText('edited')).toBeTruthy()
+    expect(screen.getByText(/Edited .* — show earlier versions/)).toBeTruthy()
+    expect(screen.queryByText('edited')).toBeNull()
+  })
+
+  it('labels a change entry "Change" with the column as its heading (C-01)', () => {
+    const entry = makeEntry({ log_type: 'system', content: 'Program changed from Housing to Behavioral Health' })
+    render(<CaseLogEntry entry={entry} {...handlers} />)
+    expect(screen.getByText('Change')).toBeTruthy()
+    expect(screen.getByText('Program changed')).toBeTruthy()
+    expect(screen.queryByText('System')).toBeNull()
   })
 
   it('uses the workspace word for notes on the attach button', async () => {

@@ -385,7 +385,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           ) : dueDate ? (
             <button
               onClick={() => { setDateDraft(item.due_date ?? ''); setEditingDate(true) }}
-              className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity ${dueDate.className}`}
+              className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium whitespace-nowrap transition-opacity ${dueDate.className}`}
             >
               {/* A shape as well as a color for late and due-today dates (A06-12), like the grid's warning icon */}
               {dueDate.urgency === 'overdue' || dueDate.urgency === 'today'
@@ -396,7 +396,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           ) : (
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
-              className="hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
+              className="hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base whitespace-nowrap
                          text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             >
@@ -407,7 +407,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
 
           {/* Repeats: ticking it off brings it back with the next date */}
           {repeatRule && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base text-slate-600 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base whitespace-nowrap text-slate-600 dark:text-slate-300">
               <Repeat className="w-3 h-3" aria-hidden="true" />
               {describeRepeat(repeatRule)}
             </span>
@@ -417,7 +417,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           <div className="relative" ref={priorityMenuRef}>
             <button
               onClick={() => setShowPriorityMenu(prev => !prev)}
-              className={`hit-44 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
+              className={`hit-44 px-1.5 py-0.5 rounded-sm text-base font-medium whitespace-nowrap transition-opacity
                          ${priorityCfg.badge}
                          ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100' : ''} focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
               title="Set priority"
@@ -442,36 +442,34 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
               </div>
             )}
           </div>
+
+          {/* Edit and delete sit on this row, not beside the title, so the title keeps the full width (C-07) */}
+          <button
+            onClick={() => setShowEditDialog(true)}
+            className="hit-44 ml-auto p-1 text-slate-500 dark:text-slate-400
+                       hover:text-blue-500 dark:hover:text-blue-400
+                       opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm
+                       transition-opacity"
+            aria-label="Edit item"
+            title="Edit item"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="hit-44 p-1 text-slate-500 dark:text-slate-400
+                       hover:text-red-500 dark:hover:text-red-400
+                       opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
+                       transition-opacity"
+            aria-label="Delete item"
+            title="Delete item"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
-
-      {/* Edit button */}
-      <button
-        onClick={() => setShowEditDialog(true)}
-        className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
-                   hover:text-blue-500 dark:hover:text-blue-400
-                   opacity-0 group-hover:opacity-100 focus-visible:opacity-100
-                   focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm
-                   transition-opacity"
-        aria-label="Edit item"
-        title="Edit item"
-      >
-        <Pencil className="w-4 h-4" />
-      </button>
-
-      {/* Delete button */}
-      <button
-        onClick={onDelete}
-        className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
-                   hover:text-red-500 dark:hover:text-red-400
-                   opacity-0 group-hover:opacity-100 focus-visible:opacity-100
-                   focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
-                   transition-opacity"
-        aria-label="Delete item"
-        title="Delete item"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
 
       {/* Edit dialog */}
       {showEditDialog && (

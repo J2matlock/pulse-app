@@ -202,6 +202,17 @@ export function DeadlinePanel({
     })
     .sort((a, b) => a.urgencyScore - b.urgencyScore)
 
+  // The order is taken once, most urgent first, and then kept for the life of the page:
+  // a card that jumps away under the mouse after Done looks like the wrong one was
+  // marked (C-14). The page remounts per record, so the next record sorts afresh.
+  const [cardOrder, setCardOrder] = useState<number[] | null>(null)
+  if (cardOrder === null && deadlines.length > 0) setCardOrder(deadlines.map(d => d.col.id))
+  if (cardOrder) {
+    const at = (id: number) => { const i = cardOrder.indexOf(id); return i < 0 ? Infinity : i }
+    // Cards that weren't there at first (a rule added meanwhile) go after, still by urgency
+    deadlines.sort((a, b) => (at(a.col.id) - at(b.col.id)) || (a.urgencyScore - b.urgencyScore))
+  }
+
   // A counted note (a session, a visit) changes how many are left: reload the counts
   // when this record's notes change, as the list does when it loads
   const countsNotes = deadlines.some(d => d.rule?.kind === 'quota')
@@ -337,7 +348,7 @@ export function DeadlinePanel({
                       const ext = (extensionsContext[`${row.row_id}:${col.id}`] ?? [])[0]
                       return ext ? (
                         <button type="button" onClick={() => void removeExtension(ext.id, col.name, refreshContext)}
-                          className="hit-44 mt-1 text-sm text-blue-700 dark:text-blue-300 underline">Remove extension</button>
+                          className="hit-44 mt-1 text-base text-blue-700 dark:text-blue-300 underline">Remove extension</button>
                       ) : null
                     })()}
                     {rule && stepsFor(rule, col, rawValue).length > 0 && (
@@ -362,12 +373,14 @@ export function DeadlinePanel({
                 )}
 
                 {col.column_type === 'deadline' ? null : isEditing ? (
-                  /* ── Edit mode ── */
-                  <div
-                    className="flex items-center gap-2 flex-wrap"
-                    onClick={e => e.stopPropagation()}
-                  >
+                  /* ── Edit mode: says which date this is, and what it makes the next due date (C-15) ── */
+                  <div onClick={e => e.stopPropagation()}>
+                  <label htmlFor={`deadline-edit-${col.id}`} className="block mb-1 text-base text-slate-700 dark:text-slate-200">
+                    {storedIsLastDone ? 'Last done on' : 'Due on'}
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <input
+                      id={`deadline-edit-${col.id}`}
                       type="date"
                       value={editValue}
                       onChange={e => setEditValue(e.target.value)}
@@ -403,6 +416,15 @@ export function DeadlinePanel({
                     >
                       Cancel
                     </button>
+                  </div>
+                  {storedIsLastDone && hasInterval(interval) && (() => {
+                    const next = editValue ? computeEffectiveDeadline(editValue, interval) : null
+                    return next ? (
+                      <p className="mt-1 text-base text-slate-600 dark:text-slate-300" aria-live="polite">
+                        Next due {shortDate(next)} (worked out from this date)
+                      </p>
+                    ) : null
+                  })()}
                   </div>
                 ) : rawValue ? (
                   /* ── Display mode (has value) ── */
@@ -455,7 +477,11 @@ export function DeadlinePanel({
                     )}
                     {rule && daysUntil !== null && !result?.extended && (
                       <button type="button" onClick={() => setExtendingCol({ col, due: engine?.due ?? null })}
-                        className="hit-44 text-sm text-blue-700 dark:text-blue-300 underline">Extend…</button>
+                        title="Give more time: pick a later due date and say why"
+                        className="hit-44 px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-base font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                        style={{ minHeight: 36 }}>
+                        Extend…
+                      </button>
                     )}
                   </div>
                 )}

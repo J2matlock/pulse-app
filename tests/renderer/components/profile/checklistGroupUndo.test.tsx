@@ -75,8 +75,9 @@ beforeEach(() => {
 describe('checklist group undo and redo track the current ids', () => {
   it('add group → undo → redo → undo deletes the group redo made', async () => {
     render(<Checklist rowId={10} clientName="Test Client" />)
-    await waitFor(() => expect(screen.getByText('Group')).toBeTruthy())
-    fireEvent.click(screen.getByText('Group'))
+    await waitFor(() => expect(screen.getByLabelText('More checklist actions')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('More checklist actions'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add a heading' }))
     await waitFor(() => expect(pushed).toHaveLength(1))
     await act(async () => { await pushed[0]?.undo() })
     await act(async () => { await pushed[0]?.redo() })
@@ -98,8 +99,9 @@ describe('checklist group undo and redo track the current ids', () => {
 
   it('apply a template into a new group → undo → redo → undo removes what redo made', async () => {
     render(<Checklist rowId={10} clientName="Test Client" />)
-    await waitFor(() => expect(screen.getByText('Templates')).toBeTruthy())
-    fireEvent.click(screen.getByText('Templates'))
+    await waitFor(() => expect(screen.getByLabelText('More checklist actions')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('More checklist actions'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Templates…' }))
     await waitFor(() => expect(screen.getByText('Apply')).toBeTruthy())
     fireEvent.click(screen.getByText('Apply'))
     fireEvent.click(await screen.findByText('Make group'))

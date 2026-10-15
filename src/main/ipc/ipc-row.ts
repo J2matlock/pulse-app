@@ -321,7 +321,7 @@ export function registerRowHandlers(): void {
     const moved = db.transaction(() => {
       // Soft-delete: move to trash instead of hard delete. Already there: leave its 30 days alone.
       if (cachedStmt('row_soft_delete_v2', `UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL`).run(rowId).changes === 0) return false
-      // Log system event on the client's activity timeline
+      // Pulse's own entry in the record's notes log
       cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} moved to the Trash`)
       return true
     })()
@@ -469,6 +469,13 @@ export function registerRowHandlers(): void {
       for (const cell of cells) {
         insertCell.run(id, cell.column_id, cell.value)
       }
+      // The copy says it's a copy: two identical "Maria Garcia" rows mean the next note
+      // lands on the wrong one (C-03). Notes, files and the checklist aren't copied.
+      const nameCol = cachedStmt('row_dup_name_col', 'SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(row.grid_id) as { id: number } | undefined
+      const name = nameCol ? cells.find(c => c.column_id === nameCol.id)?.value : null
+      if (nameCol && name && name.trim()) {
+        cachedStmt('row_dup_name_copy', 'UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run(`${name.trim()} (copy)`, id, nameCol.id)
+      }
       // A duplicate is a new record: it gets its own number
       assignAutoNumbers(row.grid_id, [id], { overwrite: true })
       refreshDisplayNames(row.grid_id, [id])
@@ -603,7 +610,7 @@ export function registerRowHandlers(): void {
     }
     const db = getDb()
     db.transaction(() => {
-      // What changed goes on the timeline, so it's in the audit trail too (R-27)
+      // What changed goes in the notes log, so it's in the audit trail too (R-27)
       const before = parseManualContacts((cachedStmt('row_get_manual_contacts', 'SELECT manual_contacts FROM rows WHERE id = ?').get(rowId) as { manual_contacts: string | null } | undefined)?.manual_contacts ?? null)
       cachedStmt('row_set_manual_contacts', 'UPDATE rows SET manual_contacts = ?, updated_at = datetime(\'now\') WHERE id = ?')
         .run(JSON.stringify(contacts), rowId)

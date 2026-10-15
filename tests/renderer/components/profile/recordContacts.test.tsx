@@ -47,7 +47,7 @@ describe('Add contact info', () => {
     expect(screen.queryByRole('button', { name: /Add contact info/ })).toBeNull()
   })
 
-  it('can add the value as a real column instead', async () => {
+  it('offers a real column after saving, and moves the value into it', async () => {
     asKind('person')
     const addColumn = vi.fn(async (name: string, type: string) => {
       useGridStore.setState({ columns: [col(1, 'Name', { is_name_column: 1 }), col(9, name, { column_type: type })] })
@@ -56,13 +56,34 @@ describe('Add contact info', () => {
     useGridStore.setState({ addColumn, updateCell } as never)
     await renderHeader()
     fireEvent.click(screen.getByRole('button', { name: /Add contact info/ }))
-    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Guardian cell' } })
-    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '555-0199' } })
-    fireEvent.click(screen.getByLabelText(/as a column/))
+    expect(screen.getByLabelText('Kind')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Guardian cell' } })
+    fireEvent.change(screen.getByLabelText('Number or address'), { target: { value: '555-0199' } })
+    // The list-wide choice isn't part of the one-off form (C-10)
+    expect(screen.queryByText(/column/)).toBeNull()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
+    const saves = () => mockInvoke.mock.calls.filter(c => c[0] === 'row:set-manual-contacts')
+    expect(saves()).toEqual([['row:set-manual-contacts', 7, [{ type: 'phone', label: 'Guardian cell', value: '555-0199' }]]])
+    expect(addColumn).not.toHaveBeenCalled()
+    expect(screen.getByText(/Want a .Guardian cell. column for every client/)).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add the column' })) })
     expect(addColumn).toHaveBeenCalledWith('Guardian cell', 'phone')
     expect(updateCell).toHaveBeenCalledWith(7, 9, '555-0199')
-    expect(mockInvoke.mock.calls.some(c => c[0] === 'row:set-manual-contacts')).toBe(false)
+    // Not shown twice: the extra entry goes once the column holds it
+    expect(saves().at(-1)).toEqual(['row:set-manual-contacts', 7, []])
+    expect(screen.queryByText(/Want a/)).toBeNull()
+  })
+
+  it('"No thanks" keeps the entry and drops the offer', async () => {
+    asKind('person')
+    await renderHeader()
+    fireEvent.click(screen.getByRole('button', { name: /Add contact info/ }))
+    fireEvent.change(screen.getByLabelText('Number or address'), { target: { value: 'pat@example.com' } })
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'email' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
+    fireEvent.click(screen.getByRole('button', { name: 'No thanks' }))
+    expect(screen.queryByText(/Want a/)).toBeNull()
+    expect(screen.getByText('pat@example.com')).toBeTruthy()
   })
 })
 

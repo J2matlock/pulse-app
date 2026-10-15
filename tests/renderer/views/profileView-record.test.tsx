@@ -289,16 +289,41 @@ describe('A record opens from anywhere (1.24)', () => {
 })
 
 describe('Acting on a record from its own page (3.6)', () => {
-  it('archives with a reason and moves on to the next record', async () => {
+  it('archives with a reason and goes back to the list, where the row visibly goes (C-17)', async () => {
     const archiveRow = vi.fn(async () => {})
     setGrid({ archiveRow })
     renderAt('/profile/1')
     await flush()
     fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
+    // Says where to find it again
+    expect(screen.getByText(/Show ▾ → Show archived clients, then Unarchive/)).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Moved away' } })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
     expect(archiveRow).toHaveBeenCalledWith(1, 'Moved away', { cancelAppointments: false })
+    expect(screen.getByText('LIST PAGE')).toBeTruthy()
+  })
+
+  it('moves on to the next record after archiving when going through them with Next (C-17)', async () => {
+    const archiveRow = vi.fn(async () => {})
+    setGrid({ archiveRow, rows: [rowOf(1, 'Maria'), rowOf(2, 'Robert'), rowOf(3, 'Ana')], sortedRowIds: [1, 2, 3] })
+    renderAt('/profile/1')
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: /^Next client/ }))
+    await flush()
     expect(screen.getByLabelText('note for 2')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
+    expect(archiveRow).toHaveBeenCalledWith(2, undefined, { cancelAppointments: false })
+    expect(screen.getByLabelText('note for 3')).toBeTruthy()
+  })
+
+  it('counts only records still in the list, and says "Back to" the list (C-17, C-28)', async () => {
+    setGrid({ sortedRowIds: [1, 2, 5] })
+    renderAt('/profile/1')
+    await flush()
+    expect(screen.getByText('1 of 2')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Back to People' }).textContent).toMatch(/Back to People/)
+    expect(screen.queryByText(/to navigate/)).toBeNull()
   })
 
   it('asks about the full name the header shows, not just the name column', async () => {
@@ -335,18 +360,20 @@ describe('Acting on a record from its own page (3.6)', () => {
     renderAt('/profile/1')
     await flush()
     fireEvent.click(screen.getByRole('button', { name: 'Move to the Trash…' }))
-    expect(screen.getByText(/stays in the Trash for 30 days/)).toBeTruthy()
+    expect(screen.getByText(/Maria stays in the Trash for 30 days/)).toBeTruthy()
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Move to the Trash' }).at(-1)!) })
     expect(deleteRow).toHaveBeenCalledWith(1)
     expect(screen.getByText('LIST PAGE')).toBeTruthy()
   })
 
-  it('duplicates from the page', async () => {
-    const duplicateRow = vi.fn(async () => {})
-    setGrid({ duplicateRow })
+  it('duplicates from the page and opens the copy (C-03)', async () => {
+    const duplicateRow = vi.fn(async () => 2)
+    setGrid({ duplicateRow, rows: [rowOf(1, 'Maria'), rowOf(2, 'Maria (copy)')], sortedRowIds: [1, 2] })
     renderAt('/profile/1')
     await flush()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Duplicate' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Duplicate (copies details, not case notes)' })) })
     expect(duplicateRow).toHaveBeenCalledWith(1)
+    // The page moved on to the copy (record 2 of 2)
+    expect(await screen.findByText('2 of 2')).toBeTruthy()
   })
 })

@@ -18,10 +18,13 @@ export function Breadcrumb({ gridName, clientName, onGridClick }: Props): React.
       >
         {gridName}
       </button>
-      <ChevronRight className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-      <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
-        {clientName}
-      </span>
+      {/* No name yet (the record is loading, or isn't in the list): just the list (C-22) */}
+      {clientName && (<>
+        <ChevronRight className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+        <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
+          {clientName}
+        </span>
+      </>)}
     </nav>
   )
 }

@@ -101,7 +101,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
           {filesOn && (
             <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
               <input type="checkbox" className="w-5 h-5" checked={includePictures} onChange={e => setIncludePictures(e.target.checked)} />
-              Include pictures from Files as pages
+              Add photos from Files as extra pages
             </label>
           )}
           <div className="space-y-1">

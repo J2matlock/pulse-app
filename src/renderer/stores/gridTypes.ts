@@ -104,7 +104,8 @@ export interface RowSliceState {
   deleteRow: (rowId: number) => Promise<void>
   archiveRow: (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => Promise<void>
   unarchiveRow: (rowId: number) => Promise<void>
-  duplicateRow: (rowId: number) => Promise<void>
+  /** Resolves to the copy's id, or null when it couldn't be made */
+  duplicateRow: (rowId: number) => Promise<number | null>
   updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
 }
 

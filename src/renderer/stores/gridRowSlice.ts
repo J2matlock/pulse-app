@@ -215,7 +215,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
 
   duplicateRow: async (rowId: number) => {
     const gridId = get().activeGridId
-    if (!gridId) return
+    if (!gridId) return null
     try {
       const newRowId = await invoke<number>(IPC.ROW_DUPLICATE, rowId)
       await get().loadGrid(gridId)
@@ -240,10 +240,12 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
           if (get().activeGridId === gridId) await get().loadGrid(gridId)
         },
       })
+      return newRowId
     } catch (err) {
       rlog.error('GridStore', 'Failed to duplicate row', err)
       // The free-version limit already showed its own message
       toast.error(`Could not duplicate ${wordNow('record')} — please try again`)
+      return null
     }
   },
 

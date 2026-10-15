@@ -440,7 +440,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   // ── Group handlers ─────────────────────────────────────────────────────
 
   const handleAddGroup = useCallback(async () => {
-    const result = await safeInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, 'New Group')
+    const result = await safeInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, 'New heading')
     if (result.ok) {
       const created = result.data
       setGroups(prev => [...prev, created])
@@ -800,23 +800,23 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
             </button>
             <button
               onClick={() => setConfirmReset(true)}
-              title="Uncheck all completed items for a new cycle"
+              title="Uncheck all completed items so they can be done again"
               className="hit-44 px-3 py-1.5 mr-1 text-base text-slate-500 dark:text-slate-400
                          hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
                          rounded-sm transition-colors
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400"
             >
-              Reset cycle
+              Uncheck all
             </button>
             <button
               onClick={() => setConfirmClear(true)}
-              title="Delete all completed items"
+              title="Remove all completed items from the checklist"
               className="hit-44 px-3 py-1.5 mr-3 text-base text-slate-500 dark:text-slate-400
                          hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
                          rounded-sm transition-colors
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
             >
-              Clear all
+              Remove done items
             </button>
           </div>
 
@@ -881,20 +881,20 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         </div>
       )}
 
-      {/* Reset cycle confirmation */}
+      {/* Uncheck all confirmation */}
       <ConfirmDialog
         open={confirmReset}
-        title="Reset checklist cycle"
-        message={`Uncheck all ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} for ${clientName}? They'll be available to complete again. This can be undone.`}
-        confirmLabel="Reset cycle"
+        title="Uncheck all completed items?"
+        message={`Uncheck ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} for ${clientName} so ${completedItems.length === 1 ? 'it' : 'they'} can be done again? This can be undone.`}
+        confirmLabel="Uncheck all"
         onConfirm={() => { setConfirmReset(false); void doResetCycle() }}
         onCancel={() => setConfirmReset(false)}
       />
 
-      {/* Clear completed confirmation */}
+      {/* Remove done items confirmation */}
       <ConfirmDialog
         open={confirmClear}
-        title="Clear completed items"
+        title="Remove done items"
         message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'}? You can undo this.`}
         confirmLabel={`Delete ${completedItems.length} item${completedItems.length === 1 ? '' : 's'}`}
         destructive={true}
@@ -1104,8 +1104,10 @@ export function TemplateManager({ onApply, onClose }: {
               {loading ? (
                 <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>
               ) : templates.length === 0 ? (
-                <div className="py-12 text-center">
-                  <p className="text-slate-500 dark:text-slate-400 mb-4">No templates yet.</p>
+                <div className="py-12 text-center px-6">
+                  <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
+                    No templates yet. A template is a ready-made set of checklist items (e.g. "New {t('record')} intake") you can add to any {t('record')} in one click. The Templates page in the sidebar shows the same list.
+                  </p>
                   <button
                     onClick={openCreate}
                     className="hit-44 px-4 py-2 rounded-lg bg-blue-500 text-white text-base font-medium hover:bg-blue-600 transition-colors"

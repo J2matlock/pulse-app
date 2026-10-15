@@ -68,7 +68,7 @@ describe('notes', () => {
   it('explains voiding for older notes', () => {
     render(<CaseLogEntry entry={note()} onEdit={vi.fn()} {...handlers} />)
     fireEvent.click(screen.getByRole('button', { name: 'Void' }))
-    expect(screen.getByText(/older than 15 minutes can't be deleted/)).toBeTruthy()
+    expect(screen.getByText(/older than 15 minutes aren't deleted/)).toBeTruthy()
   })
 
   it('offers Restore on a voided note', async () => {
