@@ -42,11 +42,11 @@ export function MoreSettings({ label = 'More settings', changed, children, class
         // React setting `open` fires toggle too; only a different value is the person's doing
         if (now !== open) { setTouched(true); setOpen(now) }
       }}
-      className={`group rounded-lg border border-slate-200 dark:border-slate-600 px-3 ${className}`}
+      className={`rounded-lg border border-slate-200 dark:border-slate-600 px-3 ${className}`}
       {...rest}
     >
       <summary className="hit-44 flex min-h-11 items-center gap-2 list-none [&::-webkit-details-marker]:hidden cursor-pointer select-none rounded-lg text-base font-medium text-slate-700 dark:text-slate-300 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent">
-        <ChevronRight aria-hidden="true" className="w-4 h-4 flex-shrink-0 transition-transform group-open:rotate-90" />
+        <ChevronRight aria-hidden="true" className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
         {label}
       </summary>
       <div className="space-y-4 pb-4 pt-2">

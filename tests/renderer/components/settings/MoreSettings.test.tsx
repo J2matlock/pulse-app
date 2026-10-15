@@ -39,6 +39,14 @@ describe('MoreSettings', () => {
     expect(details().open).toBe(true)
   })
 
+  it('turns its chevron with the open state', () => {
+    render(<MoreSettings changed={false}><span>Density</span></MoreSettings>)
+    const chevron = () => details().querySelector('summary svg')!
+    expect(chevron().getAttribute('class')).not.toMatch(/rotate-90/)
+    clickSummary()
+    expect(chevron().getAttribute('class')).toMatch(/rotate-90/)
+  })
+
   it('opens when a changed value arrives after the first render', () => {
     const { rerender } = render(<MoreSettings changed={false}><span>Density</span></MoreSettings>)
     expect(details().open).toBe(false)
