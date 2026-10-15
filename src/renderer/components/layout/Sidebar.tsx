@@ -9,8 +9,7 @@ import { NewListDialog } from '../grid/NewListDialog'
 import { ApplyStarterDialog } from '../starters/ApplyStarterDialog'
 import { pulseEvents } from '../../events'
 import { AnimatePresence, motion } from 'motion/react'
-import { dropdownVariants, backdropVariants, modalPanelVariants } from '../../utils/animations'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { dropdownVariants } from '../../utils/animations'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -31,7 +30,8 @@ import { useVocab } from '../../hooks/useVocab'
 import { useToday } from '../../hooks/useToday'
 import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
-import { SecondaryButton, DangerButton } from '../ui/Button'
+import { SecondaryButton, DangerButton, IconButton } from '../ui/Button'
+import { Dialog } from '../ui/Dialog'
 
 /** What the Tasks count means, for screen readers and the collapsed tooltip */
 const TASKS_DUE_WORDS = 'of your tasks due today or late'
@@ -53,35 +53,31 @@ interface DeleteConfirmProps {
 
 function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteConfirmProps): React.ReactElement {
   const { t } = useVocab(gridId)
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true, { onEscape: onCancel })
   // Links to other lists go with it (W04 §8)
   const [links, setLinks] = useState<{ types: number; links: number } | null>(null)
   useEffect(() => {
     void safeInvoke<{ types: number; links: number }>(IPC.LINK_COUNTS_FOR_GRID, gridId).then(r => { if (r.ok) setLinks(r.data) })
   }, [gridId])
   return (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="delete-caseload-title">
-      <motion.div className="fixed inset-0 bg-black/50" variants={backdropVariants} initial="hidden" animate="visible" onClick={onCancel} />
-      <motion.div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4" variants={modalPanelVariants} initial="hidden" animate="visible">
-        <h2 id="delete-caseload-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">Delete {t('list', { cap: true })}</h2>
-        {/* It goes to the Trash for 30 days, like a record (D1): no typing, and Undo or Restore brings it back */}
-        <p className="text-base text-slate-600 dark:text-slate-300">
-          <strong>{gridName}</strong> and all its {t('record', { many: true })} go to the Trash. You can undo this, or restore it from the Trash for 30 days. After that it's removed for good.
+    <Dialog open onClose={onCancel} size="sm" title={<>Delete {t('list', { cap: true })}</>}
+      footer={<>
+        <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+        <DangerButton autoFocus onClick={onConfirm}>
+          Move to the Trash
+        </DangerButton>
+      </>}>
+      <div className="space-y-4">
+      {/* It goes to the Trash for 30 days, like a record (D1): no typing, and Undo or Restore brings it back */}
+      <p className="text-base text-slate-600 dark:text-slate-300">
+        <strong>{gridName}</strong> and all its {t('record', { many: true })} go to the Trash. You can undo this, or restore it from the Trash for 30 days. After that it's removed for good.
+      </p>
+      {links && links.types > 0 && (
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          Its links to other {t('list', { many: true })}{links.links > 0 ? ` (${links.links} link${links.links === 1 ? '' : 's'})` : ''} and the columns that show them are put away too, and come back with it.
         </p>
-        {links && links.types > 0 && (
-          <p className="text-sm text-amber-700 dark:text-amber-400">
-            Its links to other {t('list', { many: true })}{links.links > 0 ? ` (${links.links} link${links.links === 1 ? '' : 's'})` : ''} and the columns that show them are put away too, and come back with it.
-          </p>
-        )}
-        <div className="flex gap-3 justify-end">
-          <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
-          <DangerButton autoFocus onClick={onConfirm}>
-            Move to the Trash
-          </DangerButton>
-        </div>
-      </motion.div>
-    </div>
+      )}
+      </div>
+    </Dialog>
   )
 }
 
@@ -211,21 +207,17 @@ function SortableGridItem({
 
       {/* Per-grid options button */}
       {!collapsed && !isRenaming && (
-        <button
+        <IconButton
           ref={menuBtnRef}
-          className={`hit-44 absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-sm
-                     text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
-                     hover:bg-slate-200 dark:hover:bg-slate-700
-                     ${isActive ? '' : 'opacity-40 group-hover/griditem:opacity-100 focus:opacity-100'}
-                     transition-opacity`}
+          size="compact"
+          label={`${t('list', { cap: true })} options`}
+          icon={<MoreHorizontal className="w-4 h-4" />}
+          className={`absolute right-1 top-1/2 -translate-y-1/2 transition-opacity
+                     ${isActive ? '' : 'opacity-40 group-hover/griditem:opacity-100 focus:opacity-100'}`}
           onClick={onMenuToggle}
-          title={`${t('list', { cap: true })} options`}
-          aria-label={`${t('list', { cap: true })} options`}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
+        />
       )}
 
       {/* Dropdown — rendered on document.body: the nav's mask-image (shown when there's more below)

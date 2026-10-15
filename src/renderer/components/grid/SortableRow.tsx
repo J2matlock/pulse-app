@@ -12,6 +12,7 @@ import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
 import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, FROZEN_EDGE_STYLE } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
+import { IconButton } from '../ui/Button'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { pulseEvents } from '../../events'
 import { openDeadlineCard } from '../deadlines/openDeadlineCard'
@@ -255,20 +256,15 @@ export const SortableRow = React.memo(function SortableRow({
         }}
       >
         {menuColId !== undefined && (
-          <button
+          <IconButton
             tabIndex={-1}
-            type="button"
+            size="compact"
+            label={`More actions for this ${t('record')}`}
+            icon={<MoreHorizontal className="w-4 h-4" />}
             onClick={e => { e.stopPropagation(); openRowMenuAt(e.currentTarget, menuColId) }}
-            className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100
-                       dark:text-slate-500 dark:hover:text-slate-100 dark:hover:bg-slate-700
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-            title={`More actions for this ${t('record')}`}
-            aria-label={`More actions for this ${t('record')}`}
             aria-haspopup="menu"
             data-testid="row-menu-button"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+          />
         )}
       </div>
 
