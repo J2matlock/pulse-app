@@ -109,6 +109,74 @@ describe('PasswordSetupView', () => {
     expect(document.activeElement).toBe(screen.getByRole('checkbox'))
   })
 
+  describe('a fast typist (persona study, Joe and Mark)', () => {
+    const boxes = () => [document.getElementById('password-setup-password'), document.getElementById('password-setup-confirm')] as HTMLInputElement[]
+
+    it('Tab goes password, then confirm, then "Show passwords": no eye button in between', async () => {
+      render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+      await flushEffects()
+      const order = Array.from(document.querySelectorAll<HTMLElement>('input, button, a[href]')).filter(el => el.tabIndex >= 0)
+      const [pw, confirm] = boxes()
+      const show = screen.getByRole('switch', { name: 'Show passwords' })
+      expect(order.indexOf(confirm!)).toBe(order.indexOf(pw!) + 1)
+      expect(order.indexOf(show)).toBe(order.indexOf(confirm!) + 1)
+      expect(screen.queryByRole('button', { name: /show password|hide password/i })).toBeNull()
+    })
+
+    it('"Show passwords" shows both boxes; Enter on it submits instead of toggling', async () => {
+      render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+      await flushEffects()
+      const show = screen.getByRole('switch', { name: 'Show passwords' })
+      const form = show.closest('form')!
+      const submitted = vi.fn((e: Event) => e.preventDefault())
+      form.addEventListener('submit', submitted)
+      // jsdom has no requestSubmit on every version: stand in for it
+      form.requestSubmit = () => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) }
+      // Only one checkbox on the screen (the Terms), so tools that tick "the checkbox" still find it
+      expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+      const enter = fireEvent.keyDown(show, { key: 'Enter' })
+      expect(enter).toBe(false)
+      expect(submitted).toHaveBeenCalledTimes(1)
+      expect(show.getAttribute('aria-checked')).toBe('false')
+      expect(boxes().map(b => b.type)).toEqual(['password', 'password'])
+      fireEvent.click(show)
+      expect(boxes().map(b => b.type)).toEqual(['text', 'text'])
+    })
+
+    it('an empty second box asks for it; only two different passwords are "don\'t match"', async () => {
+      render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+      await flushEffects()
+      const [pw, confirm] = boxes()
+      fireEvent.click(screen.getByRole('checkbox'))
+      fireEvent.change(pw!, { target: { value: 'Silverado240k-truck' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Create password & continue' }))
+      expect((await screen.findByRole('alert')).textContent).toBe('Type the password again in the second box.')
+      expect(document.activeElement).toBe(confirm)
+      fireEvent.change(confirm!, { target: { value: 'Silverado240k-trucks' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Create password & continue' }))
+      expect((await screen.findByRole('alert')).textContent).toBe("The two passwords don't match. Type the same password in both boxes.")
+    })
+
+    it('Enter in the confirm box submits the form', async () => {
+      render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+      await flushEffects()
+      const [pw, confirm] = boxes()
+      fireEvent.click(screen.getByRole('checkbox'))
+      fireEvent.change(pw!, { target: { value: 'Silverado240k-truck' } })
+      fireEvent.change(confirm!, { target: { value: 'Silverado240k-truck' } })
+      // A browser submits a form on Enter in a text box; jsdom needs the submit sent
+      fireEvent.submit(confirm!.form!)
+      await flushEffects()
+      expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(IPC.AUTH_SETUP_PASSWORD, 'Silverado240k-truck', '')
+    })
+
+    it('says before the links that nothing leaves this computer (persona study, Bobby)', async () => {
+      render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+      await flushEffects()
+      expect(screen.getByTestId('stays-here').textContent).toBe('Set a password to protect your data. It stays on this computer and is never sent anywhere.')
+    })
+  })
+
   it('a weak password is said once, under the box, with focus moved there (UX-A-13)', async () => {
     render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
     await flushEffects()

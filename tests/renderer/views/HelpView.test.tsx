@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 // ── Global mocks ─────────────────────────────────────────────────────────────
@@ -99,5 +99,35 @@ describe('HelpView', () => {
     await flushEffects()
     expect(screen.getByText('How do I add a client?')).toBeDefined()
     expect(screen.getByText('How do I delete a row?')).toBeDefined()
+  })
+
+  describe('answers before the tour button (persona study, Mark)', () => {
+    const tabOrder = () => Array.from(document.querySelectorAll<HTMLElement>('input, button, a[href]')).filter(el => el.tabIndex >= 0)
+
+    it('while searching, the matches come right after the search box, and "Take the tour" after them', async () => {
+      render(<MemoryRouter><HelpView onStartTour={vi.fn()} onStartMiniTour={vi.fn()} /></MemoryRouter>)
+      await flushEffects()
+      const search = screen.getByPlaceholderText(/search/i)
+      // Browsing: the tour row is near the top, as before
+      expect(tabOrder().indexOf(screen.getByRole('button', { name: /Take the tour/ }))).toBeLessThan(tabOrder().indexOf(screen.getByRole('button', { name: 'How do I add a client?' })))
+      fireEvent.change(search, { target: { value: 'add client' } })
+      await flushEffects()
+      await flushEffects()
+      const order = tabOrder()
+      const result = screen.getByRole('button', { name: 'How do I add a client?' })
+      expect(order.indexOf(result)).toBe(order.indexOf(search) + 1)
+      expect(order.indexOf(screen.getByRole('button', { name: /Take the tour/ }))).toBeGreaterThan(order.indexOf(result))
+    })
+
+    it('Down arrow in the search box goes to the first answer', async () => {
+      render(<MemoryRouter><HelpView onStartTour={vi.fn()} onStartMiniTour={vi.fn()} /></MemoryRouter>)
+      await flushEffects()
+      const search = screen.getByPlaceholderText(/search/i)
+      fireEvent.change(search, { target: { value: 'delete' } })
+      await flushEffects()
+      await flushEffects()
+      fireEvent.keyDown(search, { key: 'ArrowDown' })
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'How do I delete a row?' }))
+    })
   })
 })

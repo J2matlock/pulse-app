@@ -651,6 +651,150 @@ describe('DataGrid', () => {
       // Grid should still be intact
       expect(dataCells().length).toBe(20)
     })
+
+    describe('the header row is one Tab stop (persona study, Mark: 66 Tabs to the first cell)', () => {
+      const MANY = Array.from({ length: 14 }, (_, i) => makeColumn(i + 1, `Column ${i + 1}`, i === 3 ? 'date' : 'text', i === 3 ? { config: JSON.stringify({ alert_rule_id: 9 }) } : {}))
+      const tabOrder = () => Array.from(document.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]'))
+        .filter(el => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled)
+
+      it('Tab from the toolbar reaches the first cell in 3 Tabs or fewer, with 14 columns and a deadline rule', async () => {
+        setupStores({ columns: MANY })
+        useAlertStore.setState({ rules: [{ id: 9, name: 'Every year', description: null, is_system: 0, interval_days: 365, created_at: '', thresholds: [] }] } as never)
+        render(<MemoryRouter><button type="button">Toolbar</button><DataGrid /></MemoryRouter>)
+        await flushEffects()
+        const order = tabOrder()
+        const from = order.findIndex(el => el.textContent === 'Toolbar')
+        const firstCell = order.findIndex(el => el.hasAttribute('data-col-id') && el.getAttribute('role') === 'gridcell')
+        expect(firstCell - from).toBeLessThanOrEqual(3)
+        // The one header stop is the first column's name
+        expect(order[from + 1]!.textContent).toBe('Column 1')
+      })
+
+      it('Left and Right move along the headers, and the last one used keeps the Tab stop', async () => {
+        setupStores({ columns: MANY.slice(0, 3) })
+        renderDataGrid()
+        await flushEffects()
+        const name = (n: number) => screen.getByRole('button', { name: `Column ${n}` })
+        act(() => { name(1).focus() })
+        fireEvent.keyDown(name(1), { key: 'ArrowRight' })
+        expect(document.activeElement).toBe(name(2))
+        fireEvent.keyDown(name(2), { key: 'ArrowRight' })
+        fireEvent.keyDown(name(3), { key: 'ArrowRight' })
+        expect(document.activeElement).toBe(screen.getByTestId('add-column-header'))
+        fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' })
+        expect(document.activeElement).toBe(name(3))
+        // At the first one, Left stays there
+        act(() => { name(1).focus() })
+        fireEvent.keyDown(name(1), { key: 'ArrowLeft' })
+        expect(document.activeElement).toBe(name(1))
+        act(() => { name(2).focus() })
+        expect([name(1), name(2), name(3)].map(b => b.tabIndex)).toEqual([-1, 0, -1])
+        expect(screen.getByTestId('add-column-header').tabIndex).toBe(-1)
+      })
+
+      it('"Skip to the list" (grid:focus-cell) puts focus on the lit cell, or the first one', async () => {
+        renderDataGrid()
+        await flushEffects()
+        const frames = () => act(async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))) })
+        act(() => { pulseEvents.emit('grid:focus-cell') })
+        await frames()
+        expect(document.activeElement).toBe(dataCells()[0])
+        act(() => { dataCells()[6]!.focus() })
+        act(() => { (document.activeElement as HTMLElement).blur() })
+        act(() => { pulseEvents.emit('grid:focus-cell') })
+        await frames()
+        expect(document.activeElement).toBe(dataCells()[6])
+      })
+    })
+
+    describe('the place stays after Enter saves (persona study, Mark)', () => {
+      const cellAt = (rowId: number, colId: number) => document.querySelector<HTMLElement>(`[data-row-id="${rowId}"][data-col-id="${colId}"]`)!
+      const frames = () => act(async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))) })
+      /** A save that lands at once, as the optimistic update does */
+      function instantSave() {
+        const save = vi.fn((rowId: number, colId: number, value: string | null) => {
+          useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === rowId ? { ...r, [`col_${colId}`]: value } : r) }))
+          return Promise.resolve()
+        })
+        useGridStore.setState({ updateCell: save } as unknown as Parameters<typeof useGridStore.setState>[0])
+        return save
+      }
+      async function editAndEnter(rowId: number, colId: number, value: string) {
+        const cell = cellAt(rowId, colId)
+        act(() => { cell.focus() })
+        fireEvent.keyDown(cell, { key: 'Enter' })
+        await flushEffects()
+        const input = cell.querySelector('input')!
+        fireEvent.change(input, { target: { value } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+        await flushEffects()
+        await frames()
+      }
+
+      it('Enter on the last record keeps focus on the cell just saved, and the arrows still move', async () => {
+        const save = instantSave()
+        renderDataGrid()
+        await flushEffects()
+        await editAndEnter(5, 1, 'Rosa Delgado')
+        expect(save).toHaveBeenCalledWith(5, 1, 'Rosa Delgado')
+        expect(document.activeElement).toBe(cellAt(5, 1))
+        fireEvent.keyDown(cellAt(5, 1), { key: 'ArrowUp' })
+        await frames()
+        expect(document.activeElement).toBe(cellAt(4, 1))
+      })
+
+      it('Enter on a value that re-sorts the record follows it to its new place', async () => {
+        instantSave()
+        setupStores({ sortConfig: [{ columnId: 3, direction: 'asc', priority: 1 }] })
+        instantSave()
+        renderDataGrid()
+        await flushEffects()
+        // Record 5 is last (50); 1 puts it first
+        await editAndEnter(5, 3, '1')
+        const rowsOnScreen = screen.getAllByRole('row').slice(1)
+        expect(rowsOnScreen[0]!.contains(cellAt(5, 3))).toBe(true)
+        expect(document.activeElement).toBe(cellAt(5, 3))
+        fireEvent.keyDown(cellAt(5, 3), { key: 'ArrowDown' })
+        await frames()
+        expect(document.activeElement).toBe(cellAt(1, 3))
+      })
+
+      it('Enter that moves down after a re-sort lands on the record that was below, wherever it went', async () => {
+        instantSave()
+        setupStores({ sortConfig: [{ columnId: 3, direction: 'asc', priority: 1 }] })
+        instantSave()
+        renderDataGrid()
+        await flushEffects()
+        // Record 1 (10) goes to the bottom with 99; record 2 was below it
+        await editAndEnter(1, 3, '99')
+        expect(document.activeElement).toBe(cellAt(2, 3))
+      })
+
+      it('with focus on the page and a cell still lit, the arrow keys act on that cell', async () => {
+        renderDataGrid()
+        await flushEffects()
+        act(() => { cellAt(3, 2).focus() })
+        act(() => { (document.activeElement as HTMLElement).blur() })
+        expect(document.activeElement).toBe(document.body)
+        fireEvent.keyDown(document.body, { key: 'ArrowUp' })
+        await frames()
+        expect(document.activeElement).toBe(cellAt(2, 2))
+      })
+
+      it('the page-focus fallback leaves keys alone while a dialog is open', async () => {
+        renderDataGrid()
+        await flushEffects()
+        act(() => { cellAt(3, 2).focus() })
+        act(() => { (document.activeElement as HTMLElement).blur() })
+        const dialog = document.createElement('div')
+        dialog.setAttribute('role', 'dialog')
+        document.body.appendChild(dialog)
+        fireEvent.keyDown(document.body, { key: 'ArrowUp' })
+        await frames()
+        expect(document.activeElement).toBe(document.body)
+        dialog.remove()
+      })
+    })
   })
 
   // ── Selection ───────────────────────────────────────────────────────────

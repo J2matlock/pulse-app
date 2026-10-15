@@ -16,6 +16,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { PRODUCT_NAME } from '../../../shared/constants'
 import { useGridStore } from '../../stores/gridStore'
 import type { VocabKey, TermOptions } from '../../../shared/vocab'
+import { pulseEvents } from '../../events'
 
 interface UpdateInfo {
   version: string
@@ -187,6 +188,12 @@ export function MainLayout({ children }: Props): React.ReactElement {
   }
 
   const showBanner = update !== null && !bannerDismissed
+  // On the list page the skip link goes to the list's lit cell, or its first one (persona study, Mark)
+  const onGridPage = pathname === '/grid' || pathname.startsWith('/grid/')
+  function skipToContent() {
+    if (onGridPage && document.querySelector('[role="grid"] [data-row-id][data-col-id]')) pulseEvents.emit('grid:focus-cell')
+    else mainRef.current?.focus()
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-900">
@@ -195,12 +202,12 @@ export function MainLayout({ children }: Props): React.ReactElement {
           link: under the hash router a link would change the page (audit A06-2). */}
       <button
         type="button"
-        onClick={() => mainRef.current?.focus()}
+        onClick={skipToContent}
         className="sr-only focus:not-sr-only focus:absolute focus:z-[300] focus:top-2 focus:left-2
                    focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg
                    focus:text-base focus:font-medium focus:shadow-lg focus:outline-hidden focus:ring-3 focus:ring-blue-300"
       >
-        Skip to main content
+        {onGridPage ? `Skip to the ${t('list')}` : 'Skip to main content'}
       </button>
       <div id="page-announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</div>
 

@@ -79,6 +79,8 @@ export interface ColorKeyPopoverProps {
   /** What the button shows */
   children: React.ReactNode
   'data-testid'?: string
+  /** -1 keeps the button out of the Tab order (a column header opens it with Space on its name) */
+  tabIndex?: number
 }
 
 const LINK_CLASS = 'hit-44 inline-flex items-center gap-1 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent'
@@ -86,7 +88,7 @@ const LINK_CLASS = 'hit-44 inline-flex items-center gap-1 text-base text-blue-70
 const POPOVER_WIDTH = 340
 
 /** A button that opens the color key in a pop-up beside it */
-export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, placement = 'below', intro, triggerVariant = 'icon', children, 'data-testid': testId }: ColorKeyPopoverProps): React.ReactElement {
+export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, placement = 'below', intro, triggerVariant = 'icon', children, 'data-testid': testId, tabIndex }: ColorKeyPopoverProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -112,6 +114,7 @@ export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, pl
         // A link shows its words; an icon gets them as a tooltip
         title={triggerVariant === 'icon' ? label : undefined}
         data-testid={testId}
+        tabIndex={tabIndex}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={e => { e.stopPropagation(); setOpen(v => !v) }}

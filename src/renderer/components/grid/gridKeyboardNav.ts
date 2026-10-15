@@ -20,11 +20,12 @@ export interface KeyboardNavDeps {
   columns: Column[]
   columnMap: Map<number, Column>
   updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
-  /** Returns false when there's nowhere to move (the first or last cell) */
+  /** Returns false when there's nowhere to move (the first or last cell). wrap: false stops at the row's edge */
   navigateCell: (
     rowId: number,
     columnId: number,
-    direction: 'next-col' | 'prev-col' | 'next-row' | 'prev-row' | 'first-col' | 'last-col'
+    direction: 'next-col' | 'prev-col' | 'next-row' | 'prev-row' | 'first-col' | 'last-col',
+    opts?: { wrap?: boolean },
   ) => boolean | void
   setEditingCell: (c: CellCoord | null) => void
   setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
@@ -104,18 +105,19 @@ export function handleCellKeyDown(
       if (moved !== false) e.preventDefault()
       break
     }
+    // The arrows stop at the row's edges; only Tab goes on to the next record (persona study, Mark)
     case 'ArrowRight':
-      if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'next-col') }
+      if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'next-col', { wrap: false }) }
       break
     case 'ArrowLeft':
       if (!editing) {
         e.preventDefault()
         // From the first column, Left reaches the record's priority badge, if the list has one (AUDIT-045)
-        const badge = columns[0]?.id === columnId && e.currentTarget instanceof HTMLElement
+        const badge = columns[0]?.id === columnId && typeof HTMLElement !== 'undefined' && e.currentTarget instanceof HTMLElement
           ? e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-acuity-badge]')
           : null
         if (badge) badge.focus()
-        else navigateCell(rowId, columnId, 'prev-col')
+        else navigateCell(rowId, columnId, 'prev-col', { wrap: false })
       }
       break
     case 'ArrowDown':

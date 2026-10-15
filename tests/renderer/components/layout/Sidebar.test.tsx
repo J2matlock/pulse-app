@@ -124,6 +124,15 @@ describe('Sidebar', () => {
     expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard')
   })
 
+  it('every control in the scrolling nav draws its focus ring inside itself, so no side is cut off (persona study, Mark)', () => {
+    renderSidebar()
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+    const controls = Array.from(nav.querySelectorAll<HTMLElement>('button')).filter(b => b.tabIndex >= 0)
+    expect(controls.length).toBeGreaterThan(5)
+    const outer = controls.filter(b => !/(^|\s)focus-visible:ring-inset(\s|$)/.test(b.className)).map(b => b.getAttribute('aria-label') ?? b.textContent)
+    expect(outer).toEqual([])
+  })
+
   it('renders grid list items', () => {
     renderSidebar()
     expect(screen.getByText('My Caseload')).toBeDefined()

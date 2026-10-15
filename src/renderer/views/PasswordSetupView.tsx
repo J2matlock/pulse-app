@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { usePlatform, cloudFolderAdvice } from '../utils/platformText'
-import { Eye, EyeOff, KeyRound } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
@@ -14,6 +14,7 @@ import { checkNewPassword } from '../../shared/passwordPolicy'
 import { PRODUCT_NAME } from '../../shared/constants'
 import { parseDbOpenFailure, dbOpenFailureText } from '../../shared/dbOpen'
 import { PulseMark } from '../components/ui/PulseMark'
+import { ToggleRow } from '../components/ui/Toggle'
 
 type SetupStep = 'password' | 'recovery-prompt' | 'recovery-display' | 'restore'
 
@@ -37,6 +38,7 @@ export function PasswordSetupView(): React.ReactElement {
   const [pwRejected, setPwRejected] = useState(false)
   const termsRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmRef = useRef<HTMLInputElement>(null)
   // The password just saved. The recovery-key step confirms with it, so it still works
   // after main's 10-minute no-password setup window has closed (R1-01)
   const savedPasswordRef = useRef<string | null>(null)
@@ -76,7 +78,9 @@ export function PasswordSetupView(): React.ReactElement {
         setPwRejected(true)
         passwordRef.current?.focus()
       }
-      else if (!matchNow) setMissing("The two passwords don't match. Type the same password in both boxes.")
+      // An empty second box isn't a mismatch: it just hasn't been typed yet (persona study, Joe)
+      else if (!confirmNow) { setMissing('Type the password again in the second box.'); confirmRef.current?.focus() }
+      else if (!matchNow) { setMissing("The two passwords don't match. Type the same password in both boxes."); confirmRef.current?.focus() }
       else { setMissing('Tick the box to agree to the Terms of Use and Privacy Policy.'); termsRef.current?.focus() }
       return
     }
@@ -246,8 +250,10 @@ export function PasswordSetupView(): React.ReactElement {
             <PulseMark size={48} />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-base">
-            Set a password to protect your data. Your data is encrypted with it.
+          {/* Whether anything goes online is answered here, not only behind the Privacy Policy link
+              (persona study, Bobby). Two lines, so the button still fits a 768 px screen (UX-A-04) */}
+          <p className="text-slate-500 dark:text-slate-400 text-base" data-testid="stays-here">
+            Set a password to protect your data. It stays on this computer and is never sent anywhere.
           </p>
         </div>
 
@@ -261,30 +267,19 @@ export function PasswordSetupView(): React.ReactElement {
               <label htmlFor="password-setup-password" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Password
               </label>
-              <div className="relative">
-                <input
-                  ref={passwordRef}
-                  id="password-setup-password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="input pr-12"
-                  value={password}
-                  onChange={e => { setPassword(e.target.value); if (!password) setMissing(null) }}
-                  placeholder="At least 12 characters"
-                  aria-invalid={passwordInvalid || undefined}
-                  aria-describedby={passwordInvalid ? 'password-setup-strength password-setup-missing' : 'password-setup-strength'}
-                  autoFocus
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  className="hit-44 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  onClick={() => setShowPassword(v => !v)}
-                  title={showPassword ? 'Hide password' : 'Show password'}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+              <input
+                ref={passwordRef}
+                id="password-setup-password"
+                type={showPassword ? 'text' : 'password'}
+                className="input"
+                value={password}
+                onChange={e => { setPassword(e.target.value); if (!password) setMissing(null) }}
+                placeholder="At least 12 characters"
+                aria-invalid={passwordInvalid || undefined}
+                aria-describedby={passwordInvalid ? 'password-setup-strength password-setup-missing' : 'password-setup-strength'}
+                autoFocus
+                autoComplete="new-password"
+              />
               <PasswordStrength password={password} id="password-setup-strength" />
             </div>
 
@@ -293,6 +288,7 @@ export function PasswordSetupView(): React.ReactElement {
                 Confirm password
               </label>
               <input
+                ref={confirmRef}
                 id="password-setup-confirm"
                 type={showPassword ? 'text' : 'password'}
                 className="input"
@@ -305,6 +301,20 @@ export function PasswordSetupView(): React.ReactElement {
               />
               {/* Not announced while typing; the submit message is */}
               <FieldError fieldId="password-setup-confirm" error={confirmMismatch} className="text-red-600 dark:text-red-400 text-base mt-1" announce={false} />
+            </div>
+
+            {/* After both boxes, so Tab goes password → confirm → this. Enter on it submits the
+                form, as in the boxes; it never shows the password (persona study, Joe and Mark) */}
+            <div
+              className="-mx-3"
+              onKeyDownCapture={e => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                e.stopPropagation()
+                ;(e.target as HTMLElement).closest('form')?.requestSubmit()
+              }}
+            >
+              <ToggleRow label="Show passwords" checked={showPassword} onChange={setShowPassword} data-testid="show-passwords" />
             </div>
 
             <div>

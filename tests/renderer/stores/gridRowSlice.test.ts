@@ -16,6 +16,7 @@ import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore'
 import { useGridEditing } from '../../../src/renderer/hooks/useGridEditing'
 import { looksUntouched } from '../../../src/renderer/stores/gridRowSlice'
+import { pushDiscardedTyping } from '../../../src/renderer/utils/discardedTyping'
 import { IPC } from '../../../src/shared/ipc-channels'
 import type { GridRow, Column } from '../../../src/shared/types'
 
@@ -100,6 +101,28 @@ describe('an untouched new record does not stay', () => {
     expect(calls(IPC.ROW_DISCARD_IF_EMPTY)).toEqual([[IPC.ROW_DISCARD_IF_EMPTY, 100]])
     expect(useUndoStore.getState().undoStack).toEqual([])
     expect(useGridStore.getState().freshRow).toBeNull()
+  })
+
+  it('Add, type a name, Esc: the "Not saved in …" step goes with the record, so Undo never writes to a removed record (R5)', async () => {
+    const { result } = editor()
+    await useGridStore.getState().addRow()
+    settleAdd()
+    // An older step about another record stays
+    pushDiscardedTyping({ rowId: 1, columnId: 1, columnName: 'C1', typed: 'Peterson house', previous: 'Peterson home' })
+    act(() => result.current.setEditingCell({ rowId: 100, columnId: 1 }))
+    // What CellEditor's Esc does: the typing goes on the Undo stack, then the editor closes
+    pushDiscardedTyping({ rowId: 100, columnId: 1, columnName: 'C1', typed: 'Bergstrom', previous: null })
+    expect(useUndoStore.getState().toast?.description).toBe('Not saved in C1: "Bergstrom"')
+    act(() => result.current.setEditingCell(null))
+    await waitFor(() => expect(ids()).toEqual([1]))
+    const left = useUndoStore.getState().undoStack
+    expect(left.map(i => i.contextId)).toEqual([1])
+    expect(left.some(i => i.contextId === 100)).toBe(false)
+    // Its toast went too: its Undo would have reached nothing
+    expect(useUndoStore.getState().toast).toBeNull()
+    mockInvoke.mockClear()
+    await act(async () => { await useUndoStore.getState().undo() })
+    expect(mockInvoke.mock.calls.some(c => c[1] === 100)).toBe(false)
   })
 
   it('Add, type a name, Enter: it stays', async () => {

@@ -130,10 +130,72 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Due Date')).toBeTruthy()
   })
 
-  it('shows the drag handle and the unsorted hint only on hover, so the name has room (V1)', () => {
+  it('draws the drag handle and the unsorted hint on hover only, in room that is always kept, so nothing moves under the pointer (V1, persona study Bobby)', () => {
     render(<ColumnHeader column={makeColumn(1, 'Species', 'text')} dragHandleProps={{}} />)
-    expect(screen.getByLabelText('Drag to reorder column').className).toMatch(/(^|\s)hidden(\s|$)/)
-    expect(screen.getByTestId('sort-hint').getAttribute('class')).toMatch(/(^|\s)hidden(\s|$)/)
+    for (const el of [screen.getByLabelText('Drag to reorder column'), screen.getByTestId('sort-hint')]) {
+      const cls = el.getAttribute('class') ?? ''
+      // visibility, not display: the box is laid out whether or not it's drawn
+      expect(cls).toMatch(/(^|\s)invisible(\s|$)/)
+      expect(cls).toMatch(/(^|\s)group-hover:visible(\s|$)/)
+      expect(cls).not.toMatch(/(^|\s)hidden(\s|$)|group-hover:inline-flex/)
+    }
+  })
+
+  describe('one Tab stop per header (persona study, Mark)', () => {
+    const rule = { id: 5, name: 'Promised', description: null, is_system: 0, interval_days: null, created_at: '', thresholds: [{ daysBefore: 7, bgClass: '#facc15', label: 'Soon' }] }
+    const ruled = () => makeColumn(3, 'Claim filed', 'date', JSON.stringify({ alert_rule_id: 5 }))
+
+    it('the name is the only Tab stop: the clock and ⋯ are reached from it', () => {
+      useAlertStore.setState({ rules: [rule] } as never)
+      const { container } = render(<ColumnHeader column={ruled()} dragHandleProps={{}} />)
+      const stops = Array.from(container.querySelectorAll<HTMLElement>('button, [tabindex]')).filter(el => el.tabIndex >= 0)
+      expect(stops.map(el => el.textContent)).toEqual(['Claim filed'])
+      expect(screen.getByRole('button', { name: 'Column options' }).tabIndex).toBe(-1)
+      expect(screen.getByRole('button', { name: /^Deadline rule: Promised/ }).tabIndex).toBe(-1)
+    })
+
+    it('the name says which keys do what', () => {
+      useAlertStore.setState({ rules: [rule] } as never)
+      render(<ColumnHeader column={ruled()} />)
+      const name = screen.getByRole('button', { name: 'Claim filed' })
+      const hint = name.getAttribute('aria-describedby')!.split(' ').map(id => document.getElementById(id)?.textContent).join(' ')
+      expect(hint).toContain('Down arrow opens the column menu')
+      expect(hint).toContain('Space shows what the colors mean')
+    })
+
+    it.each([
+      ['Down arrow', { key: 'ArrowDown' }],
+      ['Alt+Down arrow', { key: 'ArrowDown', altKey: true }],
+      ['Shift+F10', { key: 'F10', shiftKey: true }],
+      ['the Menu key', { key: 'ContextMenu' }],
+    ])('%s on the name opens the column menu with focus in it', async (_label, keys) => {
+      render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
+      const name = screen.getByRole('button', { name: 'Phone' })
+      name.focus()
+      fireEvent.keyDown(name, keys)
+      const sortAsc = await screen.findByText('Sort ascending')
+      await waitFor(() => expect(document.activeElement).toBe(sortAsc.closest('button')))
+    })
+
+    it('Space on a deadline column\'s name opens its colour key; Enter still sorts', () => {
+      vi.useFakeTimers()
+      const setSortConfig = vi.fn()
+      setupStores({ setSortConfig })
+      useAlertStore.setState({ rules: [rule] } as never)
+      render(<ColumnHeader column={ruled()} />)
+      const name = screen.getByRole('button', { name: 'Claim filed' })
+      fireEvent.keyDown(name, { key: ' ' })
+      expect(screen.getByRole('dialog', { name: 'What the colors mean' })).toBeTruthy()
+      expect(setSortConfig).not.toHaveBeenCalled()
+    })
+
+    it('the clock is a 32 px box, not a sliver', () => {
+      useAlertStore.setState({ rules: [rule] } as never)
+      render(<ColumnHeader column={ruled()} />)
+      const clock = screen.getByRole('button', { name: /^Deadline rule: Promised/ })
+      expect(clock.className).toMatch(/(^|\s)w-8(\s|$)/)
+      expect(clock.className).toMatch(/(^|\s)h-8(\s|$)/)
+    })
   })
 
   it('click on column name triggers sort', () => {

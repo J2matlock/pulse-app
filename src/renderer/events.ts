@@ -35,6 +35,8 @@ type PulseEvents = {
   'grid:open-import': undefined
   /** Open "Add column" for the open list (from the empty list screen) */
   'grid:add-column': undefined
+  /** Put focus in the list: the lit cell, else the first one on screen ("Skip to the list") */
+  'grid:focus-cell': undefined
   /** Open the example gallery (adding to this workspace), optionally with sample data ticked */
   'starters:open': { sample: boolean }
   /** Open the command palette (Ctrl+F on a screen without its own search) */

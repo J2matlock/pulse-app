@@ -12,6 +12,7 @@ import { contextMenuVariants } from '../../utils/animations'
 import { useVocab } from '../../hooks/useVocab'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { columnHasDeadlineRule, openDeadlineCard } from '../deadlines/openDeadlineCard'
+import { getClientName } from '../../utils/clientName'
 
 export interface GridContextMenuProps {
   contextMenu: { x: number; y: number; rowId: number; colId: number }
@@ -71,12 +72,20 @@ export function GridContextMenu({
 }: GridContextMenuProps): React.ReactElement | null {
   const { t } = useVocab()
   const menuRef = useRef<HTMLDivElement>(null)
-  const onMenuKeyDown = useMenuKeys(menuRef, true, onClose)
+  // Esc (or Tab) gives focus back to the cell at once, not after the closing animation: a key
+  // pressed meanwhile reached the closing menu, and Space opened the record (persona study, Mark)
+  const closeByKey = () => {
+    onClose()
+    document.querySelector<HTMLElement>(`[role="gridcell"][data-row-id="${contextMenu.rowId}"][data-col-id="${contextMenu.colId}"]`)?.focus()
+  }
+  const onMenuKeyDown = useMenuKeys(menuRef, true, closeByKey)
   const cmRules = cellFormats.get(`${contextMenu.rowId}_${contextMenu.colId}`) ?? []
   const cmRow = rowById.get(contextMenu.rowId)
   const cmCol = columns.find(c => c.id === contextMenu.colId)
   const cmCellVal = cmRow ? (cmRow[`col_${contextMenu.colId}` as keyof GridRow] as string | null) : null
   const isArchived = cmRow?.is_active === 0
+  // The menu names whose it is: Shift+F10 opens it under a cell, and nothing said which record (persona study, Mark)
+  const recordName = cmRow ? getClientName(cmRow, columns) : null
   // History, color rules and formatting sit behind "More…" so the menu fits the screen
   // (UX-B-01); it starts open when this cell already has rules or a copied format is waiting
   const [moreOpen, setMoreOpen] = useState(cmRules.length > 0 || copiedFormatRules !== null)
@@ -87,6 +96,7 @@ export function GridContextMenu({
       <motion.div
         ref={menuRef}
         role="menu"
+        aria-label={recordName ? `${t('record', { cap: true })} menu for ${recordName}` : undefined}
         onKeyDown={onMenuKeyDown}
         className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 w-64 overflow-y-auto"
         style={{
@@ -99,6 +109,11 @@ export function GridContextMenu({
         animate="visible"
         exit="exit"
       >
+        {recordName && (
+          <div className="px-3 pt-1 pb-1 text-base font-bold text-slate-900 dark:text-slate-100 truncate border-b border-slate-200 dark:border-slate-700 mb-1" aria-hidden="true" data-testid="row-menu-heading" title={recordName}>
+            {recordName}
+          </div>
+        )}
         {onOpenRecord && (
           <button
             role="menuitem"

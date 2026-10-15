@@ -29,6 +29,7 @@ import { EditOptionsDialog } from './EditOptionsDialog'
 import { ChangeTypeDialog } from './ChangeTypeDialog'
 import { CHANGEABLE_TYPES } from '../../../shared/columnTypes'
 import { dateOnlyOn } from './dateOnly'
+import { useHeaderStop } from './headerStops'
 
 interface Props {
   column: Column
@@ -286,16 +287,41 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     setShowMenu(true)
   }
 
+  // The header row is one Tab stop; this name button is the column's (persona study, Mark)
+  const stop = useHeaderStop(`col-${column.id}`)
+  const hasClock = takesDeadlineRule(column.column_type) && !!currentAlertRule
+  const hintId = `col-keys-${column.id}`
+
+  /** The column's menu under the header, with focus in it: ↓, Alt+↓, Shift+F10 or the Menu key */
+  function openMenuFromKeys() {
+    const rect = rootRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ x: rect.left, y: rect.bottom })
+    setShowMenu(true)
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === 'ArrowDown' || e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+      e.preventDefault()
+      openMenuFromKeys()
+    } else if (e.key === ' ' && hasClock) {
+      // Space on a deadline column: the colour key, the clock's job (Enter still sorts)
+      e.preventDefault()
+      rootRef.current?.querySelector<HTMLButtonElement>('[data-header-clock] button')?.click()
+    }
+  }
+
   return (
     <div ref={rootRef} className="flex items-center h-full px-1 gap-0.5 relative group" onContextMenu={handleContextMenu}>
-      {/* Drag handle: shown on hover only, so the column's name gets the room the rest of the time */}
+      {/* Drag handle: drawn on hover only, but its room is always kept, so nothing moves under
+          the pointer when it appears (persona study, Bobby opened ⋯ instead of the clock) */}
       {dragHandleProps && (
         <button
           {...dragHandleProps}
-          className="hit-44 hidden group-hover:inline-flex flex-shrink-0 p-0.5 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300
+          className="hit-44 invisible group-hover:visible inline-flex flex-shrink-0 p-0.5 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300
                      cursor-grab active:cursor-grabbing touch-none"
           tabIndex={-1}
           aria-label="Drag to reorder column"
+          data-testid="drag-handle"
           onPointerDown={e => { dragHandleProps.onPointerDown?.(e); e.stopPropagation() }}
         >
           <GripVertical className="w-3.5 h-3.5" />
@@ -328,6 +354,11 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         <Tooltip content="Click to sort · Double-click to rename" placement="bottom" delay={600}>
           <button
             className="hit-44 flex-1 text-left text-base font-semibold text-slate-700 dark:text-slate-200 truncate min-w-0 px-1"
+            tabIndex={stop.tabIndex}
+            data-header-stop={stop['data-header-stop']}
+            onFocus={stop.onFocus}
+            aria-describedby={hintId}
+            onKeyDown={handleNameKeyDown}
             onClick={e => {
               // Wait a moment, so a double-click renames instead of sorting twice
               const shift = e.shiftKey
@@ -343,21 +374,30 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           </button>
         </Tooltip>
       )}
+      <span id={hintId} className="sr-only">
+        {hasClock
+          ? 'Enter sorts. Down arrow opens the column menu. Space shows what the colors mean.'
+          : 'Enter sorts. Down arrow opens the column menu.'}
+      </span>
 
       {/* "Keep a history of changes" is on */}
       {colConfig.log_changes && (
         <span title="Keeps a history of changes"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
       )}
 
-      {/* Deadline rule badge: a clock that opens the rule's color key, with what the rule does in the tooltip (D-15, B-04) */}
-      {takesDeadlineRule(column.column_type) && currentAlertRule && (
-        <ColorKeyPopover
-          rules={[currentAlertRule]}
-          label={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}. What do the colors mean?`}
-          buttonClassName="hit-44 flex-shrink-0 inline-flex items-center rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5 hover:bg-blue-200 dark:hover:bg-blue-800"
-        >
-          <Clock className="w-3.5 h-3.5" />
-        </ColorKeyPopover>
+      {/* Deadline rule badge: a clock that opens the rule's color key, with what the rule does in the tooltip (D-15, B-04).
+          A 32 px box (it was 17 × 13), out of the Tab order: Space on the name opens it */}
+      {hasClock && currentAlertRule && (
+        <span data-header-clock="" className="contents">
+          <ColorKeyPopover
+            rules={[currentAlertRule]}
+            label={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}. What do the colors mean?`}
+            buttonClassName="hit-44 flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+            tabIndex={-1}
+          >
+            <Clock className="w-4 h-4" />
+          </ColorKeyPopover>
+        </span>
       )}
 
       {/* Sort indicator */}
@@ -371,15 +411,17 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           )}
         </div>
       ) : (
-        // Unsorted: the hint shows on hover only, leaving the name its room
-        <span className="hidden group-hover:inline-flex flex-shrink-0" data-testid="sort-hint">
+        // Unsorted: the hint is drawn on hover only, in room that's always kept
+        <span className="invisible group-hover:visible inline-flex flex-shrink-0" data-testid="sort-hint">
           <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
         </span>
       )}
 
-      {/* Column menu */}
+      {/* Column menu: out of the Tab order (↓ or Shift+F10 on the name opens it) */}
       <div className="relative flex-shrink-0">
         <button
+          tabIndex={-1}
+          aria-haspopup="menu"
           className="hit-44 p-1 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 opacity-60 group-hover:opacity-100 focus:opacity-100 transition-opacity"
           onClick={e => {
             e.stopPropagation()

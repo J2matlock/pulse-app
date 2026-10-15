@@ -104,6 +104,18 @@ describe('grid keys', () => {
     expect(atEnd.preventDefault).not.toHaveBeenCalled()
   })
 
+  it('the arrows stop at the row\'s edges; only Tab wraps (persona study, Mark)', () => {
+    const d = deps([col(1, 'text'), col(2, 'text')])
+    handleCellKeyDown(key('ArrowLeft'), 7, 1, d)
+    handleCellKeyDown(key('ArrowRight'), 7, 2, d)
+    handleCellKeyDown(key('Tab', { shiftKey: true }), 7, 1, d)
+    expect((d.navigateCell as ReturnType<typeof vi.fn>).mock.calls).toEqual([
+      [7, 1, 'prev-col', { wrap: false }],
+      [7, 2, 'next-col', { wrap: false }],
+      [7, 1, 'prev-col'],
+    ])
+  })
+
   it('Delete clears a text cell but not a deadline cell', () => {
     const d = deps([col(1, 'text'), col(2, 'deadline')])
     handleCellKeyDown(key('Delete'), 7, 2, d)

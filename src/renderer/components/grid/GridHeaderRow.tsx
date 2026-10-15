@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -21,6 +21,7 @@ import { ColumnHeader } from './ColumnHeader'
 import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, ADD_COL_WIDTH, FROZEN_EDGE_STYLE } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
+import { HeaderStopsContext, useHeaderStop, neighbourStop, type HeaderStops } from './headerStops'
 
 // ── Sortable column header wrapper ────────────────────────────────────────────
 
@@ -97,6 +98,36 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
 })
 
 // ── Grid header row ───────────────────────────────────────────────────────────
+
+/** The Tags column's Hide button, a stop in the header row's roving group */
+function HideTagsButton({ onHide }: { onHide: () => void }): React.ReactElement {
+  const stop = useHeaderStop('tags')
+  return (
+    <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500"
+      {...stop}
+      onClick={onHide} aria-label="Hide the Tags column" title="Hide the Tags column">
+      <EyeOff className="w-4 h-4" />
+    </button>
+  )
+}
+
+/** The "+" after the last column, a stop in the header row's roving group */
+function AddColumnButton({ onAdd }: { onAdd: () => void }): React.ReactElement {
+  const stop = useHeaderStop('add')
+  return (
+    <button
+      type="button"
+      onClick={onAdd}
+      {...stop}
+      className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+      aria-label="Add a column"
+      title="Add a column"
+      data-testid="add-column-header"
+    >
+      <Plus className="w-4 h-4" />
+    </button>
+  )
+}
 
 export interface GridHeaderRowProps {
   headers: GridTableHeader[]
@@ -222,9 +253,25 @@ export const GridHeaderRow = React.memo(function GridHeaderRow({
   const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
   // Every record on screen is ticked (records hidden in a collapsed group don't count)
   const allSelected = selectableRowIds.length > 0 && selectableRowIds.every(id => selectedRowIds.has(id))
+
+  // One Tab stop for the whole header row: the column name used last, else the first.
+  // Left and Right move along it (persona study, Mark: 66 Tabs to the first cell)
+  const [lastStop, setLastStop] = useState<string | null>(null)
+  const firstStop = columns[0] ? `col-${columns[0].id}` : showTags && onHideTags ? 'tags' : 'add'
+  const stillThere = lastStop !== null && (lastStop === 'add' ? !!onAddColumn : lastStop === 'tags' ? !!(showTags && onHideTags) : columns.some(c => `col-${c.id}` === lastStop))
+  const active = stillThere ? lastStop : firstStop
+  const stops = useMemo<HeaderStops>(() => ({ active, setActive: setLastStop }), [active])
+  function handleRowKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    if (!(e.target instanceof HTMLElement) || !e.target.hasAttribute('data-header-stop')) return
+    e.preventDefault()
+    neighbourStop(e.currentTarget, e.target, e.key === 'ArrowLeft' ? -1 : 1)?.focus()
+  }
+
   return (
+    <HeaderStopsContext.Provider value={stops}>
     <div role="rowgroup" className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
-      <div className="flex" role="row" aria-rowindex={1}>
+      <div className="flex" role="row" aria-rowindex={1} onKeyDown={handleRowKeyDown}>
         {/* Select-all checkbox in header */}
         <div
           role="columnheader"
@@ -349,12 +396,7 @@ export const GridHeaderRow = React.memo(function GridHeaderRow({
           <div role="columnheader" aria-colindex={5 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
             style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
             <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
-            {onHideTags && (
-              <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500"
-                onClick={onHideTags} aria-label="Hide the Tags column" title="Hide the Tags column">
-                <EyeOff className="w-4 h-4" />
-              </button>
-            )}
+            {onHideTags && <HideTagsButton onHide={onHideTags} />}
           </div>
         )}
         <SortableColumnHeaders
@@ -382,19 +424,11 @@ export const GridHeaderRow = React.memo(function GridHeaderRow({
             className="flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
             style={{ width: ADD_COL_WIDTH, height: rowHeight }}
           >
-            <button
-              type="button"
-              onClick={onAddColumn}
-              className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              aria-label="Add a column"
-              title="Add a column"
-              data-testid="add-column-header"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            <AddColumnButton onAdd={onAddColumn} />
           </div>
         )}
       </div>
     </div>
+    </HeaderStopsContext.Provider>
   )
 })
