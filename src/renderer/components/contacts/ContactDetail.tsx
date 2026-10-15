@@ -163,7 +163,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
     { label: 'Direct', value: p.phone_direct },
     { label: 'Cell', value: p.phone_cell },
     { label: 'Fax', value: p.phone_fax },
-    { label: 'After Hours', value: p.phone_after_hours },
+    { label: 'After hours', value: p.phone_after_hours },
   ].filter(ph => ph.value)
 
   return (
@@ -327,10 +327,10 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
               </div>
             )}
 
-            {/* Referral Process */}
+            {/* Referral process */}
             {p.referral_process && (
               <div className="py-2">
-                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Referral Process</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Referral process</div>
                 <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-lg p-3 whitespace-pre-wrap text-slate-800 dark:text-slate-200" style={{ fontSize: 15 }}>
                   {p.referral_process}
                 </div>
@@ -338,7 +338,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
                   onClick={() => { if (p.referral_process) void copyText(p.referral_process) }}
                   className="hit-44 mt-1.5 flex items-center gap-1 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                   style={{ fontSize: 15 }}>
-                  <Copy size={12} /> Copy Referral Process
+                  <Copy size={12} /> Copy referral process
                 </button>
               </div>
             )}

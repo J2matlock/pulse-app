@@ -70,7 +70,7 @@ describe('FindReplaceBar', () => {
     fireEvent.change(screen.getByLabelText('Find text'), { target: { value: 'Bob' } })
     fireEvent.change(screen.getByLabelText('Replace text'), { target: { value: 'Rob' } })
     await new Promise(r => setTimeout(r, 250))
-    fireEvent.click(screen.getByText('Replace All'))
+    fireEvent.click(screen.getByText('Replace all'))
     expect(onReplaceAll).not.toHaveBeenCalled()
     expect(screen.getByText('Replace in 2 cells across 2 clients?')).toBeTruthy()
     const dialog = screen.getByRole('dialog')
@@ -101,7 +101,7 @@ describe('FindReplaceBar', () => {
   it('renders Replace and Replace All buttons', () => {
     render(<FindReplaceBar {...makeProps()} />)
     expect(screen.getByText('Replace')).toBeTruthy()
-    expect(screen.getByText('Replace All')).toBeTruthy()
+    expect(screen.getByText('Replace all')).toBeTruthy()
   })
 
   it('close button calls onClose', () => {

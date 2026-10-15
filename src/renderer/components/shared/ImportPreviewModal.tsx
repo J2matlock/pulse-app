@@ -125,7 +125,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
           <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
-            Import Template
+            Import template
           </h2>
           <button
             onClick={onClose}

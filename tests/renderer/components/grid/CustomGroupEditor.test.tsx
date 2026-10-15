@@ -91,12 +91,12 @@ describe('CustomGroupEditor', () => {
 
   it('is a modal dialog named by its title (Q-101)', () => {
     render(<CustomGroupEditor gridId={1} onClose={vi.fn()} />)
-    expect(screen.getByRole('dialog', { name: 'New Custom Group' }).getAttribute('aria-modal')).toBe('true')
+    expect(screen.getByRole('dialog', { name: 'New custom group' }).getAttribute('aria-modal')).toBe('true')
   })
 
   it('renders New Custom Group title', () => {
     render(<CustomGroupEditor gridId={1} onClose={vi.fn()} />)
-    expect(screen.getByText('New Custom Group')).toBeTruthy()
+    expect(screen.getByText('New custom group')).toBeTruthy()
   })
 
   it('renders Edit Custom Group title when initialDef is provided', () => {
@@ -107,7 +107,7 @@ describe('CustomGroupEditor', () => {
         onClose={vi.fn()}
       />
     )
-    expect(screen.getByText('Edit Custom Group')).toBeTruthy()
+    expect(screen.getByText('Edit custom group')).toBeTruthy()
   })
 
   it('renders group name input', () => {

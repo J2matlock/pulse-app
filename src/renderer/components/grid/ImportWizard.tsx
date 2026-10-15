@@ -194,7 +194,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines =
       properties: ['openFile'],
       filters: [
         { name: 'Spreadsheets', extensions: ['csv', 'xlsx', 'tsv', 'txt'] },
-        { name: 'All Files', extensions: ['*'] },
+        { name: 'All files', extensions: ['*'] },
       ],
     })
     if (!res.ok) return

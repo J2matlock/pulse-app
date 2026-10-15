@@ -567,7 +567,7 @@ export default function DashboardView(): React.ReactElement {
           {(topTab === 'priority' || topTab === 'overdue') && (
             <div className="flex items-center gap-3 px-4 py-1 border-b border-slate-200 dark:border-slate-700 flex-wrap">
               <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
-                Done puts today's date in and starts the next cycle. Use Done on… if it happened earlier.
+                Done puts today's date in and starts the next cycle. Use "Done on…" if it happened earlier.
               </p>
               {renderSelectToggle()}
             </div>

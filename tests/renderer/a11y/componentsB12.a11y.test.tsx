@@ -70,7 +70,7 @@ describe('CommandPalette (audit A06-24)', () => {
     render(<MemoryRouter><CommandPalette open onOpenChange={() => {}} /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     expect(screen.getByRole('combobox', { name: 'Search clients and commands' })).toBeTruthy()
-    expect(screen.getByRole('group', { name: 'Quick Actions' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Quick actions' })).toBeTruthy()
     await expectNoAxeViolations(document.body)
   })
 })
@@ -78,7 +78,7 @@ describe('CommandPalette (audit A06-24)', () => {
 describe('dialogs are named by their headings (audit A06-22)', () => {
   it('checklist template editor, and a missing name is tied to the name field (audit A06-14)', async () => {
     render(<ChecklistTemplateEditor open template={null} onClose={() => {}} onSaved={() => {}} />)
-    expect(screen.getByRole('dialog', { name: 'New Template' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'New template' })).toBeTruthy()
     const name = screen.getByLabelText(/^Name/)
     expect(name.getAttribute('aria-invalid')).toBeNull()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^(Create|Save)/ })) })
@@ -92,7 +92,7 @@ describe('dialogs are named by their headings (audit A06-22)', () => {
   it('import template preview', async () => {
     const imported = { filePath: '/tmp/test.pulse', preview: { name: 'Test template', columnCount: 2, alertRuleCount: 0, checklistCount: 0, columns: [{ name: 'Due', column_type: 'date' }], warnings: [] } }
     render(<ImportPreviewModal imported={imported} grids={[]} onClose={() => {}} onApplied={() => {}} />)
-    expect(screen.getByRole('dialog', { name: 'Import Template' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Import template' })).toBeTruthy()
     await expectNoAxeViolations(document.body)
   })
 })

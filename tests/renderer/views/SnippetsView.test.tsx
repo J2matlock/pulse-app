@@ -56,31 +56,31 @@ describe('SnippetsView', () => {
     })
   })
 
-  it('shows "New Snippet" button in header', async () => {
+  it('shows "New snippet" button in header', async () => {
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
 
     render(<SnippetsView />)
 
     await waitFor(() => {
-      expect(screen.getByText('New Snippet')).toBeDefined()
+      expect(screen.getByText('New snippet')).toBeDefined()
     })
   })
 
-  it('opens editor dialog when "New Snippet" button is clicked', async () => {
+  it('opens editor dialog when "New snippet" button is clicked', async () => {
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
 
     render(<SnippetsView />)
 
     await waitFor(() => {
-      expect(screen.getByText('New Snippet')).toBeDefined()
+      expect(screen.getByText('New snippet')).toBeDefined()
     })
 
-    fireEvent.click(screen.getByText('New Snippet'))
+    fireEvent.click(screen.getByText('New snippet'))
 
-    // The editor dialog should now be visible with "New Snippet" as its heading
-    // and an "Add Snippet" submit button
+    // The editor dialog should now be visible with "New snippet" as its heading
+    // and an "Add snippet" submit button
     await waitFor(() => {
-      expect(screen.getByText('Add Snippet')).toBeDefined()
+      expect(screen.getByText('Add snippet')).toBeDefined()
       expect(screen.getByLabelText(/Trigger/)).toBeDefined()
       expect(screen.getByLabelText(/Expansion/)).toBeDefined()
     })
@@ -90,8 +90,8 @@ describe('SnippetsView', () => {
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
     useSettingsStore.setState({ dateFormat: 'eu', clockFormat: '24h' })
     render(<SnippetsView />)
-    await waitFor(() => { expect(screen.getByText('New Snippet')).toBeDefined() })
-    fireEvent.click(screen.getByText('New Snippet'))
+    await waitFor(() => { expect(screen.getByText('New snippet')).toBeDefined() })
+    fireEvent.click(screen.getByText('New snippet'))
     await waitFor(() => { expect(screen.getByLabelText(/Expansion/)).toBeDefined() })
     expect(expandVariables).toHaveBeenCalledWith(expect.any(String), expect.any(String), { dateFormat: 'eu', clockFormat: '24h' })
     useSettingsStore.setState({ dateFormat: 'us', clockFormat: '12h' })
@@ -101,16 +101,16 @@ describe('SnippetsView', () => {
     mockInvoke.mockResolvedValue({ ok: true, data: sampleSnippets })
     render(<SnippetsView />)
     await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
-    fireEvent.click(screen.getByText('New Snippet'))
+    fireEvent.click(screen.getByText('New snippet'))
     fireEvent.change(await screen.findByLabelText(/Trigger/), { target: { value: 'LM' } })
     fireEvent.change(screen.getByLabelText(/Expansion/), { target: { value: 'A long signature' } })
-    fireEvent.click(screen.getByText('Add Snippet'))
+    fireEvent.click(screen.getByText('Add snippet'))
     expect(await screen.findByText(/already used by another snippet/)).toBeDefined()
     // The trigger box points at the message, which is announced (audit A06-14)
     const trigger = screen.getByLabelText(/Trigger/)
     expect(trigger.getAttribute('aria-invalid')).toBe('true')
     expect(trigger.getAttribute('aria-describedby')?.split(' ')).toContain(screen.getByRole('alert').id)
-    expect(screen.getByRole('dialog', { name: 'New Snippet' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'New snippet' })).toBeTruthy()
     expect((screen.getByLabelText(/Expansion/) as HTMLTextAreaElement).value).toBe('A long signature')
     expect(mockInvoke).not.toHaveBeenCalledWith('snippet:create', expect.anything(), expect.anything(), expect.anything())
   })
@@ -118,13 +118,13 @@ describe('SnippetsView', () => {
   it('stays open when saving fails', async () => {
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'snippet:create' ? { ok: false, error: 'UNIQUE constraint failed' } : { ok: true, data: [] }))
     render(<SnippetsView />)
-    await waitFor(() => expect(screen.getByText('New Snippet')).toBeDefined())
-    fireEvent.click(screen.getByText('New Snippet'))
+    await waitFor(() => expect(screen.getByText('New snippet')).toBeDefined())
+    fireEvent.click(screen.getByText('New snippet'))
     fireEvent.change(await screen.findByLabelText(/Trigger/), { target: { value: 'sig' } })
     fireEvent.change(screen.getByLabelText(/Expansion/), { target: { value: 'Signature text' } })
-    fireEvent.click(screen.getByText('Add Snippet'))
+    fireEvent.click(screen.getByText('Add snippet'))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('snippet:create', 'sig', 'Signature text', null))
-    expect(screen.getByText('Add Snippet')).toBeDefined()
+    expect(screen.getByText('Add snippet')).toBeDefined()
     expect((screen.getByLabelText(/Expansion/) as HTMLTextAreaElement).value).toBe('Signature text')
   })
 

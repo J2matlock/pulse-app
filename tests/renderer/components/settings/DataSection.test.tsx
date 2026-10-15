@@ -48,7 +48,7 @@ describe('DataSection — reset everything', () => {
     const toast = (await import('react-hot-toast')).default as unknown as { success: ReturnType<typeof vi.fn> }
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'cell-history:compact' ? { ok: true, data: 340 } : { ok: false, error: 'not in this test' }))
     render(<DataSection />)
-    fireEvent.click(screen.getByRole('button', { name: 'Compact Now' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Compact now' }))
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Removed 340 old cell changes from the edit history.'))
   })
 

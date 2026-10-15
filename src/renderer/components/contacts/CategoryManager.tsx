@@ -88,7 +88,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
       <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 id="category-manager-title" className="text-lg font-semibold text-slate-900 dark:text-white">Manage Categories</h2>
+          <h2 id="category-manager-title" className="text-lg font-semibold text-slate-900 dark:text-white">Manage categories</h2>
           <button
             onClick={onClose}
             aria-label="Close"
@@ -169,7 +169,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                       <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Extra details (up to 10)</div>
                       {customFields.length === 0 && (
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-2 italic">
-                          Examples: Medical → NPI, Specialty · Legal → Bar Number · Housing → Unit Type, Voucher #
+                          Examples: Medical → NPI, Specialty · Legal → Bar number · Housing → Unit type, Voucher #
                         </p>
                       )}
                       {customFields.length > 0 && (

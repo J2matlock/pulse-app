@@ -49,7 +49,7 @@ export function KeyboardShortcutsModal({ open, onClose }: Props): React.ReactEle
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-semibold text-base">
                 <Keyboard className="w-5 h-5" />
-                Keyboard Shortcuts
+                Keyboard shortcuts
               </div>
               <button
                 onClick={onClose}
@@ -95,9 +95,9 @@ export function KeyboardShortcutsModal({ open, onClose }: Props): React.ReactEle
               ))}
             </div>
 
-            {/* Getting Started tips */}
+            {/* Getting started tips */}
             <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700">
-              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Getting Started</h3>
+              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Getting started</h3>
               <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-1 list-disc list-inside">
                 <li>Click column headers to sort</li>
                 <li>Right-click {t('record', { article: true })} for options</li>

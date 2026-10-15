@@ -66,14 +66,14 @@ describe('letter editor errors (audit A06-14)', () => {
   it('a missing name or text is announced and tied to its box', async () => {
     const onSave = vi.fn()
     render(<EditTemplateModal template={null} onSave={onSave} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Save Template' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Give the template a name.')
     const name = screen.getByLabelText(/^Name/)
     expect(name.getAttribute('aria-invalid')).toBe('true')
     expect(name.getAttribute('aria-describedby')).toBe(alert.id)
     fireEvent.change(name, { target: { value: 'Reminder' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Template' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Write the letter before saving the template.'))
     expect(name.getAttribute('aria-invalid')).toBeNull()
     expect(screen.getByLabelText(/^Content/).getAttribute('aria-invalid')).toBe('true')
@@ -169,7 +169,7 @@ describe('letter editor preview', () => {
 describe('placeholder reference', () => {
   it('names the record with the workspace word', () => {
     render(<PlaceholderReference />)
-    fireEvent.click(screen.getByRole('button', { name: /Placeholder Reference/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Details you can insert/ }))
     expect(screen.getByText(/Name of the client/)).toBeTruthy()
     expect(screen.queryByText(/\{record\}/)).toBeNull()
   })

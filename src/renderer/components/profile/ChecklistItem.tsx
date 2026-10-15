@@ -123,7 +123,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
             </select>
           </div>
           <div>
-            <label htmlFor="cl-edit-due" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due Date</label>
+            <label htmlFor="cl-edit-due" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due date</label>
             <input
               id="cl-edit-due"
               type="date"
@@ -186,7 +186,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
             disabled={!title.trim()}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Save Changes
+            Save changes
           </button>
         </div>
       </div>

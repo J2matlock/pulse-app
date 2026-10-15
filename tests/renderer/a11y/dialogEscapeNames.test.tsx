@@ -34,7 +34,7 @@ describe('Escape closes the dialog from any control', () => {
   it('snippet editor', async () => {
     render(<SnippetsView />)
     fireEvent.click(await screen.findByRole('button', { name: 'Create a new snippet' }))
-    const dialog = await screen.findByRole('dialog', { name: 'New Snippet' })
+    const dialog = await screen.findByRole('dialog', { name: 'New snippet' })
     const button = dialog.querySelector<HTMLElement>('button')!
     button.focus()
     fireEvent.keyDown(button, { key: 'Escape' })

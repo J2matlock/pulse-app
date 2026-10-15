@@ -9,9 +9,9 @@ import { describeInterval, toRuleInterval } from '../../../shared/ruleInterval'
 /** The colors a new rule starts with */
 export const DEFAULT_THRESHOLDS: AlertThreshold[] = [
   { daysBefore: 60, bgClass: '#bbf7d0', label: 'Upcoming' },
-  { daysBefore: 30, bgClass: '#facc15', label: 'Due Soon' },
+  { daysBefore: 30, bgClass: '#facc15', label: 'Due soon' },
   { daysBefore: 14, bgClass: '#fb923c', label: 'Urgent' },
-  { daysBefore: 0, bgClass: '#dc2626', label: 'Due Today' },
+  { daysBefore: 0, bgClass: '#dc2626', label: 'Due today' },
   { daysBefore: -1, bgClass: 'alert-pulse-dark', label: 'Overdue' },
 ]
 

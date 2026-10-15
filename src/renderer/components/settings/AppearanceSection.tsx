@@ -213,10 +213,10 @@ export function AppearanceSection({
           </div>
         </div>
 
-        {/* Row Striping */}
+        {/* Row striping */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Row Striping</span>
+            <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Row striping</span>
             <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Alternate row colors for easier reading</p>
           </div>
           <SettingSwitch checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} descriptionId={`${ids}-striping-desc`} />
@@ -250,9 +250,9 @@ export function AppearanceSection({
         </div>
       </div>
 
-      {/* Subsection 4: Sidebar Width */}
+      {/* Subsection 4: Sidebar width */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-3">
-        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Sidebar Width</label>
+        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Sidebar width</label>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Width of the navigation sidebar</p>
         <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden w-fit">
           {([
@@ -279,9 +279,9 @@ export function AppearanceSection({
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Date &amp; Time</label>
 
-        {/* Date Format */}
+        {/* Date format */}
         <div className="space-y-1">
-          <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date Format</label>
+          <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date format</label>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports, and how a pasted date like 06/10/2026 is read</p>
           <select
             id="settings-date-format"
@@ -301,10 +301,10 @@ export function AppearanceSection({
           </select>
         </div>
 
-        {/* Clock Format */}
+        {/* Clock format */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <span className="text-base text-slate-700 dark:text-slate-300">Clock Format</span>
+            <span className="text-base text-slate-700 dark:text-slate-300">Clock format</span>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Choose 12-hour or 24-hour time</p>
           </div>
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -327,10 +327,10 @@ export function AppearanceSection({
           </div>
         </div>
 
-        {/* Week Starts On */}
+        {/* Week starts on */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <span className="text-base text-slate-700 dark:text-slate-300">Week Starts On</span>
+            <span className="text-base text-slate-700 dark:text-slate-300">Week starts on</span>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">First day of the week in calendars</p>
           </div>
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -358,19 +358,19 @@ export function AppearanceSection({
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Accessibility</label>
 
-        {/* Reduced Motion */}
+        {/* Reduced motion */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p id={`${ids}-motion`} className="text-base text-slate-700 dark:text-slate-300">Reduced Motion</p>
+            <p id={`${ids}-motion`} className="text-base text-slate-700 dark:text-slate-300">Reduced motion</p>
             <p id={`${ids}-motion-desc`} className="text-sm text-slate-500 dark:text-slate-400">Disable animations and transitions</p>
           </div>
           <SettingSwitch checked={reducedMotion} onChange={setReducedMotion} labelId={`${ids}-motion`} descriptionId={`${ids}-motion-desc`} />
         </div>
 
-        {/* High Contrast */}
+        {/* High contrast */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p id={`${ids}-contrast`} className="text-base text-slate-700 dark:text-slate-300">High Contrast</p>
+            <p id={`${ids}-contrast`} className="text-base text-slate-700 dark:text-slate-300">High contrast</p>
             <p id={`${ids}-contrast-desc`} className="text-sm text-slate-500 dark:text-slate-400">Increase border and text contrast</p>
           </div>
           <SettingSwitch checked={highContrast} onChange={setHighContrast} labelId={`${ids}-contrast`} descriptionId={`${ids}-contrast-desc`} />

@@ -172,7 +172,7 @@ export function AddColumnForm({ draft, allColumns, rowCount, gridCount, linksOn,
               style={{ minHeight: 36 }}
               value={draft.newColName}
               onChange={e => { draft.setNewColName(e.target.value); setDuplicateOf(null) }}
-              placeholder="e.g. Last Contact Date"
+              placeholder="e.g. Last contact date"
               aria-describedby={duplicateOf ? `${titleId}-dup` : undefined}
               aria-invalid={duplicateOf ? true : undefined}
             />

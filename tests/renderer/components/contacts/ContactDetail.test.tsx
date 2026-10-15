@@ -208,7 +208,7 @@ describe('ContactDetail', () => {
     const provider = makeProvider({ referral_process: 'Call the front desk' })
     await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('Call the front desk')).toBeTruthy()
-    expect(screen.getByText('Referral Process')).toBeTruthy()
+    expect(screen.getByText('Referral process')).toBeTruthy()
   })
 
   it('shows languages when present', async () => {

@@ -9,9 +9,9 @@ import { localDateString } from '../../shared/dates'
  */
 export async function saveBackupArchive(): Promise<{ status: 'saved' } | { status: 'canceled' } | { status: 'failed'; error: string }> {
   const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
-    title: 'Save Backup Archive',
+    title: 'Save a backup file',
     defaultPath: `pulse-backup-${localDateString()}.pulse-backup`,
-    filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }]
+    filters: [{ name: 'Pulse backup', extensions: ['pulse-backup'] }]
   })
   if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return { status: 'canceled' }
   const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)

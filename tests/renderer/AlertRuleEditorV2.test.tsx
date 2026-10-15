@@ -50,7 +50,7 @@ describe('the rule editor', () => {
     fireEvent.click(screen.getByLabelText('Only when…'))
     fireEvent.change(screen.getByLabelText('Only when column'), { target: { value: '4' } })
     fireEvent.change(screen.getByLabelText('Only when value'), { target: { value: 'Active' } })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create rule' })) })
     const call = invoke.mock.calls.find(c => c[0] === IPC.ALERT_RULE_CREATE)!
     expect(call[1]).toMatchObject({
       name: 'Plan due', kind: 'relative', business_days: 0, interval_days: null,
@@ -127,7 +127,7 @@ describe('the rule editor', () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
     fireEvent.change(screen.getByLabelText('Rule name'), { target: { value: 'Quarterly' } })
     fireEvent.click(screen.getByRole('radio', { name: /On fixed dates/ }))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create rule' })) })
     expect(screen.getAllByText('Choose at least one month.').length).toBeGreaterThan(0)
     expect(invoke.mock.calls.some(c => c[0] === IPC.ALERT_RULE_CREATE && (c[1] as { name: string }).name === 'Quarterly')).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Mar' }))
@@ -174,7 +174,7 @@ describe('the rule editor', () => {
     fireEvent.change(screen.getByLabelText('Worked out from'), { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText('Offset amount'), { target: { value: '45' } })
     expect((screen.getByLabelText('Rule name') as HTMLInputElement).placeholder).toBe('45 days after Referral')
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create rule' })) })
     const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
     expect((call[1] as { name: string }).name).toBe('45 days after Referral')
   })
@@ -186,7 +186,7 @@ describe('the rule editor', () => {
     fireEvent.change(screen.getByLabelText('How many'), { target: { value: '10' } })
     fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'workingDays' } })
     fireEvent.click(screen.getByLabelText('Move it to the next working day'))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create rule' })) })
     const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
     expect(call[1]).toMatchObject({ kind: 'relative', business_days: 2, interval_days: null,
       rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 'self', offset: { businessDays: 10, direction: 'after' } }) })
@@ -204,7 +204,7 @@ describe('the rule editor', () => {
     expect(screen.getByTestId('rule-used-by').textContent).toBe('Used by: Clients → Plan written, Housing → Lease renewal')
     expect(screen.getByLabelText('Change it for all 2 columns that use it')).toBeTruthy()
     fireEvent.click(screen.getByLabelText('Make a copy just for "Plan written"'))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save Changes' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save changes' })) })
     const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
     expect((call[1] as { name: string; interval_months: number }).name).toBe('Every year (Plan written)')
     expect(invoke.mock.calls.some(c => c[0] === IPC.ALERT_RULE_UPDATE)).toBe(false)

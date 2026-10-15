@@ -378,7 +378,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dash-overview',
     question: 'What does the dashboard show me each day?',
-    answer: 'The Dashboard gives you a quick summary: what\'s overdue (in red) and due soon, your tasks, and cards you choose with "Customize". Use the tabs to switch between "What\'s due", "Overdue", "This Week" and "This Month"; "Recently archived" is a link below them.',
+    answer: 'The Dashboard gives you a quick summary: what\'s overdue (in red) and due soon, your tasks, and cards you choose with "Customize". Use the tabs to switch between "What\'s due", "Overdue", "This week" and "This month"; "Recently archived" is a link below them.',
     category: 'dashboard-deadlines',
     tourStepIds: ['dashboard', 'dashboard-tabs'],
     keywords: ['today', 'home', 'overview', 'start of day'],
@@ -456,7 +456,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'contacts-import-export',
     question: 'Can I bring in {contact:many} from another program, or send mine out?',
-    answer: 'Yes. In {ContactDirectory}, click "Import", then "Choose File" and pick a vCard (.vcf) file; tick the ones you want and they\'re added. To send yours out, click "Export", then "Export all {contact:many} as vCard". vCard is the standard format most address books and email programs use.',
+    answer: 'Yes. In {ContactDirectory}, click "Import", then "Choose a file…" and pick a vCard (.vcf) file; tick the ones you want and they\'re added. To send yours out, click "Export", then "Export all {contact:many} as vCard". vCard is the standard format most address books and email programs use.',
     category: 'contacts',
     feature: 'contactsDirectory',
     keywords: ['vcard', 'vcf', 'outlook', 'address book', 'import contacts', 'export contacts'],
@@ -568,7 +568,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'sec-recovery-key',
     question: 'What is the recovery key and why is it important?',
-    answer: 'Your recovery key is a code that unlocks your data if you forget your password \u2014 the only thing that can. Pulse offers to make one when you first set up a password; if you skipped it, go to Settings > Security and click "Generate Recovery Key". Print it or keep it somewhere safe, away from the computer. The Security checkup at the top of that tab says whether you have one.',
+    answer: 'Your recovery key is a code that unlocks your data if you forget your password \u2014 the only thing that can. Pulse offers to make one when you first set up a password; if you skipped it, go to Settings > Security and click "Make a recovery key". Print it or keep it somewhere safe, away from the computer. The Security checkup at the top of that tab says whether you have one.',
     category: 'security-backups',
     demo: <DemoRecoveryKey />,
     keywords: ['forgot password', 'locked out', 'reset password', 'recovery'],

@@ -21,7 +21,7 @@ interface ContactFormProps {
 const AVAILABILITY_OPTIONS: { value: AvailabilityStatus; label: string; colorClass: string }[] = [
   { value: 'accepting', label: 'Accepting new {record:many}', colorClass: 'text-green-600 dark:text-green-400' },
   { value: 'waitlist', label: 'Waitlist', colorClass: 'text-amber-700 dark:text-amber-400' },
-  { value: 'full', label: 'Not Accepting', colorClass: 'text-red-600 dark:text-red-400' },
+  { value: 'full', label: 'Not accepting', colorClass: 'text-red-600 dark:text-red-400' },
   { value: 'unknown', label: 'Unknown', colorClass: 'text-slate-500 dark:text-slate-400' },
 ]
 
@@ -269,7 +269,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
       {/* Form body */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {/* Basic Info */}
-        <h3 className={sectionHeaderClasses}>Basic Info</h3>
+        <h3 className={sectionHeaderClasses}>Name and organization</h3>
         <div className="space-y-4">
           <div>
             <label htmlFor="contact-name" className={labelClasses} style={{ fontSize: 15 }}>Name <span className="text-red-600 dark:text-red-400">*</span></label>
@@ -290,7 +290,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
             <label htmlFor="contact-category" className={labelClasses} style={{ fontSize: 15 }}>Category</label>
             <select id="contact-category" value={form.category_id ?? ''} onChange={e => setField('category_id', e.target.value ? Number(e.target.value) : null)}
               className={inputClasses} style={{ fontSize: 15, minHeight: 44 }}>
-              <option value="">&mdash; No Category &mdash;</option>
+              <option value="">&mdash; No category &mdash;</option>
               {categories.map((cat: ProviderCategory) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
@@ -321,14 +321,14 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         )}
 
         {/* Contact Information */}
-        <h3 className={sectionHeaderClasses}>Contact Information</h3>
+        <h3 className={sectionHeaderClasses}>Contact information</h3>
         <div className="space-y-4">
           {([
             ['phone_main', 'Phone (Main)'],
             ['phone_direct', 'Phone (Direct)'],
             ['phone_fax', 'Phone (Fax)'],
             ['phone_cell', 'Phone (Cell)'],
-            ['phone_after_hours', 'Phone (After Hours)'],
+            ['phone_after_hours', 'Phone (after hours)'],
           ] as const).map(([field, label], i) => (
             <div key={field}>
               <label htmlFor={`contact-phone-${i}`} className={labelClasses} style={{ fontSize: 15 }}>{label}</label>
@@ -399,15 +399,15 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
             </label>
           ))}
           <div className="mt-3">
-            <label htmlFor="contact-availability" className={labelClasses} style={{ fontSize: 15 }}>Availability Notes</label>
+            <label htmlFor="contact-availability" className={labelClasses} style={{ fontSize: 15 }}>Availability notes</label>
             <textarea id="contact-availability" value={form.availability_notes} onChange={e => setField('availability_notes', e.target.value)}
               rows={2} className={inputClasses} style={{ fontSize: 15 }} />
           </div>
         </div>
 
-        {/* Referral Process */}
-        <h3 className={sectionHeaderClasses}>Referral Process</h3>
-        <label htmlFor="contact-referral" className="sr-only">Referral Process</label>
+        {/* Referral process */}
+        <h3 className={sectionHeaderClasses}>Referral process</h3>
+        <label htmlFor="contact-referral" className="sr-only">Referral process</label>
         <textarea id="contact-referral" value={form.referral_process} onChange={e => setField('referral_process', e.target.value)}
           placeholder={`Step-by-step instructions for how to refer ${t('record', { article: true })} to this ${t('contact')}…`} rows={4}
           className={inputClasses} style={{ fontSize: 15 }} />

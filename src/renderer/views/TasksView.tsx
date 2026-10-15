@@ -264,7 +264,7 @@ export default function TasksView(): React.ReactElement {
   const handleAddGroup = useCallback(async () => {
     // Groups only show in "My order"
     if (useTaskStore.getState().sortMode !== 'manual') setSortMode('manual')
-    const res = await safeInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, 'New Group')
+    const res = await safeInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, 'New group')
     if (res.ok) {
       const created = res.data
       setTaskGroups(prev => [...prev, created])

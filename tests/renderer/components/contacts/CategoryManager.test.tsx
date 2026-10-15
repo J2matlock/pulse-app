@@ -82,14 +82,14 @@ describe('CategoryManager', () => {
     expect(screen.getByText('Legal')).toBeTruthy()
   })
 
-  it('renders dialog title "Manage Categories"', () => {
+  it('renders dialog title "Manage categories"', () => {
     render(<CategoryManager {...defaultProps} />)
-    expect(screen.getByText('Manage Categories')).toBeTruthy()
+    expect(screen.getByText('Manage categories')).toBeTruthy()
   })
 
   it('does not render when open is false', () => {
     render(<CategoryManager open={false} onClose={vi.fn()} />)
-    expect(screen.queryByText('Manage Categories')).toBeNull()
+    expect(screen.queryByText('Manage categories')).toBeNull()
   })
 
   it('shows empty state when no categories', () => {

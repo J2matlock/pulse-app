@@ -60,7 +60,7 @@ export function DeadlineColumnsMenu({ hidden, disabled = false, onChange }: Dead
   return (
     <div className="relative">
       <button ref={buttonRef} type="button" aria-haspopup="dialog" aria-expanded={open} disabled={disabled} onClick={() => setOpen(o => !o)}
-        title={disabled ? 'Turn Deadlines on to choose which show' : undefined}
+        title={disabled ? 'Turn on "Deadlines" to choose which show' : undefined}
         className="hit-44 px-3 rounded-full border text-sm border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-1 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent" style={{ minHeight: 32 }}>
         Which deadlines{hidden.size > 0 ? ` (${hidden.size} hidden)` : ''}…<ChevronDown className="w-4 h-4" aria-hidden="true" />
       </button>

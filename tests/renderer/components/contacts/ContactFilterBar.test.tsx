@@ -66,7 +66,7 @@ describe('ContactFilterBar', () => {
     expect(options).toContain('All')
     expect(options).toContain('Accepting')
     expect(options).toContain('Waitlist')
-    expect(options).toContain('Not Accepting')
+    expect(options).toContain('Not accepting')
     expect(options).toContain('Unknown')
   })
 
@@ -76,7 +76,7 @@ describe('ContactFilterBar', () => {
     const options = Array.from(select.options).map(o => o.textContent)
     expect(options).toContain('Name A\u2013Z')
     expect(options).toContain('Category')
-    expect(options).toContain('Recently Added')
+    expect(options).toContain('Recently added')
   })
 
   it('renders view toggle buttons (card and list)', () => {

@@ -36,7 +36,7 @@ export const RELEASES: ReleaseEntry[] = [
       'Changing your password can now also re-encrypt your data, so an old password or a lost recovery key stops opening it',
       'Safer everyday work: scratch notes are never saved empty over what you wrote, undo no longer blanks a value, and Pulse refuses to open twice on the same data',
       'Reports and dashboard counts agree: overdue counts {record:many}, not deadlines, and big {list:many} no longer undercount',
-      'Export All keeps each deadline\'s last-done date so it can be imported back, and monthly {appointment:many} on the 29th to 31st keep their day',
+      '"Export everything as CSV…" keeps each deadline\'s last-done date so it can be imported back, and monthly {appointment:many} on the 29th to 31st keep their day',
       'A "Skip this version" button on the update banner, and clearer keyboard focus, bigger buttons and dialogs that close with Esc',
       'Faster dashboard, exports and list, plus updated building blocks with the latest fixes',
     ],

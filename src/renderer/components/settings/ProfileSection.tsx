@@ -25,7 +25,7 @@ export function ProfileSection({
 }: ProfileSectionProps): React.ReactElement {
   const { t } = useVocab(null)
   const fields = [
-    { label: 'Full Name', key: 'profile_name', value: profileName, setter: setProfileName, placeholder: 'Jane Smith' },
+    { label: 'Full name', key: 'profile_name', value: profileName, setter: setProfileName, placeholder: 'Jane Smith' },
     { label: 'Title', key: 'profile_title', value: profileTitle, setter: setProfileTitle, placeholder: t('worker', { cap: true }) },
     { label: 'Organization', key: 'profile_org', value: profileOrg, setter: setProfileOrg, placeholder: 'Community Services Agency' },
     { label: 'Email', key: 'profile_email', value: profileEmail, setter: setProfileEmail, placeholder: 'jane.smith@agency.org' },
@@ -34,7 +34,7 @@ export function ProfileSection({
 
   return (
     <>
-      <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Your Profile</h2>
+      <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Your profile</h2>
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Your name and title go on letters, reports and handoff packets you print.
       </p>

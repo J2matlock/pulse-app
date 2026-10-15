@@ -34,7 +34,7 @@ export function MoveComputerWizard({ open, onClose, onGoToSecurity }: { open: bo
       const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
         title: 'Save your data for the new computer',
         defaultPath: `pulse-move-${localDateString()}.pulse-backup`,
-        filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }],
+        filters: [{ name: 'Pulse backup', extensions: ['pulse-backup'] }],
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke<{ destPath: string }>(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)

@@ -746,8 +746,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
             onClick={() => setFocusModeOpen(true)}
             collapsed={collapsed}
             icon={Focus}
-            label="Focus Mode"
-            title={modHelp('Focus Mode (Ctrl+Shift+F)')}
+            label="Focus mode"
+            title={modHelp('Focus mode (Ctrl+Shift+F)')}
             muted
           />
         )}

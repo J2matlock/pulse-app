@@ -55,10 +55,10 @@ export function getPresetRange(key: NonNullable<PresetKey>, weekStart: 'sunday' 
 }
 
 const PRESETS: Array<{ key: NonNullable<PresetKey>; label: string }> = [
-  { key: 'this-week', label: 'This Week' },
-  { key: 'this-month', label: 'This Month' },
-  { key: 'last-month', label: 'Last Month' },
-  { key: 'this-quarter', label: 'This Quarter' },
+  { key: 'this-week', label: 'This week' },
+  { key: 'this-month', label: 'This month' },
+  { key: 'last-month', label: 'Last month' },
+  { key: 'this-quarter', label: 'This quarter' },
 ]
 
 export function SupervisorReportDialog({ gridId, columns, onClose }: Props): React.ReactElement {
@@ -237,7 +237,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 style={{ minHeight: 40, fontSize: 15 }}
                 value={workerTitle}
                 onChange={e => setWorkerTitle(e.target.value)}
-                placeholder="Title (e.g. Team Lead)"
+                placeholder="Title (e.g. Team lead)"
                 aria-label="Your title"
               />
               <input

@@ -43,7 +43,7 @@ export function DemoContactCategories() {
           style={{ animation: 'ccCustom 8s ease infinite', fontSize: 15 }}
         >
           <span className="text-green-600 dark:text-green-400">+</span>
-          <span className="text-green-700 dark:text-green-300 font-medium whitespace-nowrap">Custom Category</span>
+          <span className="text-green-700 dark:text-green-300 font-medium whitespace-nowrap">Custom category</span>
         </div>
       </div>
       <div className="text-sm text-slate-500 dark:text-slate-400 text-center">

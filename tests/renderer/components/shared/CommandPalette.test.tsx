@@ -111,10 +111,10 @@ describe('CommandPalette', () => {
 
   it('shows quick actions when input is empty', () => {
     render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
-    expect(screen.getByText('Quick Actions')).toBeDefined()
-    expect(screen.getByText('Go to Dashboard')).toBeDefined()
+    expect(screen.getByText('Quick actions')).toBeDefined()
+    expect(screen.getByText('Go to the dashboard')).toBeDefined()
     expect(screen.getByText('Go to Tasks')).toBeDefined()
-    expect(screen.getByText('Lock App')).toBeDefined()
+    expect(screen.getByText('Lock Pulse')).toBeDefined()
   })
 
   it('names the contacts page with the workspace word (AUDIT-067)', () => {
@@ -140,7 +140,7 @@ describe('CommandPalette', () => {
     render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
     const input = screen.getByPlaceholderText(/Search clients in every caseload/)
     fireEvent.change(input, { target: { value: 'dashboard' } })
-    expect(screen.getByText('Go to Dashboard')).toBeDefined()
+    expect(screen.getByText('Go to the dashboard')).toBeDefined()
     expect(screen.queryByText('Go to Tasks')).toBeNull()
   })
 
@@ -173,7 +173,7 @@ describe('CommandPalette', () => {
 
   it('navigates on command selection', () => {
     render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
-    fireEvent.click(screen.getByText('Go to Dashboard'))
+    fireEvent.click(screen.getByText('Go to the dashboard'))
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
@@ -198,7 +198,7 @@ describe('fuzzyMatch (CommandPalette internal logic)', () => {
   }
 
   it('matches substring', () => {
-    expect(fuzzyMatch('dash', 'Go to Dashboard')).toBeGreaterThan(0)
+    expect(fuzzyMatch('dash', 'Go to the dashboard')).toBeGreaterThan(0)
   })
 
   it('returns 0 for non-match', () => {
@@ -210,8 +210,8 @@ describe('fuzzyMatch (CommandPalette internal logic)', () => {
   })
 
   it('gives prefix bonus', () => {
-    expect(fuzzyMatch('go', 'Go to Dashboard')).toBeGreaterThan(
-      fuzzyMatch('to', 'Go to Dashboard'),
+    expect(fuzzyMatch('go', 'Go to the dashboard')).toBeGreaterThan(
+      fuzzyMatch('to', 'Go to the dashboard'),
     )
   })
 

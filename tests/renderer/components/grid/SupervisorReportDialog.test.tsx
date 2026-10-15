@@ -61,10 +61,10 @@ describe('SupervisorReportDialog', () => {
 
   it('renders date range preset buttons', () => {
     render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
-    expect(screen.getByText('This Week')).toBeTruthy()
-    expect(screen.getByText('This Month')).toBeTruthy()
-    expect(screen.getByText('Last Month')).toBeTruthy()
-    expect(screen.getByText('This Quarter')).toBeTruthy()
+    expect(screen.getByText('This week')).toBeTruthy()
+    expect(screen.getByText('This month')).toBeTruthy()
+    expect(screen.getByText('Last month')).toBeTruthy()
+    expect(screen.getByText('This quarter')).toBeTruthy()
   })
 
   it('renders format selection labels', () => {
@@ -93,7 +93,7 @@ describe('SupervisorReportDialog', () => {
   })
 })
 
-describe('"This Week" follows Settings, Week starts on (bug sweep S5)', () => {
+describe('"This week" follows Settings, Week starts on (bug sweep S5)', () => {
   it('runs Sunday to Saturday, or Monday to Sunday', () => {
     const wed = new Date(2026, 9, 14)
     expect(getPresetRange('this-week', 'sunday', wed)).toEqual({ start: '2026-10-11', end: '2026-10-17' })

@@ -116,7 +116,7 @@ export default function LetterTemplateView(): React.ReactElement {
           </h1>
           <button
             onClick={() => { setEditTarget(null); setShowEdit(true) }}
-            title="New Template"
+            title="New template"
             aria-label="New letter template"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600
                        text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500

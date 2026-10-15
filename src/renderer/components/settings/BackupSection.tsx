@@ -190,10 +190,10 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
 
   async function handleLoadBackupFile() {
     const dialogRes = await safeInvoke(IPC.APP_SHOW_FILE_DIALOG, {
-      title: 'Select Backup File',
+      title: 'Choose a backup file',
       properties: ['openFile'],
       filters: [
-        { name: 'All Files', extensions: ['*'] }
+        { name: 'All files', extensions: ['*'] }
       ]
     })
     if (!dialogRes.ok || dialogRes.data.canceled || !dialogRes.data.filePaths?.length) return

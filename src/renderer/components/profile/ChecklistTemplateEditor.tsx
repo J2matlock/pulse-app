@@ -321,7 +321,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
-            {template ? (isSystem ? 'View Template' : 'Edit Template') : 'New Template'}
+            {template ? (isSystem ? 'View template' : 'Edit template') : 'New template'}
           </h2>
           <button
             onClick={onClose}
@@ -355,7 +355,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={isSystem}
-              placeholder="e.g. Initial Intake Checklist"
+              placeholder="e.g. Initial intake checklist"
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                          bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
                          px-3 py-2 text-base min-h-[44px]
@@ -464,7 +464,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
                            focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                Add Item
+                Add item
               </button>
             )}
           </div>
@@ -499,7 +499,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
                          min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
             >
-              {saving ? 'Saving...' : template ? 'Save Changes' : 'Create Template'}
+              {saving ? 'Saving...' : template ? 'Save changes' : 'Create template'}
             </button>
           )}
         </div>

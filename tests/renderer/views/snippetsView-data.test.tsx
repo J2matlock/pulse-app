@@ -102,7 +102,7 @@ describe('SnippetsView — data smoke tests', () => {
     render(<SnippetsView />)
     await waitFor(() => {
       expect(screen.getByText('Snippets')).toBeDefined()
-      expect(screen.getByText('New Snippet')).toBeDefined()
+      expect(screen.getByText('New snippet')).toBeDefined()
     })
   })
 

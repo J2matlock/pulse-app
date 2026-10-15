@@ -627,7 +627,7 @@ export function GridToolbar(): React.ReactElement {
         rowScope={scopeCounts}
         onConfirm={handleExportWithColumns}
         onCancel={() => setExportColumnSelect(null)}
-        title={exportColumnSelect === 'csv' ? 'Select Columns for CSV Export' : 'Select Columns for PDF Export'}
+        title={exportColumnSelect === 'csv' ? 'Choose columns for the CSV' : 'Choose columns for the PDF'}
         pdfPreview={exportColumnSelect === 'pdf' ? { rowCount: pdfRowCount, orientation: 'landscape' } : undefined}
       />
 

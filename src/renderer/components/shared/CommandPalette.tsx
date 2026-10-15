@@ -137,7 +137,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   // Memoize static command arrays — only rebuild when their dependencies change, not on every keystroke
   const contactsLabel = `Go to ${t('contactDirectory', { cap: true })}`
   const navCommands = useMemo(() => ([
-    { label: 'Go to Dashboard', icon: LayoutDashboard, action: () => navigate('/dashboard'), shortcut: keys('Mod', 'Shift', 'D') },
+    { label: 'Go to the dashboard', icon: LayoutDashboard, action: () => navigate('/dashboard'), shortcut: keys('Mod', 'Shift', 'D') },
     // Every list by name, so switching lists is one search away (audit N-09)
     ...grids.map(g => ({ label: `Go to ${g.name}`, icon: Grid3X3, action: () => { void useGridStore.getState().loadGrid(g.id); navigate('/grid') }, shortcut: '' })),
     { label: 'Go to Calendar', icon: CalendarDays, action: () => navigate('/calendar'), shortcut: '' },
@@ -149,8 +149,8 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     { label: 'Go to Snippets', icon: Zap, action: () => navigate('/snippets'), shortcut: '', feature: 'snippets' as FeatureKey },
     { label: 'Go to Templates', icon: LayoutTemplate, action: () => navigate('/templates'), shortcut: '' },
     { label: 'Go to Letters', icon: FileText, action: () => navigate('/letter-templates'), shortcut: '', feature: 'letters' as FeatureKey },
-    { label: 'Open Settings', icon: Settings, action: () => navigate('/settings'), shortcut: '' },
-    ...(onFocusMode ? [{ label: 'Enter Focus Mode', icon: Focus, action: () => { onFocusMode(); onOpenChange(false) }, shortcut: '', feature: 'focusMode' as FeatureKey }] : []),
+    { label: 'Open settings', icon: Settings, action: () => navigate('/settings'), shortcut: '' },
+    ...(onFocusMode ? [{ label: 'Start focus mode', icon: Focus, action: () => { onFocusMode(); onOpenChange(false) }, shortcut: '', feature: 'focusMode' as FeatureKey }] : []),
   ] as Array<{ label: string; icon: typeof Focus; action: () => void; shortcut: string; feature?: FeatureKey }>).filter(c => !c.feature || isOn(features, c.feature)), [navigate, onFocusMode, onOpenChange, features, grids, contactsLabel])
 
   const activeGridName = activeGrid?.name ?? null
@@ -158,22 +158,22 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   const actionCommands = useMemo(() => ([
     // Says which list it adds to, since the palette opens from any screen (audit N-03)
     ...(activeGridName ? [{ label: `Add ${tActive('record', { article: true })} to ${activeGridName}`, icon: UserPlus, action: handleAddClient, shortcut: keys('Mod', 'N') }] : []),
-    ...(isOn(features, 'tasks') ? [{ label: 'Add New Task', icon: ClipboardList, action: handleAddTask, shortcut: keys('Mod', 'Shift', 'T') }] : []),
+    ...(isOn(features, 'tasks') ? [{ label: 'Add a task', icon: ClipboardList, action: handleAddTask, shortcut: keys('Mod', 'Shift', 'T') }] : []),
     // Fill a form (W08): a new record in the open list
     ...(isOn(features, 'forms') && activeGridId ? paletteForms.map(f => ({ label: `Fill form: ${f.name}`, icon: ClipboardPen, action: () => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId }), shortcut: '' })) : []),
-    { label: 'Lock App', icon: Lock, action: lock, shortcut: keys('Mod', 'L') },
+    { label: 'Lock Pulse', icon: Lock, action: lock, shortcut: keys('Mod', 'L') },
   ]), [handleAddClient, handleAddTask, lock, tActive, features, paletteForms, activeGridId, activeGridName])
 
   // Quick actions shown when input is empty (subset of nav + action commands)
   const quickActions = useMemo(() => [
-    navCommands.find(c => c.label === 'Go to Dashboard')!,
+    navCommands.find(c => c.label === 'Go to the dashboard')!,
     navCommands.find(c => c.label === 'Go to Tasks')!,
     navCommands.find(c => c.label === contactsLabel)!,
-    navCommands.find(c => c.label === 'Open Settings')!,
+    navCommands.find(c => c.label === 'Open settings')!,
     navCommands.find(c => c.label === 'Go to Snippets')!,
     navCommands.find(c => c.label === 'Go to Templates')!,
-    ...(onFocusMode ? [navCommands.find(c => c.label === 'Enter Focus Mode')!] : []),
-    actionCommands.find(c => c.label === 'Lock App')!,
+    ...(onFocusMode ? [navCommands.find(c => c.label === 'Start focus mode')!] : []),
+    actionCommands.find(c => c.label === 'Lock Pulse')!,
   ].filter(Boolean), [navCommands, actionCommands, onFocusMode, contactsLabel])
 
   // Fuzzy-filter commands separately from the static arrays
@@ -334,10 +334,10 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
               </Command.Group>
             )}
 
-            {/* Quick Actions (shown when input is empty, no query) */}
+            {/* Quick actions (shown when input is empty, no query) */}
             {!q && quickActions.length > 0 && (
               <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Quick Actions
+                  Quick actions
                 </span>}>
                 {quickActions.map(cmd => (
                   <Command.Item

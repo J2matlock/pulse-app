@@ -279,7 +279,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
       {/* Recovery Key Management: the Security checkup's "Create one below" link and the recovery-key reminder's "Save it now" scroll here */}
       <div id={CHECKUP_TARGETS.recoveryKey} className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <div>
-          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Recovery Key</p>
+          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Recovery key</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             A recovery key lets you unlock your data if you forget your password.
           </p>
@@ -324,7 +324,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
               className="btn-primary"
               style={{ minHeight: 44 }}
             >
-              Generate Recovery Key
+              Make a recovery key
             </button>
           </>
         )}

@@ -213,14 +213,14 @@ export function createSampleCaseload(): number {
     const rule = (name: string, interval: number, thresholds: unknown) =>
       Number(db.prepare("INSERT INTO alert_rules (name, description, is_system, thresholds, interval_days, created_at) VALUES (?, 'Sample rule', 0, ?, ?, datetime('now'))").run(name, JSON.stringify(thresholds), interval).lastInsertRowid)
     const monthly = rule('Sample: monthly contact', 30, [
-      { daysBefore: 7, bgClass: '#facc15', label: 'Due Soon' },
-      { daysBefore: 0, bgClass: '#dc2626', label: 'Due Today' },
+      { daysBefore: 7, bgClass: '#facc15', label: 'Due soon' },
+      { daysBefore: 0, bgClass: '#dc2626', label: 'Due today' },
       { daysBefore: -1, bgClass: 'alert-pulse-dark', label: 'Overdue' },
     ])
     const annual = rule('Sample: annual review', 365, [
       { daysBefore: 60, bgClass: '#bbf7d0', label: 'Upcoming' },
-      { daysBefore: 30, bgClass: '#facc15', label: 'Due Soon' },
-      { daysBefore: 0, bgClass: '#dc2626', label: 'Due Today' },
+      { daysBefore: 30, bgClass: '#facc15', label: 'Due soon' },
+      { daysBefore: 0, bgClass: '#dc2626', label: 'Due today' },
       { daysBefore: -1, bgClass: 'alert-pulse-dark', label: 'Overdue' },
     ])
 

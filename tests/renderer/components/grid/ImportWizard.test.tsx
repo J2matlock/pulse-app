@@ -129,7 +129,7 @@ describe('ImportWizard', () => {
       mockInvoke.mockResolvedValueOnce({ ok: true, data: { canceled: false, filePaths: ['/home/me/agency.xls'] } })
       render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
       fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
-      expect(await screen.findByText(/Save As → Excel Workbook \(\.xlsx\)/)).toBeTruthy()
+      expect(await screen.findByText(/"Save As" → "Excel Workbook \(\.xlsx\)"/)).toBeTruthy()
       expect(mockInvoke).not.toHaveBeenCalledWith('import:file-preview', expect.anything(), undefined, undefined)
     })
   })

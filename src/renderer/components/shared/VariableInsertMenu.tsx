@@ -25,7 +25,7 @@ export const VARIABLE_GROUPS: VariableGroup[] = [
     ],
   },
   {
-    label: 'Your Profile',
+    label: 'Your profile',
     items: [
       { key: '{{my_name}}', desc: 'Your name' },
       { key: '{{my_title}}', desc: 'Your title' },

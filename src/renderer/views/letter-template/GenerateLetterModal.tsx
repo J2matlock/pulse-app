@@ -283,7 +283,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
                                focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px]"
                   >
                     {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    {copied ? 'Copied' : 'Copy to Clipboard'}
+                    {copied ? 'Copied' : 'Copy'}
                   </button>
                   <button
                     onClick={async () => {

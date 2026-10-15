@@ -274,7 +274,7 @@ export default function ProfileView(): React.ReactElement {
     setShowExportDialog(false)
     if (!rowId || !activeGridId) return
     const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
-      title: 'Export Profile as PDF',
+      title: 'Save as PDF',
       defaultPath: clientFileName(clientName, 'profile', 'pdf', recordKind),
       filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
     })

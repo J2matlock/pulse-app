@@ -65,7 +65,7 @@ export const GroupHeaderItem = React.memo(function GroupHeaderItem({
   )
 })
 
-// ── Collapse/Expand All toolbar ──────────────────────────────────────────────
+// ── Collapse/Expand all toolbar ──────────────────────────────────────────────
 
 export interface CollapseExpandBarProps {
   onCollapseAll: () => void
@@ -127,14 +127,14 @@ export function GroupContextMenuOverlay({
               style={{ minHeight: 36 }}
               onClick={() => { onCollapseAll(); onClose() }}
             >
-              Collapse All
+              Collapse all
             </button>
             <button
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               style={{ minHeight: 36 }}
               onClick={() => { onExpandAll(); onClose() }}
             >
-              Expand All
+              Expand all
             </button>
             <hr className="my-1 border-slate-200 dark:border-slate-700" />
             <button
@@ -142,7 +142,7 @@ export function GroupContextMenuOverlay({
               style={{ minHeight: 36 }}
               onClick={() => { useGridStore.getState().setGroupByColumnId(null); onClose() }}
             >
-              Remove Grouping
+              Remove grouping
             </button>
           </motion.div>
         </>

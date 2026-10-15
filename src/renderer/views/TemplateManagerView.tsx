@@ -101,8 +101,8 @@ export default function TemplateManagerView(): React.ReactElement {
     setImporting(true)
     try {
       const dialogRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
-        title: 'Import Template File',
-        filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
+        title: 'Open a template file',
+        filters: [{ name: 'Pulse templates', extensions: ['pulse'] }],
         properties: ['openFile'],
       })
 
@@ -142,9 +142,9 @@ export default function TemplateManagerView(): React.ReactElement {
 
   async function doExport(gridId: number) {
     const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
-      title: 'Save Template As',
+      title: 'Save the template as',
       defaultPath: `${grids.find(g => g.id === gridId)?.name ?? 'template'}.pulse`,
-      filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
+      filters: [{ name: 'Pulse templates', extensions: ['pulse'] }],
     })
 
     if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
@@ -206,9 +206,9 @@ export default function TemplateManagerView(): React.ReactElement {
     try {
       const slug = template.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)
       const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
-        title: 'Export Checklist Template',
+        title: 'Export a checklist template',
         defaultPath: `${slug}.pulse-checklist`,
-        filters: [{ name: 'Pulse Checklist Template', extensions: ['pulse-checklist'] }],
+        filters: [{ name: 'Pulse checklist template', extensions: ['pulse-checklist'] }],
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke<true>(IPC.CL_TEMPLATE_EXPORT, template.id, saveRes.data.filePath)
@@ -221,9 +221,9 @@ export default function TemplateManagerView(): React.ReactElement {
   async function handleImportCLTemplate() {
     try {
       const openRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
-        title: 'Import Checklist Template',
+        title: 'Import a checklist template',
         properties: ['openFile'],
-        filters: [{ name: 'Pulse Checklist Template', extensions: ['pulse-checklist'] }],
+        filters: [{ name: 'Pulse checklist template', extensions: ['pulse-checklist'] }],
       })
       if (!openRes.ok || openRes.data.canceled || !openRes.data.filePaths?.length) return
       const res = await safeInvoke<ChecklistTemplate>(IPC.CL_TEMPLATE_IMPORT, openRes.data.filePaths[0])
@@ -335,9 +335,9 @@ export default function TemplateManagerView(): React.ReactElement {
                   onDelete={handleDeleteSetupTemplate}
                   onExport={async (id) => {
                     const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
-                      title: 'Export Template',
+                      title: 'Export the template',
                       defaultPath: `${t.name.replace(/[^a-z0-9]/gi, '_')}.pulse`,
-                      filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
+                      filters: [{ name: 'Pulse templates', extensions: ['pulse'] }],
                     })
                     if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
                     const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT_SAVED, id, saveRes.data.filePath)
@@ -352,7 +352,7 @@ export default function TemplateManagerView(): React.ReactElement {
         </section>
 
         {checklistsOn && (<>
-          {/* ── Checklist Templates (right) ─────────────────────────────────── */}
+          {/* ── Checklist templates (right) ─────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 overflow-y-auto max-h-full">
             <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
               <div className="flex items-center gap-3 min-w-0">
@@ -385,7 +385,7 @@ export default function TemplateManagerView(): React.ReactElement {
                              focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  New Checklist
+                  New checklist template
                 </button>
               </div>
             </div>
@@ -507,7 +507,7 @@ export default function TemplateManagerView(): React.ReactElement {
                 }}
                 className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Save as Template
+                Save as template
               </button>
             </div>
           </div>

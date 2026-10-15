@@ -94,7 +94,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
         <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <Zap className="w-5 h-5 text-blue-500" />
           <h2 id="snippet-dialog-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
-            {initial ? 'Edit Snippet' : 'New Snippet'}
+            {initial ? 'Edit snippet' : 'New snippet'}
           </h2>
           <button onClick={onClose} aria-label="Close"
                   className="hit-44 p-1 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
@@ -200,7 +200,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
             disabled={!trigger.trim() || !expansion.trim()}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {initial ? 'Save Changes' : 'Add Snippet'}
+            {initial ? 'Save changes' : 'Add snippet'}
           </button>
         </div>
       </div>
@@ -284,7 +284,7 @@ export default function SnippetsView(): React.ReactElement {
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
         >
           <Plus className="w-4 h-4" />
-          New Snippet
+          New snippet
         </button>
       </div>
 

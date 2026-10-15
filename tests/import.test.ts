@@ -259,7 +259,7 @@ describe('Excel Parsing', () => {
     for (const name of ['old.xls', 'old.ods']) {
       const path = join(tmpDir, name)
       writeFileSync(path, 'not really a spreadsheet')
-      await expect(parseImportFile(path)).rejects.toThrow(/Save As → Excel Workbook \(\.xlsx\)/)
+      await expect(parseImportFile(path)).rejects.toThrow(/"Save As" → "Excel Workbook \(\.xlsx\)"/)
     }
   })
 })

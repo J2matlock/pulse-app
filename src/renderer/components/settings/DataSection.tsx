@@ -98,7 +98,7 @@ export function DataSection(): React.ReactElement {
       const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
         title: 'Save a backup before erasing',
         defaultPath: `pulse-backup-${localDateString()}.pulse-backup`,
-        filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }],
+        filters: [{ name: 'Pulse backup', extensions: ['pulse-backup'] }],
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
@@ -165,7 +165,7 @@ export function DataSection(): React.ReactElement {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Bring a spreadsheet into {t('list', { article: true })} here, or with <strong>Import</strong> above the {t('list')}. To save one {t('list')} as CSV or PDF, use <strong>Export</strong> there; to save every {t('list')} at once, use the button below.
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Export All saves one file per {t('list')} (hidden columns too) and one with every {t('activity')}. Tasks, contacts and appointments aren't included.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">"Export everything as CSV…" saves one file per {t('list')} (hidden columns too) and one with every {t('activity')}. Tasks, contacts and appointments aren't included.</p>
           {filesOn && <p className="text-sm text-slate-500 dark:text-slate-400">Files attached to {t('record', { many: true })} aren't included in CSV exports; open or save them from each profile.</p>}
         </div>
         {grids.length > 0 && (
@@ -192,7 +192,7 @@ export function DataSection(): React.ReactElement {
         <button
           onClick={async () => {
             const dialogRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
-              title: 'Choose Export Destination Folder',
+              title: 'Choose where to save the export',
               properties: ['openDirectory']
             })
             if (!dialogRes.ok || dialogRes.data.canceled || !dialogRes.data.filePaths?.length) return
@@ -255,7 +255,7 @@ export function DataSection(): React.ReactElement {
             style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
             onClick={() => void compactHistory(parseInt((document.getElementById('history-retention') as HTMLSelectElement | null)?.value ?? '12', 10))}
           >
-            Compact Now
+            Compact now
           </button>
         </div>
         {/* Destructive, so not an option in the "keep" dropdown (E-32) */}
@@ -294,7 +294,7 @@ export function DataSection(): React.ReactElement {
           }}
         >
           <RefreshCw className="w-4 h-4 inline mr-2" />
-          Run Integrity Check
+          Run integrity check
         </button>
       </div>
 

@@ -837,7 +837,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
   // ExcelJS reads only .xlsx; .xls and .ods failed with a raw zip error
   if (ext === 'xls' || ext === 'ods') {
-    throw new Error('This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose Save As → Excel Workbook (.xlsx), then try again.')
+    throw new Error('This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose "Save As" → "Excel Workbook (.xlsx)", then try again.')
   }
   if (!TEXT_IMPORT_EXTENSIONS.has(ext) && ext !== 'xlsx') {
     throw new Error(`Pulse can't read .${ext} files. Save it as a .csv or .xlsx file, then try again.`)

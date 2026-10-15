@@ -106,7 +106,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
           <h2 id="letter-edit-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
-            {template ? 'Edit Template' : 'New Letter Template'}
+            {template ? 'Edit template' : 'New letter template'}
           </h2>
           <button
             onClick={requestClose}
@@ -141,7 +141,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. 90-Day Transition Notice"
+              placeholder="e.g. 90-day transition notice"
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                          bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
                          px-3 py-2 text-base focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px]"
@@ -243,7 +243,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3
                        disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
-            {saving ? 'Saving...' : 'Save Template'}
+            {saving ? 'Saving...' : 'Save template'}
           </button>
         </div>
       </div>

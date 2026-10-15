@@ -189,7 +189,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 id={titleId} className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {initialDef ? 'Edit Custom Group' : 'New Custom Group'}
+            {initialDef ? 'Edit custom group' : 'New custom group'}
           </h2>
           <button
             onClick={onClose}

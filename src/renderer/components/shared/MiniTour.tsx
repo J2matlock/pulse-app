@@ -255,7 +255,7 @@ export function MiniTour({ steps, onComplete, returnRoute = '#/help' }: MiniTour
                   onClick={finish}
                   className="hit-44 px-3 py-2 text-base text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                 >
-                  Back to Help
+                  Back to help
                 </button>
                 <button
                   onClick={next}

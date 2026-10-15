@@ -148,7 +148,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
     await onReplace(match.rowId, match.colId, match.value, newVal)
   }, [matches, currentMatchIndex, debouncedFind, replaceText, onReplace, columnById])
 
-  // Replace All asks first, with the counts (G-27)
+  // Replace all asks first, with the counts (G-27)
   const handleReplaceAll = useCallback(() => {
     if (matches.length === 0 || !debouncedFind) return
     const replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }> = []
@@ -203,7 +203,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
         <div className="flex items-center gap-1.5">
           <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />
           <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Find & Replace
+            Find and replace
           </span>
         </div>
         <button
@@ -329,7 +329,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
                        focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             style={{ minHeight: 36 }}
           >
-            Replace All
+            Replace all
           </button>
         </div>
       </div>

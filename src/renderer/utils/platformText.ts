@@ -46,7 +46,7 @@ export function updateText(platform: Platform | null): UpdateText {
       return {
         banner: 'Download it, close Pulse, and open the new Pulse file in place of the old one. Your data stays where it is.',
         steps: [
-          'Click Download update above. The new Pulse file goes to your Downloads folder.',
+          'Click "Download update" above. The new Pulse file goes to your Downloads folder.',
           'Close Pulse.',
           'Move the new file to where you keep Pulse, replacing the old one.',
           'Open the new file. If Windows says "Windows protected your PC", click More info, then Run anyway.',
@@ -57,7 +57,7 @@ export function updateText(platform: Platform | null): UpdateText {
       return {
         banner: 'Download it, close Pulse, and drag the new Pulse into Applications. Your data stays where it is.',
         steps: [
-          'Click Download update above and open the file that downloads.',
+          'Click "Download update" above and open the file that downloads.',
           'Close Pulse.',
           'Drag Pulse into your Applications folder, and choose Replace.',
           'Open Pulse from Applications.',
@@ -68,7 +68,7 @@ export function updateText(platform: Platform | null): UpdateText {
       return {
         banner: 'Download the new AppImage, close Pulse, and open the new one instead. Your data stays where it is.',
         steps: [
-          'Click Download update above. The new .AppImage file goes to your Downloads folder.',
+          'Click "Download update" above. The new .AppImage file goes to your Downloads folder.',
           'Close Pulse.',
           'Put the new file where you keep Pulse, and allow it to run as a program (right-click, Properties, Permissions).',
           'Open the new file. You can delete the old one.',
@@ -79,7 +79,7 @@ export function updateText(platform: Platform | null): UpdateText {
       return {
         banner: 'Download the new version, close Pulse, and open the new one. Your data stays where it is.',
         steps: [
-          'Click Download update above.',
+          'Click "Download update" above.',
           'Close Pulse.',
           'Open the new version in place of the old one.',
         ],

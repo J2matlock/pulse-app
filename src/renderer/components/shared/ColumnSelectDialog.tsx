@@ -38,7 +38,7 @@ function defaultScope(c: RowScopeCounts | undefined): RowScope {
   return c.shown < c.all ? 'shown' : 'all'
 }
 
-export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title = 'Select Columns to Export', pdfPreview, rowScope }: Props): React.ReactElement | null {
+export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title = 'Choose columns to export', pdfPreview, rowScope }: Props): React.ReactElement | null {
   const { t } = useVocab()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [scope, setScope] = useState<RowScope>('all')
@@ -123,21 +123,21 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
           </fieldset>
         )}
 
-        {/* Select All / Select None */}
+        {/* Select all / Select none */}
         <div className="flex gap-3 mb-3">
           <button
             onClick={selectAll}
             className="hit-44 text-base font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             style={{ fontSize: 15 }}
           >
-            Select All
+            Select all
           </button>
           <button
             onClick={selectNone}
             className="hit-44 text-base font-medium text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             style={{ fontSize: 15 }}
           >
-            Select None
+            Select none
           </button>
         </div>
 

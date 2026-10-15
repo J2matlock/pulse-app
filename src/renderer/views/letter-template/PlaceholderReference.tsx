@@ -14,7 +14,7 @@ export const PLACEHOLDER_GROUPS = [
     ]
   },
   {
-    label: 'Your Profile (Settings)',
+    label: 'Your profile (Settings)',
     items: [
       { key: '{{my_name}}', desc: 'Your name' },
       { key: '{{my_title}}', desc: 'Your title' },
@@ -46,7 +46,7 @@ export function PlaceholderReference(): React.ReactElement {
       >
         <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
         <span className="text-base font-medium text-slate-700 dark:text-slate-200 flex-1">
-          Placeholder Reference
+          Details you can insert
         </span>
         {open
           ? <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />

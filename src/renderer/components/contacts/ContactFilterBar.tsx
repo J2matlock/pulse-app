@@ -12,16 +12,16 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'name', label: 'Name A\u2013Z' },
   { value: 'category', label: 'Category' },
   { value: 'availability', label: 'Availability' },
-  { value: 'created_at', label: 'Recently Added' },
-  { value: 'updated_at', label: 'Recently Updated' },
-  { value: 'last_contacted', label: 'Recently Contacted' },
+  { value: 'created_at', label: 'Recently added' },
+  { value: 'updated_at', label: 'Recently updated' },
+  { value: 'last_contacted', label: 'Recently contacted' },
 ]
 
 const AVAILABILITY_FILTER_OPTIONS: { value: AvailabilityStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
   { value: 'accepting', label: 'Accepting' },
   { value: 'waitlist', label: 'Waitlist' },
-  { value: 'full', label: 'Not Accepting' },
+  { value: 'full', label: 'Not accepting' },
   { value: 'unknown', label: 'Unknown' },
 ]
 
@@ -201,7 +201,7 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
           <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">Active filters:</span>
           {filterParams.availabilityStatus && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">
-              Availability: {filterParams.availabilityStatus === 'full' ? 'Not Accepting' : filterParams.availabilityStatus.charAt(0).toUpperCase() + filterParams.availabilityStatus.slice(1)}
+              Availability: {filterParams.availabilityStatus === 'full' ? 'Not accepting' : filterParams.availabilityStatus.charAt(0).toUpperCase() + filterParams.availabilityStatus.slice(1)}
               <button
                 onClick={() => setFilterParams({ ...filterParams, availabilityStatus: undefined })}
                 className="hit-44 ml-0.5 hover:text-teal-900 dark:hover:text-teal-100"

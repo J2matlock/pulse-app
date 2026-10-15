@@ -102,7 +102,7 @@ export function ChecklistAddDialog({ groups, onClose, onSave }: Props) {
             </select>
           </div>
           <div>
-            <label htmlFor="cl-add-due" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due Date</label>
+            <label htmlFor="cl-add-due" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due date</label>
             <input
               id="cl-add-due"
               type="date"

@@ -97,7 +97,7 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
         <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
           <motion.div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="recovery-key-title" variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-8">
         <h2 id="recovery-key-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-          Your Recovery Key
+          Your recovery key
         </h2>
         <p className="text-base text-slate-500 dark:text-slate-400 mb-6">
           Write this down or print it. You'll need it if you forget your password.
@@ -123,7 +123,7 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
             style={{ minHeight: 44 }}
           >
             <Copy className="w-4 h-4" />
-            Copy to Clipboard
+            Copy
           </button>
           <button
             type="button"
@@ -132,7 +132,7 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
             style={{ minHeight: 44 }}
           >
             <Printer className="w-4 h-4" />
-            Print Recovery Card
+            Print a recovery card
           </button>
         </div>
 

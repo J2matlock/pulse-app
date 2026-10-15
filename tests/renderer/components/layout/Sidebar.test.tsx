@@ -148,7 +148,7 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Tasks')).toBeNull()
     expect(screen.queryByText('Contacts')).toBeNull()
     expect(screen.queryByText('Letters')).toBeNull()
-    expect(screen.queryByText('Focus Mode')).toBeNull()
+    expect(screen.queryByText('Focus mode')).toBeNull()
     expect(screen.getByText('Snippets')).toBeDefined()
   })
 
@@ -182,7 +182,7 @@ describe('Sidebar', () => {
     expect(screen.queryByText('System')).toBeNull()
     expect(screen.getByText('Tools')).toBeDefined()
     const labels = screen.getAllByRole('button').map(b => b.textContent?.trim()).filter(Boolean)
-    const order = ['Dashboard', 'Calendar', 'Tasks', 'My Caseload', 'Second Grid', 'New caseload', 'Reports', 'Contacts', 'Snippets', 'Templates', 'Letters', 'Trash', 'Focus Mode', 'Settings', 'Help', 'Lock']
+    const order = ['Dashboard', 'Calendar', 'Tasks', 'My Caseload', 'Second Grid', 'New caseload', 'Reports', 'Contacts', 'Snippets', 'Templates', 'Letters', 'Trash', 'Focus mode', 'Settings', 'Help', 'Lock']
     expect(labels.filter(l => order.includes(l as string))).toEqual(order)
   })
 

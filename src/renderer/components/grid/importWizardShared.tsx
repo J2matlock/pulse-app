@@ -99,7 +99,7 @@ export function TypeBadge({ type }: { type: string }): React.ReactElement {
 
 /** ExcelJS reads only .xlsx; older formats need saving again in Excel first */
 export const OLD_SPREADSHEET = /\.(xls|ods)$/i
-export const OLD_SPREADSHEET_MESSAGE = 'This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose Save As → Excel Workbook (.xlsx), then try again.'
+export const OLD_SPREADSHEET_MESSAGE = 'This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose "Save As" → "Excel Workbook (.xlsx)", then try again.'
 
 /** Notes, comments and remarks columns */
 export function isNotesColumn(name: string): boolean {

@@ -31,7 +31,7 @@ describe('dialog semantics', () => {
 
   it('the recovery key screen is a named modal dialog with a 20px checkbox', () => {
     render(<RecoveryKeyDisplayModal open recoveryKey="ABCD-EFGH-JKLM-NPQR-STUV-WXYZ-2345" onClose={() => {}} />)
-    const dialog = screen.getByRole('dialog', { name: /Your Recovery Key/ })
+    const dialog = screen.getByRole('dialog', { name: /Your recovery key/ })
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(screen.getByRole('checkbox').className).toContain('w-5 h-5')
   })

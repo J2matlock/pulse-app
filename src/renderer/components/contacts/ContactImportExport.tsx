@@ -237,7 +237,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
             aria-label="Choose a vCard file to import"
           >
             <Upload className="h-4 w-4" />
-            Choose File
+            Choose a file…
           </button>
         </div>
       )
