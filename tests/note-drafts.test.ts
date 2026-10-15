@@ -209,7 +209,7 @@ describe('note drafts', () => {
 
 describe('drafts stay out of unencrypted storage', () => {
   it('the renderer draft modules never use browser storage or electron-store', () => {
-    for (const f of ['src/renderer/utils/noteDrafts.ts']) {
+    for (const f of ['src/renderer/utils/noteDrafts.ts', 'src/renderer/utils/formDrafts.ts', 'src/renderer/hooks/useLockSafeDraft.ts']) {
       const text = readFileSync(join(__dirname, '..', f), 'utf8')
       expect(text, f).not.toMatch(/localStorage|sessionStorage|electron-store/)
     }

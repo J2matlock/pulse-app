@@ -29,6 +29,7 @@ import { CommandPalette } from './components/shared/CommandPalette'
 import { KeyboardShortcutsModal } from './components/shared/KeyboardShortcutsModal'
 import { ToastHost } from './components/shared/ToastHost'
 import { UnsentNotesNotice } from './components/shared/UnsentNotesNotice'
+import { AppointmentDialogHost } from './components/calendar/AppointmentDialogHost'
 import { TourOverlay } from './components/shared/TourOverlay'
 import { MiniTour } from './components/shared/MiniTour'
 import { ScreenHint } from './components/onboarding/ScreenHint'
@@ -336,6 +337,7 @@ export default function App(): React.ReactElement {
             />
           )}
         </ErrorBoundary>
+        <ErrorBoundary fallback={null}><AppointmentDialogHost /></ErrorBoundary>
         {/* These get their own boundaries: a crash closes just that one, with a message */}
         {focusModeOpen && (
           <ErrorBoundary fallback={null} onError={() => {

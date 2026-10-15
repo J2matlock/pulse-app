@@ -17,6 +17,7 @@ import { SamplePill } from '../shared/SampleDataBanner'
 import { shortDate } from '../../../shared/dates'
 import { PrimaryButton } from '../ui/Button'
 import { loadNoteDraft, useHasNoteDraft } from '../../utils/noteDrafts'
+import { useLockSafeDraft } from '../../hooks/useLockSafeDraft'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
 type ContactType = typeof CONTACT_TYPES[number]
@@ -26,6 +27,13 @@ interface Tag {
   grid_id: number
   name: string
   color: string
+}
+
+interface ContactForm {
+  open: boolean
+  type: ContactType
+  label: string
+  value: string
 }
 
 interface ManualContact {
@@ -118,13 +126,16 @@ export function ProfileHeader({
   // Contact info state
   const [manualContacts, setManualContacts] = useState<ManualContact[]>([])
   const { copiedKey, copyToClipboard } = useCopyFeedbackKeyed()
-  const [showAddContact, setShowAddContact] = useState(false)
-  const [newContactType, setNewContactType] = useState<ContactType>('phone')
+  // The open "Add contact info" form survives a lock (R2)
+  const [contactForm, setContactForm] = useLockSafeDraft<ContactForm>(`contact-info:${row.row_id}`, () => ({ open: false, type: 'phone', label: '', value: '' }))
+  const { open: showAddContact, type: newContactType, label: newContactLabel, value: newContactValue } = contactForm
+  const setShowAddContact = (open: boolean) => setContactForm(f => ({ ...f, open }))
+  const setNewContactType = (type: ContactType) => setContactForm(f => ({ ...f, type }))
+  const setNewContactLabel = (label: string) => setContactForm(f => ({ ...f, label }))
+  const setNewContactValue = (value: string) => setContactForm(f => ({ ...f, value }))
   // After a save: "Want a Phone column for every client?" — a list-wide change, so it's
   // asked after the one-off entry is safe, not mixed into the form (C-10)
   const [columnOffer, setColumnOffer] = useState<ManualContact | null>(null)
-  const [newContactLabel, setNewContactLabel] = useState('')
-  const [newContactValue, setNewContactValue] = useState('')
 
   const rowId = row.row_id
   const hasDraft = useHasNoteDraft(rowId)
@@ -193,10 +204,7 @@ export function ProfileHeader({
     if (!await saveManualContacts([...manualContacts, entry])) return
     const hasColumn = columns.some(c => c.name.toLowerCase() === label.toLowerCase())
     setColumnOffer(hasColumn ? null : entry)
-    setNewContactValue('')
-    setNewContactLabel('')
-    setNewContactType('phone')
-    setShowAddContact(false)
+    setContactForm({ open: false, type: 'phone', label: '', value: '' })
   }
 
   /** A real column: every record gets one, and it's in the list, search and exports (R-27) */
