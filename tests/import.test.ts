@@ -183,7 +183,7 @@ describe('Column Type Auto-Detection', () => {
   })
 
   it('detects text for mixed/unrecognized data', async () => {
-    const csv = 'Notes\nSome random note about things\nAnother different observation here\nMore unique text data for testing\n'
+    const csv = 'Observation\nSome random note about things\nAnother different observation here\nMore unique text data for testing\n'
     const result = await parseImportFile(writeCsv('test.csv', csv))
     expect(result.detectedColumns[0].detectedType).toBe('text')
   })

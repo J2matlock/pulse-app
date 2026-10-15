@@ -26,6 +26,7 @@ import { assignAutoNumbers, bumpAutoNumbersPastValues } from './auto-number'
 import { addLink, createLinkedRecord, getLinkType, otherGridOf } from './links'
 import { holdsOne, linkColumnSpecs, type LinkDirection } from '../shared/links'
 import { LIVE_ROW, notTrashedRow } from '../shared/liveRecords'
+import { columnTraits } from '../shared/columnTraits'
 
 /** Type guard: checks if a string is a valid ColumnType. */
 function isValidColumnType(s: string): s is ColumnType {
@@ -39,10 +40,13 @@ function isValidColumnType(s: string): s is ColumnType {
 export interface DetectedColumn {
   index: number
   originalName: string
-  detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox'
+  /** 'notes' is long free text (case notes, comments): it keeps its line breaks and length */
+  detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox' | 'notes'
   samples: string[]  // first 5 non-empty values
   /** Most values look like "Smith, Jane" (offered: import as "Jane Smith") */
   lastFirstNames?: boolean
+  /** A date column: cells that say "TBD", "n/a" and the like instead of a date, in the whole file */
+  placeholders?: { count: number; example: string }
 }
 
 export interface ImportPreview {
@@ -68,6 +72,8 @@ export interface ImportPreview {
   hiddenRowCount?: number
   /** Headers of columns hidden in the spreadsheet (Excel only) */
   hiddenColumns?: string[]
+  /** Data rows below the header row (blank lines and a "Total" line left out) */
+  dataRowCount?: number
 }
 
 export interface ColumnMapping {
@@ -118,6 +124,17 @@ export interface ImportResult {
   skippedNames: string[]
   /** The records this import added, so it can be undone (moved to Trash) */
   newRowIds: number[]
+  /** Where each imported file column went, so the summary can describe it and set up its dates */
+  columns: Array<{ sourceIndex: number; id: number; name: string; type: string; created: boolean }>
+  /** First and last names were put together into one name */
+  combinedNames: boolean
+  /** Columns whose "Smith, Jane" names were turned into "Jane Smith" */
+  flippedColumns: string[]
+  /** Date columns with cells like "TBD": kept as typed, so they have no date yet */
+  placeholderDates: Array<{ column: string; count: number; example: string }>
+  sheetName?: string
+  /** 0-based row the column names were on */
+  headerRow: number
 }
 
 export interface HeaderDetectionResult {
@@ -165,6 +182,30 @@ const CHECKBOX_FALSE = new Set(['no', 'n', 'false', '0', 'off', 'unchecked', 'no
 /** Values that make a column look like a checkbox (words like "done" are too common in text columns) */
 const CHECKBOX_DETECT = new Set(['yes', 'no', 'y', 'n', 'true', 'false', '1', '0', 'x', '✓', '✔'])
 
+/**
+ * What people type in a date column when there's no date yet. They don't stop
+ * the column being a date column; the cells are kept as typed. Compared
+ * lower-cased and trimmed.
+ */
+export const DATE_PLACEHOLDERS: ReadonlySet<string> = new Set([
+  'tbd', 'tba', 'n/a', 'na', 'none', '-', '—', '–', '?', 'pending', 'unknown', 'not yet', 'waiting', 'x',
+])
+
+export function isDatePlaceholder(value: string): boolean {
+  return DATE_PLACEHOLDERS.has(value.trim().toLowerCase())
+}
+
+/** Share of a column's values (placeholders left out) that must read as dates (with at least 2) */
+const DATE_SHARE = 0.8
+
+/** Values written as dates, ignoring placeholders: all of them, or 80% and at least two */
+function mostlyDates(values: string[], allowSerial = false): boolean {
+  const real = values.filter(s => s.trim() !== '' && !isDatePlaceholder(s))
+  if (real.length === 0) return false
+  const dates = real.filter(s => looksLikeDate(s, allowSerial)).length
+  return dates === real.length || (dates >= 2 && dates / real.length >= DATE_SHARE)
+}
+
 function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   if (samples.length === 0) return 'text'
 
@@ -179,8 +220,9 @@ function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (nonEmpty.every(s => emailRe.test(s.trim()))) return 'email'
 
-  // Date: check before number so "2026-01-15" isn't caught as number
-  if (nonEmpty.every(s => looksLikeDate(s))) return 'date'
+  // Date: check before number so "2026-01-15" isn't caught as number. "TBD" or one
+  // typo doesn't make a date column text
+  if (mostlyDates(nonEmpty)) return 'date'
 
   // Checkbox: yes/no, y/n, true/false, x. A column of only 1s and 0s counts when it has both,
   // so a column of counts that happen to be 1 stays a number.
@@ -206,6 +248,20 @@ function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   // (handled at call site via header name check)
 
   return 'text'
+}
+
+/** Data rows read to decide a column's type, and how many filled values of them */
+const TYPE_SCAN_ROWS = 100
+const TYPE_SAMPLES = 20
+
+/** Headers that name running notes; free text under them keeps its length */
+const NOTES_HEADER_RE = /\b(notes?|comments?|remarks?|history|narrative)\b/i
+
+/** Long free text: notes, comments, a history. Average over 80 characters, any over 300, or a notes header */
+function looksLikeNotes(header: string, typing: string[], scanned: string[]): boolean {
+  if (NOTES_HEADER_RE.test(header)) return true
+  if (scanned.some(v => v.length > 300)) return true
+  return typing.length > 0 && typing.reduce((n, v) => n + v.length, 0) / typing.length > 80
 }
 
 function isShortDistinctText(value: string): boolean {
@@ -445,6 +501,34 @@ export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?
     hiddenRows: kept.map(k => hiddenRawRows?.has(k.i) ?? false),
     // Parallel to allRows: each row's line in the file, for messages (Q-041)
     rowNumbers: kept.map(k => k.i + 1),
+  }
+}
+
+/** A total, count or money amount, as a sheet's "Total" line holds */
+const TOTAL_VALUE_RE = /^[-(]?[$€£]?\s?[\d,]+(\.\d+)?%?\)?$/
+
+/**
+ * The last data row when it's a "Total" line (its first filled cell starts
+ * with "total" and every other filled cell is a number), or null. It adds up
+ * the rows above, so it isn't a record.
+ */
+export function totalsRowLabel(rows: string[][]): string | null {
+  const last = rows[rows.length - 1]
+  if (!last || rows.length < 2) return null
+  const filled = last.map(c => c.trim()).filter(Boolean)
+  const first = filled[0]
+  if (!first || !/^(grand\s+)?totals?\b/i.test(first)) return null
+  return filled.slice(1).every(v => TOTAL_VALUE_RE.test(v)) ? first : null
+}
+
+/** buildTable's result with a "Total" line at the bottom left out, and the warning that says so */
+function withoutTotalsRow<T extends { allRows: string[][]; hiddenRows: boolean[]; rowNumbers: number[] }>(table: T): { table: T; warning: string | null } {
+  const label = totalsRowLabel(table.allRows)
+  if (label === null) return { table, warning: null }
+  const n = table.allRows.length - 1
+  return {
+    table: { ...table, allRows: table.allRows.slice(0, n), hiddenRows: table.hiddenRows.slice(0, n), rowNumbers: table.rowNumbers.slice(0, n) },
+    warning: `Left out the "${label.slice(0, 40)}" line at the bottom of the sheet. It adds up the lines above it, so it isn't one of them.`,
   }
 }
 
@@ -712,10 +796,10 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     const detection = clampedIdx != null
       ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
       : detectHeaderRow(rawRows, mergedRanges)
-    const { headers, allRows, hiddenRows, rowNumbers } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, _parsedCache.hiddenRawRows)
+    const { table: { headers, allRows, hiddenRows, rowNumbers }, warning: totals } = withoutTotalsRow(buildTable(rawRows, detection.headerRowIndex, mergedRanges, _parsedCache.hiddenRawRows))
     return {
       headers, allRows, hiddenRows, rowNumbers, hiddenCols: _parsedCache.hiddenCols.filter(c => c < headers.length),
-      sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: _parsedCache.warnings,
+      sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: totals ? [..._parsedCache.warnings, totals] : _parsedCache.warnings,
       detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
     }
   }
@@ -793,7 +877,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
     : detectHeaderRow(rawRows, mergedRanges)
 
-  const { headers, allRows, hiddenRows, rowNumbers } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, hiddenRawRows)
+  const { table: { headers, allRows, hiddenRows, rowNumbers }, warning: totals } = withoutTotalsRow(buildTable(rawRows, detection.headerRowIndex, mergedRanges, hiddenRawRows))
 
   // Only cache if row count is within the size limit to avoid unbounded memory use
   if (rawRows.length <= MAX_CACHE_ROWS) {
@@ -805,7 +889,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
 
   return {
     headers, allRows, hiddenRows, rowNumbers, hiddenCols: hiddenCols.filter(c => c < headers.length),
-    sheets, rawRows, mergedRanges, warnings: parseWarnings,
+    sheets, rawRows, mergedRanges, warnings: totals ? [...parseWarnings, totals] : parseWarnings,
     detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
   }
 }
@@ -873,25 +957,27 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
     warnings: cached.warnings,
     ...hiddenInfo,
+    dataRowCount: 0,
   }
 
   const previewRows = dataRows.slice(0, 20)
 
   const detectedColumns: DetectedColumn[] = headers.map((name, i) => {
-    const samples = dataRows.slice(0, 20)
-      .map(row => String(row[i] || '').trim())
-      .filter(s => s !== '')
-      .slice(0, 5)
-    let type = detectColumnType(samples)
+    const filled = (rows: string[][]) => rows.map(row => String(row[i] || '').trim()).filter(s => s !== '')
+    // Shown in the preview
+    const samples = filled(dataRows.slice(0, 20)).slice(0, 5)
+    // Read to decide the type: more than the five shown, so one odd value early on doesn't decide it
+    const typing = filled(dataRows.slice(0, TYPE_SCAN_ROWS)).slice(0, TYPE_SAMPLES)
+    let type = detectColumnType(typing)
 
     // Header-name hint: if the column name strongly suggests a date, and at least some
-    // non-empty/non-dash values parse as dates, override to 'date'
+    // values (placeholders like "TBD" left out) parse as dates, override to 'date'
     const nameLower = name.toLowerCase()
     const dateKeywords = ['date', 'due', 'dob', 'birth', 'expir', 'review', 'deadline', 'assessment', 'contact due',
       'plan of care', 'last contact', 'start date', 'end date', 'created', 'updated', 'scheduled']
     const looksLikeDateCol = dateKeywords.some(kw => nameLower.includes(kw))
     if (looksLikeDateCol) {
-      const meaningful = samples.filter(s => s !== '—' && s !== '-' && s !== 'N/A' && s !== '')
+      const meaningful = typing.filter(s => !isDatePlaceholder(s))
       if (type === 'text' && meaningful.length > 0 && meaningful.some(s => looksLikeDate(s, true))) {
         type = 'date'
       }
@@ -904,17 +990,26 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     }
 
     // Zip codes and ID numbers are labels, not quantities
-    if (type === 'number' && /\b(zip|postal|id|ssn|mrn|medicaid)\b|#/i.test(name) && samples.every(v => /^\d+$/.test(v))) {
+    if (type === 'number' && /\b(zip|postal|id|ssn|mrn|medicaid)\b|#/i.test(name) && typing.every(v => /^\d+$/.test(v))) {
       type = 'text'
     }
 
+    // Long free text (case notes, comments) is a notes column, not a one-line text box
+    if (type === 'text' && looksLikeNotes(name, typing, filled(dataRows.slice(0, TYPE_SCAN_ROWS)))) type = 'notes'
+
     const nameSamples = dataRows.slice(0, 50).map(row => String(row[i] || '').trim()).filter(Boolean)
+    let placeholders: DetectedColumn['placeholders']
+    if (type === 'date') {
+      const found = filled(dataRows).filter(isDatePlaceholder)
+      if (found.length > 0) placeholders = { count: found.length, example: found[0]! }
+    }
     return {
       index: i,
       originalName: name,
       detectedType: type,
       samples,
       ...(type === 'text' && looksLastFirst(nameSamples) ? { lastFirstNames: true } : {}),
+      ...(placeholders ? { placeholders } : {}),
     }
   })
 
@@ -930,6 +1025,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
     warnings: cached.warnings,
     ...hiddenInfo,
+    dataRowCount: dataRows.length,
   }
 }
 
@@ -1048,7 +1144,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
   // Build column map: sourceIndex → {columnId, type}
   // Create new columns as needed
-  const colMap = new Map<number, { columnId: number; type: string }>()
+  const colMap = new Map<number, { columnId: number; type: string; name: string; created: boolean }>()
 
   // Get max existing column position
   const maxPosRow = db.prepare('SELECT MAX(position) as p FROM columns WHERE grid_id = ?').get(gridId) as { p: number | null }
@@ -1069,12 +1165,12 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
           INSERT INTO columns (grid_id, name, column_type, position, created_at)
           VALUES (?, ?, ?, ?, datetime('now'))
         `).run(gridId, colName, colType, nextPos++)
-        colMap.set(mapping.sourceIndex, { columnId: result.lastInsertRowid as number, type: colType })
+        colMap.set(mapping.sourceIndex, { columnId: result.lastInsertRowid as number, type: colType, name: colName, created: true })
       } else {
         // Existing column. One Pulse works out itself can't take imported values.
-        const col = db.prepare('SELECT column_type FROM columns WHERE id = ?').get(mapping.action as number) as { column_type: string } | undefined
+        const col = db.prepare('SELECT column_type, name FROM columns WHERE id = ?').get(mapping.action as number) as { column_type: string; name: string } | undefined
         if (col && !canImportInto(col.column_type)) continue
-        colMap.set(mapping.sourceIndex, { columnId: mapping.action as number, type: col?.column_type || 'text' })
+        colMap.set(mapping.sourceIndex, { columnId: mapping.action as number, type: col?.column_type || 'text', name: col?.name ?? headers[mapping.sourceIndex] ?? '', created: false })
       }
     }
 
@@ -1090,7 +1186,8 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         const gridRowCount = (db.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
         if (nameColCellCount === 0 && gridRowCount === 0) {
           db.prepare('DELETE FROM columns WHERE id = ?').run(nameColIdInner)
-          const firstEntry = [...colMap.entries()][0]
+          // A notes column or a checkbox can't name a record: the first one that can
+          const firstEntry = [...colMap.entries()].find(([, info]) => columnTraits(info.type).canName) ?? [...colMap.entries()][0]
           if (firstEntry) {
             db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(firstEntry[1].columnId)
             nameColIdInner = firstEntry[1].columnId
@@ -1225,13 +1322,19 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       ? preview.detectedColumns.filter(c => c.lastFirstNames).map(c => c.index)
       : [])
     const unreadableDates = new Map<number, number>()
+    /** "TBD", "n/a"… in a date column, per column: how many and the first one (kept as typed) */
+    const placeholderDates = new Map<number, { count: number; example: string }>()
+    const flippedCols = new Set<number>()
     const unclearChecks = new Map<number, number>()
     /** Cells cut to the length limit, per column: how many and the first file row (Q-081) */
     const cutCells = new Map<number, { n: number; firstRow: number }>()
     const cellValue = (row: string[], srcIdx: number): string => {
       const raw = String(row[srcIdx] || '').trim()
       if (combine && srcIdx === combine.firstIndex) return [raw, String(row[combine.lastIndex] || '').trim()].filter(Boolean).join(' ')
-      return flipCols.has(srcIdx) ? flipLastFirst(raw) : raw
+      if (!flipCols.has(srcIdx)) return raw
+      const flipped = flipLastFirst(raw)
+      if (flipped !== raw) flippedCols.add(srcIdx)
+      return flipped
     }
     const birthAs1900s = new Map<number, number>()
     const today = localDateString()
@@ -1338,7 +1441,13 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
           ? importedDate(importRow, srcIdx, true)
           : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
         if (holdsDate(info.type) && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-          unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
+          if (isDatePlaceholder(normalized)) {
+            const p = placeholderDates.get(srcIdx)
+            if (p) p.count++
+            else placeholderDates.set(srcIdx, { count: 1, example: normalized.trim() })
+          } else {
+            unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
+          }
         }
         if (info.type === 'checkbox' && unclearCheckbox(rawVal)) {
           unclearChecks.set(srcIdx, (unclearChecks.get(srcIdx) ?? 0) + 1)
@@ -1423,7 +1532,16 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   clearImportCache()
 
   logger.info('import', 'Import complete', { rowsImported: imported, skipped, warningCount: warnings.length, durationMs: Date.now() - importStart })
-  return { imported, skipped, warnings, skippedNames, newRowIds }
+  const columnName = (srcIdx: number): string => headers[srcIdx] ?? `Column ${srcIdx + 1}`
+  return {
+    imported, skipped, warnings, skippedNames, newRowIds,
+    columns: [...colMap.entries()].map(([sourceIndex, info]) => ({ sourceIndex, id: info.columnId, name: info.name, type: info.type, created: info.created })),
+    combinedNames: !!combine,
+    flippedColumns: [...flippedCols].map(columnName),
+    placeholderDates: [...placeholderDates].map(([srcIdx, p]) => ({ column: columnName(srcIdx), count: p.count, example: p.example })),
+    ...(sheetName ? { sheetName } : {}),
+    headerRow: cached.detectedHeaderRow,
+  }
   } catch (err) {
     logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err), row: currentRow === null ? undefined : currentRow })
     if (began) {

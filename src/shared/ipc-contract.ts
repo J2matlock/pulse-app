@@ -173,7 +173,7 @@ export interface ImportFilePreview {
   detectedColumns: Array<{
     index: number
     originalName: string
-    detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox'
+    detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox' | 'notes'
     /** First 5 non-empty values */
     samples: string[]
     /** Most values look like "Smith, Jane" */

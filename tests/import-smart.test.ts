@@ -126,7 +126,7 @@ describe('grouped headers and merged cells', () => {
 
   it('warns about values in a date column that are not dates', async () => {
     const file = join(dir, 'dates.csv')
-    writeFileSync(file, 'Name,Next Review\nAna,3/1/2026\nBen,pending\nCy,TBD\n')
+    writeFileSync(file, 'Name,Next Review\nAna,3/1/2026\nBen,pending\nCy,TBD\nDee,next spring\nEd,after court\n')
     const preview = await parseImportFile(file)
     const grid = Number(testDb.db.prepare("INSERT INTO grids (name, created_at, updated_at) VALUES ('G', datetime('now'), datetime('now'))").run().lastInsertRowid)
     const result = await executeImport({
@@ -134,6 +134,8 @@ describe('grouped headers and merged cells', () => {
       columnMappings: [{ sourceIndex: 0, action: 'create' }, { sourceIndex: 1, action: 'create', newType: 'date' }],
     }, preview)
     expect(result.warnings.some(w => w.startsWith('2 values in "Next Review"'))).toBe(true)
+    // "pending" and "TBD" mean no date yet: counted for the summary, not warned about (UX Q1a)
+    expect(result.placeholderDates).toEqual([{ column: 'Next Review', count: 2, example: 'pending' }])
   })
 })
 
