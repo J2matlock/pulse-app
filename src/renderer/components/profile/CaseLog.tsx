@@ -14,7 +14,8 @@ import { builtinFormatsFor, composeNote, parseCustomFormats, type NoteFormat } f
 import { NoteFormatsDialog } from './NoteFormatsDialog'
 import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
-import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { expandVariables, detectTrigger } from '../../utils/snippetExpander'
+import { SnippetMenu, caretRectInTextarea, handleSnippetMenuKey, menuFor, snippetStatusText, type CaretRect, type SnippetMenuState } from './SnippetMenu'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -234,8 +235,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
   // With snippets switched off the "/" menu finds nothing to offer
   const snippets = snippetsOn ? (externalSnippets ?? internalSnippets) : NO_SNIPPETS
-  const [snippetMenu, setSnippetMenu] = useState<{ items: Snippet[]; query: string } | null>(null)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [snippetMenu, setSnippetMenu] = useState<SnippetMenuState | null>(null)
+  const [snippetCaret, setSnippetCaret] = useState<CaretRect | null>(null)
+  // The first match is highlighted as the menu opens, so Enter inserts it (R2)
+  const [selectedIndex, setSelectedIndex] = useState(0)
   // The "/" menu is a listbox the text box points at (audit A06-32)
   const snippetMenuId = useId()
   const contentRef = useRef<HTMLTextAreaElement>(null)
@@ -243,8 +246,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const selectedIndexRef = useRef(selectedIndex)
   useEffect(() => { snippetMenuRef.current = snippetMenu }, [snippetMenu])
   useEffect(() => { selectedIndexRef.current = selectedIndex }, [selectedIndex])
-  // Reset selection when menu contents change
-  useEffect(() => { setSelectedIndex(-1) }, [snippetMenu?.items.length])
+  // Back to the first match when the matches change
+  useEffect(() => { setSelectedIndex(0) }, [snippetMenu?.items.length])
 
   useEffect(() => {
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_formats')
@@ -337,41 +340,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     const cursor = e.target.selectionStart
     const before = value.slice(0, cursor)
     const match = detectTrigger(before)
-    if (match) {
-      const matched = matchSnippets(snippets, match.query)
-      setSnippetMenu(matched.length > 0 ? { items: matched, query: match.query } : null)
-    } else {
-      setSnippetMenu(null)
-    }
+    const menu = match ? menuFor(snippetsOn ? snippets : NO_SNIPPETS, match.query, snippetMenuRef.current) : null
+    // With snippets switched off, "/" is just a slash
+    setSnippetMenu(snippetsOn ? menu : null)
+    if (menu) setSnippetCaret(caretRectInTextarea(e.target, cursor))
   }
 
   function handleTextareaKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const menu = snippetMenuRef.current
-    if (menu && menu.items.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSelectedIndex(i => Math.min(i + 1, menu.items.length - 1))
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSelectedIndex(i => Math.max(i - 1, 0))
-        return
-      }
-      // Enter picks a snippet only once one was chosen with the arrow keys; otherwise it's a new line
-      if (e.key === 'Tab' || (e.key === 'Enter' && !isMod(e) && selectedIndexRef.current >= 0)) {
-        e.preventDefault()
-        const idx = selectedIndexRef.current >= 0 ? selectedIndexRef.current : 0
-        applySnippet(menu.items[idx]!)
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setSnippetMenu(null)
-        setSelectedIndex(-1)
-        return
-      }
-    }
+    if (handleSnippetMenuKey(e, snippetMenuRef.current, selectedIndexRef.current, {
+      select: setSelectedIndex, pick: applySnippet, close: () => setSnippetMenu(null),
+    })) return
     if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); handleAdd() }
   }
 
@@ -703,7 +681,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             onChange={handleContentInput}
             onKeyDown={handleTextareaKeyDown}
             aria-controls={snippetMenu && snippetMenu.items.length > 0 ? snippetMenuId : undefined}
-            aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 && selectedIndex >= 0 ? `${snippetMenuId}-opt-${selectedIndex}` : undefined}
+            aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 ? `${snippetMenuId}-opt-${Math.min(selectedIndex, snippetMenu.items.length - 1)}` : undefined}
             placeholder={`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry…`}
             rows={3}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
@@ -712,43 +690,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             style={{ fontSize: 15 }}
           />
 
-          <span role="status" className="sr-only">
-            {snippetMenu && snippetMenu.items.length > 0
-              ? `${snippetMenu.items.length} ${snippetMenu.items.length === 1 ? 'snippet matches' : 'snippets match'}. Tab inserts the first, or the one you choose with the up and down arrows.`
-              : ''}
-          </span>
+          <span role="status" className="sr-only">{snippetStatusText(snippetMenu)}</span>
 
-          {/* Snippet autocomplete */}
-          {snippetMenu && snippetMenu.items.length > 0 && (
-            <div className="absolute left-0 bottom-full mb-1 z-50 bg-white dark:bg-slate-800
-                            border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 min-w-48 max-w-xs">
-              <div id={snippetMenuId} role="listbox" aria-label="Snippets">
-              {snippetMenu.items.map((s, i) => (
-                <div
-                  key={s.id}
-                  id={`${snippetMenuId}-opt-${i}`}
-                  role="option"
-                  aria-selected={i === selectedIndex}
-                  onMouseDown={e => { e.preventDefault(); applySnippet(s) }}
-                  className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left cursor-pointer
-                             ${i === selectedIndex
-                               ? 'bg-blue-100 dark:bg-blue-900/40'
-                               : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                             }`}
-                >
-                  <span className="text-sm font-mono text-blue-700 dark:text-blue-300 flex-shrink-0">
-                    /{s.trigger_text}
-                  </span>
-                  <span className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                    {s.expansion.slice(0, 40)}
-                  </span>
-                </div>
-              ))}
-              </div>
-              <div aria-hidden="true" className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-                <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · Up or Down, then Enter, picks another · Esc closes</span>
-              </div>
-            </div>
+          {/* Snippet autocomplete: on the popover layer under the caret, so the card can't clip it */}
+          {snippetMenu && (
+            <SnippetMenu id={snippetMenuId} menu={snippetMenu} selected={selectedIndex} caret={snippetCaret}
+              onPick={applySnippet} onClose={() => setSnippetMenu(null)} />
           )}
         </div>
         {/* Static help, not in the placeholder, so it's still there once typing starts (C-12) */}
