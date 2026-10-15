@@ -2,13 +2,19 @@ import React from 'react'
 
 export const ROW_HEIGHTS = { compact: 44, comfortable: 44, spacious: 52 } as const
 export const HANDLE_WIDTH = 32  // Width of the row drag-handle column
-// The open-record and star buttons each have their own column, a 44px click area apiece (Q-103, D-034)
+// The open-record, star and row-menu buttons each have their own column, a 44px click area apiece (Q-103, D-034)
 export const OPEN_COL_WIDTH = 44
 export const STAR_COL_WIDTH = 44
-/** The open and star columns together: the room between the select box and the next column */
-export const PROFILE_BTN_WIDTH = OPEN_COL_WIDTH + STAR_COL_WIDTH
+/** The "⋯" that opens the row's menu by mouse (UX-B-01) */
+export const MENU_COL_WIDTH = 44
+/** The open, star and menu columns together: the room between the select box and the next column */
+export const PROFILE_BTN_WIDTH = OPEN_COL_WIDTH + STAR_COL_WIDTH + MENU_COL_WIDTH
 /** The built-in Tags column: a record's tags from its page (G-37) */
 export const TAGS_COL_WIDTH = 160
+/** The "+" after the last column header that adds a column, as a spreadsheet would (UX-B-03) */
+export const ADD_COL_WIDTH = 44
+/** Room under the last row while the bulk bar floats over the list: its height plus its gap (UX-B-25) */
+export const BULK_BAR_ROOM = 112
 
 // Auto-fit column sizing constants
 export const CHAR_WIDTH_HEADER = 9
@@ -18,6 +24,31 @@ export const CELL_PADDING = 32
 export const MIN_COL_WIDTH = 60
 export const DEFAULT_COL_WIDTH = 80
 export const MAX_AUTO_FIT_WIDTH = 400
+
+/** Kept-in-view (frozen) columns may take at most this share of the list's width (UX-B-13) */
+export const FROZEN_MAX_SHARE = 0.6
+/** A column created this recently counts as just added: it's scrolled to and lit (UX-B-30) */
+export const NEW_COLUMN_MS = 60_000
+
+/** How many of the first `wanted` columns can be kept in view within `room` px after the lead cells */
+export function frozenCountThatFits(columns: ReadonlyArray<{ width: number }>, wanted: number, leadingWidth: number, room: number): number {
+  let used = leadingWidth
+  let n = 0
+  for (const col of columns.slice(0, wanted)) {
+    used += Math.max(col.width, MIN_COL_WIDTH)
+    if (used > room) break
+    n++
+  }
+  return n
+}
+
+/** A width that shows a column's whole name in its header, with room for its icons */
+export function headerFitWidth(name: string): number {
+  return Math.min(name.length * CHAR_WIDTH_HEADER + HEADER_PADDING, MAX_AUTO_FIT_WIDTH)
+}
+
+/** The edge of the kept-in-view columns casts a shadow, so what scrolls under it reads as behind (UX-A-24) */
+export const FROZEN_EDGE_STYLE: React.CSSProperties = { borderRightWidth: 2, borderRightColor: '#94a3b8', boxShadow: '4px 0 6px -2px rgba(15, 23, 42, 0.3)' }
 
 // Virtual scrolling
 export const GROUP_HEADER_HEIGHT = 44
@@ -93,10 +124,8 @@ function withLabel(node: React.ReactElement, label: string): React.ReactElement 
 }
 
 /**
- * List toolbar buttons on a narrow window (V1): the toolbar is a size container.
- * Under about 1150px the buttons drop their icons; under about 1020px the
- * less-used ones show only their icon (with the name as their label and tooltip).
- * Either way the row doesn't wrap and take a row of the list.
+ * List toolbar buttons (V1, UX-B-09): the toolbar is a size container. Under about
+ * 1280px the buttons drop their icons to make room; their names stay at every width,
+ * and what still doesn't fit folds into the More menu (GridToolbar's tiers).
  */
-export const TOOLBAR_ICON = '@max-6xl:hidden @max-5xl:inline'
-export const TOOLBAR_LABEL = '@max-5xl:hidden'
+export const TOOLBAR_ICON = '@max-7xl:hidden'

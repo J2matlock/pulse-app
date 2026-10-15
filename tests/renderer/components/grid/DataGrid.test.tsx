@@ -321,9 +321,9 @@ describe('DataGrid', () => {
     it('renders column headers from store', async () => {
       renderDataGrid()
       await flushEffects()
-      // GridHeaderRow renders: select-all checkbox + open + star + 4 data columns = 7 columnheaders
+      // GridHeaderRow renders: select-all checkbox + open + star + menu + 4 data columns + "Add a column" = 9 columnheaders
       const headers = screen.getAllByRole('columnheader')
-      expect(headers.length).toBe(TEST_COLUMNS.length + 3)
+      expect(headers.length).toBe(TEST_COLUMNS.length + 5)
     })
 
     it('renders rows with cell values', async () => {
@@ -334,8 +334,8 @@ describe('DataGrid', () => {
       expect(rows.length).toBe(6)
       // Check gridcell elements exist: 5 rows * 4 columns = 20 data cells
       expect(dataCells().length).toBe(20)
-      // and each row has a cell for every header, select, open and star included (AUDIT-012): 5 * 7
-      expect(screen.getAllByRole('gridcell').length).toBe(35)
+      // and each row has a cell for every header, select, open, star and menu included (AUDIT-012): 5 * 8
+      expect(screen.getAllByRole('gridcell').length).toBe(40)
     })
 
     it('is a single Tab stop: only one cell can be tabbed to (G-32)', async () => {
@@ -669,6 +669,29 @@ describe('DataGrid', () => {
       expect(screen.getByLabelText('Deselect client')).toBeTruthy()
     })
 
+    it('lights the header of a column just added, and not on the first load (UX-B-30)', async () => {
+      setupStores({ loadedGridId: 1 })
+      renderDataGrid()
+      await flushEffects()
+      expect(document.querySelector('[data-flash]')).toBeNull()
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+      const added = { ...makeColumn(5, 'Housing status', 'text'), created_at: now } as Column
+      await act(async () => { useGridStore.setState({ columns: [...TEST_COLUMNS, added] }) })
+      await flushEffects()
+      const lit = document.querySelector('[data-flash]')
+      expect(lit).toBeTruthy()
+      expect(lit!.textContent).toContain('Housing status')
+    })
+
+    it('leaves room under the last row while the bulk bar shows (UX-B-25)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.queryByTestId('bulk-bar-room')).toBeNull()
+      fireEvent.click(screen.getAllByLabelText('Select client')[0]!)
+      await flushEffects()
+      expect(screen.getByTestId('bulk-bar-room')).toBeTruthy()
+    })
+
     it('"Select all" selects only the records the search shows (G-05)', async () => {
       setupStores({ searchQuery: 'Client 3' })
       renderDataGrid()
@@ -807,8 +830,8 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // 3 fixed headers (select-all, open, star) + 4 data columns = 7
-      expect(headers.length).toBe(7)
+      // 4 fixed headers (select-all, open, star, menu) + 4 data columns + "Add a column" = 9
+      expect(headers.length).toBe(9)
     })
 
     it('sorted column shows correct aria-sort attribute', async () => {
@@ -818,10 +841,10 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // Data columns start at index 3 (after the select-all, open and star headers)
-      expect(headers[3]!.getAttribute('aria-sort')).toBe('ascending')
+      // Data columns start at index 4 (after the select-all, open, star and menu headers)
+      expect(headers[4]!.getAttribute('aria-sort')).toBe('ascending')
       // Second data column should be 'none'
-      expect(headers[4]!.getAttribute('aria-sort')).toBe('none')
+      expect(headers[5]!.getAttribute('aria-sort')).toBe('none')
     })
 
     it('descending sort shows correct aria-sort', async () => {
@@ -831,8 +854,8 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // Due Date is column index 1 → header index 4
-      expect(headers[4]!.getAttribute('aria-sort')).toBe('descending')
+      // Due Date is column index 1 → header index 5
+      expect(headers[5]!.getAttribute('aria-sort')).toBe('descending')
     })
 
     it('sorts again by deadline when the counts arrive after the records (R1)', async () => {
@@ -898,17 +921,20 @@ describe('DataGrid', () => {
       expect(screen.getByRole('grid', { name: 'Caseload' })).toBeTruthy()
     })
 
-    // AUDIT-012: every header has a cell in each row, in the same place
+    // AUDIT-012: every header has a cell in each row, in the same place. The last header is
+    // the "Add a column" button (UX-B-03), which no row has a cell under
     function expectCellsMatchHeaders(): void {
       const grid = screen.getByRole('grid')
       const headers = screen.getAllByRole('columnheader')
       expect(grid.getAttribute('aria-colcount')).toBe(String(headers.length))
       expect(headers.map(h => h.getAttribute('aria-colindex'))).toEqual(headers.map((_, i) => String(i + 1)))
+      expect(headers[headers.length - 1]!.getAttribute('aria-label')).toBe('Add a column')
+      const dataHeaders = headers.slice(0, -1)
       const bodyRows = screen.getAllByRole('row').slice(1)
       expect(bodyRows.length).toBeGreaterThan(0)
       for (const row of bodyRows) {
         const cells = Array.from(row.querySelectorAll('[role="gridcell"]'))
-        expect(cells.map(c => c.getAttribute('aria-colindex'))).toEqual(headers.map((_, i) => String(i + 1)))
+        expect(cells.map(c => c.getAttribute('aria-colindex'))).toEqual(dataHeaders.map((_, i) => String(i + 1)))
       }
     }
 
@@ -928,7 +954,7 @@ describe('DataGrid', () => {
       })
       renderDataGrid()
       await flushEffects()
-      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 5)
+      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 7)
       expectCellsMatchHeaders()
     })
 
@@ -949,6 +975,10 @@ describe('DataGrid', () => {
       await flushEffects()
       const tip = screen.getByRole('button', { name: 'Dismiss tip' })
       expect(screen.getByRole('grid').contains(tip)).toBe(false)
+      // Mouse-first words, no right-click or shortcut clauses (UX-B-02, UX-A-09)
+      const tipText = tip.parentElement!.textContent!
+      expect(tipText).toBe("Tip: click a column name to sort. The ⋯ next to it has deadline rules, hiding and more. The person icon opens a client's page.")
+      expect(tipText).not.toMatch(/right-click|Shift\+\?/i)
       unmount()
       setupStores({ rows: [] })
       renderDataGrid()
@@ -981,7 +1011,7 @@ describe('DataGrid', () => {
     it('each row has profile navigation button', async () => {
       renderDataGrid()
       await flushEffects()
-      const profileBtns = screen.getAllByLabelText('Open client profile')
+      const profileBtns = screen.getAllByLabelText("Open client's page")
       expect(profileBtns.length).toBe(5)
     })
   })

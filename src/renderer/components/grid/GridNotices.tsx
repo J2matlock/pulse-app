@@ -11,7 +11,8 @@ export function GridHintBanner({ onDismiss }: { onDismiss: () => void }): React.
   const { t } = useVocab()
   return (
     <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-600 dark:text-blue-300 px-3 py-1.5 flex-shrink-0">
-      <span>Tip: Click column headers to sort &middot; Right-click column headers for deadline rules, tracking &amp; more &middot; Right-click {t('record', { article: true })} for options &middot; Press <kbd className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800/40 font-mono">Shift+?</kbd> for all shortcuts</span>
+      {/* Mouse-first, one line, no shortcuts (Help has them) (UX-B-02, UX-A-09) */}
+      <span>Tip: click a column name to sort. The ⋯ next to it has deadline rules, hiding and more. The person icon opens {t('record', { article: true })}'s page.</span>
       <button
         onClick={onDismiss}
         className="hit-44 ml-3 p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800/40 text-blue-400 dark:text-blue-400"

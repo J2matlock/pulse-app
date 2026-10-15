@@ -40,6 +40,7 @@ import type { BulkActionBarProps } from '../../../../src/renderer/components/gri
 import type { GridRow, Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
+import { IPC } from '../../../../src/shared/ipc-channels'
 
 function makeRow(id: number, isActive = 1): GridRow {
   return {
@@ -92,10 +93,10 @@ describe('BulkActionBar', () => {
     expect(screen.getByText('1 client selected')).toBeTruthy()
   })
 
-  it('Delete button calls setBulkDeleteTarget', () => {
+  it('Move to the Trash (the words of its confirm, UX-B-25) calls setBulkDeleteTarget', () => {
     const setBulkDeleteTarget = vi.fn()
     render(<BulkActionBar {...makeProps({ setBulkDeleteTarget })} />)
-    fireEvent.click(screen.getByText('Delete'))
+    fireEvent.click(screen.getByText('Move to the Trash…'))
     expect(setBulkDeleteTarget).toHaveBeenCalledWith(true)
   })
 
@@ -112,7 +113,7 @@ describe('BulkActionBar', () => {
 
   it('shows Archive button when all selected rows are active', () => {
     render(<BulkActionBar {...makeProps()} />)
-    expect(screen.getByText('Archive')).toBeTruthy()
+    expect(screen.getByText('Archive…')).toBeTruthy()
     expect(screen.queryByText('Unarchive')).toBeNull()
   })
 
@@ -120,8 +121,34 @@ describe('BulkActionBar', () => {
     // The question shows only when an archived record has upcoming appointments
     vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: 2 })
     render(<BulkActionBar {...makeProps()} />)
-    fireEvent.click(screen.getByText('Archive'))
+    fireEvent.click(screen.getByText('Archive…'))
     expect(await screen.findByText(/hidden from the caseload\. Unarchiving/)).toBeTruthy()
+  })
+
+  it('asks with the same Archive dialog as one record, reason included, even with no appointments (UX-B-26)', async () => {
+    render(<BulkActionBar {...makeProps()} />)
+    fireEvent.click(screen.getByText('Archive…'))
+    expect(screen.getByRole('heading', { name: 'Archive 2 clients' })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Moved away' } })
+    vi.mocked(safeInvoke).mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    await vi.waitFor(() => expect(vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.ROW_ARCHIVE)).toHaveLength(2))
+    expect(vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.ROW_ARCHIVE).map(c => c.slice(1))).toEqual([[1, 'Moved away'], [2, 'Moved away']])
+  })
+
+  it('archives in one bulk step when no reason is given', async () => {
+    render(<BulkActionBar {...makeProps()} />)
+    fireEvent.click(screen.getByText('Archive…'))
+    vi.mocked(safeInvoke).mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    await vi.waitFor(() => expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(IPC.ROW_BULK_ACTION, 'archive', [1, 2]))
+    expect(vi.mocked(safeInvoke).mock.calls.some(c => c[0] === IPC.ROW_ARCHIVE)).toBe(false)
+  })
+
+  it('says "Change a column…", not "Bulk Edit" (UX-B-25)', () => {
+    render(<BulkActionBar {...makeProps()} />)
+    expect(screen.getByText('Change a column…')).toBeTruthy()
+    expect(screen.queryByText('Bulk Edit')).toBeNull()
   })
 
   it('shows Unarchive button when all selected rows are archived', () => {
@@ -131,7 +158,7 @@ describe('BulkActionBar', () => {
       rowById: new Map(archivedRows.map(r => [r.row_id, r])),
     })} />)
     expect(screen.getByText('Unarchive')).toBeTruthy()
-    expect(screen.queryByText('Archive')).toBeNull()
+    expect(screen.queryByText('Archive…')).toBeNull()
   })
 
   it('shows Move to caseload button', () => {

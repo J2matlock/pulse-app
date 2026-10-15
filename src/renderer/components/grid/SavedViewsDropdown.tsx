@@ -2,12 +2,14 @@ import { useRef, useState } from 'react'
 import { clampLeft } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
 import { Layers, Trash2, Plus, X } from 'lucide-react'
-import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
+import { TOOLBAR_ICON } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
+import { useVocab } from '../../hooks/useVocab'
 
 export function SavedViewsDropdown() {
+  const { t } = useVocab()
   const { savedViews } = useGridStore(useShallow(s => ({
     savedViews: s.savedViews,
   })))
@@ -59,7 +61,9 @@ export function SavedViewsDropdown() {
         ref={btnRef}
         className={`btn-secondary ${open ? 'bg-purple-50 dark:bg-purple-900/30' : ''}`}
         style={{ minHeight: 36, padding: '0 12px', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}
-        title="Views"
+        title={`Saved views: the way the ${t('list')} looks, saved to come back to`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
         onClick={() => {
           setOpen(prev => !prev)
           setSaving(false)
@@ -67,7 +71,7 @@ export function SavedViewsDropdown() {
         }}
       >
         <Layers size={16} className={TOOLBAR_ICON} />
-        <span className={TOOLBAR_LABEL}>Views</span>
+        <span>Saved views</span>
         {savedViews.length > 0 && (
           <span
             className="bg-purple-500 text-white text-sm"
@@ -127,16 +131,18 @@ export function SavedViewsDropdown() {
                   padding: '10px 12px 6px',
                 }}
               >
-                Saved Views
+                Saved views
               </div>
 
               {/* View list */}
               {savedViews.length === 0 ? (
                 <div
-                  className="text-gray-500 dark:text-gray-400"
-                  style={{ padding: '16px 12px', fontSize: 15, textAlign: 'center' }}
+                  className="text-gray-600 dark:text-gray-300"
+                  style={{ padding: '12px 12px 8px', fontSize: 15 }}
                 >
-                  No saved views yet
+                  {/* What a view holds, so it isn't mistaken for a saved filter (UX-B-19) */}
+                  <p className="font-medium text-gray-500 dark:text-gray-400 mb-1">No saved views yet</p>
+                  <p>Save the way the {t('list')} looks right now — filters, sort, grouping and hidden columns — and come back to it with one click.</p>
                 </div>
               ) : (
                 <div style={{ maxHeight: 240, overflowY: 'auto' }}>
@@ -210,7 +216,7 @@ export function SavedViewsDropdown() {
                     onClick={() => setSaving(true)}
                   >
                     <Plus size={16} />
-                    Save current view...
+                    Save how it looks now…
                   </button>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -226,7 +232,8 @@ export function SavedViewsDropdown() {
                         borderRadius: 6,
                         outline: 'none',
                       }}
-                      placeholder="View name"
+                      placeholder="Name this view…"
+                      aria-label="Name for this view"
                       value={name}
                       onChange={e => setName(e.target.value)}
                       onKeyDown={handleKeyDown}

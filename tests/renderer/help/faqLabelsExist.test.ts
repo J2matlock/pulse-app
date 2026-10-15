@@ -40,7 +40,6 @@ const ALLOWED = new Set<string>([
  * does, so the entry gets removed and the label is checked for real from then on.
  */
 const PENDING = new Set<string>([
-  'Saved views',                 // P3a renames the "Views" button
 ])
 
 function sourceFiles(dir: string): string[] {

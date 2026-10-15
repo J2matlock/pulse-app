@@ -684,7 +684,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'docs-batch',
     question: 'How do I print letters or address labels for many at once?',
-    answer: 'Select {record:many} in the {list} and click "Print documents…", or choose "Documents and labels…" in the Export menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert a detail" adds any column, a deadline\'s due date, or a column of a linked {record}.',
+    answer: 'Select {record:many} in the {list} and click "Letters and labels…", or choose "Letters and labels…" in the More menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert a detail" adds any column, a deadline\'s due date, or a column of a linked {record}.',
     category: 'snippets-templates',
     feature: 'letters',
   },

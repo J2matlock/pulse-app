@@ -45,7 +45,8 @@ export function CancelAppointmentsCheckbox({ count, checked, onChange, many = fa
 }
 
 export interface ArchiveDialogProps {
-  archiveTarget: number | null
+  /** One record (from its row) or several (from the bulk bar): the same dialog either way (UX-B-26) */
+  archiveTarget: number | number[] | null
   archiveReason: string
   setArchiveReason: (v: string) => void
   onConfirm: (opts: { cancelAppointments: boolean }) => void
@@ -62,18 +63,25 @@ export function ArchiveDialog({
   const { t } = useVocab()
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, archiveTarget != null, { onEscape: onCancel })
-  const upcoming = useUpcomingAppointments(archiveTarget == null ? null : [archiveTarget])
+  const ids = archiveTarget == null ? null : Array.isArray(archiveTarget) ? archiveTarget : [archiveTarget]
+  const many = (ids?.length ?? 0) > 1
+  const upcoming = useUpcomingAppointments(ids)
   const [cancelAppts, setCancelAppts] = useState(true)
-  useEffect(() => { setCancelAppts(true) }, [archiveTarget])
+  const targetKey = ids?.join(',') ?? ''
+  useEffect(() => { setCancelAppts(true) }, [targetKey])
   const confirm = () => onConfirm({ cancelAppointments: upcoming > 0 && cancelAppts })
 
   if (archiveTarget == null) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="archive-record-title">
       <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h2 id="archive-record-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">Archive {t('record')}</h2>
+        <h2 id="archive-record-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          {many ? `Archive ${ids?.length} ${t('record', { many: true })}` : `Archive ${t('record')}`}
+        </h2>
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          This {t('record')} will be hidden from the {t('list')}. Reactivating brings everything back.
+          {many
+            ? `They'll be hidden from the ${t('list')}. Unarchiving brings everything back.`
+            : `This ${t('record')} will be hidden from the ${t('list')}. Unarchiving brings everything back.`}
         </p>
         <div>
           <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -90,7 +98,7 @@ export function ArchiveDialog({
             onKeyDown={e => { if (e.key === 'Enter') confirm() }}
           />
         </div>
-        <CancelAppointmentsCheckbox count={upcoming} checked={cancelAppts} onChange={setCancelAppts} />
+        <CancelAppointmentsCheckbox count={upcoming} checked={cancelAppts} onChange={setCancelAppts} many={many} />
         <div className="flex gap-3 justify-end">
           <button onClick={onCancel} className="btn-secondary" style={{ minHeight: 44 }}>
             Cancel

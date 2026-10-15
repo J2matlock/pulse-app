@@ -42,7 +42,7 @@ export const OPERATOR_LABELS: Record<FilterOperator, string> = {
   before:        'before',
   after:         'after',
   links_to:      'links to',
-  due_status:    'due status is',
+  due_status:    'deadline is',
 }
 
 // Operators available per column type; every type has its own entry (a missing one fell back to text, Q-049)

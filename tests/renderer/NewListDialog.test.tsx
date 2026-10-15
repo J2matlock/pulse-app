@@ -45,6 +45,14 @@ beforeEach(() => {
 })
 
 describe('New list', () => {
+  it('fits a short screen: the body scrolls and Create stays in view (UX-B-16)', () => {
+    open()
+    expect(screen.getByRole('dialog').className).toContain('max-h-[90vh]')
+    const body = screen.getByTestId('new-list-body')
+    expect(body.className).toContain('overflow-y-auto')
+    expect(body.contains(screen.getByRole('button', { name: /Create/ }))).toBe(false)
+  })
+
   it('guesses the words from the name until they are typed', () => {
     open()
     fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Vehicles' } })

@@ -60,7 +60,9 @@ export default function GridView(): React.ReactElement {
       setFindReplaceOpen(v => !v)
     }
     const unsub = pulseEvents.on('toggle-find-replace', handleToggle)
-    return unsub
+    // The More menu's "Find and replace…" opens it by mouse (UX-B-15)
+    const unsubOpen = pulseEvents.on('open-find-replace', () => setFindReplaceOpen(true))
+    return () => { unsub(); unsubOpen() }
   }, [])
 
   const handleClose = useCallback(() => {

@@ -13,11 +13,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
-import { User, Star, EyeOff } from 'lucide-react'
+import { User, Star, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
 import type { GridTableHeader } from './gridTable'
 import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
-import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, ADD_COL_WIDTH, FROZEN_EDGE_STYLE } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -32,9 +32,11 @@ interface SortableColHeaderProps {
   rowHeight: number
   frozenLeft: number | undefined
   isLastFrozen: boolean
+  /** Just added: lit for a moment so it's seen (UX-B-30) */
+  flash?: boolean
 }
 
-export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen }: SortableColHeaderProps): React.ReactElement {
+export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen, flash = false }: SortableColHeaderProps): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `col_${col.id}`
   })
@@ -48,7 +50,8 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
       aria-colindex={colIndex}
       aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
       className={`relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
-                  bg-slate-50 dark:bg-slate-800 select-none`}
+                  ${flash ? 'bg-blue-100 dark:bg-blue-900/50 ring-3 ring-inset ring-blue-400' : 'bg-slate-50 dark:bg-slate-800'} transition-colors duration-700 select-none`}
+      data-flash={flash || undefined}
       style={{
         width: `var(--cw-${col.id})`,
         height: rowHeight,
@@ -57,7 +60,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 10 : isFrozen ? 12 : 'auto',
         ...(isFrozen ? { position: 'sticky' as const, left: frozenLeft } : {}),
-        ...(isLastFrozen ? { borderRightWidth: 2, borderRightColor: '#94a3b8' } : {}),
+        ...(isLastFrozen ? FROZEN_EDGE_STYLE : {}),
       }}
     >
       <ColumnHeader column={col} dragHandleProps={{ ...attributes, ...listeners }} />
@@ -104,6 +107,10 @@ export interface GridHeaderRowProps {
   /** The built-in Tags column (G-37) */
   showTags?: boolean
   onHideTags?: () => void
+  /** The "+" after the last column: opens Add column (UX-B-03) */
+  onAddColumn?: () => void
+  /** A column just added, lit for a moment (UX-B-30) */
+  flashColumnId?: number | null
 }
 
 export function GridHeaderRow({
@@ -125,10 +132,12 @@ export function GridHeaderRow({
   setFrozenColumnCount: _setFrozenColumnCount,
   showTags,
   onHideTags,
+  onAddColumn,
+  flashColumnId = null,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
-  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
   // A dragged column is read out by name, not its id (AUDIT-049)
   const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
   // Every record on screen is ticked (records hidden in a collapsed group don't count)
@@ -203,8 +212,8 @@ export function GridHeaderRow({
               width: OPEN_COL_WIDTH, height: rowHeight,
               ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 12 } : {}),
             }}
-            aria-label="Profile"
-            title={`Open the ${t('record')}'s page`}
+            aria-label={`${t('record', { cap: true })}'s page`}
+            title={`The person icon opens the ${t('record')}'s page`}
           >
             <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
           </div>
@@ -218,15 +227,29 @@ export function GridHeaderRow({
               ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 12 } : {}),
             }}
             aria-label="Starred"
-            title="Starred"
+            title={`Star ${t('record', { article: true })} to find them quickly with the Starred button above`}
           >
             <Star className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+          </div>
+          {/* Row menu column header (UX-B-01) */}
+          <div
+            role="columnheader"
+            aria-colindex={4}
+            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+            style={{
+              width: MENU_COL_WIDTH, height: rowHeight,
+              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH + STAR_COL_WIDTH, zIndex: 12 } : {}),
+            }}
+            aria-label="Actions"
+            title={`The ⋯ has more for each ${t('record')}: duplicate, archive, move and more`}
+          >
+            <MoreHorizontal className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
           </div>
           {/* Acuity column header — clickable to sort */}
           {acuityEnabled && (
             <div
               role="columnheader"
-              aria-colindex={4}
+              aria-colindex={5}
               aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
               className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
                          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
@@ -249,7 +272,7 @@ export function GridHeaderRow({
             </div>
           )}
           {showTags && (
-            <div role="columnheader" aria-colindex={4 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+            <div role="columnheader" aria-colindex={5 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
               style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
               <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
               {onHideTags && (
@@ -274,10 +297,33 @@ export function GridHeaderRow({
                   rowHeight={rowHeight}
                   frozenLeft={frozenLeftOffsets.get(col.id)}
                   isLastFrozen={frozenLeftOffsets.has(col.id) && i === frozenColumnCount - 1}
+                  flash={flashColumnId === col.id}
                 />
               )
             })}
           </SortableContext>
+          {/* Where a spreadsheet's next empty column would be: a "+" that adds one (UX-B-03).
+              A header of its own (the rows have no cell under it), so the grid's shape stays honest */}
+          {onAddColumn && (
+            <div
+              role="columnheader"
+              aria-colindex={leadingColCount + headers.length + 1}
+              aria-label="Add a column"
+              className="flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+              style={{ width: ADD_COL_WIDTH, height: rowHeight }}
+            >
+              <button
+                type="button"
+                onClick={onAddColumn}
+                className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                aria-label="Add a column"
+                title="Add a column"
+                data-testid="add-column-header"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </DndContext>

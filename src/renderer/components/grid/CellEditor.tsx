@@ -10,6 +10,8 @@ interface Props {
   value: string | null
   onSave: (value: string | null, navDirection?: NavDirection) => void
   onCancel: () => void
+  /** Shown in an empty text editor, e.g. on a record just added (UX-B-39) */
+  placeholder?: string
 }
 
 const BASE_STYLE: React.CSSProperties = {
@@ -40,7 +42,7 @@ const TEXTAREA_ADDRESS_STYLE: React.CSSProperties = { ...BASE_STYLE, resize: 'no
  * Text/number: saves on Enter, Tab, or blur (click outside). Typing is uninterrupted.
  * Checkbox/date/dropdown: saves immediately on change.
  */
-export function CellEditor({ column, value, onSave, onCancel }: Props): React.ReactElement {
+export function CellEditor({ column, value, onSave, onCancel, placeholder }: Props): React.ReactElement {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null)
   const [localValue, setLocalValue] = useState(value ?? '')
   const savedRef = useRef(false)
@@ -331,6 +333,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
             className={EDITOR_CLASS}
             style={BASE_STYLE}
             value={localValue}
+            placeholder={placeholder}
             onChange={e => setLocalValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => guardedSave(localValue === '' ? null : localValue)}

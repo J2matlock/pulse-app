@@ -7,9 +7,12 @@ import { useGridStore, type FilterOperator } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
 import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID } from '../../../shared/types'
 import { Tooltip } from '../shared/Tooltip'
+import { useVocab } from '../../hooks/useVocab'
 import { panelBelow, ROW_TAG_OPS, OPERATOR_LABELS, NO_VALUE_OPS, opsForColumn, startValue, DueStatusValue, PRESETS_BY_TYPE, filterValueLabel, LinkFilterValue } from './filterOptions'
 
 export function FilterBar(): React.ReactElement | null {
+  const { t } = useVocab()
+  const records = t('record', { many: true })
   const rows = useGridStore(s => s.rows)
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
   const { activeFilters, filterMode, columns, savedFilters, activeGridId } = useGridStore(useShallow(s => ({
@@ -85,15 +88,20 @@ export function FilterBar(): React.ReactElement | null {
         <div ref={chipBarRef} className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex-wrap" role="status" aria-live="polite" aria-atomic="true" aria-label={`${activeFilters.length} active filter${activeFilters.length !== 1 ? 's' : ''}`}>
           <Filter className="w-4 h-4 text-blue-500 flex-shrink-0" />
           {activeFilters.length >= 2 && (
-            <Tooltip content="Show what matches all of these, or any one of them" placement="bottom">
-              <button
-                onClick={() => setFilterMode(filterMode === 'and' ? 'or' : 'and')}
-                className="hit-44 text-base font-bold px-2 py-0.5 rounded-full border border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                title={filterMode === 'and' ? 'Every condition must match. Click to match any one.' : 'Any one condition can match. Click to match all.'}
+            // A labelled choice, not a pill that looks like a label (UX-B-17)
+            <label className="flex items-center gap-2 text-base text-blue-800 dark:text-blue-200">
+              Show {records} that match
+              <select
+                value={filterMode}
+                onChange={e => setFilterMode(e.target.value === 'or' ? 'or' : 'and')}
+                className="input text-base py-0.5"
+                style={{ minHeight: 36 }}
+                data-testid="filter-match-mode"
               >
-                {filterMode === 'and' ? 'Match all' : 'Match any'}
-              </button>
-            </Tooltip>
+                <option value="and">all of these</option>
+                <option value="or">any of these</option>
+              </select>
+            </label>
           )}
           {activeFilters.map((f, i) => {
             // A saved view often hides the column it filters on
@@ -111,7 +119,7 @@ export function FilterBar(): React.ReactElement | null {
                 }
                 <span className="text-blue-400">{OPERATOR_LABELS[f.operator]}</span>
                 {!NO_VALUE_OPS.includes(f.operator) && (
-                  <span className="font-mono">{filterValueLabel(f, rows)}</span>
+                  <span>{filterValueLabel(f, rows)}</span>
                 )}
                 <button
                   onClick={() => removeFilter(i)}
@@ -132,21 +140,22 @@ export function FilterBar(): React.ReactElement | null {
           </button>
           {!showSaveName && (
             <>
-              <Tooltip content="Save this filter combination for quick reuse" placement="bottom">
+              {/* The one place a filter is saved; saved ones are picked under the Filter button too (UX-B-18) */}
+              <Tooltip content="Keep these filters to use again with one click" placement="bottom">
                 <button
                   onClick={() => setShowSaveName(true)}
                   className="hit-44 flex items-center gap-1 text-base text-blue-500 hover:text-blue-700 dark:hover:text-blue-300"
-                  title="Save this filter preset"
+                  title="Save this filter"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Save
+                  Save this filter
                 </button>
               </Tooltip>
               {savedFilters.length > 0 && (
                 <button
                   onClick={() => { setShowSaved(v => !v); setShowSaveName(false) }}
                   className="hit-44 flex items-center gap-1 text-base text-blue-500 hover:text-blue-700 dark:hover:text-blue-300"
-                  title="Load a saved filter preset"
+                  title="Pick or delete a saved filter"
                 >
                   <Bookmark className="w-3.5 h-3.5" />
                   Saved ({savedFilters.length})
@@ -190,7 +199,7 @@ export function FilterBar(): React.ReactElement | null {
               initial="hidden" animate="visible" exit="exit"
             >
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Add filter condition</p>
+                <p className="text-base font-semibold text-slate-700 dark:text-slate-200">Show only {records} where…</p>
 
                 <div>
                   <label htmlFor="filter-column" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Column</label>
@@ -247,7 +256,7 @@ export function FilterBar(): React.ReactElement | null {
                 })()}
 
                 <div>
-                  <label htmlFor="filter-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Condition</label>
+                  <label htmlFor="filter-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">How it matches</label>
                   <select
                     id="filter-operator"
                     className="input w-full text-base"
@@ -312,7 +321,7 @@ export function FilterBar(): React.ReactElement | null {
                     className="btn-primary flex-1 text-base disabled:opacity-40"
                     style={{ minHeight: 36 }}
                   >
-                    Add Filter
+                    Add filter
                   </button>
                   <button
                     onClick={() => setShowPanel(false)}
@@ -348,9 +357,9 @@ export function FilterBar(): React.ReactElement | null {
               </p>
               {savedFilters.length === 0 ? (
                 <div className="px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved presets yet.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved filters yet.</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Add a filter, then click "Save" to save it as a preset.
+                    Add a filter, then click "Save this filter".
                   </p>
                 </div>
               ) : (
@@ -364,8 +373,8 @@ export function FilterBar(): React.ReactElement | null {
                     </button>
                     <button
                       className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      title="Delete preset"
-                      aria-label="Delete preset"
+                      title="Delete this saved filter"
+                      aria-label={`Delete saved filter ${sf.name}`}
                       onClick={() => void deleteSavedFilter(sf.id)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

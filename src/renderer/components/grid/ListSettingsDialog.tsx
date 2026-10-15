@@ -184,12 +184,21 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
   }
 
   const note = kindNote()
+  // An example from this list's own columns, not another trade's words (UX-B-37)
+  const formatPlaceholder = useMemo(() => {
+    const cols = loaded?.columns ?? []
+    const first = nameColumn ?? cols[0]
+    const second = cols.find(c => c.id !== first?.id && c.column_type !== 'date' && c.column_type !== 'deadline')
+    if (!first) return ''
+    return second ? `e.g. {${first.name}} – {${second.name}}` : `e.g. {${first.name}}`
+  }, [loaded, nameColumn])
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
+    // Fits a 768px-high screen: the body scrolls, the title and Save stay in view (UX-B-16)
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="list-settings-title" onClick={e => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <Settings2 className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           <h2 id="list-settings-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1 min-w-0 truncate">
             {t('list', { cap: true })} settings{loaded ? `: ${loaded.grid.name}` : ''}
@@ -202,7 +211,7 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
         {!loaded ? (
           <p className="px-6 py-8 text-base text-slate-600 dark:text-slate-300">Loading…</p>
         ) : (
-          <div className="px-6 py-5 space-y-6">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-6" data-testid="list-settings-body">
             <div>
               <label htmlFor="list-settings-name" className={label}>Name</label>
               <input id="list-settings-name" className="input w-full" maxLength={200} value={name} onChange={e => setName(e.target.value)} />
@@ -246,8 +255,9 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
 
             <div className="space-y-2">
               <label htmlFor="list-settings-format" className={label}>How to show each one's name</label>
+              {/* What the chips are for, before the chips, so they aren't taken for filters (UX-B-37) */}
               <p className={hint}>
-                Click a column to add it. Leave empty to use {nameColumn ? <>the <strong>{nameColumn.name}</strong> column</> : 'the name column'}.
+                Usually {nameColumn ? <>the <strong>{nameColumn.name}</strong> column</> : 'the name column'} is enough. To show more, click the columns to add them.
               </p>
               <div className="flex flex-wrap gap-2" aria-label="Columns you can add">
                 {loaded.columns.map(c => (
@@ -258,7 +268,7 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
                 ))}
               </div>
               <input id="list-settings-format" ref={formatRef} className="input w-full font-mono" maxLength={DISPLAY_FORMAT_MAX}
-                placeholder="e.g. {Year} {Make} {Model} – {Plate}" value={format} onChange={e => setFormat(e.target.value)} />
+                placeholder={formatPlaceholder} value={format} onChange={e => setFormat(e.target.value)} />
               <p className="text-base text-slate-700 dark:text-slate-200">
                 <span className="text-slate-500 dark:text-slate-400">{loaded.firstRow ? 'Example: ' : 'Looks like: '}</span>
                 <strong>{preview || '—'}</strong>
@@ -287,7 +297,7 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
           </div>
         )}
 
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+        <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="button" className="btn-primary" disabled={!loaded || saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save'}</button>
         </div>

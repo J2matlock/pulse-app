@@ -10,8 +10,7 @@ import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { BatchDocumentsDialog } from '../documents/BatchDocumentsDialog'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
-import { CancelAppointmentsCheckbox } from './GridDialogs'
+import { ArchiveDialog } from './GridDialogs'
 
 export interface BulkActionBarProps {
   selectedRowIds: Set<number>
@@ -44,17 +43,24 @@ export function BulkActionBar({
   const [batchDocs, setBatchDocs] = useState(false)
   const { t } = useVocab()
   const [bulkAcuityOpen, setBulkAcuityOpen] = useState(false)
-  // Archiving records that have upcoming appointments asks about them first (audit 1.13)
-  const [archiveAsk, setArchiveAsk] = useState<{ ids: number[]; upcoming: number } | null>(null)
-  const [cancelAppts, setCancelAppts] = useState(true)
+  // The same Archive dialog as for one record, reason and upcoming appointments included (audit 1.13, UX-B-26)
+  const [archiveIds, setArchiveIds] = useState<number[] | null>(null)
+  const [archiveReason, setArchiveReason] = useState('')
 
-  async function archive(ids: number[], cancelAppointments: boolean) {
+  /** With a reason each record keeps it (and its notes say it); without one, one bulk step */
+  async function archiveIdsWith(ids: number[], reason: string): Promise<boolean> {
+    if (!reason) return (await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)).ok
+    let any = false
+    for (const id of ids) if ((await safeInvoke(IPC.ROW_ARCHIVE, id, reason)).ok) any = true
+    return any
+  }
+
+  async function archive(ids: number[], cancelAppointments: boolean, reason: string) {
     const names = ids.map(id => {
       const r = rowById.get(id)
       return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
     })
-    const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
-    if (!result.ok) return
+    if (!await archiveIdsWith(ids, reason)) return
     pulseEvents.emit('records:archive-changed')
     let apptSnapshot: unknown = null
     if (cancelAppointments) {
@@ -76,7 +82,7 @@ export function BulkActionBar({
         if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
       },
       redo: async () => {
-        await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+        if (reason) { for (const id of ids) await mustInvoke(IPC.ROW_ARCHIVE, id, reason) } else await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
         pulseEvents.emit('records:archive-changed')
         if (cancelAppointments) {
           const res = await mustInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
@@ -97,11 +103,12 @@ export function BulkActionBar({
   })
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40
-                    flex items-center gap-3 px-4 py-3
+    // Above the list's footer line, so its counts and "Saved" stay readable (UX-B-25)
+    <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] overflow-x-auto
+                    flex items-center gap-3 px-4 py-3 whitespace-nowrap
                     bg-slate-900 dark:bg-slate-700 text-white rounded-xl shadow-2xl
                     border border-slate-700 dark:border-slate-500">
-      <span className="text-sm font-medium">
+      <span className="text-sm font-medium flex-shrink-0">
         {selectedRowIds.size} {t('record', { count: selectedRowIds.size })} selected
       </span>
       <div className="w-px h-4 bg-slate-600" />
@@ -141,25 +148,17 @@ export function BulkActionBar({
       {noneArchived && (
         <button
           className="hit-44 text-base px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 transition-colors font-medium"
-          onClick={async () => {
-            const ids = Array.from(selectedRowIds)
-            const count = await safeInvoke<number>(IPC.APPT_UPCOMING_COUNT, ids)
-            if (count.ok && count.data > 0) {
-              setCancelAppts(true)
-              setArchiveAsk({ ids, upcoming: count.data })
-            } else {
-              await archive(ids, false)
-            }
-          }}
+          onClick={() => { setArchiveReason(''); setArchiveIds(Array.from(selectedRowIds)) }}
         >
-          Archive
+          Archive…
         </button>
       )}
       <button
         className="hit-44 text-base px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 transition-colors font-medium"
         onClick={() => setBulkEditOpen(true)}
+        title={`Give the selected ${t('record', { many: true })} the same value in one column`}
       >
-        Bulk Edit
+        Change a column…
       </button>
       <button
         className="hit-44 text-base px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium"
@@ -172,7 +171,7 @@ export function BulkActionBar({
           className="hit-44 text-base px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium"
           onClick={() => setBatchDocs(true)}
         >
-          Print documents…
+          Letters and labels…
         </button>
       )}
       {batchDocs && activeGridId != null && (
@@ -222,26 +221,24 @@ export function BulkActionBar({
         </div>
       )}
       {/* The bar is transformed, which would pin a fixed dialog to it */}
-      {createPortal(<ConfirmDialog
-        open={archiveAsk !== null}
-        title={`Archive ${archiveAsk?.ids.length ?? 0} ${t('record', { count: archiveAsk?.ids.length ?? 0 })}?`}
-        message={`They'll be hidden from the ${t('list')}. Unarchiving brings everything back.`}
-        confirmLabel="Archive"
-        destructive={false}
-        onConfirm={() => {
-          const ask = archiveAsk
-          setArchiveAsk(null)
-          if (ask) void archive(ask.ids, cancelAppts)
+      {createPortal(<ArchiveDialog
+        archiveTarget={archiveIds}
+        archiveReason={archiveReason}
+        setArchiveReason={setArchiveReason}
+        onConfirm={({ cancelAppointments }) => {
+          const ids = archiveIds
+          setArchiveIds(null)
+          if (ids) void archive(ids, cancelAppointments, archiveReason.trim())
         }}
-        onCancel={() => setArchiveAsk(null)}
-      >
-        <CancelAppointmentsCheckbox count={archiveAsk?.upcoming ?? 0} checked={cancelAppts} onChange={setCancelAppts} many />
-      </ConfirmDialog>, document.body)}
+        onCancel={() => setArchiveIds(null)}
+      />, document.body)}
+      {/* Away from Archive, at the far end after a divider (UX-B-25) */}
+      <div className="w-px h-6 bg-slate-600 flex-shrink-0" aria-hidden="true" />
       <button
         className="hit-44 text-base px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors font-medium"
         onClick={() => setBulkDeleteTarget(true)}
       >
-        Delete
+        Move to the Trash…
       </button>
       <button
         className="hit-44 text-base px-2 py-1.5 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors text-slate-300"

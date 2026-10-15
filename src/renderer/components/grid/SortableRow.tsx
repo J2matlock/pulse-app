@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import type { GridTableRow } from './gridTable'
-import { User, Star, AlertTriangle } from 'lucide-react'
+import { User, Star, AlertTriangle, MoreHorizontal } from 'lucide-react'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
@@ -10,7 +10,7 @@ import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
-import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH, FROZEN_EDGE_STYLE } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { pulseEvents } from '../../events'
@@ -54,6 +54,8 @@ export interface SortableRowProps {
   updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
   onCellKeyDown: (e: React.KeyboardEvent, rowId: number, colId: number) => void
   onCellContextMenu: (e: React.MouseEvent, rowId: number, colId: number) => void
+  /** The row's "⋯" button, Shift+F10 or the Menu key: the same menu as a right-click, anchored at a point (UX-B-01) */
+  onOpenRowMenu?: (rowId: number, colId: number, at: { x: number; y: number }) => void
   onNavigateToProfile: (rowId: number) => void
   onToggleStar?: (rowId: number) => void
   /** The built-in Tags column (G-37) */
@@ -105,6 +107,7 @@ export const SortableRow = React.memo(function SortableRow({
   updateCell,
   onCellKeyDown,
   onCellContextMenu,
+  onOpenRowMenu,
   onNavigateToProfile,
   onToggleStar,
   showTags,
@@ -133,9 +136,18 @@ export const SortableRow = React.memo(function SortableRow({
 
   const isArchived = row.original.is_active === 0
   // Each cell names its column's place, matching the header (AUDIT-012)
-  const priorityColIndex = acuityEnabled ? 4 : undefined
-  const tagsColIndex = showTags ? 4 + (acuityEnabled ? 1 : 0) : undefined
-  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  const priorityColIndex = acuityEnabled ? 5 : undefined
+  const tagsColIndex = showTags ? 5 + (acuityEnabled ? 1 : 0) : undefined
+  const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+
+  // The row menu's cell actions act on the focused cell when it's in this row, else the name
+  const menuColId = focusedRowId === rowId && focusedColId !== null
+    ? focusedColId
+    : (columns.find(c => c.is_name_column === 1) ?? columns[0])?.id
+  const openRowMenuAt = (el: HTMLElement, colId: number) => {
+    const rect = el.getBoundingClientRect()
+    onOpenRowMenu?.(rowId, colId, { x: rect.left, y: rect.bottom })
+  }
 
   const rowStyle = useMemo<React.CSSProperties>(() => ({
     height: rowHeight,
@@ -200,15 +212,15 @@ export const SortableRow = React.memo(function SortableRow({
           onClick={e => { e.stopPropagation(); onNavigateToProfile(rowId) }}
           className="hit-44 flex items-center justify-center w-7 h-7 profile-btn-glow
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-indigo-500"
-          title={`Open ${t('record')} profile`}
-          aria-label={`Open ${t('record')} profile`}
+          title={`Open ${t('record')}'s page`}
+          aria-label={`Open ${t('record')}'s page`}
           {...(rowIndex === 0 ? { 'data-tour': 'profile-icon' } : {})}
         >
           <User className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Star: starred records show it (G-30); a faint outline on hover stars one */}
+      {/* Star: starred records show it (G-30); every other row shows a faint outline, so the column explains itself (UX-A-23) */}
       <div
         role="gridcell"
         aria-colindex={3}
@@ -222,13 +234,41 @@ export const SortableRow = React.memo(function SortableRow({
           tabIndex={-1}
           onClick={e => { e.stopPropagation(); onToggleStar?.(rowId) }}
           className={`hit-44 flex items-center justify-center w-7 h-7 rounded focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-            ${row.original.is_starred ? '' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'}`}
+            ${row.original.is_starred ? '' : 'opacity-40 group-hover:opacity-70 hover:!opacity-100 focus-visible:opacity-100'}`}
           title={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
           aria-label={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
           aria-pressed={!!row.original.is_starred}
         >
           <Star className={`w-4 h-4 ${row.original.is_starred ? 'fill-yellow-400 text-yellow-500' : 'text-slate-400'}`} />
         </button>
+      </div>
+
+      {/* Row menu: the same menu as a right-click, for people who never right-click (UX-B-01) */}
+      <div
+        role="gridcell"
+        aria-colindex={4}
+        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        style={{
+          width: MENU_COL_WIDTH, height: rowHeight,
+          ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH + STAR_COL_WIDTH, zIndex: 10 } : {}),
+        }}
+      >
+        {menuColId !== undefined && (
+          <button
+            tabIndex={-1}
+            type="button"
+            onClick={e => { e.stopPropagation(); openRowMenuAt(e.currentTarget, menuColId) }}
+            className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100
+                       dark:text-slate-500 dark:hover:text-slate-100 dark:hover:bg-slate-700
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            title={`More actions for this ${t('record')}`}
+            aria-label={`More actions for this ${t('record')}`}
+            aria-haspopup="menu"
+            data-testid="row-menu-button"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Acuity badge */}
@@ -297,7 +337,7 @@ export const SortableRow = React.memo(function SortableRow({
             left: frozenLeft,
             zIndex: 10,
           } : {}),
-          ...(isLastFrozenCell ? { borderRightWidth: 2, borderRightColor: '#94a3b8' } : {}),
+          ...(isLastFrozenCell ? FROZEN_EDGE_STYLE : {}),
           // An open editor fills the cell: the cell padding (an unlayered rule p-0 can't beat)
           // squeezed a date's digits under its calendar button
           ...(isEditing ? { paddingLeft: 0, paddingRight: 0 } : {}),
@@ -372,6 +412,12 @@ export const SortableRow = React.memo(function SortableRow({
               }
             }}
             onKeyDown={e => {
+              // The keyboard's way to the row menu, anchored under this cell
+              if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+                e.preventDefault()
+                openRowMenuAt(e.currentTarget, colId)
+                return
+              }
               if (isComputed) {
                 // Moving, copying, selecting and opening the record work here too; nothing that writes
                 const mod = e.ctrlKey || e.metaKey
@@ -407,6 +453,8 @@ export const SortableRow = React.memo(function SortableRow({
               <CellEditor
                 column={col}
                 value={value}
+                // An empty name says what to do, as on a record just added (UX-B-39)
+                placeholder={col.is_name_column === 1 && !value ? `Type the ${t('record')}'s name, then press Enter` : undefined}
                 onSave={(newValue, navDirection) => {
                   // Check if this cell is still the active editing cell.
                   // If another cell already claimed focus (e.g. click-out), skip
@@ -449,6 +497,10 @@ export const SortableRow = React.memo(function SortableRow({
                 )}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill compact />}
+                {/* Faded alone doesn't say why (UX-B-27) */}
+                {isArchived && col.is_name_column === 1 && (
+                  <span className="ml-1.5 flex-shrink-0 px-2 rounded-full text-sm leading-6 font-medium bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100" data-testid="archived-pill">Archived</span>
+                )}
                 {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}
                 {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
               </>
@@ -499,7 +551,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.hasCrossRowRules !== next.hasCrossRowRules) return false
   if (next.hasCrossRowRules && prev.rowMap !== next.rowMap) return false
   // Stable today, but a new handler must reach the cells (AUDIT-133)
-  if (prev.onCellKeyDown !== next.onCellKeyDown || prev.onCellContextMenu !== next.onCellContextMenu) return false
+  if (prev.onCellKeyDown !== next.onCellKeyDown || prev.onCellContextMenu !== next.onCellContextMenu || prev.onOpenRowMenu !== next.onOpenRowMenu) return false
   if (prev.onNavigateToProfile !== next.onNavigateToProfile || prev.onNavigateAfterEdit !== next.onNavigateAfterEdit) return false
   if (prev.onToggleSelect !== next.onToggleSelect || prev.onToggleStar !== next.onToggleStar) return false
   if (prev.updateCell !== next.updateCell || prev.setEditingCell !== next.setEditingCell || prev.setFocusedCell !== next.setFocusedCell) return false

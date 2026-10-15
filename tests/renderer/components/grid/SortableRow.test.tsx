@@ -37,7 +37,7 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
 }))
 
 vi.mock('../../../../src/renderer/components/grid/CellEditor', () => ({
-  CellEditor: () => <div data-testid="cell-editor" />,
+  CellEditor: (p: { placeholder?: string }) => <div data-testid="cell-editor" data-placeholder={p.placeholder} />,
 }))
 
 vi.mock('../../../../src/renderer/components/grid/CellDisplay', () => ({
@@ -53,9 +53,10 @@ vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
   alertShapeForBand: () => null,
   HANDLE_STYLE: { width: 32 },
   HANDLE_WIDTH: 32,
-  PROFILE_BTN_WIDTH: 88,
+  PROFILE_BTN_WIDTH: 132,
   OPEN_COL_WIDTH: 44,
   STAR_COL_WIDTH: 44,
+  MENU_COL_WIDTH: 44,
 }))
 
 import { SortableRow, type SortableRowProps } from '../../../../src/renderer/components/grid/SortableRow'
@@ -151,13 +152,15 @@ describe('SortableRow', () => {
     const row = container.querySelector('[role="row"]')!
     const profileCell = container.querySelector('[aria-colindex="2"]')!
     const starCell = container.querySelector('[aria-colindex="3"]')!
-    expect(profileCell.querySelector('[aria-label="Open client profile"]')).toBeTruthy()
+    const menuCell = container.querySelector('[aria-colindex="4"]')!
+    expect(profileCell.querySelector('[aria-label="Open client\'s page"]')).toBeTruthy()
     expect(starCell.querySelector('[aria-label="Star this client"]')).toBeTruthy()
+    expect(menuCell.querySelector('[aria-label="More actions for this client"]')).toBeTruthy()
     // Each has its own gridline on the right, and the row lines run through them and the select box
-    for (const el of [profileCell, starCell]) expect(el.className).toMatch(/(^|\s)border-r(\s|$)/)
+    for (const el of [profileCell, starCell, menuCell]) expect(el.className).toMatch(/(^|\s)border-r(\s|$)/)
     const selectCell = container.querySelector('[aria-colindex="1"]')!
-    for (const el of [selectCell, profileCell, starCell]) expect(el.className).toMatch(/(^|\s)grid-lead-cell .*border-b(\s|$)/)
-    for (const el of [row, profileCell, starCell]) {
+    for (const el of [selectCell, profileCell, starCell, menuCell]) expect(el.className).toMatch(/(^|\s)grid-lead-cell .*border-b(\s|$)/)
+    for (const el of [row, profileCell, starCell, menuCell]) {
       expect(el.className).toContain('border-[var(--border-grid)]')
       expect(el.className).not.toMatch(/border-slate-200|dark:border-slate-700/)
     }
@@ -171,8 +174,47 @@ describe('SortableRow', () => {
   it('clicking profile button calls onNavigateToProfile', () => {
     const onNavigateToProfile = vi.fn()
     render(<SortableRow {...makeProps({ onNavigateToProfile })} />)
-    fireEvent.click(screen.getByTitle('Open client profile'))
+    fireEvent.click(screen.getByTitle("Open client's page"))
     expect(onNavigateToProfile).toHaveBeenCalledWith(1)
+  })
+
+  describe('the row menu by mouse and keyboard (UX-B-01)', () => {
+    it('the ⋯ button opens the row menu under itself, for the name cell', () => {
+      const onOpenRowMenu = vi.fn()
+      render(<SortableRow {...makeProps({ onOpenRowMenu })} />)
+      const btn = screen.getByTestId('row-menu-button')
+      expect(btn.getAttribute('aria-haspopup')).toBe('menu')
+      btn.getBoundingClientRect = () => ({ left: 120, bottom: 88, top: 44, right: 164, width: 44, height: 44, x: 120, y: 44, toJSON: () => ({}) })
+      fireEvent.click(btn)
+      expect(onOpenRowMenu).toHaveBeenCalledWith(1, 1, { x: 120, y: 88 })
+    })
+
+    it('acts on the focused cell when it is in this row', () => {
+      const onOpenRowMenu = vi.fn()
+      const cols = [makeColumn(1, 'Name'), makeColumn(2, 'Program')]
+      render(<SortableRow {...makeProps({ onOpenRowMenu, columns: cols, columnMap: new Map(cols.map(c => [c.id, c])), focusedRowId: 1, focusedColId: 2 })} />)
+      fireEvent.click(screen.getByTestId('row-menu-button'))
+      expect(onOpenRowMenu.mock.calls[0]!.slice(0, 2)).toEqual([1, 2])
+    })
+
+    it('Shift+F10 and the Menu key on a cell open the same menu there', () => {
+      const onOpenRowMenu = vi.fn()
+      const onCellKeyDown = vi.fn()
+      render(<SortableRow {...makeProps({ onOpenRowMenu, onCellKeyDown })} />)
+      const cell = document.querySelector('[data-col-id="1"]')!
+      fireEvent.keyDown(cell, { key: 'F10', shiftKey: true })
+      fireEvent.keyDown(cell, { key: 'ContextMenu' })
+      expect(onOpenRowMenu).toHaveBeenCalledTimes(2)
+      expect(onOpenRowMenu.mock.calls[0]!.slice(0, 2)).toEqual([1, 1])
+      expect(onCellKeyDown).not.toHaveBeenCalled()
+    })
+
+    it('the star is faintly visible on every row, not only on hover (UX-A-23)', () => {
+      render(<SortableRow {...makeProps()} />)
+      const star = screen.getByLabelText('Star this client')
+      expect(star.className).not.toContain('opacity-0 ')
+      expect(star.className).toContain('opacity-40')
+    })
   })
 
   it('clicking select button calls onToggleSelect', () => {
@@ -239,8 +281,25 @@ describe('SortableRow', () => {
     const onNavigateToProfile = vi.fn()
     render(<SortableRow {...makeProps({ onNavigateToProfile })} />)
     expect(screen.queryByRole('button', { name: 'Open client', hidden: true })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Open client profile', hidden: true }))
+    fireEvent.click(screen.getByRole('button', { name: "Open client's page", hidden: true }))
     expect(onNavigateToProfile).toHaveBeenCalledWith(1)
+  })
+
+  it('an archived record says "Archived" after its name, not only by fading (UX-B-27)', () => {
+    const archived = { ...makeRow(1), is_active: 0 } as unknown as GridRow
+    render(<SortableRow {...makeProps({ row: makeTanstackRow(archived) })} />)
+    expect(screen.getByTestId('archived-pill').textContent).toBe('Archived')
+  })
+
+  it('an empty name being typed says what to do (UX-B-39)', () => {
+    const blank = { ...makeRow(1), col_1: null } as unknown as GridRow
+    render(<SortableRow {...makeProps({ row: makeTanstackRow(blank), editingRowId: 1, editingColId: 1 })} />)
+    expect(screen.getByTestId('cell-editor').getAttribute('data-placeholder')).toBe("Type the client's name, then press Enter")
+  })
+
+  it('an active record has no Archived pill', () => {
+    render(<SortableRow {...makeProps()} />)
+    expect(screen.queryByTestId('archived-pill')).toBeNull()
   })
 
   it('an open editor fills its cell, with one border, not two (V1)', () => {

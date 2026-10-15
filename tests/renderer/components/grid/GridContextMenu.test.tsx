@@ -115,12 +115,34 @@ describe('GridContextMenu', () => {
     expect(screen.getByRole('menu')).toBeTruthy()
   })
 
-  it('renders cell action items: Copy cell, Paste, Clear cell, View history', () => {
+  it('groups the cell actions under "This cell": Copy cell, Paste, Clear cell (UX-B-01)', () => {
     render(<GridContextMenu {...makeProps()} />)
+    expect(screen.getByText('This cell: Name')).toBeTruthy()
     expect(screen.getByText('Copy cell')).toBeTruthy()
     expect(screen.getByText('Paste')).toBeTruthy()
     expect(screen.getByText('Clear cell')).toBeTruthy()
-    expect(screen.getByText('View history')).toBeTruthy()
+  })
+
+  it('keeps history, color rules and formatting behind "More…" so the menu fits the screen (UX-B-01)', () => {
+    const props = makeProps()
+    render(<GridContextMenu {...props} />)
+    expect(screen.queryByText('View history of this cell')).toBeNull()
+    expect(screen.queryByText('Color rules for this cell…')).toBeNull()
+    const more = screen.getByRole('menuitem', { name: 'More…' })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(more)
+    expect(more.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(screen.getByText('View history of this cell'))
+    expect(props.onCellHistoryTarget).toHaveBeenCalledWith(expect.objectContaining({ rowId: 1, colId: 1, colName: 'Name' }))
+    expect(props.onClose).toHaveBeenCalled()
+  })
+
+  it('"More…" starts open when the cell already has color rules', () => {
+    const rules = [{ id: 'r1', sourceType: 'same_row_column', operator: 'equals', value: 'x', bgColor: '#fff' }] as unknown as import('../../../../src/shared/types').CellFormatRule[]
+    render(<GridContextMenu {...makeProps({ cellFormats: new Map([['1_1', rules]]) })} />)
+    expect(screen.getByRole('menuitem', { name: 'More…' }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('Color rules for this cell…')).toBeTruthy()
+    expect(screen.getByText('Copy formatting')).toBeTruthy()
   })
 
   it('renders row action items: Star client, Duplicate client, Move/Copy, Archive, Move to trash', () => {
