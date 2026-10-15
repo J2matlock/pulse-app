@@ -1,8 +1,6 @@
-import { useState, useCallback, useRef } from 'react'
-import { motion } from 'motion/react'
-import { Upload, Download, FileText, Check, X } from 'lucide-react'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
+import { useState, useCallback } from 'react'
+import { Upload, Download, FileText, Check } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import type { Provider, OpenDialogResult } from '../../../shared/types'
@@ -10,7 +8,7 @@ import { useContactsStore } from '../../stores/contactsStore'
 import { rlog } from '../../utils/rendererLogger'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
-import { PrimaryButton, SecondaryButton, IconButton } from '../ui/Button'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 
 interface Props {
   open: boolean
@@ -29,9 +27,6 @@ type ImportStep = 'pick' | 'preview' | 'done'
 
 export function ContactImportExport({ open, onClose, mode }: Props) {
   const { t } = useVocab(null)
-  const trapRef = useRef<HTMLDivElement>(null)
-  // Escape closes like the X (AUDIT-046)
-  useFocusTrap(trapRef, open, { onEscape: () => handleClose() })
   // Import state
   const [step, setStep] = useState<ImportStep>('pick')
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
@@ -178,37 +173,21 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
   return (
     <>
     {open && (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="contact-import-export-title">
-      <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/40" onClick={handleClose} />
-      <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative w-full max-w-2xl rounded-lg bg-white shadow-xl dark:bg-slate-800 mx-4 max-h-[80vh] flex flex-col">
-        {/* Title bar */}
-        <div className="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 px-6 py-4">
-          <div className="flex items-center gap-2">
-            {mode === 'import' ? (
-              <Upload className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            ) : (
-              <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            )}
-            <h2 id="contact-import-export-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {mode === 'import' ? `Import ${t('contact', { many: true, cap: true })} (vCard)` : `Export ${t('contact', { many: true, cap: true })} (vCard)`}
-            </h2>
-          </div>
-          <IconButton label="Close" icon={<X className="h-5 w-5" />} onClick={handleClose} />
+    // Escape closes like the X (AUDIT-046)
+    <Dialog open onClose={handleClose} size="xl"
+      icon={mode === 'import'
+        ? <Upload className="h-5 w-5 mt-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+        : <Download className="h-5 w-5 mt-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+      title={mode === 'import' ? `Import ${t('contact', { many: true, cap: true })} (vCard)` : `Export ${t('contact', { many: true, cap: true })} (vCard)`}>
+      {error && (
+        <div role="alert" className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
+          {error}
         </div>
+      )}
 
-        {/* Body */}
-        <div className="flex-1 overflow-auto px-6 py-4">
-          {error && (
-            <div role="alert" className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
-              {error}
-            </div>
-          )}
-
-          {mode === 'import' && renderImportBody()}
-          {mode === 'export' && renderExportBody()}
-        </div>
-      </motion.div>
-    </div>
+      {mode === 'import' && renderImportBody()}
+      {mode === 'export' && renderExportBody()}
+    </Dialog>
     )}
     </>
   )
