@@ -253,6 +253,62 @@ describe('ColumnHeader', () => {
     })
   })
 
+  describe('"Deadline rule…" dialog (B-12)', () => {
+    const yearly = { id: 5, name: 'Yearly review', description: null, is_system: 0, interval_days: null, interval_months: 12, created_at: '', thresholds: [{ daysBefore: 30, bgClass: '#facc15', label: 'Due Soon' }, { daysBefore: -1, bgClass: '#dc2626', label: 'Overdue' }] }
+    const monthly = { ...yearly, id: 6, name: 'Monthly contact', interval_months: 1 }
+
+    it('opens from the column menu with the current rule, its colors, the other rules as a choice, and Remove', () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
+      setupStores({ updateColumn, columns: [makeColumn(3, 'Review', 'date')] })
+      useAlertStore.setState({ rules: [yearly, monthly] } as never)
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5 }))} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+      fireEvent.click(screen.getByRole('button', { name: /^Deadline rule…/ }))
+      // The menu closed and a dialog opened
+      expect(screen.queryByText('Rename')).toBeNull()
+      const dialog = screen.getByRole('dialog', { name: 'Deadline rule for “Review”' })
+      expect(dialog.textContent).toContain('This column uses')
+      expect(screen.getByRole('list', { name: 'Colors for Yearly review' })).toBeTruthy()
+      // No edit or delete of the rules themselves here; that lives in Settings
+      expect(screen.queryByRole('button', { name: /Delete rule/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Edit rule/ })).toBeNull()
+      expect(dialog.textContent).toContain('Settings → Deadlines & reminders')
+      fireEvent.click(screen.getByRole('radio', { name: /Monthly contact/ }))
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 6 }) })
+    })
+
+    it('"Remove from this column" clears the rule', () => {
+      const updateColumn = vi.fn().mockResolvedValue(true)
+      setupStores({ updateColumn, columns: [makeColumn(3, 'Review', 'date')] })
+      useAlertStore.setState({ rules: [yearly] } as never)
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, log_changes: true }))} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+      fireEvent.click(screen.getByRole('button', { name: /^Deadline rule…/ }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove from this column' }))
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ log_changes: true }) })
+    })
+
+    it('a column without a rule explains and offers the rules; a "Choose a deadline rule" cell opens it too (G-20)', () => {
+      setupStores({ columns: [makeColumn(3, 'Review', 'date')] })
+      useAlertStore.setState({ rules: [yearly] } as never)
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', '{}')} />)
+      act(() => { pulseEvents.emit('column:choose-rule', { columnId: 3 }) })
+      const dialog = screen.getByRole('dialog', { name: 'Deadline rule for “Review”' })
+      expect(dialog.textContent).toContain('no deadline rule')
+      expect(screen.getByRole('radio', { name: /Yearly review/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'New rule…' })).toBeTruthy()
+      fireEvent.keyDown(dialog, { key: 'Escape' })
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('says when there are no rules yet', () => {
+      setupStores({ columns: [makeColumn(3, 'Review', 'date')] })
+      render(<ColumnHeader column={makeColumn(3, 'Review', 'date', '{}')} />)
+      act(() => { pulseEvents.emit('column:choose-rule', { columnId: 3 }) })
+      expect(screen.getByText('No deadline rules yet. Make one below.')).toBeTruthy()
+    })
+  })
+
   it('the clock in a rule column\'s header opens that rule\'s color key (B-04)', () => {
     const rule = { id: 5, name: 'Promised', description: null, is_system: 0, interval_days: null, created_at: '', thresholds: [{ daysBefore: 7, bgClass: '#facc15', label: 'Soon' }, { daysBefore: -1, bgClass: '#dc2626', label: 'Late' }] }
     useAlertStore.setState({ rules: [rule] } as never)
