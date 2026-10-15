@@ -86,12 +86,12 @@ describe('contact info', () => {
     render(<MemoryRouter><ProfileHeader row={row} columns={[col(1, 'Name', { is_name_column: 1 })]} gridId={1} onRowUpdate={() => {}} /></MemoryRouter>)
     const target = await screen.findByRole('button', { name: /Add contact info/ })
     await act(async () => { fireEvent.click(target) })
-    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '555-0199' } })
+    fireEvent.change(screen.getByLabelText('Number or address'), { target: { value: '555-0199' } })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
     expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/couldn't save that contact info/))
     expect(screen.queryByText('555-0199')).toBeNull()
     // What was typed is still there to try again
-    expect((screen.getByLabelText('Value') as HTMLInputElement).value).toBe('555-0199')
+    expect((screen.getByLabelText('Number or address') as HTMLInputElement).value).toBe('555-0199')
   })
 })
 

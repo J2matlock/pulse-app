@@ -167,9 +167,9 @@ test.describe('Changing the workspace words', () => {
     // PDF
     const pdfPath = join(dataDir, 'profile.pdf');
     await mockSaveDialog(electronApp, pdfPath);
-    // Record page: More → Print / PDF… → Save PDF…
-    await window.getByRole('button', { name: 'More', exact: true }).click();
-    await window.getByRole('menuitem', { name: /Print \/ PDF/ }).click();
+    // Record page: Print or save → Save as PDF… → Save PDF…
+    await window.getByRole('button', { name: 'Print or save', exact: true }).click();
+    await window.getByRole('menuitem', { name: /Save as PDF/ }).click();
     await window.getByRole('button', { name: /Save PDF/ }).click();
     await expect.poll(() => existsSync(pdfPath), { timeout: 10000 }).toBe(true);
     const pdf = readFileSync(pdfPath, 'latin1');

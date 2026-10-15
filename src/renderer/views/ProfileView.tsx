@@ -30,7 +30,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { MoveToGridModal } from '../components/grid/MoveToGridModal'
 import { CancelAppointmentsCheckbox, useUpcomingAppointments } from '../components/grid/GridDialogs'
 import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
-import type { GridRow, SaveDialogResult } from '../../shared/types'
+import { isPersonKind, type GridRow, type SaveDialogResult } from '../../shared/types'
 import type { RowLocation } from '../../shared/ipc-contract'
 import { Tooltip } from '../components/shared/Tooltip'
 import { clientFileName, noteUnencryptedExport } from '../utils/exportNotice'
@@ -87,7 +87,7 @@ export default function ProfileView(): React.ReactElement {
   const closeAuditTrail = useCallback(() => setShowAuditTrail(false), [])
   const [showHandoff, setShowHandoff] = useState(false)
   const closeHandoff = useCallback(() => setShowHandoff(false), [])
-  // Sections chosen in "Print / PDF…" while the print layout is up
+  // Sections chosen in "Save as PDF…" while the print layout is up
   const [printSections, setPrintSections] = useState<ProfileSections | null>(null)
   const showPrintLayout = printSections !== null
   const closePrintLayout = useCallback(() => setPrintSections(null), [])
@@ -336,8 +336,19 @@ export default function ProfileView(): React.ReactElement {
     toast.success('Opened the copy — rename it', { id: 'duplicate-opened' })
   }
 
+  // "Print or save ▾": every PDF this page makes, in one place (C-08)
+  const holdsPeople = isPersonKind(recordKind)
+  const printItems: MoreMenuItem[] = [
+    { label: 'Save as PDF…', description: 'Print or save this page', onSelect: () => setShowExportDialog(true) },
+    { label: 'Change history PDF…', description: `The audit trail: every change and ${t('activity')}, with dates`, onSelect: () => setShowAuditTrail(true) },
+    ...(handoffOn ? [{
+      label: holdsPeople ? 'Handoff packet…' : `${t('record', { cap: true })} packet…`,
+      description: 'For a transfer or discharge',
+      onSelect: () => setShowHandoff(true),
+    }] : []),
+  ]
+
   const moreItems: MoreMenuItem[] = [
-    { label: 'Print / PDF…', onSelect: () => setShowExportDialog(true) },
     ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
     ...(rowInList ? [{ label: `Duplicate (copies details, not ${t('activity', { many: true })})`, onSelect: () => void duplicateHere() }] : []),
     ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
@@ -525,10 +536,9 @@ export default function ProfileView(): React.ReactElement {
               gridId={activeGridId!}
               onRowUpdate={handleRowUpdate}
               onAddNote={() => noteFocusRef.current?.()}
+              printItems={printItems}
               moreItems={moreItems}
               onGenerateLetter={showLetters ? () => setShowLetterModal(true) : undefined}
-              onAuditTrail={() => setShowAuditTrail(true)}
-              onHandoff={handoffOn ? () => setShowHandoff(true) : undefined}
             />
 
             {activeGridId && showRequirements && <ContactStatusLine rowId={rowId} gridId={activeGridId} />}
@@ -611,7 +621,7 @@ export default function ProfileView(): React.ReactElement {
 
       </div>
 
-      {/* Generate Letter modal */}
+      {/* Handoff, PDF, audit trail and letter dialogs */}
       {showHandoff && rowId != null && activeGridId != null && (
         <HandoffDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={closeHandoff} />
       )}
