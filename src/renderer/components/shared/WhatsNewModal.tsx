@@ -18,6 +18,18 @@ interface ReleaseEntry {
 /** Items name records, lists and notes with {word} tokens, filled with the workspace's words */
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.7.0',
+    date: '2026-10-15',
+    items: [
+      'Your work is safer: a date that isn\'t a real date is never saved over the one you had, a half-written {activity} survives closing the window or a crash, and forms you were filling in come back after Pulse locks',
+      'Bringing in a spreadsheet shows what Pulse guessed (names, columns, which dates repeat) before anything is added, and dates in the future are read as due dates',
+      'The dashboard opens on what to do next, its counts agree everywhere, and "Print what\'s due" prints exactly what you see, in large black text',
+      'Fewer questions: things you can undo just happen, with an Undo button, and double-clicks no longer make two of anything',
+      'Easier to find your way: one deadline card everywhere, clearer words and buttons, quieter settings, a short first look instead of a long tour, and everything works from the keyboard',
+      'New examples for home health nursing and foster home licensing, a new app icon, and a faster list with thousands of {record:many}',
+    ],
+  },
+  {
     version: '2.6.0',
     date: '2026-10-13',
     items: [
