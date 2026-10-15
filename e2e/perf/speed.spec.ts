@@ -126,6 +126,9 @@ for (const records of RECORD_COUNTS) {
 
         // Settings → Data → Delete all history…
         await page.evaluate(() => { window.location.hash = '#/settings?tab=data' })
+        // Since Q1c the button can sit inside a closed "More settings" disclosure
+        await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => /delete all history/i.test(b.textContent ?? '')), undefined, { timeout: 10000 })
+        await page.evaluate(() => { document.querySelectorAll('details').forEach(d => { d.open = true }) })
         await page.getByRole('button', { name: /delete all history/i }).waitFor({ timeout: 10000 })
         await waitQuiet(page, 500)
         for (let i = 0; i < RUNS; i++) {
