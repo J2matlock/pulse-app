@@ -38,14 +38,19 @@ const mockChain = vi.fn().mockReturnValue({
   }),
 })
 
+// The editor's element, for the attributes the pad sets on it (aria-description)
+const mockDom = { closest: () => null, parentElement: null, setAttribute: vi.fn(), removeAttribute: vi.fn() }
+let mockIsEmpty = true
+
 vi.mock('@tiptap/react', () => ({
   useEditor: (opts: { onUpdate?: (a: { editor: unknown }) => void }) => (capturedOnUpdate = opts.onUpdate, {
     isActive: () => false,
+    isEmpty: mockIsEmpty,
     setEditable: mockSetEditable,
     chain: mockChain,
     commands: { setContent: mockSetContent },
     getHTML: () => '<p></p>',
-    view: { dom: { closest: () => null, parentElement: null } },
+    view: { dom: mockDom },
     state: { selection: { from: 0 }, doc: { textBetween: () => '' } },
   }),
   useEditorState: ({ editor, selector }: { editor: unknown; selector: (c: { editor: unknown }) => unknown }) => selector({ editor }),
@@ -77,6 +82,7 @@ beforeEach(() => { setWords() })
 describe('ScratchPad', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsEmpty = true
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'scrap-note:get') return Promise.resolve({ ok: true, data: { content: '' } })
       if (channel === 'global-note:get') return Promise.resolve({ ok: true, data: { content: '' } })
@@ -85,9 +91,30 @@ describe('ScratchPad', () => {
     })
   })
 
-  it('renders the Scratch notes header', async () => {
+  it('the header says the notes are just for you (C-09)', async () => {
     await renderSettled(<ScratchPad rowId={1} />)
-    expect(screen.getByText('Scratch notes')).toBeTruthy()
+    expect(screen.getByText('Scratch notes (just for you)')).toBeTruthy()
+  })
+
+  it('an empty pad on a record\'s page says what it\'s for, in the workspace\'s words, until something is written (C-09)', async () => {
+    setWords({ activityLog: { one: 'visit log', many: 'visit logs', article: 'a' } })
+    const hint = 'Reminders, numbers, things to ask. Not part of the visit log, and left out of printouts unless you choose to include them.'
+    const { rerender } = await renderSettled(<ScratchPad rowId={1} />)
+    const shown = screen.getByText(hint)
+    expect(shown.getAttribute('aria-hidden')).toBe('true')
+    expect(shown.className).toContain('pointer-events-none')
+    // Screen readers hear it once, as the editor's description
+    expect(mockDom.setAttribute).toHaveBeenCalledWith('aria-description', hint)
+    mockIsEmpty = false
+    rerender(<ScratchPad rowId={1} />)
+    expect(screen.queryByText(hint)).toBeNull()
+  })
+
+  it('the Tasks page pad keeps its own heading and shows no hint (C-09)', async () => {
+    await renderSettled(<ScratchPad globalScope="tasks" heading="My notes" />)
+    expect(screen.getByText('My notes')).toBeTruthy()
+    expect(screen.queryByText(/Reminders, numbers/)).toBeNull()
+    expect(mockDom.setAttribute).not.toHaveBeenCalledWith('aria-description', expect.anything())
   })
 
   it('renders the tiptap editor area', async () => {
