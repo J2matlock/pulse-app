@@ -21,6 +21,7 @@ import { FAQ_ITEMS } from '../../src/renderer/views/help/faqData'
 import { CATEGORY_LABELS } from '../../src/renderer/views/help/types'
 import { RELEASES } from '../../src/renderer/components/shared/WhatsNewModal'
 import { HINT_IDS, HINTS } from '../../src/renderer/components/onboarding/screenHints'
+import { FIRST_LOOK_TEXT } from '../../src/renderer/components/onboarding/FirstLook'
 import { fillVocab, resolveVocab, GENERIC_VOCAB, HUMAN_SERVICES_VOCAB, type Vocab } from '../../src/shared/vocab'
 
 const HARD_CODED = /\b(clients?|caseloads?|case (notes?|logs?)|providers?|acuity|grids?)\b/i
@@ -44,6 +45,7 @@ const texts: string[] = [
   ...Object.values(CATEGORY_LABELS),
   ...RELEASES.flatMap(r => r.items),
   ...HINT_IDS.map(id => HINTS[id]?.text ?? ''),
+  ...Object.values(FIRST_LOOK_TEXT),
 ]
 
 /** Every word starts "oz", so a hard-coded "a" in front of one shows as "a oz…" */

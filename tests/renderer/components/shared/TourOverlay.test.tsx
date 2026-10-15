@@ -9,7 +9,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 Object.defineProperty(window, 'api', { value: { invoke: vi.fn(async () => ({ ok: true, data: null })), on: () => () => {} }, writable: true, configurable: true })
 
-import { STEPS, FIRST_RUN_TOUR, TourOverlay, tourSteps } from '../../../../src/renderer/components/shared/TourOverlay'
+import { STEPS, TourOverlay, tourSteps } from '../../../../src/renderer/components/shared/TourOverlay'
 import { showMeSteps } from '../../../../src/renderer/views/HelpView'
 import { FAQ_ITEMS as faqItems } from '../../../../src/renderer/views/help/faqData'
 import { firstRuleColumnId, ruleColumnTarget } from '../../../../src/renderer/components/shared/tourSteps'
@@ -41,10 +41,14 @@ describe('tour steps', () => {
     expect(missing).toEqual([])
   })
 
-  it('the first-run tour is short and ends at Help', () => {
-    expect(FIRST_RUN_TOUR.length).toBeLessThanOrEqual(8)
-    for (const id of FIRST_RUN_TOUR) expect(STEPS.some(s => s.id === id)).toBe(true)
-    expect(FIRST_RUN_TOUR.at(-1)).toBe('help')
+  it('the tour Help plays covers every switched-on step, Help included (UX pass Q7: no short first-run tour)', async () => {
+    vi.useFakeTimers()
+    render(<TourOverlay onComplete={() => {}} />)
+    const playable = tourSteps(STEPS)
+    expect(screen.getByText(`Step 1 of ${playable.length}`)).toBeTruthy()
+    expect(playable.length).toBeGreaterThan(8)
+    expect(playable.some(s => s.id === 'help')).toBe(true)
+    vi.useRealTimers()
   })
 
   it('leaves out switched-off features, in the full tour and in "Show me"', () => {
@@ -102,10 +106,6 @@ describe('deadline colours step (UX-A-03, UX-A-10)', () => {
     expect(step().target).toBe('[data-tour="grid"]')
     expect(step().position).toBe('bottom')
     expect(step().description).toMatch(/None of your date columns has a rule yet/)
-  })
-
-  it('no step promises to open a page the short tour never shows', () => {
-    for (const s of STEPS.filter(x => FIRST_RUN_TOUR.includes(x.id))) expect(s.description).not.toMatch(/Let's take a look/)
   })
 })
 

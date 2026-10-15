@@ -31,6 +31,7 @@ import { ToastHost } from './components/shared/ToastHost'
 import { TourOverlay } from './components/shared/TourOverlay'
 import { MiniTour } from './components/shared/MiniTour'
 import { ScreenHint } from './components/onboarding/ScreenHint'
+import { FirstLook } from './components/onboarding/FirstLook'
 import { WhatsNewModal } from './components/shared/WhatsNewModal'
 import { GlobalTaskDialog } from './components/shared/GlobalTaskDialog'
 import { ResetPasswordAfterRecoveryDialog } from './components/shared/ResetPasswordAfterRecoveryDialog'
@@ -89,12 +90,12 @@ export default function App(): React.ReactElement {
     authState,
     setupStart,
     completeOnboarding,
-    showTourAfterOnboarding,
   } = useAuthGating()
 
   // Modal/overlay state: tour, command palette, shortcuts, what's new, mini-tour, global task
   const {
     showTour, setShowTour,
+    firstLook, setFirstLook,
     commandPaletteOpen, setCommandPaletteOpen,
     shortcutsOpen, setShortcutsOpen,
     whatsNewOpen, setWhatsNewOpen,
@@ -176,10 +177,10 @@ export default function App(): React.ReactElement {
           <SetupView
             start={setupStart}
             onCancel={setupStart === 'welcome' ? undefined : completeOnboarding}
-            onComplete={completeOnboarding}
-            onStartTour={() => {
-              showTourAfterOnboarding()
-              setShowTour(true)
+            onComplete={() => {
+              completeOnboarding()
+              // Only a true first run gets "Here's your caseload"; setup shown again doesn't
+              if (setupStart === 'welcome') setFirstLook(true)
             }}
           />
           <ToastHost />
@@ -296,7 +297,7 @@ export default function App(): React.ReactElement {
             element={
               <MainLayout>
                 <HelpView
-                  onStartTour={() => setShowTour('full')}
+                  onStartTour={() => setShowTour(true)}
                   onStartMiniTour={(steps) => setMiniTourSteps(steps)}
                 />
               </MainLayout>
@@ -308,19 +309,20 @@ export default function App(): React.ReactElement {
         </ErrorBoundary>
         {/* One overlay's crash mustn't take the rest for the session: the key
             changes as overlays open and close, which clears a caught error */}
-        <ErrorBoundary fallback={<></>} resetKey={`${commandPaletteOpen}|${shortcutsOpen}|${whatsNewOpen}|${globalTaskOpen}|${!!showTour}|${!!miniTourSteps}`}>
+        <ErrorBoundary fallback={<></>} resetKey={`${commandPaletteOpen}|${shortcutsOpen}|${whatsNewOpen}|${globalTaskOpen}|${showTour}|${!!miniTourSteps}|${firstLook}`}>
           <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onFocusMode={() => { setFocusModeOpen(true); setCommandPaletteOpen(false) }} />
           <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
           <AnchorChangeDialog />
-          <MorningBriefing suppressed={!!showTour || !!miniTourSteps || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
+          <MorningBriefing suppressed={showTour || !!miniTourSteps || firstLook || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
           <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
           <GlobalTaskDialog open={globalTaskOpen} onClose={() => setGlobalTaskOpen(false)} />
-          <ScreenHint blocked={!!showTour || !!miniTourSteps || focusModeOpen} />
+          <ScreenHint blocked={showTour || !!miniTourSteps || firstLook || focusModeOpen} />
           {showTour && (
-            <TourOverlay full={showTour === 'full'} onComplete={() => {
+            <TourOverlay onComplete={() => {
               setShowTour(false)
             }} />
           )}
+          {firstLook && <FirstLook onClose={() => setFirstLook(false)} />}
           {miniTourSteps && (
             <MiniTour
               steps={miniTourSteps}

@@ -206,20 +206,6 @@ describe('useAuthGating', () => {
     expect(result.current.authState).toBe('ready')
   })
 
-  it('showTourAfterOnboarding loads rules', async () => {
-    mockSettingsState = { isLocked: false, isPasswordSetup: true, recoverySession: false }
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === IPC.AUTH_IS_SETUP) return Promise.resolve({ ok: true, data: true })
-      if (channel === IPC.ONBOARDING_CHECK) return Promise.resolve({ ok: true, data: { complete: true } })
-      return Promise.resolve({ ok: false })
-    })
-    const { result } = renderHook(() => useAuthGating())
-    await act(async () => {})
-    act(() => { result.current.setShowOnboarding(true) })
-    act(() => { result.current.showTourAfterOnboarding() })
-    expect(mockLoadRules).toHaveBeenCalled()
-  })
-
   describe('one-time hints (UX pass Q7)', () => {
     function answers(hintsSeen: string | null) {
       mockSettingsState = { isLocked: false, isPasswordSetup: true, recoverySession: false }

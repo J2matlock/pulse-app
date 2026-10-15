@@ -156,13 +156,20 @@ export async function silenceHints(window: Page): Promise<void> {
     .api.invoke('settings:update', 'onboarding_hints_seen', 'all'));
 }
 
-/** Leave the "Your workspace is ready" screen, with the one-time hints silenced. */
+/**
+ * Leave the "You're all set" screen ("Open my caseload"), with the one-time
+ * hints and the first look silenced; a first look that shows anyway is closed.
+ */
 export async function finishSetup(window: Page): Promise<void> {
-  const exploreBtn = window.getByText(/explore on my own/i);
-  await exploreBtn.waitFor({ state: 'visible', timeout: 10000 });
+  const openBtn = window.getByRole('button', { name: /^open my /i });
+  await openBtn.waitFor({ state: 'visible', timeout: 10000 });
   await silenceHints(window);
-  await exploreBtn.click();
+  await openBtn.click();
   await window.waitForSelector('nav, [class*="sidebar"]', { timeout: 20000 });
+  const firstLook = window.getByRole('dialog', { name: /^here's your /i });
+  if (await firstLook.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) {
+    await firstLook.getByRole('button', { name: /^(close|got it)$/i }).click();
+  }
 }
 
 /**
@@ -184,7 +191,7 @@ export async function skipOnboarding(window: Page): Promise<void> {
   await addBtn.click();
   await window.waitForTimeout(3000); // List creation takes a moment
 
-  // Step 4: Done — click "No thanks, I'll explore on my own"
+  // Step 4: Done — click "Open my caseload"
   await finishSetup(window);
 }
 

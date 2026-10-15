@@ -51,7 +51,7 @@ describe('axe: entry screens', () => {
   })
 
   it('first-run setup: welcome, name and how-to-start steps', async () => {
-    const { container } = render(<SetupView onComplete={vi.fn()} onStartTour={vi.fn()} />)
+    const { container } = render(<SetupView onComplete={vi.fn()} />)
     await flush()
     await expectNoAxeViolations(container)
     fireEvent.click(screen.getByRole('button', { name: /Get started/ }))

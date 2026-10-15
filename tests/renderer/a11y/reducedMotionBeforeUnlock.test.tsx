@@ -23,7 +23,7 @@ function Probe({ name }: { name: string }): React.ReactElement {
 }
 
 vi.mock('../../../src/renderer/hooks/useAuthGating', () => ({
-  useAuthGating: () => ({ authState: auth.state, setupStart: 'welcome', completeOnboarding: () => {}, showTourAfterOnboarding: () => {} }),
+  useAuthGating: () => ({ authState: auth.state, setupStart: 'welcome', completeOnboarding: () => {} }),
 }))
 vi.mock('../../../src/renderer/hooks/useModalManager', () => ({
   useModalManager: () => new Proxy({}, { get: (_t, k) => (String(k).startsWith('set') ? () => {} : k === 'miniTourSteps' ? null : false) }),

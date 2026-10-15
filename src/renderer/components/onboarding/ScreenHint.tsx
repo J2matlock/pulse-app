@@ -81,10 +81,12 @@ export function ScreenHint({ blocked }: {
 
   const close = useCallback(() => setShown(null), [])
 
+  // A list redraws its rows, so the target is looked up again rather than held;
+  // a moment without it keeps the last place
   const measure = useCallback(() => {
     if (!shown?.target) { setRect(null); return }
-    if (!shown.target.isConnected) { setShown(null); return }
-    setRect(shown.target.getBoundingClientRect())
+    const target = shown.target.isConnected ? shown.target : (shown.hint.target ? document.querySelector(shown.hint.target) : null)
+    if (target) setRect(target.getBoundingClientRect())
   }, [shown])
 
   useLayoutEffect(() => {
@@ -96,10 +98,11 @@ export function ScreenHint({ blocked }: {
   // While it's up: follow the target, go away if a dialog opens, and close when the target is used
   useEffect(() => {
     if (!shown) return
-    const interval = setInterval(() => { if (modalOpen()) setShown(null); else measure() }, 1000)
+    const interval = setInterval(() => { if (modalOpen()) setShown(null); else measure() }, RECHECK_MS)
     window.addEventListener('resize', measure)
+    const selector = shown.hint.target
     const onClick = (e: MouseEvent) => {
-      if (shown.target && e.target instanceof Node && shown.target.contains(e.target)) setShown(null)
+      if (selector && e.target instanceof Element && e.target.closest(selector)) setShown(null)
     }
     document.addEventListener('click', onClick, true)
     return () => {

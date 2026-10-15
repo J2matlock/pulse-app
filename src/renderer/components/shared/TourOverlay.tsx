@@ -1,5 +1,6 @@
 /**
- * TourOverlay — Rich interactive tour shown after onboarding.
+ * TourOverlay — the full tour, from Help ("Take the tour"). New users get the
+ * first look and one-time hints instead (components/onboarding, UX pass Q7).
  * Highlights key UI areas with spotlight cutout, icons, and friendly descriptions.
  * Designed for non-tech-savvy users (care coordinators, social workers).
  *
@@ -19,15 +20,13 @@ import {
 import { useVocab } from '../../hooks/useVocab'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { modHelp } from '../../utils/keys'
-import { STEPS, FIRST_RUN_TOUR, tourSteps } from './tourSteps'
+import { STEPS, tourSteps } from './tourSteps'
 import { computeTooltipPosition, type TourRect } from './tourPosition'
 
-export { STEPS, FIRST_RUN_TOUR, tourSteps, type TourStep } from './tourSteps'
+export { STEPS, tourSteps, type TourStep } from './tourSteps'
 
 interface Props {
   onComplete: () => void
-  /** Every step (Help's "Retake full tour"); otherwise the short first-run tour */
-  full?: boolean
 }
 
 /**
@@ -42,7 +41,7 @@ function columnRect(header: Element): TourRect {
   return { top: h.top, left: h.left, right: h.right, bottom, width: h.width, height: Math.max(h.height, bottom - h.top) }
 }
 
-export function TourOverlay({ onComplete, full = false }: Props): React.ReactElement {
+export function TourOverlay({ onComplete }: Props): React.ReactElement {
   const { f } = useVocab(null)
   const [stepIndex, setStepIndex] = useState(0)
   const nextRef = useRef<HTMLButtonElement>(null)
@@ -52,8 +51,8 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
   const tooltipRef = useRef<HTMLDivElement>(null)
   const prevStepRef = useRef(0)
 
-  // The short tour (or every step), minus switched-off features and steps that don't apply
-  const activeSteps = tourSteps(full ? STEPS : STEPS.filter(s => FIRST_RUN_TOUR.includes(s.id)))
+  // Every step, minus switched-off features and steps that don't apply
+  const activeSteps = tourSteps(STEPS)
   const step = activeSteps[stepIndex]
 
   // Keyboard and screen-reader users land on Next at each step

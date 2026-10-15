@@ -28,6 +28,8 @@ import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRe
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
 import { UpdateCheckChoice } from './setup/UpdateCheckChoice'
 import { friendlyError } from '../utils/friendlyError'
+import { useVocab } from '../hooks/useVocab'
+import { PrimaryButton } from '../components/ui/Button'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
 
@@ -37,7 +39,6 @@ interface Props {
   /** Shown again from the app: a way back without choosing anything */
   onCancel?: () => void
   onComplete: () => void
-  onStartTour: () => void
 }
 
 /** "What are these rows?" choices: the word for one and many, and what the list holds */
@@ -115,7 +116,9 @@ function Back({ onClick }: { onClick: () => void }) {
   )
 }
 
-export default function SetupView({ start = 'welcome', onCancel, onComplete, onStartTour }: Props): React.ReactElement {
+export default function SetupView({ start = 'welcome', onCancel, onComplete }: Props): React.ReactElement {
+  // The list words an example just brought (they reload when it's applied)
+  const { t } = useVocab(null)
   const [step, setStep] = useState<Step>(start === 'examples' ? 'start' : start)
   const [profile, setProfile] = useState({ name: '', title: '', org: '' })
   const [busy, setBusy] = useState(false)
@@ -425,15 +428,10 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                   </ul>
                 </div>
               )}
-              <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-sm mx-auto">Would you like a quick tour of the main features?</p>
-              <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={onStartTour}>
-                Show me around <ArrowRight className="w-5 h-5" aria-hidden="true" />
-              </button>
-              <div className="mt-3">
-                <button type="button" onClick={onComplete} className="hit-44 text-base text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100">
-                  No thanks, I'll explore on my own
-                </button>
-              </div>
+              {/* One way on: the list itself, where the first look shows what red means (UX pass Q7) */}
+              <PrimaryButton className="inline-flex px-8" onClick={onComplete}>
+                Open my {t('list')} <ArrowRight className="w-5 h-5" aria-hidden="true" />
+              </PrimaryButton>
               {/* The small print, after the choice that matters (UX-A-18) */}
               <div className="mt-8 pt-5 border-t border-slate-200 dark:border-slate-700 max-w-md mx-auto">
                 <UpdateCheckChoice />

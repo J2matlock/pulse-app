@@ -22,7 +22,6 @@ interface UseAuthGatingReturn {
   /** Where setup starts: the welcome screen, or (shown again with no lists left) one of its starting points */
   setupStart: SetupStart
   setShowOnboarding: (v: boolean) => void
-  showTourAfterOnboarding: () => void
   completeOnboarding: () => void
 }
 
@@ -112,7 +111,6 @@ export function useAuthGating(): UseAuthGatingReturn {
   }, [loadRules, setupStart])
 
   const completeOnboarding = finishSetup
-  const showTourAfterOnboarding = finishSetup
 
   // Words or features changed elsewhere (another window, applying a starter)
   useEffect(() => window.api.on(IPC.WORKSPACE_CHANGED, () => { void useWorkspaceStore.getState().load() }), [])
@@ -141,7 +139,6 @@ export function useAuthGating(): UseAuthGatingReturn {
     authState,
     setupStart,
     setShowOnboarding,
-    showTourAfterOnboarding,
     completeOnboarding,
   }
 }

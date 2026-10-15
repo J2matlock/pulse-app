@@ -3,9 +3,12 @@ import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
 
 interface UseModalManagerReturn {
-  /** true: the short first-run tour; 'full': every step (Help → Retake full tour) */
-  showTour: boolean | 'full'
-  setShowTour: Dispatch<SetStateAction<boolean | 'full'>>
+  /** The tour Help plays: every step that's switched on */
+  showTour: boolean
+  setShowTour: Dispatch<SetStateAction<boolean>>
+  /** "Here's your caseload" after a true first run (UX pass Q7) */
+  firstLook: boolean
+  setFirstLook: Dispatch<SetStateAction<boolean>>
   commandPaletteOpen: boolean
   setCommandPaletteOpen: Dispatch<SetStateAction<boolean>>
   shortcutsOpen: boolean
@@ -19,7 +22,8 @@ interface UseModalManagerReturn {
 }
 
 export function useModalManager(): UseModalManagerReturn {
-  const [showTour, setShowTour] = useState<boolean | 'full'>(false)
+  const [showTour, setShowTour] = useState(false)
+  const [firstLook, setFirstLook] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
@@ -31,6 +35,8 @@ export function useModalManager(): UseModalManagerReturn {
   return {
     showTour,
     setShowTour,
+    firstLook,
+    setFirstLook,
     commandPaletteOpen,
     setCommandPaletteOpen,
     shortcutsOpen,
