@@ -25,7 +25,7 @@ if (!globalThis.crypto?.randomUUID) {
 
 // Mock react-hot-toast
 vi.mock('react-hot-toast', () => ({
-  default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+  default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }),
 }))
 
 // Mock zustand/react/shallow — pass selector through

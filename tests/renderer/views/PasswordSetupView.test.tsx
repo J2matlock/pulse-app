@@ -109,6 +109,34 @@ describe('PasswordSetupView', () => {
     expect(document.activeElement).toBe(screen.getByRole('checkbox'))
   })
 
+  it('a weak password is said once, under the box, with focus moved there (UX-A-13)', async () => {
+    render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+    await flushEffects()
+    const [pw, confirm] = screen.getAllByPlaceholderText(/./).filter(el => (el as HTMLInputElement).type === 'password') as HTMLInputElement[]
+    fireEvent.change(pw!, { target: { value: 'abc' } })
+    fireEvent.change(confirm!, { target: { value: 'abc' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create password & continue' }))
+    await flushEffects()
+    // One visible message (the meter's); the announcement for screen readers is hidden
+    const said = screen.getAllByText(/at least 12 characters/i)
+    expect(said.filter(el => !el.classList.contains('sr-only'))).toHaveLength(1)
+    expect(screen.getByRole('alert').className).toContain('sr-only')
+    expect(document.activeElement).toBe(pw)
+    expect(pw!.getAttribute('aria-invalid')).toBe('true')
+    // An empty box has nothing under it, so that one is said
+    fireEvent.change(pw!, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create password & continue' }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Type a password first/)
+  })
+
+  it('the first screen has no 14 px text and no repeated encryption notice (UX-A-04, UX-A-15)', async () => {
+    const { container } = render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+    await flushEffects()
+    expect(container.querySelectorAll('.text-sm, .text-xs')).toHaveLength(0)
+    expect(screen.queryByText(/cannot be recovered unless/)).toBeNull()
+    expect(screen.getByPlaceholderText("Something only you'd understand")).toBeTruthy()
+  })
+
   it('reads only the settings it needs, so other settings changes don\'t redraw it (AUDIT-137)', async () => {
     wholeStoreReads.n = 0
     render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
@@ -132,7 +160,7 @@ describe('PasswordSetupView', () => {
       fireEvent.click(screen.getByRole('checkbox'))
       fireEvent.click(screen.getByRole('button', { name: 'Create password & continue' }))
       await flushEffects()
-      fireEvent.click(await screen.findByRole('button', { name: 'Generate Recovery Key' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Show my recovery key' }))
       await flushEffects()
       expect(invoke).toHaveBeenCalledWith(IPC.AUTH_GENERATE_RECOVERY_KEY, 'a long enough passphrase')
     } finally {

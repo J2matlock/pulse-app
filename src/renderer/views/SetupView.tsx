@@ -135,6 +135,9 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
 
   const go = (s: Step) => { setError(null); setStep(s) }
 
+  // Nothing from the password screens ("Recovery key copied") follows into setup (UX-A-31)
+  useEffect(() => { toast.dismiss() }, [])
+
   // Setup that was interrupted after making a list carries on where it stopped
   useEffect(() => {
     if (start !== 'welcome') return

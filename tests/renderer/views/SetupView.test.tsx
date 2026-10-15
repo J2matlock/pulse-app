@@ -8,7 +8,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 const mockInvoke = vi.fn()
 Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, on: () => () => {} }, writable: true, configurable: true })
 vi.mock('lucide-react', async () => (await import('../lucideMock')).lucideMock)
-vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
+vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }) }))
 // The import wizard and example dialog have their own tests; here they just finish
 vi.mock('../../../src/renderer/components/grid/ImportWizard', () => ({
   ImportWizard: ({ onImported, onClose }: { onImported: (r: { imported: number; undone?: boolean }) => void; onClose: () => void }) => <>

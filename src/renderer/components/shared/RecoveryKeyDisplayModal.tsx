@@ -15,8 +15,12 @@ interface RecoveryKeyDisplayModalProps {
 
 export function RecoveryKeyDisplayModal({ open, recoveryKey, onClose }: RecoveryKeyDisplayModalProps): React.ReactElement | null {
   const [saved, setSaved] = useState(false)
+  // Done was clicked before the box was ticked: say so instead of a silent, full-colour
+  // button that does nothing (UX-A-05)
+  const [needTick, setNeedTick] = useState(false)
   const printTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const trapRef = useRef<HTMLDivElement>(null)
+  const savedRef = useRef<HTMLInputElement>(null)
 
   useFocusTrap(trapRef, open)
 
@@ -25,7 +29,17 @@ export function RecoveryKeyDisplayModal({ open, recoveryKey, onClose }: Recovery
 
   async function handleCopy() {
     // copyText says so itself when the copy didn't happen
-    if (await copyText(recoveryKey)) toast.success('Recovery key copied to clipboard')
+    // Short-lived: it shouldn't still be in the corner on the next screen (UX-A-31)
+    if (await copyText(recoveryKey)) toast.success('Recovery key copied to clipboard', { duration: 3000 })
+  }
+
+  function handleDone() {
+    if (!saved) {
+      setNeedTick(true)
+      savedRef.current?.focus()
+      return
+    }
+    onClose()
   }
 
   function handlePrint() {
@@ -96,7 +110,7 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
         </div>
 
         <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg p-3 mb-6">
-          <p className="text-amber-800 dark:text-amber-300 text-sm leading-relaxed">
+          <p className="text-amber-800 dark:text-amber-300 text-base leading-relaxed">
             This key will not be shown again. Store it somewhere safe — a lockbox, a password manager, or a printed card in a secure location.
           </p>
         </div>
@@ -124,9 +138,11 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
 
         <label className="flex items-center gap-3 mb-4 cursor-pointer select-none">
           <input
+            ref={savedRef}
             type="checkbox"
             checked={saved}
-            onChange={e => setSaved(e.target.checked)}
+            onChange={e => { setSaved(e.target.checked); if (e.target.checked) setNeedTick(false) }}
+            aria-describedby={needTick ? 'recovery-key-need-tick' : undefined}
             className="w-5 h-5 accent-blue-600 flex-shrink-0"
           />
           <span className="text-base text-slate-700 dark:text-slate-300">
@@ -136,13 +152,17 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
 
         <button
           type="button"
-          onClick={onClose}
-          disabled={!saved}
+          onClick={handleDone}
           className="btn-primary w-full"
           style={{ minHeight: 44 }}
         >
           Done
         </button>
+        {needTick && (
+          <p id="recovery-key-need-tick" role="alert" className="mt-3 text-base text-red-700 dark:text-red-300">
+            Tick “I have saved this recovery key somewhere safe” first.
+          </p>
+        )}
           </motion.div>
         </motion.div>
       )}
