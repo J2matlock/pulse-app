@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockInvoke = vi.fn()
@@ -93,7 +93,8 @@ describe('MonthlyContactsCard', () => {
       mockInvoke.mockResolvedValue(twoPeriods)
       render(<MemoryRouter><RequirementsLine /><MonthlyContactsCard /></MemoryRouter>)
       const line = await screen.findByTestId('requirements-line')
-      expect(line.textContent).toBe('Contact requirements this week and this month:1 of 3 clients done·1 behind with under 7 days left·Show who')
+      // "Show who" joins the line once the card below has its list; wait for the whole line
+      await waitFor(() => expect(line.textContent).toBe('Contact requirements this week and this month:1 of 3 clients done·1 behind with under 7 days left·Show who'))
       // One request between the line and the card
       expect(mockInvoke.mock.calls.filter(c => c[0] === 'contact-req:status')).toHaveLength(1)
     } finally {
