@@ -8,6 +8,7 @@ import { TopBar } from './TopBar'
 import { StatusBar } from './StatusBar'
 import { UpdateBanner } from '../shared/UpdateBanner'
 import { SampleDataBanner } from '../shared/SampleDataBanner'
+import { FeatureSuggestionWatcher } from '../shared/FeatureSuggestionWatcher'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -204,6 +205,7 @@ export function MainLayout({ children }: Props): React.ReactElement {
           />
         )}
         <SampleDataBanner />
+        <FeatureSuggestionWatcher />
         <main id="main-content" ref={mainRef} tabIndex={-1} aria-label={pageName} className="flex-1 overflow-hidden focus:outline-none">
           {/* A page loading for the first time doesn't blank the sidebar and top bar (audit N-29) */}
           {/* A page that crashes keeps the sidebar and top bar, and moving to another page clears it */}
