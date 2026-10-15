@@ -57,7 +57,7 @@ ${ORG_JOB_HEADING}
 
 ${REGULATION_TEXT}
 
-Questions: support@baringasoft.com`
+Questions: baringasoft@tuta.com`
 
 /** "Lincoln Elementary District's job", "Lincoln Public Schools' job" */
 function orgPossessive(org: string): string {

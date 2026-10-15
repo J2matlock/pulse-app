@@ -40,4 +40,4 @@ BaringaSoft never receives, stores or sends the data Pulse holds. A software mak
 ### More detail
 - Safeguard-by-safeguard map: *HIPAA Safeguards Map*
 - Technical design: *Security & Architecture Brief*
-- Questions: support@baringasoft.com
+- Questions: baringasoft@tuta.com

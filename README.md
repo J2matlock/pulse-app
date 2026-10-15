@@ -62,7 +62,7 @@ Electron, React, TypeScript, Tailwind CSS and SQLite (`better-sqlite3-multiple-c
 
 Bug reports, ideas for new starters and pull requests are welcome. Please open an issue first for anything large. Pulse is used by people who aren't tech-savvy, so plain language, 15px text and 44px click targets matter (see `CLAUDE.md`).
 
-Found a security problem? Please email support@baringasoft.com with "SECURITY" in the subject instead of opening a public issue.
+Found a security problem? Please email baringasoft@tuta.com with "SECURITY" in the subject instead of opening a public issue.
 
 ## Support the project
 
