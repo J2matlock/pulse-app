@@ -15,6 +15,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { shortDate } from '../../../shared/dates'
+import { PrimaryButton } from '../ui/Button'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
 type ContactType = typeof CONTACT_TYPES[number]
@@ -564,13 +565,9 @@ export function ProfileHeader({
                       className="flex-1 text-base px-2 py-1.5 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                       style={{ fontSize: 15 }}
                     />
-                    <button
-                      onClick={() => void createAndAssignTag()}
-                      disabled={!newTagName.trim()}
-                      className="hit-44 px-2 py-1 text-base bg-blue-600 text-white rounded-sm hover:bg-blue-700 disabled:opacity-40 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                    >
+                    <PrimaryButton size="compact" onClick={() => void createAndAssignTag()} disabled={!newTagName.trim()}>
                       Add
-                    </button>
+                    </PrimaryButton>
                   </div>
                 </div>
               </div>
@@ -686,14 +683,9 @@ export function ProfileHeader({
                 autoFocus
               />
             </div>
-            <button
-              onClick={() => void addManualContact()}
-              disabled={!newContactValue.trim()}
-              className="hit-44 px-3 py-1.5 text-base bg-blue-600 text-white rounded-sm hover:bg-blue-700 disabled:opacity-40 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-              style={{ minHeight: 44 }}
-            >
+            <PrimaryButton onClick={() => void addManualContact()} disabled={!newContactValue.trim()}>
               Add
-            </button>
+            </PrimaryButton>
             <button
               onClick={() => setShowAddContact(false)}
               className="hit-44 px-2 py-1.5 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -732,14 +724,9 @@ export function ProfileHeader({
         {/* ── Row 4: Quick action buttons ── */}
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex-wrap">
           {onAddNote && (
-            <button
-              onClick={onAddNote}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-3 transition-colors"
-              style={{ minHeight: 44, fontSize: 15 }}
-            >
-              <Plus className="w-4 h-4" />
+            <PrimaryButton onClick={onAddNote} icon={<Plus className="w-4 h-4" />} className="font-semibold shadow-sm">
               {t('activity', { cap: true })}
-            </button>
+            </PrimaryButton>
           )}
           {onGenerateLetter && (
             <button

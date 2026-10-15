@@ -18,6 +18,7 @@ import { useToday } from '../../hooks/useToday'
 import { CaseLogEditHistory } from './CaseLogEditHistory'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../shared/measures'
+import { DangerButton } from '../ui/Button'
 
 interface Props {
   entry: CaseLogEntryType
@@ -221,13 +222,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             </button>
             {confirmDelete && canDelete ? (
               <>
-                <button
-                  onClick={() => onDelete(entry.id)}
-                  className="hit-44 px-2 py-0.5 text-base text-white bg-red-600 hover:bg-red-700 rounded-sm
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
-                >
+                <DangerButton size="compact" onClick={() => onDelete(entry.id)}>
                   Delete
-                </button>
+                </DangerButton>
                 <button
                   onClick={() => setConfirmDelete(false)}
                   aria-label="Cancel delete"
@@ -252,13 +249,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                   className="w-40 px-2 py-0.5 text-base rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800
                              focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                 />
-                <button
-                  type="submit"
-                  className="hit-44 px-2 py-0.5 text-base text-white bg-red-600 hover:bg-red-700 rounded-sm
-                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
-                >
+                <DangerButton size="compact" type="submit">
                   Void
-                </button>
+                </DangerButton>
                 <button
                   type="button"
                   onClick={() => { setConfirmDelete(false); setVoidReason('') }}
