@@ -162,6 +162,7 @@ export const IPC = {
   SNIPPET_CREATE: 'snippet:create',
   SNIPPET_UPDATE: 'snippet:update',
   SNIPPET_DELETE: 'snippet:delete',
+  LIBRARY_RESTORE: 'library:restore',
 
   // Dashboard
   DASHBOARD_GET_ALL: 'dashboard:get-all',

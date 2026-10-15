@@ -574,6 +574,8 @@ describe('CL_TEMPLATE_DELETE', () => {
     const t = await invoke(IPC.CL_TEMPLATE_CREATE, { name: 'To delete', items: '[]', is_recurring: 0 }) as any
     const r = await invoke(IPC.CL_TEMPLATE_DELETE, t.data.id) as any
     expect(r.ok).toBe(true)
+    // A token for Undo, which puts it back under the same id (Q4)
+    expect(r.data.undoToken).toMatch(/^[0-9a-f-]{36}$/)
   })
 
   it('fails for invalid ID', async () => {

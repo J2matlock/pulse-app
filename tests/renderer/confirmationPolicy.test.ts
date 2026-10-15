@@ -41,12 +41,6 @@ const ALLOWED: Record<string, { kind: Kind; why: string; count?: number }> = {
   'views/GridView.tsx': { kind: 'D', why: 'Change column type: every caller passes skipConfirm and ChangeTypeDialog previews it with undo; looks unreachable, left for a cleanup' },
   'components/grid/ColumnHeader.tsx': { kind: 'dependents', why: 'Only when rules, forms or views use the column: the dialog lists them' },
   'components/alerts/DeleteRuleConfirm.tsx': { kind: 'dependents', why: 'Only when columns use the rule: the dialog lists them' },
-  // Library items are deleted for good today; they ask until the main-process restore (Q4 step B2) lands
-  'components/profile/Checklist.tsx': { kind: 'pending B2', why: 'Delete a checklist template' },
-  'views/template-manager/ChecklistTemplateRow.tsx': { kind: 'pending B2', why: 'Delete a checklist template' },
-  'views/letter-template/DeleteConfirmModal.tsx': { kind: 'pending B2', why: 'Delete a letter template' },
-  'components/forms/FormsDialog.tsx': { kind: 'pending B2', why: 'Delete a form' },
-  'components/reports/ReportBuilder.tsx': { kind: 'pending B2', why: 'Delete a saved report (it also unpins it from the dashboard)' },
 }
 
 const files = sourceFiles(ROOT).filter(f => !f.endsWith(join('shared', 'ConfirmDialog.tsx')))

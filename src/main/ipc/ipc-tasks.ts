@@ -15,6 +15,7 @@ import { usesHumanServicesWords } from '../vocab'
 import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { toYmd } from '../../shared/ymd'
 import { LIVE_GRID } from '../../shared/liveRecords'
+import { deleteKeepingCopy } from '../library-restore'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_TASKS = 500
@@ -433,9 +434,9 @@ export function registerTaskHandlers(): void {
     return ok(true)
   }, { write: true })
 
+  // Keeps a copy for Undo, which puts it back under the same id (Q4)
   define(IPC.SNIPPET_DELETE, [idArg()], (id) => {
-    getDb().prepare('DELETE FROM snippets WHERE id = ?').run(id)
-    return ok(true)
+    return ok({ undoToken: deleteKeepingCopy('snippet', id, () => { getDb().prepare('DELETE FROM snippets WHERE id = ?').run(id) }) })
   }, { write: true })
 
 }

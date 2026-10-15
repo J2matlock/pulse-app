@@ -37,6 +37,7 @@ import { registerAcuityHandlers } from './ipc/ipc-acuity'
 import { registerTaskHandlers } from './ipc/ipc-tasks'
 import { registerExportHandlers } from './ipc/ipc-export'
 import { registerContactHandlers } from './ipc/ipc-contacts'
+import { registerLibraryHandlers } from './ipc/ipc-library'
 
 export function registerIpcHandlers(): void {
   registerAuthHandlers()
@@ -72,4 +73,5 @@ export function registerIpcHandlers(): void {
   registerTaskHandlers()
   registerExportHandlers()
   registerContactHandlers()
+  registerLibraryHandlers()
 }

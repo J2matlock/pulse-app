@@ -16,6 +16,7 @@ import { ReportChart } from '../components/reports/ReportChart'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { useVocab } from '../hooks/useVocab'
 import { pulseEvents } from '../events'
+import { onLibraryChanged } from '../utils/libraryUndo'
 
 interface RunSaved { report: SavedReport; result: ReportResult; explanation?: string; listName?: string }
 
@@ -76,6 +77,8 @@ export default function ReportsView(): React.ReactElement {
     if (r.ok) setReports(r.data)
   }, [])
   useEffect(() => { void load() }, [load])
+  // A report brought back (or deleted again) with Undo shows in the list (Q4)
+  useEffect(() => onLibraryChanged('report', () => { void load() }), [load])
   useEffect(() => { if (grids.length === 0) void useGridStore.getState().loadGridList() }, [grids.length])
 
   const current = openId ? reports?.find(r => r.id === openId) ?? null : null

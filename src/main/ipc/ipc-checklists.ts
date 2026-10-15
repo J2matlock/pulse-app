@@ -17,6 +17,7 @@ import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
 import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { localDateString } from '../../shared/dates'
 import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
+import { deleteKeepingCopy } from '../library-restore'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
@@ -340,9 +341,10 @@ export function registerChecklistHandlers(): void {
     return ok(updated)
   }, { write: true })
 
+  // Keeps a copy for Undo, which puts it back under the same id (Q4)
   define(IPC.CL_TEMPLATE_DELETE, [idArg()], (id) => {
-    getDb().prepare('DELETE FROM checklist_templates WHERE id = ?').run(id)
-    return ok(true)
+    const undoToken = deleteKeepingCopy('checklist-template', id, () => { getDb().prepare('DELETE FROM checklist_templates WHERE id = ?').run(id) })
+    return ok({ undoToken })
   }, { write: true })
 
   // ── Checklist Template Export/Import ─────────────────────────────────────

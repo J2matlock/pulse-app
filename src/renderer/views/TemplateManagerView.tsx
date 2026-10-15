@@ -22,6 +22,7 @@ import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { friendlyError } from '../utils/friendlyError'
+import { deleteWithUndo, onLibraryChanged } from '../utils/libraryUndo'
 
 export default function TemplateManagerView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
@@ -96,6 +97,9 @@ export default function TemplateManagerView(): React.ReactElement {
     void loadCLTemplates()
     void loadGrids()
   }, [loadSetupTemplates, loadCLTemplates, loadGrids])
+  // An undo or redo of a delete, from the toast or anywhere else
+  useEffect(() => onLibraryChanged('setup-template', () => { void loadSetupTemplates() }), [loadSetupTemplates])
+  useEffect(() => onLibraryChanged('checklist-template', () => { void loadCLTemplates() }), [loadCLTemplates])
 
   async function handleImport() {
     setImporting(true)
@@ -164,29 +168,18 @@ export default function TemplateManagerView(): React.ReactElement {
     }
   }
 
+  // Deletes at once with the Undo toast; Undo brings it back under the same id (Q4)
   async function handleDeleteSetupTemplate(id: number) {
-    try {
-      const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_DELETE, id)
-      if (res.ok) {
-        setSetupTemplates(prev => prev.filter(t => t.id !== id))
-      } else {
-        setSetupError(friendlyError(res.error, "We couldn't delete the template — try again"))
-      }
-    } catch {
-      setSetupError("We couldn't delete the template — try again")
+    const name = setupTemplates.find(t => t.id === id)?.name ?? ''
+    if (await deleteWithUndo('setup-template', id, `"${name}"`, "We couldn't delete the template — try again")) {
+      setSetupTemplates(prev => prev.filter(t => t.id !== id))
     }
   }
 
   async function handleDeleteCLTemplate(id: number) {
-    try {
-      const res = await safeInvoke<true>(IPC.CL_TEMPLATE_DELETE, id)
-      if (res.ok) {
-        setClTemplates(prev => prev.filter(t => t.id !== id))
-      } else {
-        setClError(friendlyError(res.error, "We couldn't delete the template — try again"))
-      }
-    } catch {
-      setClError("We couldn't delete the template — try again")
+    const name = clTemplates.find(t => t.id === id)?.name ?? ''
+    if (await deleteWithUndo('checklist-template', id, `"${name}"`, "We couldn't delete the template — try again")) {
+      setClTemplates(prev => prev.filter(t => t.id !== id))
     }
   }
 

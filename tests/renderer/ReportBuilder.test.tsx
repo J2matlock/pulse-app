@@ -273,13 +273,12 @@ describe('builder defaults and safety', () => {
     expect(onSaved).toHaveBeenCalled()
   })
 
-  it('asks before deleting a saved report', async () => {
+  it('deletes a saved report at once, no question; Undo brings it back (Q4)', async () => {
     const onDeleted = vi.fn()
     render(<ReportBuilder initial={saved as never} onSaved={vi.fn()} onDeleted={onDeleted} />)
     await wait()
-    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }))
-    expect(calls('reports:delete')).toHaveLength(0)
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Delete report' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Delete$/ })) })
+    expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(calls('reports:delete')).toHaveLength(1)
     expect(onDeleted).toHaveBeenCalledWith(5)
   })

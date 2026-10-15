@@ -7,7 +7,7 @@ import type { Form } from '../../../shared/forms'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useFormStore } from '../../stores/formStore'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { deleteWithUndo, onLibraryChanged } from '../../utils/libraryUndo'
 import { FormBuilder } from './FormBuilder'
 import { friendlyError } from '../../utils/friendlyError'
 
@@ -16,7 +16,6 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
   useFocusTrap(trapRef, true)
   const [forms, setForms] = useState<Form[]>([])
   const [editing, setEditing] = useState<Form | 'new' | null>(null)
-  const [deleting, setDeleting] = useState<Form | null>(null)
 
   const load = useCallback(async () => {
     const r = await safeInvoke<Form[]>(IPC.FORM_LIST, gridId)
@@ -24,12 +23,14 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
     void useFormStore.getState().load(gridId)
   }, [gridId])
   useEffect(() => { void load() }, [load])
+  // An undo or redo of a delete, from the toast or anywhere else
+  useEffect(() => onLibraryChanged('form', () => { void load() }), [load])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !editing && !deleting) onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !editing) onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, editing, deleting])
+  }, [onClose, editing])
 
   async function printBlank(f: Form) {
     const r = await safeInvoke<string | null>(IPC.FORM_PRINT, f.id, null)
@@ -37,11 +38,9 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
     else if (r.data) toast.success('Saved the blank form')
   }
 
+  // Deletes at once with the Undo toast; Undo brings it back under the same id, filled copies untouched (Q4)
   async function remove(f: Form) {
-    setDeleting(null)
-    const r = await safeInvoke(IPC.FORM_DELETE, f.id)
-    if (!r.ok) { toast.error(friendlyError(r.error)); return }
-    void load()
+    if (await deleteWithUndo('form', f.id, `"${f.name}"`)) void load()
   }
 
   return (
@@ -73,7 +72,7 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
                   </span>
                   <button type="button" className="btn-compact-secondary" onClick={() => void printBlank(f)}><Printer className="w-4 h-4" />Print blank</button>
                   <button type="button" className="btn-compact-secondary" onClick={() => setEditing(f)}><Pencil className="w-4 h-4" />Edit</button>
-                  <button type="button" aria-label={`Delete ${f.name}`} className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-600" onClick={() => setDeleting(f)}><Trash2 className="w-4 h-4" /></button>
+                  <button type="button" aria-label={`Delete ${f.name}`} className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-600" onClick={() => void remove(f)}><Trash2 className="w-4 h-4" /></button>
                 </li>
               ))}
             </ul>
@@ -81,10 +80,6 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
           </>
         )}
       </div>
-      {deleting && (
-        <ConfirmDialog open destructive title={`Delete "${deleting.name}"?`} message="The form goes; nothing anyone filled in with it is changed."
-          confirmLabel="Delete form" onConfirm={() => void remove(deleting)} onCancel={() => setDeleting(null)} />
-      )}
     </div>
   )
 }

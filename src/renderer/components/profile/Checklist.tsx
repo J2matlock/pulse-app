@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
-import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { deleteWithUndo, onLibraryChanged } from '../../utils/libraryUndo'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
   DndContext,
@@ -936,12 +936,13 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
   const [draft, setDraft] = useState<TemplateDraft>(emptyDraft())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { void loadTemplates() }, [])
+  // An undo or redo of a template delete, from the toast or anywhere else
+  useEffect(() => onLibraryChanged('checklist-template', () => { void loadTemplates() }), [])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); if (view !== 'list') setView('list'); else onClose() } }
@@ -1009,10 +1010,11 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
     }
   }
 
-  async function handleDelete(id: number) {
-    const result = await safeInvoke<boolean>(IPC.CL_TEMPLATE_DELETE, id)
-    if (result.ok) setTemplates(prev => prev.filter(t => t.id !== id))
-    else toast.error(friendlyError(result.error, "We couldn't delete that template — try again"))
+  // Deletes at once with the Undo toast; Undo brings it back under the same id (Q4)
+  async function handleDelete(id: number, name: string) {
+    if (await deleteWithUndo('checklist-template', id, `"${name}"`, "We couldn't delete that template — try again")) {
+      setTemplates(prev => prev.filter(t => t.id !== id))
+    }
   }
 
   // Draft item helpers
@@ -1125,7 +1127,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setDeleteTarget({ id: tpl.id, name: tpl.name })}
+                            onClick={() => void handleDelete(tpl.id, tpl.name)}
                             className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-red-500
                                        hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors
                                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
@@ -1305,15 +1307,6 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
         </div>
       </div>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title={`Delete the template "${deleteTarget?.name ?? ''}"?`}
-        message="This can't be undone."
-        confirmLabel="Delete template"
-        destructive
-        onConfirm={() => { if (deleteTarget) { void handleDelete(deleteTarget.id); setDeleteTarget(null) } }}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>,
     document.body
   )
