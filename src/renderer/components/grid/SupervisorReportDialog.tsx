@@ -237,7 +237,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 style={{ minHeight: 40, fontSize: 15 }}
                 value={workerTitle}
                 onChange={e => setWorkerTitle(e.target.value)}
-                placeholder="Title (e.g. Team lead)"
+                placeholder="Title (like Team lead)"
                 aria-label="Your title"
               />
               <input

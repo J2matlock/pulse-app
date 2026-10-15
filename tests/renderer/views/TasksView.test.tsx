@@ -324,7 +324,7 @@ describe('TasksView — interactions', () => {
   it('renders the inline add-task input', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    const addInput = screen.getByPlaceholderText('+ Add task... (press Enter)')
+    const addInput = screen.getByPlaceholderText('+ Add task… (press Enter)')
     expect(addInput).toBeDefined()
   })
 
@@ -332,7 +332,7 @@ describe('TasksView — interactions', () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
 
-    const addInput = screen.getByPlaceholderText('+ Add task... (press Enter)')
+    const addInput = screen.getByPlaceholderText('+ Add task… (press Enter)')
     fireEvent.change(addInput, { target: { value: 'New task item' } })
     fireEvent.keyDown(addInput, { key: 'Enter' })
 

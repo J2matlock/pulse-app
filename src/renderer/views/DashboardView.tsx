@@ -50,7 +50,7 @@ import { MonthViewTab } from './dashboard/MonthViewTab'
 import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
 
-const LOAD_ERROR = 'We couldn\u2019t load the dashboard \u2014 try again.'
+const LOAD_ERROR = "We couldn't load the dashboard — try again"
 /** Set once the color guide has been closed: it starts open until then (UX D-21) */
 const COLOR_GUIDE_SEEN = 'dashboard_color_guide_seen'
 

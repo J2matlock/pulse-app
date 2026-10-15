@@ -138,7 +138,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-sort',
     question: 'How do I sort my {list} by a column?',
-    answer: 'Click any column header to sort by that column. Click again to reverse the sort direction. You can hold Shift and click additional headers for multi-column sorting \u2014 the secondary sort breaks ties in the first column (e.g., sort by status first, then alphabetically by name within each status group).',
+    answer: 'Click any column header to sort by that column. Click again to reverse the sort direction. You can hold Shift and click additional headers for multi-column sorting \u2014 the secondary sort breaks ties in the first column (for example, sort by status first, then alphabetically by name within each status group).',
     category: 'caseload-grid',
   },
   {
@@ -601,14 +601,14 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tips-palette',
     question: 'Is there one place to search everything?',
-    answer: 'Yes. Press Ctrl+K (or click the search box at the top) to search every {list} at once. Start typing a name to find {a record}, a page name like "dashboard" or "tasks" to go there, or an action like "new {record}" to do it. It\'s the fastest way around Pulse.',
+    answer: 'Yes. Click the search box at the top (or press Ctrl+K) to search every {list} at once. Start typing a name to find {a record}, a page name like "dashboard" or "tasks" to go there, or an action like "new {record}" to do it. It\'s the fastest way around Pulse.',
     category: 'tips-shortcuts',
     keywords: ['command palette', 'quick search', 'jump to', 'find anything'],
   },
   {
     id: 'tips-undo',
     question: 'How do I undo a mistake?',
-    answer: 'Press Ctrl+Z, or click the Undo arrow at the top of the window, to undo your last change. You can undo several times to go back further. Click the small arrow next to Undo to see the list of everything you did and jump back to any point. Press Ctrl+Y to redo.',
+    answer: 'Click the Undo arrow at the top of the window (or press Ctrl+Z) to undo your last change. You can undo several times to go back further. Click the small arrow next to Undo to see the list of everything you did and jump back to any point. Press Ctrl+Y to redo.',
     category: 'tips-shortcuts',
     tourStepIds: ['undo-redo'],
     demo: <DemoUndoRedo />,
@@ -626,7 +626,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tips-focus-mode',
     question: 'Is there a way to go through today\'s work one item at a time?',
-    answer: 'Yes: focus mode. Press Ctrl+Shift+F (or click "Focus mode" in the sidebar) for a full-screen list of only what needs you today \u2014 deadlines due, tasks and checklist items \u2014 with a big button to mark each one done. Press Ctrl+Shift+F again or click Close to go back.',
+    answer: 'Yes: focus mode. Click "Focus mode" in the sidebar (or press Ctrl+Shift+F) for a full-screen list of only what needs you today \u2014 deadlines due, tasks and checklist items \u2014 with a big button to mark each one done. Press Ctrl+Shift+F again or click Close to go back.',
     category: 'tips-shortcuts',
     feature: 'focusMode',
     keywords: ['focus mode', 'distraction free', 'one at a time', 'work through'],

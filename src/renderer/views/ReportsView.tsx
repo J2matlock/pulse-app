@@ -39,7 +39,7 @@ function ReportCard({ report, onOpen }: { report: SavedReport; onOpen: () => voi
       {run?.listName && <span className="block text-sm text-slate-500 dark:text-slate-400">{run.listName}</span>}
       <span className="block text-base text-slate-600 dark:text-slate-300">{report.config.about ?? run?.explanation ?? ''}</span>
       <span className="block pt-1">
-        {error ? <span className="text-sm text-red-700 dark:text-red-300">This report can’t run right now. Open it to see why.</span>
+        {error ? <span className="text-sm text-red-700 dark:text-red-300">This report can't run right now. Open it to see why.</span>
           : !run ? <span className="text-sm text-slate-500 dark:text-slate-400">Working…</span>
           : chartableReport(report.config, run.result) ? <ReportChart result={run.result} maxBars={4} />
           : (
@@ -111,7 +111,7 @@ export default function ReportsView(): React.ReactElement {
           {reports === null ? <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>
             : reports.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-6 text-center space-y-3">
-                <p className="text-base text-slate-700 dark:text-slate-200">You don’t have any reports yet.</p>
+                <p className="text-base text-slate-700 dark:text-slate-200">You don't have any reports yet.</p>
                 <button type="button" className="btn-primary" onClick={() => request('new')}><Plus className="w-4 h-4" />Make your first report</button>
               </div>
             ) : (

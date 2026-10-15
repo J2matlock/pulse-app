@@ -311,7 +311,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
           </label>
         </Step>
 
-        <Step n={2} title="Only some of them? (optional)" hint={config.filters.length === 0 ? 'Leave this alone to count all of them. Add a filter to narrow it down, e.g. only Done.' : undefined}>
+        <Step n={2} title="Only some of them? (optional)" hint={config.filters.length === 0 ? 'Leave this alone to count all of them. Add a filter to narrow it down, for example to only Done.' : undefined}>
           {config.filters.map((flt, i) => {
             const field = byId.get(flt.field)
             const kind = field?.kind ?? 'text'

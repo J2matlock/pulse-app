@@ -39,7 +39,7 @@ function Fields({ draft, onChange, idPrefix }: { draft: Draft; onChange: (d: Dra
       </select>
       {draft.kind === 'number' && (
         <>
-          <input className="input w-28" aria-label="Unit" placeholder="unit, e.g. boxes" maxLength={MEASURE_UNIT_MAX}
+          <input className="input w-28" aria-label="Unit" placeholder="unit, like boxes" maxLength={MEASURE_UNIT_MAX}
             value={draft.unit} onChange={e => onChange({ ...draft, unit: e.target.value })} />
           <select className="input w-auto" aria-label="Decimal places"
             value={draft.decimals} onChange={e => onChange({ ...draft, decimals: Number(e.target.value) as 0 | 1 | 2 })}>

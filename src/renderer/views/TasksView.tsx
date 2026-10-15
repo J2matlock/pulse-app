@@ -138,7 +138,7 @@ export default function TasksView(): React.ReactElement {
     setLoadError(null)
     // safeInvoke and the store don't throw: a failed load comes back as false,
     // and "no tasks" would be wrong then
-    const failed = () => setLoadError('We couldn\u2019t load your tasks — try again')
+    const failed = () => setLoadError("We couldn't load your tasks — try again")
     try {
       const [tasksOk, urgentOk] = await Promise.all([loadTasks(), loadUrgentItems(), loadTaskGroups()])
       if (tasksOk === false || (checklistsOn && !urgentOk)) failed()
@@ -717,7 +717,7 @@ export default function TasksView(): React.ReactElement {
                             }
                           }}
                           maxLength={500}
-                          placeholder="+ Add task... (press Enter)"
+                          placeholder="+ Add task… (press Enter)"
                           style={{ fontSize: 15 }}
                           className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
                                      placeholder-slate-500 dark:placeholder-slate-400
@@ -835,7 +835,7 @@ export default function TasksView(): React.ReactElement {
                       }
                     }}
                     maxLength={500}
-                    placeholder="+ Add task... (press Enter)"
+                    placeholder="+ Add task… (press Enter)"
                     style={{ fontSize: 15 }}
                     className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
                                placeholder-slate-500 dark:placeholder-slate-400

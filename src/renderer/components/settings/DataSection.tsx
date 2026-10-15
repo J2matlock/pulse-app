@@ -161,7 +161,7 @@ export function DataSection(): React.ReactElement {
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <div>
-          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Import &amp; export data</p>
+          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Import and export data</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Bring a spreadsheet into {t('list', { article: true })} here, or with <strong>Import</strong> above the {t('list')}. To save one {t('list')} as CSV or PDF, use <strong>Export</strong> there; to save every {t('list')} at once, use the button below.
           </p>

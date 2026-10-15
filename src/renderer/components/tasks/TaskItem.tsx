@@ -361,7 +361,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                                text-blue-600 dark:text-blue-400
                                hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
-                    Custom...
+                    Custom…
                   </button>
                 </div>
               </div>

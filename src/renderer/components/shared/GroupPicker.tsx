@@ -114,7 +114,7 @@ export function GroupPicker({ groups, onSelect, onCreateAndSelect, onCancel }: G
             className="hit-44 flex items-center gap-2 px-2 w-full text-left rounded text-blue-600 dark:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-[15px] focus:ring-3 focus:ring-blue-500 focus:outline-none"
             style={{ minHeight: '44px' }}
           >
-            + Create new group...
+            + Create new group…
           </button>
         ) : (
           <div className="px-2 py-2">

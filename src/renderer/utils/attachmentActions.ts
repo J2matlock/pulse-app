@@ -46,5 +46,5 @@ export async function openAttachment(a: Attachment): Promise<void> {
 export async function saveAttachmentCopy(a: Attachment): Promise<void> {
   const res = await safeInvoke<string | null>(IPC.ATTACHMENT_SAVE_AS, a.id)
   if (!res.ok) toast.error(friendlyError(res.error))
-  else if (res.data) toast.success('Saved a copy. It isn’t encrypted, so keep it somewhere safe.')
+  else if (res.data) toast.success("Saved a copy. It isn't encrypted, so keep it somewhere safe.")
 }

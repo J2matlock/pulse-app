@@ -209,7 +209,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
               value={content}
               onChange={e => setContent(e.target.value)}
               rows={15}
-              placeholder="Dear {{name}},&#10;&#10;This letter is to inform you..."
+              placeholder="Dear {{name}},&#10;&#10;This letter is to inform you…"
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                          bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
                          px-3 py-2 text-base font-mono focus:outline-hidden focus:ring-3 focus:ring-blue-500
@@ -243,7 +243,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3
                        disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
-            {saving ? 'Saving...' : 'Save template'}
+            {saving ? 'Saving…' : 'Save template'}
           </button>
         </div>
       </div>

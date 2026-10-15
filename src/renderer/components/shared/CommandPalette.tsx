@@ -434,7 +434,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
           {/* Footer hint */}
           <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700 flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-            <span>↑↓ to navigate</span>
+            <span>Up and Down to move</span>
             <span>Enter to select</span>
             <span>Esc to close</span>
           </div>

@@ -724,7 +724,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
               ))}
               </div>
               <div aria-hidden="true" className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-                <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · ↑↓ then Enter to pick another · Esc closes</span>
+                <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · Up or Down, then Enter, picks another · Esc closes</span>
               </div>
             </div>
           )}

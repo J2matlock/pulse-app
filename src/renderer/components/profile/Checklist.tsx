@@ -1109,7 +1109,7 @@ export function TemplateManager({ onApply, onClose, title = 'Checklist templates
               ) : templates.length === 0 ? (
                 <div className="py-12 text-center px-6">
                   <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
-                    No templates yet. A template is a ready-made set of checklist items (e.g. "New {t('record')} intake") you can add to any {t('record')} in one click. The Templates page in the sidebar shows the same list.
+                    No templates yet. A template is a ready-made set of checklist items (like "New {t('record')} intake") you can add to any {t('record')} in one click. The Templates page in the sidebar shows the same list.
                   </p>
                   <button
                     onClick={openCreate}

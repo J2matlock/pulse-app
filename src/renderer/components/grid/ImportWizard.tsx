@@ -555,7 +555,7 @@ export function ImportWizard({ open, gridId, onClose, onImported, askDeadlines =
                 </div>
                 {loading && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70 dark:bg-slate-800/70">
-                    <span className="text-base text-slate-500 animate-pulse">Reading file...</span>
+                    <span className="text-base text-slate-500 animate-pulse">Reading file…</span>
                   </div>
                 )}
               </div>

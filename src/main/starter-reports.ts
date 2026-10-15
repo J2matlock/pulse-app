@@ -114,7 +114,7 @@ export function addStarterReports(s: Starter, gridIds: Record<string, number>, o
       const config = resolveColumns(r.config, columnsOf(gridId), gridId) as Record<string, unknown>
       save(gridId, r.name, { ...config, ...(r.description ? { about: r.description } : {}) })
     } catch (err) {
-      warnings.push(`The report "${r.name}" wasn't added. ${err instanceof ReportError ? err.message : 'Its settings aren’t valid.'}`)
+      warnings.push(`The report "${r.name}" wasn't added. ${err instanceof ReportError ? err.message : "Its settings aren't valid."}`)
     }
   }
   return warnings

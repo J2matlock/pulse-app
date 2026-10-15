@@ -283,7 +283,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Replace with..."
+            placeholder="Replace with…"
             value={replaceText}
             onChange={e => setReplaceText(e.target.value)}
             onKeyDown={handleReplaceKeyDown}

@@ -218,13 +218,13 @@ describe('TasksView — data smoke tests (5 tasks, 2 overdue)', () => {
   it('renders inline add-task input', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByPlaceholderText('+ Add task... (press Enter)')).toBeDefined()
+    expect(screen.getByPlaceholderText('+ Add task… (press Enter)')).toBeDefined()
   })
 
   it('creates task on Enter in inline input', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    const input = screen.getByPlaceholderText('+ Add task... (press Enter)')
+    const input = screen.getByPlaceholderText('+ Add task… (press Enter)')
     fireEvent.change(input, { target: { value: 'Call Dr. Rivera' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     const storeData = (globalThis as Record<string, unknown>).__taskStoreData as Record<string, unknown>
@@ -238,7 +238,7 @@ describe('TasksView — data smoke tests (5 tasks, 2 overdue)', () => {
     storeData.createTask!.mockResolvedValueOnce(null)
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    const input = screen.getByPlaceholderText('+ Add task... (press Enter)') as HTMLInputElement
+    const input = screen.getByPlaceholderText('+ Add task… (press Enter)') as HTMLInputElement
     expect(input.maxLength).toBe(500)
     fireEvent.change(input, { target: { value: 'Call Dr. Rivera' } })
     await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })

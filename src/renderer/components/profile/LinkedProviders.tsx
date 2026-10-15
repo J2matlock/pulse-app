@@ -255,7 +255,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
           {searchQuery.trim().length > 0 && (
             <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700">
               {searchLoading && (
-                <p className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400 text-center">Searching...</p>
+                <p className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400 text-center">Searching…</p>
               )}
 
               {!searchLoading && searchResults.length === 0 && (
@@ -301,7 +301,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
       {/* Provider list */}
       <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
         {loading && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">Loading...</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">Loading…</p>
         )}
 
         {!loading && links.length === 0 && !searching && (

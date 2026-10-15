@@ -140,7 +140,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             onChange={e => setDescription(e.target.value)}
             rows={2}
             className="input w-full resize-none"
-            placeholder="Additional details..."
+            placeholder="Additional details…"
             style={{ fontSize: 15 }}
             spellCheck={false}
           />

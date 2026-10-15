@@ -326,7 +326,7 @@ describe('DashboardView — interactions', () => {
     mockSafeInvoke.mockImplementation(() => Promise.resolve({ ok: false, error: 'Database is locked' }))
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByRole('alert').textContent).toMatch(/couldn\u2019t load the dashboard/)
+    expect(screen.getByRole('alert').textContent).toMatch(/couldn't load the dashboard/)
     expect(screen.queryByText('Nothing overdue')).toBeNull()
     setupDefaultMocks()
     fireEvent.click(screen.getByRole('button', { name: /Retry/ }))

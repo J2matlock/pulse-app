@@ -339,7 +339,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3
                          disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
-              {generating ? 'Generating...' : 'Generate'}
+              {generating ? 'Generating…' : 'Generate'}
             </button>
           )}
         </div>

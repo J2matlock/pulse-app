@@ -499,7 +499,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
                          min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
             >
-              {saving ? 'Saving...' : template ? 'Save changes' : 'Create template'}
+              {saving ? 'Saving…' : template ? 'Save changes' : 'Create template'}
             </button>
           )}
         </div>

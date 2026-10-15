@@ -228,7 +228,7 @@ export function BulkEditDialog({
         {applying && (
           <div className="mb-4">
             <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300 mb-1">
-              <span>Updating...</span>
+              <span>Updating…</span>
               <span>{progress.done} of {progress.total}</span>
             </div>
             <div className="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
@@ -261,7 +261,7 @@ export function BulkEditDialog({
             className="btn-primary"
             style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
           >
-            {applying ? 'Applying...' : 'Apply to all'}
+            {applying ? 'Applying…' : 'Apply to all'}
           </button>
         </div>
       </motion.div>
@@ -403,7 +403,7 @@ function ValueEditor({
           value={value ?? ''}
           onChange={e => onChange(e.target.value || null)}
           disabled={disabled}
-          placeholder="Enter value..."
+          placeholder="Enter value…"
         />
       )
   }

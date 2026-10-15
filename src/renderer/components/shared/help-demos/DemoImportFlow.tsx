@@ -5,7 +5,7 @@ export function DemoImportFlow() {
   const steps = [
     { icon: '📄', label: 'Select file' },
     { icon: '🔗', label: 'Map columns' },
-    { icon: '⏳', label: 'Importing...' },
+    { icon: '⏳', label: 'Importing…' },
     { icon: '✅', label: 'Done!' },
   ]
   return (

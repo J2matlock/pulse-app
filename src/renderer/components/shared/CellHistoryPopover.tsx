@@ -160,7 +160,7 @@ export function CellHistoryPopover({
             className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400"
             style={{ fontSize: 15 }}
           >
-            Loading...
+            Loading…
           </div>
         )}
 

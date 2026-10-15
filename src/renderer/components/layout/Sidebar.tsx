@@ -768,7 +768,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
           collapsed={collapsed}
           icon={HelpCircle}
           label="Help"
-          title="Help & keyboard shortcuts (?)"
+          title="Help and keyboard shortcuts (?)"
           muted
         />
         <NavButton

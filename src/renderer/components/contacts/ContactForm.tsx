@@ -133,7 +133,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
     const websiteVal = form.website.trim()
     if (websiteVal) {
       const urlToTest = /^https?:\/\//i.test(websiteVal) ? websiteVal : `https://${websiteVal}`
-      try { new URL(urlToTest) } catch { errors.website = 'Enter a valid URL (e.g. example.com)' }
+      try { new URL(urlToTest) } catch { errors.website = 'Enter a web address, like example.com' }
     }
     const phoneFields = ['phone_main', 'phone_direct', 'phone_fax', 'phone_cell', 'phone_after_hours'] as const
     for (const field of phoneFields) {
@@ -261,7 +261,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
             style={{ fontSize: 15, minHeight: 44 }}
             title={modHelp(`Save ${t('contact')} (Ctrl+Enter)`)}
           >
-            <Save size={16} /> {saving ? 'Saving...' : 'Save'}
+            <Save size={16} /> {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

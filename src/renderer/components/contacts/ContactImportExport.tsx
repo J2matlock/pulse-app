@@ -340,7 +340,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               aria-label={`Import selected ${t('contact', { many: true })}`}
             >
               {importing ? (
-                'Importing...'
+                'Importing…'
               ) : (
                 <>
                   <Upload className="h-4 w-4" />
@@ -420,7 +420,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
           aria-label={`Export all ${t('contact', { many: true })} as vCard`}
         >
           {exporting ? (
-            'Exporting...'
+            'Exporting…'
           ) : (
             <>
               <Download className="h-4 w-4" />
