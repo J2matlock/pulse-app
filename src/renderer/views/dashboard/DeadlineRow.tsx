@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CheckCircle2, ChevronDown } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
 import { classifyDeadline, daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
@@ -121,7 +121,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
         {/* slate-600: rows can carry a tinted alert background, where slate-500 drops below 4.5:1 */}
         <div className="text-sm text-slate-600 dark:text-slate-300 truncate">
           {gridName}
-          {recurring ? <span className="ml-2">· based on {storedDateFormatted}</span> : null}
+          {/* Her words, not the engine's "based on" (UX D-04) */}
+          {recurring ? <span className="ml-2">· last done {storedDateFormatted}</span> : null}
           {/* Which step, how many are used, how much use is left (D-08) */}
           {ruleKind !== 'interval' && deadline.label && !usedUp ? <span className="ml-2">· {deadline.label}</span> : null}
         </div>
@@ -177,21 +178,21 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           {stepName ? `Mark ${stepName} done` : 'Done'}
         </button>
       )}
-      {/* The work happened on an earlier day (meter readings ask for the day in their dialog) */}
+      {/* The work happened on an earlier day (meter readings ask for the day in their dialog); words, not a chevron (UX D-04) */}
       {onMarkDone && ruleKind !== 'quota' && ruleKind !== 'meter' && !oneOff && (
         <button
           onClick={() => setAskDay(true)}
           disabled={marking}
-          title="Done on another day…"
-          aria-label={`${columnName} for ${clientName} was done on another day…`}
-          className="hit-44 flex-shrink-0 -ml-3 px-1.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
+          title="It happened on an earlier day: choose which"
+          aria-label={`Done on another day: ${columnName} for ${clientName}`}
+          className="flex-shrink-0 -ml-2 px-2.5 py-1.5 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
           style={{ minHeight: 44 }}
         >
-          <ChevronDown className="w-4 h-4" />
+          Done on…
         </button>
       )}
       {extending && (
-        <ExtendDeadlineDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} onClose={() => setExtending(false)}
+        <ExtendDeadlineDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} gridId={gridId} onClose={() => setExtending(false)}
           onSave={(newDue, reason) => { setExtending(false); void extendDeadline(rowId, columnId, columnName, newDue, reason, onUndoneMarkDone) }} />
       )}
       {askOneOff && (
@@ -203,7 +204,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           onSave={(reading, doneOn) => { setAskReading(false); void markDone(reading, doneOn) }} />
       )}
       {askDay && (
-        <DoneOnDayDialog title={`${columnName}: ${clientName}`} onClose={() => setAskDay(false)}
+        <DoneOnDayDialog title={`Mark ${stepName ?? columnName} done for ${clientName}`} onClose={() => setAskDay(false)}
           onSave={day => { setAskDay(false); void markDone(undefined, day) }} />
       )}
     </div>

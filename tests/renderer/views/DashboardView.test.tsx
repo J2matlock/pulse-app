@@ -238,6 +238,16 @@ describe('DashboardView — interactions', () => {
     expect(screen.getByRole('tab', { name: /Overdue/ }).getAttribute('aria-selected')).toBe('true')
   })
 
+  it('Done explains itself in a line, and the checkboxes wait behind "Select several…" (D-04, D-25)', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/Done puts today's date in and starts the next cycle/)).toBeDefined()
+    expect(screen.queryByLabelText('Select all shown')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Select several…' }))
+    expect(screen.getByLabelText('Select all shown')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Done selecting' })).toBeDefined()
+  })
+
   it('the occasional actions sit under one Print & export menu (D-19)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()

@@ -50,7 +50,7 @@ describe('Done on another day… (audit 1.22)', () => {
     invoke.mockImplementation(async () => ({ ok: true, data: { sysLogId: 5 } }))
     const interval = { ...deadline, ruleKind: 'interval' as const, columnName: 'Home visit', intervalDays: 30, interval: { days: 30, months: 0 }, due: undefined, detail: undefined }
     render(<MemoryRouter><DeadlineRow deadline={interval} onMarkDone={vi.fn()} /></MemoryRouter>)
-    fireEvent.click(screen.getByRole('button', { name: 'Home visit for 2017 Civic was done on another day…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done on another day: Home visit for 2017 Civic' }))
     const dialog = screen.getByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Day it was done'), { target: { value: '2026-01-02' } })
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Mark done' })) })
@@ -61,7 +61,7 @@ describe('Done on another day… (audit 1.22)', () => {
   it('will not take a day in the future', () => {
     const interval = { ...deadline, ruleKind: 'interval' as const, intervalDays: 30, interval: { days: 30, months: 0 }, due: undefined, detail: undefined }
     render(<MemoryRouter><DeadlineRow deadline={interval} onMarkDone={vi.fn()} /></MemoryRouter>)
-    fireEvent.click(screen.getByRole('button', { name: 'Oil change for 2017 Civic was done on another day…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done on another day: Oil change for 2017 Civic' }))
     const dialog = screen.getByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Day it was done'), { target: { value: '2999-01-01' } })
     expect((within(dialog).getByRole('button', { name: 'Mark done' }) as HTMLButtonElement).disabled).toBe(true)

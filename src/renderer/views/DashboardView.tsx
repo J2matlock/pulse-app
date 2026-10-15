@@ -84,7 +84,9 @@ export default function DashboardView(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [topTab, setTopTab] = useState<TopTab>('priority')
-  // Bulk "mark done" selection, keyed rowId:columnId
+  // Bulk "mark done" selection, keyed rowId:columnId; the checkboxes only show
+  // once "Select several…" is on, so the everyday list stays plain (UX D-25)
+  const [selecting, setSelecting] = useState(false)
   const [selectedDeadlines, setSelectedDeadlines] = useState<Set<string>>(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const deadlineKey = (d: ExtendedDeadlineInfo) => `${d.rowId}:${d.columnId}`
@@ -96,7 +98,7 @@ export default function DashboardView(): React.ReactElement {
       return next
     })
   }, [])
-  useEffect(() => { setSelectedDeadlines(new Set()) }, [topTab])
+  useEffect(() => { setSelectedDeadlines(new Set()); setSelecting(false) }, [topTab])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -471,12 +473,30 @@ export default function DashboardView(): React.ReactElement {
     if (res.data) { toast.success('Weekly planner saved.'); noteUnencryptedExport() }
   }
 
-  function renderBulkBar(visible: PriorityItem[]) {
-    if (selectedDeadlines.size === 0) return null
+  // "Select several…" in the toolbar row; the checkboxes and this bar follow
+  function renderSelectToggle() {
     return (
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/40 border-b border-blue-200 dark:border-blue-800">
+      <button type="button" aria-pressed={selecting} onClick={() => { setSelecting(s => !s); setSelectedDeadlines(new Set()) }}
+        className="hit-44 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-sm focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+        style={{ minHeight: 44 }}>
+        {selecting ? 'Done selecting' : 'Select several…'}
+      </button>
+    )
+  }
+
+  function renderBulkBar(visible: PriorityItem[]) {
+    if (!selecting) return null
+    const selectable = visible.filter((it): it is Extract<PriorityItem, { kind: 'deadline' }> => it.kind === 'deadline')
+    const allShown = selectable.length > 0 && selectable.every(it => selectedDeadlines.has(deadlineKey(it.data)))
+    return (
+      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/40 border-b border-blue-200 dark:border-blue-800 flex-wrap">
+        <label className="flex items-center gap-2 text-base text-blue-900 dark:text-blue-100 cursor-pointer" style={{ minHeight: 44 }}>
+          <input type="checkbox" className="w-5 h-5" checked={allShown} disabled={selectable.length === 0}
+            onChange={e => setSelectedDeadlines(e.target.checked ? new Set(selectable.map(it => deadlineKey(it.data))) : new Set())} />
+          Select all shown
+        </label>
         <span className="text-base font-medium text-blue-900 dark:text-blue-100 flex-1">{selectedDeadlines.size} selected</span>
-        <button type="button" className="btn-compact-primary" disabled={bulkBusy} onClick={() => void markSelectedDone(visible)}>
+        <button type="button" className="btn-compact-primary" disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
           {bulkBusy ? 'Marking…' : 'Mark done'}
         </button>
         <button type="button" className="btn-compact-secondary" onClick={() => setSelectedDeadlines(new Set())}>Clear</button>
@@ -543,7 +563,17 @@ export default function DashboardView(): React.ReactElement {
             </p>
           )}
 
-          {/* Priority List tab */}
+          {/* Done explains itself here, not only in a hover tooltip (UX D-04) */}
+          {(topTab === 'priority' || topTab === 'overdue') && (
+            <div className="flex items-center gap-3 px-4 py-1 border-b border-slate-200 dark:border-slate-700 flex-wrap">
+              <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
+                Done puts today's date in and starts the next cycle. Use Done on… if it happened earlier.
+              </p>
+              {renderSelectToggle()}
+            </div>
+          )}
+
+          {/* What's due tab */}
           {topTab === 'priority' && (
             <>
               <div className="flex items-center justify-end px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
@@ -588,7 +618,7 @@ export default function DashboardView(): React.ReactElement {
                         key={`dl-${item.data.rowId}-${item.data.columnId}-${i}`}
                         deadline={item.data}
                         selected={selectedDeadlines.has(deadlineKey(item.data))}
-                        onToggleSelect={() => toggleDeadline(item.data)}
+                        onToggleSelect={selecting ? () => toggleDeadline(item.data) : undefined}
                         onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
                           void deadlinesChanged()
@@ -653,7 +683,7 @@ export default function DashboardView(): React.ReactElement {
                       key={`dl-${item.data.rowId}-${item.data.columnId}-${i}`}
                       deadline={item.data}
                       selected={selectedDeadlines.has(deadlineKey(item.data))}
-                      onToggleSelect={() => toggleDeadline(item.data)}
+                      onToggleSelect={selecting ? () => toggleDeadline(item.data) : undefined}
                       onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
                           void deadlinesChanged()
