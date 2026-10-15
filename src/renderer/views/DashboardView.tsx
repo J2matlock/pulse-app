@@ -535,22 +535,24 @@ export default function DashboardView(): React.ReactElement {
                 Done puts today's date in and starts the next cycle. Use "Done on…" if it happened earlier.
               </p>
               {renderSelectToggle()}
+              {/* The search shares this row instead of taking one of its own: the due rows start higher */}
+              {topTab === 'priority' && (
+                <input
+                  type="search"
+                  placeholder="Search…"
+                  aria-label="Search what's due"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="input w-48 py-1.5 text-base"
+                  style={{ minHeight: 44 }}
+                />
+              )}
             </div>
           )}
 
           {/* What's due tab */}
           {topTab === 'priority' && (
             <>
-              <div className="flex items-center justify-end px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
-                <input
-                  type="search"
-                  placeholder="Search…"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="input w-48 py-1.5 text-base"
-                  style={{ minHeight: 44 }}
-                />
-              </div>
               {isLoading ? (
                 showSpinner ? <LoadingOverlay label="Loading dashboard…" /> : <div className="py-16" />
               ) : filteredItems.length === 0 ? (

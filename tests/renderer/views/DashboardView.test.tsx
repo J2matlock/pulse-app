@@ -248,6 +248,18 @@ describe('DashboardView — interactions', () => {
     expect(screen.getByRole('button', { name: 'Done selecting' })).toBeDefined()
   })
 
+  it('the search shares the Done row instead of a row of its own (Q2)', async () => {
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const search = screen.getByPlaceholderText('Search…')
+    const row = screen.getByRole('button', { name: 'Select several…' }).parentElement!
+    expect(row.contains(search)).toBe(true)
+    expect(row.textContent).toContain('Done puts today')
+    // The Overdue tab keeps the Done line but has nothing to search
+    fireEvent.click(screen.getByRole('tab', { name: /Overdue/ }))
+    expect(screen.queryByPlaceholderText('Search…')).toBeNull()
+  })
+
   it('the occasional actions sit under one Print & export menu (D-19)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
