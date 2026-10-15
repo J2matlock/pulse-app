@@ -124,6 +124,29 @@ describe('"Add contact info" survives a lock', () => {
   })
 })
 
+describe('Weekly repeat shows its day (Candy #24)', () => {
+  it("lights the date's weekday, follows the date, and saves it as picked", async () => {
+    // 2026-10-20 is a Tuesday
+    render(<MemoryRouter><AppointmentDialog start="2026-10-20T09:00" onClose={vi.fn()} /></MemoryRouter>)
+    await settle()
+    fireEvent.change(screen.getByRole('textbox', { name: /What/ }), { target: { value: 'Home visit' } })
+    fireEvent.change(screen.getByLabelText('Repeats'), { target: { value: 'weekly' } })
+    const pressed = () => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].filter(d => screen.getByRole('button', { name: d }).getAttribute('aria-pressed') === 'true')
+    expect(pressed()).toEqual(['Tue'])
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-10-22' } })
+    expect(pressed()).toEqual(['Thu'])
+    // Picking another day keeps the one shown on
+    fireEvent.click(screen.getByRole('button', { name: 'Mon' }))
+    expect(pressed()).toEqual(['Mon', 'Thu'])
+    fireEvent.click(screen.getByRole('button', { name: 'Mon' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Thu' }))
+    expect(pressed()).toEqual(['Thu'])
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Schedule' })) })
+    const create = invoke.mock.calls.find(c => c[0] === 'appointments:create')!
+    expect((create[2] as { byDay?: number[] }).byDay).toEqual([4])
+  })
+})
+
 describe('which forms are lock-safe', () => {
   // The forms that keep what was typed across a lock. Others (the task form, adding a
   // checklist item) are listed as later work in the persona study's README.

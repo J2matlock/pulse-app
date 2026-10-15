@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast'
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { MessageSquare, Search, Plus, X, ArrowUpDown, Pencil } from 'lucide-react'
+import { MessageSquare, Search, Plus, X, ArrowUpDown, Pencil, Check } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CaseLogEntry as CaseLogEntryType, CreatedCaseLogEntry, Snippet } from '../../../shared/types'
 import { guessArticle } from '../../../shared/vocab'
@@ -37,6 +37,10 @@ import type { NoteSuggestion } from '../../utils/suggestedNote'
 import type { IPCResult } from '../../../shared/types'
 import type { CaseLogCounts } from '../../../shared/ipc-contract'
 import { EmptyState } from '../shared/EmptyState'
+import { ROW_FLASH_MS } from '../../utils/reducedMotion'
+
+/** How long "Case note saved" stays beside Add */
+const SAVED_MESSAGE_MS = 5000
 
 /** What the notes filter hides, from a CASE_LOG_COUNTS answer (none when it failed) */
 function hiddenFrom(res: IPCResult<CaseLogCounts | null>): { changes: number; voided: number } {
@@ -166,6 +170,21 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [newDay, setNewDay] = useState(draft0?.day ?? '')
   const [showFollowUp, setShowFollowUp] = useState(!!draft0?.followUp)
   const [adding, setAdding] = useState(false)
+  // After a save: "Case note saved", and the new entry lit up for a moment
+  const [savedMessage, setSavedMessage] = useState('')
+  const [flashId, setFlashId] = useState<number | null>(null)
+  const kindChipsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (flashId === null) return
+    document.querySelector(`[data-note-id="${flashId}"]`)?.scrollIntoView?.({ block: 'nearest' })
+    const id = setTimeout(() => setFlashId(null), ROW_FLASH_MS)
+    return () => clearTimeout(id)
+  }, [flashId])
+  useEffect(() => {
+    if (!savedMessage) return
+    const id = setTimeout(() => setSavedMessage(''), SAVED_MESSAGE_MS)
+    return () => clearTimeout(id)
+  }, [savedMessage])
   const tracking = useNoteTracking()
   const [newMinutes, setNewMinutes] = useState(draft0?.minutes ?? '')
   const [newMiles, setNewMiles] = useState(draft0?.miles ?? '')
@@ -350,7 +369,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     if (handleSnippetMenuKey(e, snippetMenuRef.current, selectedIndexRef.current, {
       select: setSelectedIndex, pick: applySnippet, close: () => setSnippetMenu(null),
     })) return
-    if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); handleAdd() }
   }
 
   function applySnippet(snippet: Snippet) {
@@ -374,8 +392,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     })
   }
 
-  async function handleAdd() {
-    if (!composedContent) return
+  async function handleAdd({ byKeyboard = false }: { byKeyboard?: boolean } = {}) {
+    if (!composedContent || adding) return
     setAdding(true)
     const res = await safeInvoke<CreatedCaseLogEntry>(
       IPC.CASE_LOG_CREATE,
@@ -396,6 +414,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       setOffer(suggestFeature({ trigger: 'noteText', text: composedContent }, k => !featureNow(k)))
       const { updated_dates: updatedDates = [], ...created } = res.data
       setEntries(prev => [created, ...prev].sort(byHappened))
+      // Unmistakable (R2, Candy #23): said, lit up in the list, and the place kept for the next one
+      const savedWord = `${t('activity', { cap: true })} saved`
+      setSavedMessage(savedWord)
+      setFlashId(created.id)
+      if (byKeyboard) toast.success(clientName ? `${savedWord} for ${clientName}` : savedWord, { id: 'note-saved', duration: 3000 })
+      requestAnimationFrame(() => kindChipsRef.current?.querySelector<HTMLElement>('button')?.focus())
       if (updatedDates.length > 0) {
         applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
         toast.success(`Also updated ${datesText(updatedDates)}`, { id: 'note-dates' })
@@ -621,8 +645,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           <Plus className="inline w-4 h-4 mr-2" aria-hidden="true" />Add {t('activity', { article: true })}…
         </button>
       )}
-      {/* Quick-add form */}
-      <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer">
+      {/* Quick-add form. Ctrl+Enter saves from any box in it (Minutes, Miles, When…), as the hint says */}
+      <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer"
+        onKeyDownCapture={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); e.stopPropagation(); void handleAdd({ byKeyboard: true }) } }}>
         {/* Why the box is open with this kind; gone once the deadline is met or another kind is picked */}
         {suggestionShown && suggestion && (suggestion.typeKey === null || chosenType === suggestion.typeKey) && (
           <p className="text-base text-slate-600 dark:text-slate-300" data-testid="note-suggestion">
@@ -630,7 +655,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           </p>
         )}
         {/* Type selector: the first few as chips, the rest under "More…" */}
-        <div className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
+        <div ref={kindChipsRef} className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
           {visibleTypes.map(type => (
             <button
               key={type.key}
@@ -663,7 +688,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                 <textarea id={`note-field-${rowId}-${i}`} rows={2}
                   value={fieldValues[i] ?? ''}
                   onChange={e => { const v = e.target.value; setFieldValues(prev => { const next = [...prev]; next[i] = v; return next }) }}
-                  onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleAdd() } }}
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2 resize-y focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                   style={{ fontSize: 15 }} />
               </div>
@@ -775,9 +799,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
             {moreOpen ? 'Fewer options' : `More options (when${allFormats.length > 0 ? ', format' : ''})`}
           </button>
-          <div className="flex-1" />
+          <p role="status" className="flex-1 text-right text-base font-medium text-green-700 dark:text-green-400" data-testid="note-saved-status">
+            {savedMessage && <><Check className="inline w-4 h-4 mr-1" aria-hidden="true" />{savedMessage}</>}
+          </p>
           <button
-            onClick={handleAdd}
+            type="button"
+            onClick={() => void handleAdd()}
             disabled={!composedContent || adding}
             title={`Add ${t('activity', { article: true })}`}
             className="hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-base
@@ -906,7 +933,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {pinned.map(entry => (
-                <div key={entry.id} className="p-3">
+                <div key={entry.id} data-note-id={entry.id} className={`p-3${flashId === entry.id ? ' motion-flash' : ''}`}>
                   <CaseLogEntry
                     entry={entry}
                     onPin={handlePin}
@@ -929,7 +956,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         {/* Main entries */}
         <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
           {sortedUnpinned.map(entry => (
-            <div key={entry.id} className="p-3">
+            <div key={entry.id} data-note-id={entry.id} className={`p-3${flashId === entry.id ? ' motion-flash' : ''}`}>
               <CaseLogEntry
                 entry={entry}
                 onPin={handlePin}

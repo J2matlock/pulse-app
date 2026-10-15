@@ -8,6 +8,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
 import { apptInputSchema, addMinutes, minutesBetween, seriesRuleSchema, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { ymdLocalDate } from '../../../shared/dates'
 import { createAppointment, deleteAppointment, updateAppointment } from '../../utils/appointmentActions'
 import { Dialog } from '../ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
@@ -145,6 +146,16 @@ export function AppointmentDialog({ appointment, start, record, event = false, r
     void safeInvoke<{ columns: Column[] } | null>(IPC.GRID_GET, who.gridId, false).then(r => setDateColumns(r.ok && r.data ? (r.data.columns ?? []).filter(c => c.column_type === 'date') : []))
   }, [who?.gridId])
 
+  // Weekly with no day picked: the date's weekday shows as on, and follows the date
+  const impliedDay = repeat === 'weekly' && byDay.length === 0 && /^\d{4}-\d{2}-\d{2}$/.test(date) ? ymdLocalDate(date).getDay() : null
+  const dayOn = (i: number) => byDay.includes(i) || impliedDay === i
+  function toggleDay(i: number) {
+    setByDay(b => {
+      const on = b.length ? b : impliedDay !== null ? [impliedDay] : []
+      return on.includes(i) ? on.filter(x => x !== i) : [...on, i]
+    })
+  }
+
   const whenErrorProps = whenError && error ? { 'aria-invalid': true, 'aria-describedby': 'appt-dialog-error' } as const : {}
 
   function build(): ApptInput | null {
@@ -163,7 +174,10 @@ export function AppointmentDialog({ appointment, start, record, event = false, r
   function rule(): SeriesRule | null {
     if (repeat === 'none') return null
     const r: SeriesRule = { freq: repeat, interval: Math.max(1, Math.min(12, parseInt(every, 10) || 1)) }
-    if (repeat === 'weekly' && byDay.length) r.byDay = [...byDay].sort()
+    // Weekly with no day picked repeats on the date's own weekday; a new one saves that day as
+    // picked (R2, Candy #24). An existing pattern isn't rewritten just by saving it.
+    const days = byDay.length ? [...byDay].sort() : !a && impliedDay !== null ? [impliedDay] : []
+    if (repeat === 'weekly' && days.length) r.byDay = days
     if (ends === 'date' && until) r.until = until
     if (ends === 'count') r.count = Math.max(1, Math.min(500, parseInt(count, 10) || 1))
     if (ends === 'column' && untilCol) r.untilColumnId = untilCol
@@ -280,8 +294,8 @@ export function AppointmentDialog({ appointment, start, record, event = false, r
             {repeat === 'weekly' && (
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="On">
                 {DAYS.map((d, i) => (
-                  <button key={d} type="button" aria-pressed={byDay.includes(i)} onClick={() => setByDay(b => b.includes(i) ? b.filter(x => x !== i) : [...b, i])}
-                    className={`hit-44 w-14 py-1.5 rounded-lg border text-base ${byDay.includes(i) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200'}`}>
+                  <button key={d} type="button" aria-pressed={dayOn(i)} onClick={() => toggleDay(i)}
+                    className={`hit-44 w-14 py-1.5 rounded-lg border text-base ${dayOn(i) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200'}`}>
                     {d}
                   </button>
                 ))}
