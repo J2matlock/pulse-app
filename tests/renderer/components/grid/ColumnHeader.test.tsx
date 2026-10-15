@@ -224,6 +224,19 @@ describe('ColumnHeader', () => {
     })
   })
 
+  it('the clock in a rule column\'s header opens that rule\'s color key (B-04)', () => {
+    const rule = { id: 5, name: 'Promised', description: null, is_system: 0, interval_days: null, created_at: '', thresholds: [{ daysBefore: 7, bgClass: '#facc15', label: 'Soon' }, { daysBefore: -1, bgClass: '#dc2626', label: 'Late' }] }
+    useAlertStore.setState({ rules: [rule] } as never)
+    render(<ColumnHeader column={makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5 }))} />)
+    const clock = screen.getByRole('button', { name: /^Deadline rule: Promised.*What do the colors mean\?$/ })
+    fireEvent.click(clock)
+    expect(screen.getByRole('dialog', { name: 'What the colors mean' })).toBeTruthy()
+    expect(screen.getByText('Soon')).toBeTruthy()
+    expect(screen.getByText('Late')).toBeTruthy()
+    // The header's own menu stayed shut
+    expect(screen.queryByText('Rename')).toBeNull()
+  })
+
   it('column settings takes focus, keeps Tab inside, closes on Escape and gives focus back (AUDIT-047)', async () => {
     render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
     const opener = screen.getByRole('button', { name: 'Column options' })

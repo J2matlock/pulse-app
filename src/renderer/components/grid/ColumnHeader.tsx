@@ -17,6 +17,7 @@ import { pulseEvents } from '../../events'
 import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
 import { ColumnRulePicker } from './ColumnRulePicker'
+import { ColorKeyPopover } from './ColorKeyPopover'
 import { ColumnSettingsDialog } from './ColumnSettingsDialog'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
@@ -278,13 +279,15 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         <span title="Log changes in timeline"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
       )}
 
-      {/* Deadline rule badge: a clock, with what the rule does in the tooltip (D-15) */}
+      {/* Deadline rule badge: a clock that opens the rule's color key, with what the rule does in the tooltip (D-15, B-04) */}
       {takesDeadlineRule(column.column_type) && currentAlertRule && (
-        <span title={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}`}
-          aria-label={`Deadline rule: ${currentAlertRule.name}`} role="img"
-          className="flex-shrink-0 inline-flex items-center rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5">
+        <ColorKeyPopover
+          rules={[currentAlertRule]}
+          label={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}. What do the colors mean?`}
+          buttonClassName="hit-44 flex-shrink-0 inline-flex items-center rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5 hover:bg-blue-200 dark:hover:bg-blue-800"
+        >
           <Clock className="w-3.5 h-3.5" />
-        </span>
+        </ColorKeyPopover>
       )}
 
       {/* Sort indicator */}
