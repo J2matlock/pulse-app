@@ -588,7 +588,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   }, [rowId])
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+    // A plain column with a heading, not a card (Q8)
+    <section>
       {/* Header */}
       <ChecklistToolbar
         loading={loading}
@@ -601,7 +602,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
 
       {/* Progress bar */}
       {!loading && total > 0 && (
-        <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50">
+        <div className="px-1 py-2">
           <progress
             value={doneCount}
             max={total}

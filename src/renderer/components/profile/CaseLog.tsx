@@ -830,11 +830,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
     {between}
 
-    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+    // On the page, not in a card (Q8); the line under the heading row ends the section above
+    <section>
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-3 border-b border-slate-200 dark:border-slate-700">
+        <MessageSquare className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" aria-hidden="true" />
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">
           {t('activityLog', { cap: true })}
           {(shownTotal > 0 || query) && (
             <span className="ml-2 text-base font-normal text-slate-500 dark:text-slate-400">({query ? `${shownTotal} found` : shownTotal})</span>
