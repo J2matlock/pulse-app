@@ -36,21 +36,21 @@ export const contextMenuVariants = {
   },
 } satisfies Variants
 
-/** Backdrop overlay — simple fade 200ms */
+/** Backdrop overlay — simple fade, as long as the panel's (150ms) */
 export const backdropVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.2 } },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 } satisfies Variants
 
-/** Modal/dialog panels — scale 0.95→1 + fade + slide up 16px */
+/** Modal/dialog panels — scale 0.95→1 + fade + slide up 16px; 150ms so a dialog feels instant (plan-Q9: was 250) */
 export const modalPanelVariants = {
   hidden: { opacity: 0, scale: 0.95, y: 16 },
   visible: {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] as const },
+    transition: { duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
   exit: {
     opacity: 0,
