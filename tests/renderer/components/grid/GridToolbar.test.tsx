@@ -271,22 +271,22 @@ describe('GridToolbar', () => {
     expect(screen.getByLabelText('Column name')).toBeTruthy()
   })
 
-  it('names the Reports items plainly: "History of changes (PDF)…", not "Audit trail" (UX-B-40)', () => {
+  it('names the Reports items plainly: "Change history (PDF)…", not "Audit trail" (UX-B-40)', () => {
     render(<GridToolbar />)
     fireEvent.click(screen.getByRole('button', { name: /^Reports/ }))
-    expect(screen.getByText('History of changes (PDF)…')).toBeTruthy()
+    expect(screen.getByText('Change history (PDF)…')).toBeTruthy()
     expect(screen.queryByText(/Audit trail/)).toBeNull()
   })
 
   it('offers the requirements summary only while requirements are on (audit X-31)', () => {
     const { unmount } = render(<GridToolbar />)
     fireEvent.click(screen.getByRole('button', { name: /^Reports/ }))
-    expect(screen.queryByText(/requirements summary…/i)).toBeTruthy()
+    expect(screen.queryByText('Monthly summary…')).toBeTruthy()
     unmount()
     setFeatures({ ...EXISTING_FEATURES, requirements: false })
     render(<GridToolbar />)
     fireEvent.click(screen.getByRole('button', { name: /^Reports/ }))
-    expect(screen.queryByText(/requirements summary…/i)).toBeNull()
+    expect(screen.queryByText('Monthly summary…')).toBeNull()
   })
 
 

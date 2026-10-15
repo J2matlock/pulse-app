@@ -33,7 +33,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
 
 /** What the Tasks count means, for screen readers and the collapsed tooltip */
-const TASKS_DUE_WORDS = 'due today or overdue'
+const TASKS_DUE_WORDS = 'of your tasks due today or late'
 
 /** Every sidebar row is this tall: enough for 15 px text, and the whole sidebar fits a 720 px screen */
 const NAV_ROW = 40

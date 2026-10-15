@@ -260,7 +260,7 @@ export function GridHeaderRow({
               title={acuitySortDir === 'desc' ? 'Sorted: high \u2192 low (click for low \u2192 high)' : acuitySortDir === 'asc' ? 'Sorted: low \u2192 high (click to clear)' : `Click to sort by ${t('priority')}`}
               onClick={() => setAcuitySortDir(prev => prev === null ? 'desc' : prev === 'desc' ? 'asc' : null)}
             >
-              <span className={acuitySortDir ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}>{t('priority', { cap: true }).slice(0, 2)}</span>
+              <span className={acuitySortDir ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}>Level</span>
               {acuitySortDir && (
                 <svg className="w-3 h-3 ml-0.5 text-blue-600 dark:text-blue-400" viewBox="0 0 12 12" fill="currentColor">
                   {acuitySortDir === 'desc'

@@ -224,7 +224,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-conditional-format',
     question: 'How do I color a cell when its value changes?',
-    answer: 'Right-click any cell and choose "Color rules…". A color rule colors the cell by its own value or by another of the {record}\'s cells — for example green when a box is ticked, or orange when Status is Inactive. Once a column has rules, the same menu says "Edit color rules…".',
+    answer: 'Click the ⋯ at the left of {a record} (or right-click a cell), open "More…" and choose "Color rules for this cell…". A color rule colors the cell by its own value or by another of the {record}\'s cells — for example green when a box is ticked, or orange when Status is Inactive. For a whole column, click the ⋯ next to the column name, choose "Column settings…" and then "Color rules for this column…".',
     category: 'caseload-grid',
     keywords: ['highlight', 'conditional formatting', 'color code', 'colour'],
   },
@@ -506,7 +506,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-supervisor-report',
     question: 'How do I make a summary report to share?',
-    answer: 'Click "Reports" in the toolbar and choose "Summary report…". Choose which columns and counts to include, add your name and title if you like, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
+    answer: 'Click "Reports" in the toolbar and choose "Report for my supervisor…". Choose which columns and counts to include, add your name and title if you like, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
     category: 'import-export',
     feature: 'summaryReport',
     tourStepIds: ['export-btn'],
@@ -542,7 +542,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'st-generate',
     question: 'How do I use a template to make a letter?',
-    answer: 'Open {a record}\'s page and click "Make a letter\u2026" at the top. Pick a template. Pulse fills in the details from that {record} and shows a preview. You can change the text before printing or saving it as a PDF. To make the same letter for many {record:many} at once, select them in the {list} and click "Print documents\u2026".',
+    answer: 'Open {a record}\'s page and click "Make a letter\u2026" at the top. Pick a template. Pulse fills in the details from that {record} and shows a preview. You can change the text before printing or saving it as a PDF. To make the same letter for many {record:many} at once, select them in the {list} and click "Letters and labels\u2026".',
     category: 'snippets-templates',
     feature: 'letters',
     keywords: ['generate letter', 'print letter', 'many letters'],

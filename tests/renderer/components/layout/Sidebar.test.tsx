@@ -325,10 +325,10 @@ describe('Sidebar', () => {
       { ...base, id: 2, grid_id: null, title: 'Late too', due_date: '2020-01-02' },
     ] as never })
     const { unmount } = renderSidebar()
-    expect(screen.getByRole('button', { name: 'Tasks, 2 due today or overdue' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tasks, 2 of your tasks due today or late' })).toBeTruthy()
     unmount()
     renderSidebar(true)
-    expect(screen.getByRole('button', { name: 'Tasks, 2 due today or overdue' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tasks, 2 of your tasks due today or late' })).toBeTruthy()
     useTaskStore.setState({ tasks: [] })
   })
 })

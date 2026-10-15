@@ -244,13 +244,13 @@ export function GridToolbar(): React.ReactElement {
             {showSummaryReport && (
               <button role="menuitem" className={MENU_ITEM} style={{ minHeight: 44 }}
                 onClick={() => { setShowReportsMenu(false); setShowSupervisorReport(true) }}>
-                Summary report…
+                Report for my supervisor…
               </button>
             )}
             {requirementsOn && (
               <button role="menuitem" className={MENU_ITEM} style={{ minHeight: 44 }}
                 onClick={() => { setShowReportsMenu(false); setReport('compliance') }}>
-                {t('requirement', { many: true, cap: true })} summary…
+                Monthly summary…
               </button>
             )}
             <button role="menuitem" className={MENU_ITEM} style={{ minHeight: 44 }}
@@ -259,7 +259,7 @@ export function GridToolbar(): React.ReactElement {
             </button>
             <button role="menuitem" className={MENU_ITEM} style={{ minHeight: 44 }}
               onClick={() => { setShowReportsMenu(false); setReport('audit') }}>
-              History of changes (PDF)…
+              Change history (PDF)…
             </button>
             {(timeOn || mileageOn || measuresOn) && (
               <button role="menuitem" className={MENU_ITEM} style={{ minHeight: 44 }}

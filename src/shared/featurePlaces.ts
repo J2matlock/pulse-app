@@ -31,6 +31,6 @@ export const FEATURE_PLACES: Record<FeatureKey, string> = {
   focusMode: 'The sidebar, and the morning summary',
 
   letters: 'The sidebar, and "Make a letter…" on {a record}\'s page',
-  summaryReport: 'The {list}\'s Reports menu → "Summary report…"',
+  summaryReport: 'The {list}\'s Reports menu → "Report for my supervisor…"',
   handoff: '"Print or save" on {a record}\'s page',
 }

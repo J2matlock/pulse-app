@@ -24,7 +24,7 @@ function nextMonth(): { from: string; to: string } {
   return { from: localDateString(new Date(now.getFullYear(), now.getMonth() + 1, 1)), to: localDateString(new Date(now.getFullYear(), now.getMonth() + 2, 0)) }
 }
 
-export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMode = 'documents', initialTemplateId, pickList = false, title = 'Print documents or labels', preferTemplate, onClose }: {
+export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMode = 'documents', initialTemplateId, pickList = false, title = 'Letters and labels', preferTemplate, onClose }: {
   gridId: number
   /** The selected records, if any */
   rowIds?: number[]
