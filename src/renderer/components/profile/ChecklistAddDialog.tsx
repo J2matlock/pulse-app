@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChecklistPriority, ChecklistGroup } from '../../../shared/types'
 import { Dialog } from '../ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
+import { DateField } from '../ui/DateField'
 
 interface Props {
   groups: ChecklistGroup[]
@@ -18,6 +19,8 @@ export function ChecklistAddDialog({ groups, onClose, onSave }: Props) {
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<ChecklistPriority>('normal')
   const [dueDate, setDueDate] = useState('')
+  // A half-typed due date: Add item saves nothing, and the box says why (persona study D1, Bobby)
+  const [duePartial, setDuePartial] = useState(false)
   const [groupId, setGroupId] = useState<number | null>(null)
   const [recurType, setRecurType] = useState('')
   const [recurInterval, setRecurInterval] = useState(1)
@@ -25,7 +28,7 @@ export function ChecklistAddDialog({ groups, onClose, onSave }: Props) {
   useEffect(() => { titleRef.current?.focus() }, [])
 
   function handleSave() {
-    if (!title.trim()) return
+    if (!title.trim() || duePartial) return
     const recurrenceRule = recurType
       ? JSON.stringify({ type: recurType, interval: recurInterval })
       : null
@@ -101,13 +104,11 @@ export function ChecklistAddDialog({ groups, onClose, onSave }: Props) {
           </div>
           <div>
             <label htmlFor="cl-add-due" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due date</label>
-            <input
+            <DateField
               id="cl-add-due"
-              type="date"
               value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              className="input w-full"
-              style={{ fontSize: 15 }}
+              onChange={(v, partial) => { setDueDate(v ?? ''); setDuePartial(partial) }}
+              onCommit={(_v, how) => { if (how === 'enter') handleSave() }}
             />
           </div>
         </div>

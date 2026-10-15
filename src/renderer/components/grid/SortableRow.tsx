@@ -7,6 +7,7 @@ import { isNotTypedColumnType } from '../../../shared/types'
 import { deadlineCellInfo, rowHighlightStyle, applyCellFormat } from './gridCellStyle'
 import { withComputedValues } from '../../utils/computedColumns'
 import { CellEditor, type NavDirection } from './CellEditor'
+import { pushDiscardedTyping } from '../../utils/discardedTyping'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
@@ -493,6 +494,8 @@ export const SortableRow = React.memo(function SortableRow({
                     )?.focus()
                   }, 0)
                 }}
+                // Escape threw typing away: an Undo step puts it back (persona study D5)
+                onDiscard={typed => pushDiscardedTyping({ rowId, columnId: colId, columnName: col.name, typed, previous: value })}
               />
             ) : (
               <>

@@ -6,6 +6,7 @@ import type { Column } from '../../../../src/shared/types'
 
 // ── Component import ────────────────────────────────────────────────────────
 import { CellEditor } from '../../../../src/renderer/components/grid/CellEditor'
+import { DATE_FIELD_TEXT } from '../../../../src/renderer/components/ui/DateField'
 import { setWords } from '../../vocabFixture'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ describe('CellEditor', () => {
     expect((input as HTMLInputElement).value).toBe('2026-03-01')
   })
 
-  it('keeps the old date instead of saving a half-typed year (AUDIT-112)', () => {
+  it('reads a two-digit year as 20yy instead of saving year 0026 (AUDIT-112, persona study D1)', () => {
     const { container } = render(
       <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />
     )
@@ -96,8 +97,147 @@ describe('CellEditor', () => {
     expect(input.min).toBe('1900-01-01')
     fireEvent.change(input, { target: { value: '0026-10-11' } })
     fireEvent.blur(input)
+    expect(onSave).toHaveBeenCalledWith('2026-10-11', undefined)
+  })
+
+  it('keeps the old date when the year is one Pulse does not take (a three-digit year mid-typing)', () => {
+    const { container } = render(
+      <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />
+    )
+    const input = container.querySelector('input[type="date"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '0202-10-11' } })
+    fireEvent.blur(input)
     expect(onSave).not.toHaveBeenCalled()
-    expect(onCancel).toHaveBeenCalled()
+    expect(onCancel).toHaveBeenCalledOnce()
+  })
+
+  describe('date entry (persona study D1)', () => {
+    function partial(input: HTMLInputElement) {
+      // Chromium: a half-typed or impossible date reads '' with validity.badInput set
+      Object.defineProperty(input, 'validity', { configurable: true, get: () => ({ badInput: true }) })
+      fireEvent.change(input, { target: { value: '' } })
+    }
+
+    it('Karen: 02/30/2026 over 10/30/2025, then Enter: nothing saved, the message shows, the editor stays', () => {
+      const { container } = render(<CellEditor column={{ ...makeColumn('date'), name: 'IEP date' }} value="2025-10-30" onSave={onSave} onCancel={onCancel} />)
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement
+      partial(input)
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(onSave).not.toHaveBeenCalled()
+      expect(onCancel).not.toHaveBeenCalled()
+      expect(screen.getByRole('alert').textContent).toMatch(/isn't a whole date/)
+      expect(input.isConnected).toBe(true)
+      fireEvent.keyDown(input, { key: 'Tab' })
+      expect(onSave).not.toHaveBeenCalled()
+    })
+
+    it('clicking away from a partial date keeps the old one and says so', async () => {
+      const toast = (await import('react-hot-toast')).default
+      const spy = vi.spyOn(toast, 'error')
+      const { container } = render(<CellEditor column={makeColumn('date')} value="2025-10-30" onSave={onSave} onCancel={onCancel} />)
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement
+      partial(input)
+      fireEvent.blur(input)
+      expect(onSave).not.toHaveBeenCalled()
+      expect(onCancel).toHaveBeenCalledOnce()
+      expect(spy).toHaveBeenCalledWith(DATE_FIELD_TEXT.notSaved)
+      spy.mockRestore()
+    })
+
+    it('Joe: 7/15/26 and Enter saves 2026-07-15 and moves down', () => {
+      const { container } = render(<CellEditor column={makeColumn('date')} value={null} onSave={onSave} onCancel={onCancel} />)
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '0026-07-15' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(onSave).toHaveBeenCalledWith('2026-07-15', 'next-row')
+    })
+
+    it('Tab and Shift+Tab on a whole date save and move across', () => {
+      const { container, unmount } = render(<CellEditor column={makeColumn('date')} value={null} onSave={onSave} onCancel={onCancel} />)
+      let input = container.querySelector('input[type="date"]') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '2026-03-11' } })
+      fireEvent.keyDown(input, { key: 'Tab' })
+      expect(onSave).toHaveBeenLastCalledWith('2026-03-11', 'next-col')
+      unmount()
+      const again = render(<CellEditor column={makeColumn('date')} value="2026-03-11" onSave={onSave} onCancel={onCancel} />)
+      input = again.container.querySelector('input[type="date"]') as HTMLInputElement
+      fireEvent.keyDown(input, { key: 'Tab', shiftKey: true })
+      expect(onSave).toHaveBeenLastCalledWith('2026-03-11', 'prev-col')
+    })
+
+    it('shows the typed date in words before Enter (31/13 → 03/11 is seen)', () => {
+      const { container } = render(<CellEditor column={makeColumn('date')} value="2025-10-30" onSave={onSave} onCancel={onCancel} />)
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '2026-03-11' } })
+      expect(screen.getByTestId('date-echo').textContent).toBe('Wed, Mar 11, 2026')
+    })
+
+    it('Escape on a date cancels and never offers anything to put back', () => {
+      const onDiscard = vi.fn()
+      const { container } = render(<CellEditor column={makeColumn('date')} value="2025-10-30" onSave={onSave} onCancel={onCancel} onDiscard={onDiscard} />)
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '2026-03-11' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(onCancel).toHaveBeenCalledOnce()
+      expect(onDiscard).not.toHaveBeenCalled()
+      expect(onSave).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Escape with changed text can be put back (persona study D5)', () => {
+    it.each(['text', 'phone', 'email', 'url', 'number'])('%s: Escape calls onDiscard with the typing, then cancels', type => {
+      const onDiscard = vi.fn()
+      const { container } = render(<CellEditor column={makeColumn(type)} value="1" onSave={onSave} onCancel={onCancel} onDiscard={onDiscard} />)
+      const input = container.querySelector('input') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '42' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(onDiscard).toHaveBeenCalledWith('42')
+      expect(onCancel).toHaveBeenCalledOnce()
+      expect(onSave).not.toHaveBeenCalled()
+    })
+
+    it.each(['notes', 'address'])('%s: Escape calls onDiscard too', type => {
+      const onDiscard = vi.fn()
+      render(<CellEditor column={makeColumn(type)} value={null} onSave={onSave} onCancel={onCancel} onDiscard={onDiscard} />)
+      const box = screen.getByRole('textbox')
+      fireEvent.change(box, { target: { value: 'Karl & Jean Bergstrom' } })
+      fireEvent.keyDown(box, { key: 'Escape' })
+      expect(onDiscard).toHaveBeenCalledWith('Karl & Jean Bergstrom')
+      expect(onCancel).toHaveBeenCalledOnce()
+    })
+
+    it('stays silent when nothing changed, or the box was emptied', () => {
+      const onDiscard = vi.fn()
+      const { unmount } = render(<CellEditor column={makeColumn('text')} value="hello" onSave={onSave} onCancel={onCancel} onDiscard={onDiscard} />)
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+      unmount()
+      render(<CellEditor column={makeColumn('text')} value="hello" onSave={onSave} onCancel={onCancel} onDiscard={onDiscard} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '  ' } })
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+      expect(onDiscard).not.toHaveBeenCalled()
+      expect(onCancel).toHaveBeenCalledTimes(2)
+    })
+
+    it('the hint says the typing can be put back', () => {
+      render(<CellEditor column={makeColumn('text')} value="hello" onSave={onSave} onCancel={onCancel} />)
+      const input = screen.getByRole('textbox')
+      expect(document.getElementById(input.getAttribute('aria-describedby')!)?.textContent).toBe('Enter saves. Escape cancels, and you can put it back.')
+    })
+  })
+
+  it.each(['notes', 'address'])('%s opens with the caret at the end, nothing selected (#22)', type => {
+    render(<CellEditor column={makeColumn(type)} value="A long note about the family" onSave={onSave} onCancel={onCancel} />)
+    const box = screen.getByRole('textbox') as HTMLTextAreaElement
+    expect(document.activeElement).toBe(box)
+    expect(box.selectionStart).toBe(box.value.length)
+    expect(box.selectionEnd).toBe(box.value.length)
+  })
+
+  it('a text cell still opens with its value selected, ready to type over', () => {
+    render(<CellEditor column={makeColumn('text')} value="hello" onSave={onSave} onCancel={onCancel} />)
+    const input = screen.getByRole('textbox') as HTMLInputElement
+    expect(input.selectionStart).toBe(0)
+    expect(input.selectionEnd).toBe(5)
   })
 
   it('saves a real date from the date input', () => {

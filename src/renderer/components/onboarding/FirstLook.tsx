@@ -2,9 +2,12 @@
  * FirstLook — "Here's your caseload": the one moment after setup (UX pass Q7).
  *
  * The new list opens with one late deadline lit up and one sentence beside it.
- * Its Done really marks that deadline done, so the red cell changes colour in
- * place and the usual Undo toast appears: the result is the lesson. It replaces
- * the old seven-step tour (the full tour is still in Help).
+ * On a made-up sample record its "Mark it done" really marks that deadline
+ * done, so the red cell changes colour in place and the usual Undo toast
+ * appears: the result is the lesson. On the person's own records (an imported
+ * list has no samples) it only explains, with Got it: a welcome box never
+ * writes to a real record (persona study D2). It replaces the old seven-step
+ * tour (the full tour is still in Help).
  *
  * It shows only for a true first run with a late deadline on screen. Anything
  * else (a blank or imported list with nothing late, a slow load) ends quietly.
@@ -30,9 +33,12 @@ import { computeTooltipPosition, type TourRect } from '../shared/tourPosition'
 /** The words, kept here so the vocabulary and sentence-case tests can read them */
 export const FIRST_LOOK_TEXT = {
   title: "Here's your {list}",
-  // The owner's sentence; the button's name in quotes, as help text names labels
-  doneable: 'Red means overdue. Click "Done" when you\'ve seen them.',
+  // The button's name in quotes, as help text names labels. Not "Done", which read as "I've read this"
+  sampleTry: 'Red means overdue. This one is made up, so try "Mark it done".',
   plain: 'Red means overdue.',
+  // The person's own record: how to do it for real, from the cell's own menu
+  realRecord: 'When it\'s really done, right-click its date and choose "Mark done or extend…".',
+  markDone: 'Mark it done',
 } as const
 
 /** How long the list and its colours are waited for before the first look gives up (a slow laptop right after setup) */
@@ -45,16 +51,23 @@ export interface FirstLookPick {
   column: Column
   rule: ParsedAlertRule
   kind: RuleKind
-  /** Done simply starts the next cycle; meters, quotas, steps and one-off dates need a dialog */
+  /**
+   * A made-up sample record whose Done simply starts the next cycle (meters,
+   * quotas, steps and one-off dates need a dialog). Only these get "Mark it
+   * done": the first look never marks a real record's deadline done
+   */
   doneable: boolean
+  /** The person's own record, not a made-up sample */
+  real: boolean
   cell: HTMLElement
 }
 
 /**
  * The late deadline to show: the cells on screen in document order (top-left
  * first, so normally no scrolling), late exactly as the grid colours them
- * (overdue, not done, not paused). One whose Done is a single click wins, then
- * a sample record over the person's own, then the first.
+ * (overdue, not done, not paused). A sample whose Done is a single click wins,
+ * then any sample over the person's own, then the first. The colour lesson is
+ * the same on any record; only a sample may be marked done.
  */
 export function pickLateCell(root: ParentNode = document): FirstLookPick | null {
   const { rows, columns, sampleRows } = useGridStore.getState()
@@ -71,10 +84,11 @@ export function pickLateCell(root: ParentNode = document): FirstLookPick | null 
     const res = evaluateRuleForRow(rule, value, row, column.id)
     if (res.state === 'done' || res.state === 'paused' || res.daysUntil === null || res.daysUntil >= 0) continue
     const kind: RuleKind = rule.kind ?? 'interval'
-    const doneable = startsNextCycle(toRuleInterval(rule), kind) && kind !== 'meter' && kind !== 'quota' && kind !== 'sequence'
-    const score = (doneable ? 2 : 0) + (sampleRows[row.row_id] !== undefined ? 1 : 0)
+    const sample = sampleRows[row.row_id] !== undefined
+    const doneable = sample && startsNextCycle(toRuleInterval(rule), kind) && kind !== 'meter' && kind !== 'quota' && kind !== 'sequence'
+    const score = (doneable ? 2 : 0) + (sample ? 1 : 0)
     // Strictly better only: among equals the first in the document stays
-    if (!best || score > best.score) best = { pick: { row, column, rule, kind, doneable, cell }, score }
+    if (!best || score > best.score) best = { pick: { row, column, rule, kind, doneable, real: !sample, cell }, score }
     if (best.score === 3) break
   }
   return best?.pick ?? null
@@ -201,7 +215,8 @@ export function FirstLook({ onClose }: { onClose: () => void }): React.ReactElem
   useFocusTrap(cardRef, pick !== null, { onEscape: close })
 
   async function markDone() {
-    if (!pick) return
+    // Only ever a made-up sample (D2); the button isn't drawn otherwise
+    if (!pick?.doneable) return
     setBusy(true)
     const changed = async () => {
       await useGridStore.getState().refreshDeadlineContext()
@@ -267,13 +282,14 @@ export function FirstLook({ onClose }: { onClose: () => void }): React.ReactElem
           <h2 id="first-look-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">{f(FIRST_LOOK_TEXT.title)}</h2>
           <div id="first-look-text" className="mt-2 space-y-1 text-base text-slate-700 dark:text-slate-200">
             <p>{name}'s {pick.column.name} is red.</p>
-            <p>{pick.doneable ? FIRST_LOOK_TEXT.doneable : FIRST_LOOK_TEXT.plain}</p>
+            <p>{pick.doneable ? FIRST_LOOK_TEXT.sampleTry : FIRST_LOOK_TEXT.plain}</p>
+            {pick.real && <p>{FIRST_LOOK_TEXT.realRecord}</p>}
           </div>
           <div className="mt-4 flex flex-wrap justify-end gap-3">
             {pick.doneable ? (
               <>
                 <SecondaryButton onClick={close} disabled={busy}>Close</SecondaryButton>
-                <PrimaryButton ref={actionRef} onClick={() => void markDone()} busy={busy}>Done</PrimaryButton>
+                <PrimaryButton ref={actionRef} onClick={() => void markDone()} busy={busy}>{FIRST_LOOK_TEXT.markDone}</PrimaryButton>
               </>
             ) : (
               <PrimaryButton ref={actionRef} onClick={close}>Got it</PrimaryButton>

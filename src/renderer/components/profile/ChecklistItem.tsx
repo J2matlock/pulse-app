@@ -5,6 +5,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Dialog } from '../ui/Dialog'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
+import { DateField, DATE_FIELD_TEXT, readDateInput } from '../ui/DateField'
+import toast from 'react-hot-toast'
 import type { ChecklistItem as ChecklistItemType, ChecklistPriority } from '../../../shared/types'
 import { dueDateBadge } from '../../views/tasks/taskHelpers'
 import { useToday } from '../../hooks/useToday'
@@ -28,6 +30,8 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
   const [description, setDescription] = useState(item.description ?? '')
   const [priority, setPriority] = useState<ChecklistPriority>(item.priority ?? 'normal')
   const [dueDate, setDueDate] = useState(item.due_date ?? '')
+  // A half-typed due date: Save keeps the old one, and the box says why (persona study D1)
+  const [duePartial, setDuePartial] = useState(false)
   const [recurType, setRecurType] = useState('')
   const [recurInterval, setRecurInterval] = useState(1)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -44,7 +48,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
   }, [item.recurrence_rule])
 
   function handleSave() {
-    if (!title.trim()) return
+    if (!title.trim() || duePartial) return
     // Keeps what the dialog doesn't show (an end date, the day of the month a repeat falls on)
     let kept: Record<string, unknown> = {}
     try { kept = item.recurrence_rule ? JSON.parse(item.recurrence_rule) as Record<string, unknown> : {} } catch { /* none */ }
@@ -123,14 +127,11 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
           </div>
           <div>
             <label htmlFor="cl-edit-due" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due date</label>
-            <input
+            <DateField
               id="cl-edit-due"
-              type="date"
               value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-              className="input w-full"
-              style={{ fontSize: 15 }}
+              onChange={(v, partial) => { setDueDate(v ?? ''); setDuePartial(partial) }}
+              onCommit={(_v, how) => { if (how === 'enter') handleSave() }}
             />
           </div>
         </div>
@@ -196,7 +197,6 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(item.title)
   const [editingDate, setEditingDate] = useState(false)
-  const [dateDraft, setDateDraft] = useState(item.due_date ?? '')
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showPriorityMenu, setShowPriorityMenu] = useState(false)
   const [justChecked, setJustChecked] = useState(false)
@@ -213,7 +213,6 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
   })
 
   useEffect(() => { if (editingTitle) titleRef.current?.focus() }, [editingTitle])
-  useEffect(() => { if (editingDate)  dateRef.current?.focus() },  [editingDate])
 
   // Detect unchecked → checked: trigger pop animation on the checkbox
   useEffect(() => {
@@ -240,16 +239,24 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
     setEditingTitle(false)
   }
 
-  function saveDate() {
+  function saveDate(next: string | null) {
     // Opened and closed without a change: nothing to save or undo (bug sweep S2)
-    if (dateDraft !== (item.due_date ?? '')) onUpdate({ due_date: dateDraft || null })
+    if ((next ?? '') !== (item.due_date ?? '')) onUpdate({ due_date: next })
     setEditingDate(false)
   }
 
   function clearDate() {
-    setDateDraft('')
     onUpdate({ due_date: null })
     setEditingDate(false)
+  }
+
+  /** Leaving the Clear button for somewhere else: the date box's own commit, which it skipped for the button */
+  function commitDateBox() {
+    const el = dateRef.current
+    const reading = el ? readDateInput(el.value, el.validity?.badInput === true) : null
+    if (!reading) { setEditingDate(false); return }
+    if (reading.kind === 'invalid') { toast.error(DATE_FIELD_TEXT.notSaved); setEditingDate(false); return }
+    saveDate(reading.kind === 'date' ? reading.value : null)
   }
 
   // dueDateBadge reads the clock: re-render at midnight so "Due today" becomes "Overdue" (Q-031)
@@ -342,17 +349,18 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           {/* Due date */}
           {editingDate ? (
             <div className="flex items-center gap-1">
-              <input
+              <DateField
                 ref={dateRef}
-                type="date"
-                value={dateDraft}
-                onChange={e => setDateDraft(e.target.value)}
+                size="cell"
+                autoFocus
+                aria-label="Due date"
+                value={item.due_date}
                 // Moving to the Clear button keeps the editor open, so its click lands (bug sweep S2)
-                onBlur={e => { if (e.relatedTarget !== clearDateRef.current) saveDate() }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') saveDate()
-                  if (e.key === 'Escape') { setDateDraft(item.due_date ?? ''); setEditingDate(false) }
-                }}
+                ignoreBlurTo={clearDateRef}
+                onCommit={v => saveDate(v)}
+                // Enter on a half-typed date keeps the box open with the message; clicking away keeps the old date and says so (persona study D1)
+                onInvalid={(_m, how) => { if (how === 'blur') { toast.error(DATE_FIELD_TEXT.notSaved); setEditingDate(false) } }}
+                onCancel={() => setEditingDate(false)}
                 className="text-base border border-slate-200 dark:border-slate-600 rounded-sm px-1.5 py-0.5
                            bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300
                            focus:outline-hidden focus:ring-3 focus:ring-blue-400"
@@ -362,7 +370,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
                   ref={clearDateRef}
                   onMouseDown={e => e.preventDefault()}
                   onClick={clearDate}
-                  onBlur={e => { if (e.relatedTarget !== dateRef.current) saveDate() }}
+                  onBlur={e => { if (e.relatedTarget !== dateRef.current) commitDateBox() }}
                   className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500"
                   title="Clear date"
                   aria-label="Clear date"
@@ -373,7 +381,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             </div>
           ) : dueDate ? (
             <button
-              onClick={() => { setDateDraft(item.due_date ?? ''); setEditingDate(true) }}
+              onClick={() => setEditingDate(true)}
               className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium whitespace-nowrap transition-opacity ${dueDate.className}`}
             >
               {/* A shape as well as a color for late and due-today dates (A06-12), like the grid's warning icon */}
@@ -384,7 +392,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             </button>
           ) : (
             <button
-              onClick={() => { setDateDraft(''); setEditingDate(true) }}
+              onClick={() => setEditingDate(true)}
               className="hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base whitespace-nowrap
                          text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
