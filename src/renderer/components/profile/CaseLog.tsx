@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast'
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { MessageSquare, Search, Plus, X, ArrowUpDown } from 'lucide-react'
+import { MessageSquare, Search, Plus, X, ArrowUpDown, Pencil } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CaseLogEntry as CaseLogEntryType, CreatedCaseLogEntry, Snippet } from '../../../shared/types'
 import { guessArticle } from '../../../shared/vocab'
@@ -163,8 +163,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [newExtra, setNewExtra] = useState<Record<string, string>>(draft0?.extra ?? {})
   // Structured formats (DAP, SOAP…): one box per section, saved as one note
   const [customFormats, setCustomFormats] = useState<NoteFormat[]>([])
-  const [formatId, setFormatId] = useState('')
+  // Free text each time (C-06): a DAP picked once for one note shouldn't turn every
+  // record's box into three empty sections; an unsaved draft keeps its own format
+  const [formatId, setFormatId] = useState(draft0?.format ?? '')
   const [fieldValues, setFieldValues] = useState<string[]>(draft0?.fieldValues ?? [])
+  // When and Format live under "More options", open when a draft uses them (C-12)
+  const [moreOpen, setMoreOpen] = useState(!!(draft0?.day || draft0?.format))
   // The note box starts as one line, "Add a note…", and opens when used (3.4)
   const [composerOpen, setComposerOpen] = useState(!!draft0)
   const openComposer = useCallback(() => {
@@ -177,8 +181,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     return () => { focusRef.current = null }
   }, [focusRef, openComposer])
   useEffect(() => {
-    setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay })
-  }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay])
+    setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay, format: formatId })
+  }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay, formatId])
   const [editingFormats, setEditingFormats] = useState(false)
   const builtinFormats = builtinFormatsFor(t('record'))
   const allFormats = [...builtinFormats, ...customFormats]
@@ -200,21 +204,13 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   useEffect(() => { setSelectedIndex(-1) }, [snippetMenu?.items.length])
 
   useEffect(() => {
-    void Promise.all([safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_formats'), safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_format_last')])
-      .then(([formatsRes, lastRes]) => {
-        const custom = formatsRes.ok ? parseCustomFormats(formatsRes.data) : []
-        setCustomFormats(custom)
-        const last = lastRes.ok ? lastRes.data : null
-        if (last && [...builtinFormats, ...custom].some(f => f.id === last)) setFormatId(last)
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the note box opens
+    void safeInvoke<string | null>(IPC.SETTINGS_GET, 'note_formats')
+      .then(formatsRes => { setCustomFormats(formatsRes.ok ? parseCustomFormats(formatsRes.data) : []) })
   }, [])
 
   function chooseFormat(id: string) {
-    if (id === '__edit') { setEditingFormats(true); return }
     setFormatId(id)
     setFieldValues([])
-    void safeInvoke(IPC.SETTINGS_UPDATE, 'note_format_last', id)
   }
 
   // Search and sort run in the database so they cover every note, not just the
@@ -659,29 +655,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
-          <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
-            value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
-            title="The day it happened, if that wasn't today" />
-          {newDay && newDay !== localDateString() && (
-            <button type="button" onClick={() => setNewDay('')}
-              className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-              Today
-            </button>
-          )}
-          {/* Format only when one exists (built-in under human-services words, or the user's own); Settings → Notes adds them */}
-          {allFormats.length > 0 && (<>
-            <span className="w-2" aria-hidden />
-            <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
-            <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
-              <option value="">Free text</option>
-              {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-              <option value="__edit">Edit formats…</option>
-            </select>
-          </>)}
-        </div>
-
         {format && (
           <div className="space-y-2">
             {format.fields.map((label, i) => (
@@ -695,7 +668,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                   style={{ fontSize: 15 }} />
               </div>
             ))}
-            <p className="text-sm text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings. Empty sections are left out. {modHelp('Ctrl+Enter')} saves.</p>
+            <p className="text-base text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings; empty ones are left out. {modHelp('Ctrl+Enter')} saves.</p>
           </div>
         )}
 
@@ -709,7 +682,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             onKeyDown={handleTextareaKeyDown}
             aria-controls={snippetMenu && snippetMenu.items.length > 0 ? snippetMenuId : undefined}
             aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 && selectedIndex >= 0 ? `${snippetMenuId}-opt-${selectedIndex}` : undefined}
-            placeholder={modHelp(`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry… (Ctrl+Enter to save, type / for snippets)`)}
+            placeholder={`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry…`}
             rows={3}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                        bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
@@ -756,7 +729,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             </div>
           )}
         </div>
-        {snippetsOn && <p className="text-base text-slate-500 dark:text-slate-400">Type / to insert a snippet</p>}
+        {/* Static help, not in the placeholder, so it's still there once typing starts (C-12) */}
+        <p className="text-base text-slate-500 dark:text-slate-400">{modHelp('Ctrl+Enter')} saves{snippetsOn ? ' · Type / to insert a snippet' : ''}</p>
         </>}
 
         {(tracking.trackTime || tracking.trackMileage || measures.active.length > 0) && (
@@ -777,8 +751,37 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           </div>
         )}
 
-        {/* Follow-up date */}
-        <div className="flex items-center gap-2">
+        {/* When it happened and the format, out of the way until wanted (C-12) */}
+        {moreOpen && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
+            <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
+              value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
+              title="The day it happened, if that wasn't today" />
+            {newDay && newDay !== localDateString() && (
+              <button type="button" onClick={() => setNewDay('')}
+                className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                Today
+              </button>
+            )}
+            {/* Format only when one exists (built-in under human-services words, or the user's own); the pencil edits them (C-33) */}
+            {allFormats.length > 0 && (<>
+              <span className="w-2" aria-hidden />
+              <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
+              <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
+                <option value="">Free text</option>
+                {allFormats.map(f => <option key={f.id} value={f.id}>{f.name} — {f.fields.join(', ')}</option>)}
+              </select>
+              <button type="button" onClick={() => setEditingFormats(true)} aria-label="Edit formats" title="Add or change formats"
+                className="hit-44 p-2 rounded-sm text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+                <Pencil className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </>)}
+          </div>
+        )}
+
+        {/* Follow-up date, more options, Add */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setShowFollowUp(p => !p)}
@@ -792,11 +795,17 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
               type="date"
               value={newFollowUp}
               onChange={e => setNewFollowUp(e.target.value)}
+              aria-label="Follow-up date"
               className="rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                          text-base text-slate-900 dark:text-slate-100 px-2 py-1
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             />
           )}
+          <button type="button" onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen}
+            className="hit-44 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
+            {moreOpen ? 'Fewer options' : `More options (when${allFormats.length > 0 ? ', format' : ''})`}
+          </button>
           <div className="flex-1" />
           <button
             onClick={handleAdd}
@@ -816,7 +825,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             <FeatureOffer feature={offer} onDone={() => setOffer(null)}
               message={offer === 'timeTracking'
                 ? `This ${t('activity')} mentions time. Record minutes on ${t('activity', { many: true })} and total them each month?`
-                : `This ${t('activity')} mentions miles. Record mileage on ${t('activity', { many: true })} for your monthly claim?`} />
+                : `This ${t('activity')} mentions miles. Record mileage on ${t('activity', { many: true })} for your monthly claim? (This one won't have them — add miles when you edit it.)`} />
           </div>
         )}
       </div>

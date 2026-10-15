@@ -15,6 +15,8 @@ export interface NoteDraft {
   extra: Record<string, string>
   /** The day it happened, when not today */
   day?: string
+  /** The structured format in use (DAP, SOAP…), '' for free text */
+  format?: string
 }
 
 const drafts = new Map<number, NoteDraft>()

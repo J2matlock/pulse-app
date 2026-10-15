@@ -39,6 +39,7 @@ beforeEach(() => {
 describe('the note composer', () => {
   it('sends the day it happened when that was not today, and says which day the dates moved to', async () => {
     render(<CaseLog rowId={10} />)
+    fireEvent.click(await screen.findByRole('button', { name: /More options/ }))
     const when = await screen.findByLabelText('When') as HTMLInputElement
     expect(when.value).toBe(localDateString())
     fireEvent.change(when, { target: { value: localDateFromToday(-2) } })

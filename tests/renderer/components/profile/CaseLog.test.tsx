@@ -79,12 +79,27 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
     await renderSettled(<CaseLog rowId={10} />)
+    // When and Format sit under "More options" so Add stays on screen (C-12)
+    expect(screen.queryByLabelText('Format')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /More options/ }))
+    expect(screen.getByRole('option', { name: 'DAP — Data, Assessment, Plan' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: /Edit formats/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Edit formats' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'dap' } })
     fireEvent.change(screen.getByLabelText('Data'), { target: { value: 'Home visit' } })
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'Follow up Friday' } })
     fireEvent.click(screen.getByTitle('Add a case note'))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('case-log:create', 10, 'Data: Home visit\n\nPlan: Follow up Friday', 'note', null, { minutes: null, miles: null, extra: {} }, null))
-    expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'note_format_last', 'dap')
+    // The format isn't remembered across records (C-06): nothing is saved, and another record's box is free text
+    expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', 'note_format_last', expect.anything())
+    await renderSettled(<CaseLog rowId={11} />)
+    expect(screen.getAllByPlaceholderText(/Add a note entry/).length).toBeGreaterThan(0)
+  })
+
+  it('keeps the save hint as static text under the box, not in the placeholder (C-12)', async () => {
+    await renderSettled(<CaseLog rowId={10} />)
+    expect(screen.getByText(/Ctrl\+Enter saves/)).toBeTruthy()
+    expect((screen.getByPlaceholderText(/Add a note entry/) as HTMLTextAreaElement).placeholder).not.toMatch(/Ctrl/)
   })
 
   it('offers time tracking when a note mentions minutes and time is off', async () => {

@@ -105,7 +105,7 @@ describe('note box "/" snippet menu (audit A06-32)', () => {
   it('is a listbox the text box controls, with the highlighted option as its active descendant', async () => {
     render(<CaseLog rowId={10} snippets={snippets as never} />)
     await flush()
-    const box = screen.getByPlaceholderText(/type \/ for snippets/) as HTMLTextAreaElement
+    const box = screen.getByPlaceholderText(/Add a note entry/) as HTMLTextAreaElement
     fireEvent.change(box, { target: { value: '/l', selectionStart: 2 } })
     const listbox = screen.getByRole('listbox', { name: 'Snippets' })
     expect(box.getAttribute('aria-controls')).toBe(listbox.id)
