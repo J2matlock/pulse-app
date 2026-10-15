@@ -176,6 +176,84 @@ describe('ColumnHeader', () => {
     expect(screen.getByDisplayValue('Name')).toBeTruthy()
   })
 
+  describe('rename in place, with the column menu under the header (Q3)', () => {
+    function startRename(updateColumn = vi.fn().mockResolvedValue(true), columns = [makeColumn(1, 'Name'), makeColumn(2, 'Phone')]) {
+      vi.useFakeTimers()
+      const setSortConfig = vi.fn()
+      setupStores({ setSortConfig, updateColumn, columns, hiddenColumns: [] })
+      render(<ColumnHeader column={columns[0]!} />)
+      fireEvent.doubleClick(screen.getByText('Name'))
+      act(() => { vi.advanceTimersByTime(300) })
+      return { updateColumn, setSortConfig, box: screen.getByRole('textbox', { name: 'Column name' }) as HTMLInputElement }
+    }
+
+    it('a double-click opens the name in a box, focused and selected, and the menu under it', () => {
+      const { box, setSortConfig } = startRename()
+      expect(document.activeElement).toBe(box)
+      expect(box.selectionStart).toBe(0)
+      expect(box.selectionEnd).toBe('Name'.length)
+      expect(screen.getByText('Sort ascending')).toBeTruthy()
+      expect(screen.getByText('Hide column')).toBeTruthy()
+      expect(setSortConfig).not.toHaveBeenCalled()
+    })
+
+    it('Enter saves the new name and closes both', async () => {
+      const { box, updateColumn } = startRename()
+      fireEvent.change(box, { target: { value: 'Full name' } })
+      await act(async () => { fireEvent.submit(box.closest('form')!) })
+      expect(updateColumn).toHaveBeenCalledTimes(1)
+      expect(updateColumn).toHaveBeenCalledWith(1, { name: 'Full name' })
+      expect(screen.queryByRole('textbox', { name: 'Column name' })).toBeNull()
+      expect(screen.queryByText('Sort ascending')).toBeNull()
+    })
+
+    it('Escape puts the old name back and closes both, saving nothing', () => {
+      const { box, updateColumn } = startRename()
+      fireEvent.change(box, { target: { value: 'Something else' } })
+      act(() => { fireEvent.keyDown(box, { key: 'Escape' }) })
+      expect(updateColumn).not.toHaveBeenCalled()
+      expect(screen.queryByText('Sort ascending')).toBeNull()
+      expect(screen.getByText('Name')).toBeTruthy()
+    })
+
+    it('the Down arrow saves the name and moves into the menu', async () => {
+      const { box, updateColumn } = startRename()
+      fireEvent.change(box, { target: { value: 'Full name' } })
+      await act(async () => { fireEvent.keyDown(box, { key: 'ArrowDown' }) })
+      expect(updateColumn).toHaveBeenCalledWith(1, { name: 'Full name' })
+      expect(screen.getByText('Sort ascending')).toBeTruthy()
+      expect(document.activeElement?.textContent).toBe('Sort ascending')
+    })
+
+    it('a name another column has keeps the box open', async () => {
+      const { box, updateColumn } = startRename()
+      fireEvent.change(box, { target: { value: 'phone' } })
+      await act(async () => { fireEvent.submit(box.closest('form')!) })
+      expect(updateColumn).not.toHaveBeenCalled()
+      expect(screen.getByRole('textbox', { name: 'Column name' })).toBeTruthy()
+    })
+
+    it('"Rename" in the menu does the same, and keeps the menu open', () => {
+      setupStores({ columns: [makeColumn(1, 'Name')], hiddenColumns: [] })
+      render(<ColumnHeader column={makeColumn(1, 'Name')} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+      fireEvent.click(screen.getByText('Rename'))
+      expect(screen.getByRole('textbox', { name: 'Column name' })).toBeTruthy()
+      expect(screen.getByText('Sort ascending')).toBeTruthy()
+    })
+
+    it('a click outside saves and closes the menu', async () => {
+      const { box, updateColumn } = startRename()
+      fireEvent.change(box, { target: { value: 'Full name' } })
+      await act(async () => {
+        fireEvent.mouseDown(document.body)
+        fireEvent.blur(box, { relatedTarget: document.body })
+      })
+      expect(updateColumn).toHaveBeenCalledWith(1, { name: 'Full name' })
+      expect(screen.queryByText('Sort ascending')).toBeNull()
+    })
+  })
+
   it('keeps the menu short, with the rest under Column settings (G-21, G-42)', () => {
     render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
     fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
