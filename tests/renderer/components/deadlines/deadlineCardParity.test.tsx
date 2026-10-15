@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, within, cleanup } from '@testing-library/react'
+import { render, screen, within, cleanup, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
@@ -20,6 +20,8 @@ Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, wr
 import { DeadlineRow } from '../../../../src/renderer/views/dashboard/DeadlineRow'
 import { CalendarItemPanel } from '../../../../src/renderer/components/calendar/CalendarItemPanel'
 import { DeadlinePanel } from '../../../../src/renderer/components/profile/DeadlinePanel'
+import { DeadlineCardHost } from '../../../../src/renderer/components/deadlines/DeadlineCardHost'
+import { openDeadlineCard } from '../../../../src/renderer/components/deadlines/openDeadlineCard'
 import { toInfo, type Loaded } from '../../../../src/renderer/components/deadlines/useRecordDeadlines'
 import type { Column, GridRow, ParsedAlertRule } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
@@ -78,6 +80,16 @@ async function onProfile(d: Loaded) {
   return out
 }
 
+async function onGrid(d: Loaded) {
+  served = [d]
+  render(<MemoryRouter><div tabIndex={-1} data-row-id={d.row_id} data-col-id={d.column_id} data-testid="cell" /><DeadlineCardHost /></MemoryRouter>)
+  act(() => { openDeadlineCard(d.row_id, d.column_id, screen.getByTestId('cell')) })
+  await screen.findByTestId('deadline-card-actions')
+  const out = cardButtons()
+  cleanup()
+  return out
+}
+
 beforeEach(() => {
   // Not the default words, so "Open {record}" proves it goes through the vocabulary layer
   setWords({ record: { one: 'vehicle', many: 'vehicles', article: 'a' } })
@@ -94,6 +106,8 @@ describe('one deadline card everywhere', () => {
       // The profile: the record is open already, and a quota is renewed in its own fields there
       const profile = await onProfile(d)
       expect(profile).toEqual(dash.filter(([label]) => label !== 'Renew…'))
+      // A grid cell's card: everything the Calendar has
+      expect(await onGrid(d)).toEqual(cal)
     })
   }
 

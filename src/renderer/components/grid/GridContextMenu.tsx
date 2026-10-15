@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { Palette, Trash2, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon, ChevronDown, ChevronRight } from 'lucide-react'
+import { Palette, Trash2, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
 import { copyText } from '../../hooks/useCopyFeedback'
@@ -11,6 +11,7 @@ import { isNotTypedColumnType } from '../../../shared/types'
 import { contextMenuVariants } from '../../utils/animations'
 import { useVocab } from '../../hooks/useVocab'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { columnHasDeadlineRule, openDeadlineCard } from '../deadlines/openDeadlineCard'
 
 export interface GridContextMenuProps {
   contextMenu: { x: number; y: number; rowId: number; colId: number }
@@ -114,6 +115,16 @@ export function GridContextMenu({
             <div className="px-3 pt-2 pb-0.5 text-sm font-semibold text-slate-500 dark:text-slate-400 truncate" aria-hidden="true">
               This cell: {cmCol.name}
             </div>
+            {/* The deadline's card (UX pass Q3): also the keyboard's way, by Shift+F10 or the Menu key */}
+            {columnHasDeadlineRule(cmCol) && (
+              <button
+                className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={() => { onClose(); openDeadlineCard(contextMenu.rowId, contextMenu.colId) }}
+              >
+                <CheckCircle2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                Mark done or extend…
+              </button>
+            )}
             <button
               className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {

@@ -14,6 +14,7 @@ import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, MENU_COL_WI
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { pulseEvents } from '../../events'
+import { openDeadlineCard } from '../deadlines/openDeadlineCard'
 
 type CellCoord = { rowId: number; columnId: number }
 
@@ -398,12 +399,14 @@ export const SortableRow = React.memo(function SortableRow({
                 }, 0)
               }
             }}
-            onClick={() => {
+            onClick={e => {
               // Single click = select only (checkbox toggles immediately)
               if (!isComputed && col.column_type === 'checkbox') {
                 const newVal = (value === 'true' || value === '1') ? 'false' : 'true'
                 void updateCell(rowId, colId, newVal)
               }
+              // A Deadline column's cell can't be typed into: a click opens its card (Done, Extend…)
+              if (col.column_type === 'deadline' && hasRule) openDeadlineCard(rowId, colId, e.currentTarget)
             }}
             onDoubleClick={() => {
               // Double-click = enter edit mode (all types except checkbox)
@@ -421,7 +424,8 @@ export const SortableRow = React.memo(function SortableRow({
               if (isComputed) {
                 // Moving, copying, selecting and opening the record work here too; nothing that writes
                 const mod = e.ctrlKey || e.metaKey
-                const passes = COMPUTED_NAV_KEYS.has(e.key) || e.key === 'Escape'
+                // Space: a deadline's card, or Shift+Space to select the record
+                const passes = COMPUTED_NAV_KEYS.has(e.key) || e.key === 'Escape' || e.key === ' '
                   || (mod && (e.key === 'c' || e.key === 'C' || e.key === 'a' || e.key === 'A'))
                   || (e.key === 'Enter' && (mod || e.shiftKey))
                 if (passes) onCellKeyDown(e, rowId, colId)
@@ -488,8 +492,16 @@ export const SortableRow = React.memo(function SortableRow({
               />
             ) : (
               <>
-                {/* The sr-only words below already say how it stands, so the shape isn't read twice */}
-                {alertIcon && <span aria-hidden="true" className="contents">{alertIcon}</span>}
+                {/* The shape opens the deadline's card (UX pass Q3). The sr-only words below already
+                    say how it stands, so the shape itself isn't read twice; Space is the keyboard's way */}
+                {alertIcon && (
+                  <button type="button" tabIndex={-1} aria-label="Deadline: mark done or extend…" data-testid="deadline-shape"
+                    className="hit-44 inline-flex flex-shrink-0 items-center rounded-lg cursor-pointer focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                    onClick={e => { e.stopPropagation(); openDeadlineCard(rowId, colId, e.currentTarget) }}
+                    onDoubleClick={e => e.stopPropagation()}>
+                    <span aria-hidden="true" className="contents">{alertIcon}</span>
+                  </button>
+                )}
                 {notADate && (
                   <span className="mr-1.5 inline-flex flex-shrink-0 items-center gap-1 text-sm font-medium text-red-800 dark:text-red-300" data-testid="not-a-date">
                     <AlertTriangle className="w-4 h-4" aria-hidden="true" />Not a date

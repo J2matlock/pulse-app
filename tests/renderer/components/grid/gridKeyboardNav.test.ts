@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { handleCellKeyDown, type KeyboardNavDeps } from '../../../../src/renderer/components/grid/gridKeyboardNav'
 import type { Column, GridRow } from '../../../../src/shared/types'
+import { pulseEvents } from '../../../../src/renderer/events'
 
 const col = (id: number, column_type: string) => ({ id, name: `C${id}`, column_type, config: '{}' } as unknown as Column)
 
@@ -39,6 +40,25 @@ describe('grid keys', () => {
     handleCellKeyDown(key(' '), 7, 1, d)
     expect(d.updateCell).toHaveBeenCalledWith(7, 1, 'true')
     expect([...selected]).toEqual([])
+  })
+
+  it('Space on a cell whose column has a deadline rule opens its card; Shift+Space still selects (Q3)', () => {
+    const ruled = { ...col(2, 'date'), config: '{"alert_rule_id":4}' } as Column
+    const deadline = { ...col(3, 'deadline'), config: '{"alert_rule_id":5}' } as Column
+    const d = deps([ruled, deadline, col(4, 'date')])
+    const opened: unknown[] = []
+    const off = pulseEvents.on('deadline:open-card', e => opened.push(e))
+    const space = key(' ')
+    handleCellKeyDown(space, 7, 2, d)
+    expect(space.preventDefault).toHaveBeenCalled()
+    handleCellKeyDown(key(' '), 7, 3, d)
+    // A date without a rule: nothing
+    handleCellKeyDown(key(' '), 7, 4, d)
+    expect(opened).toEqual([{ rowId: 7, columnId: 2, anchor: null }, { rowId: 7, columnId: 3, anchor: null }])
+    handleCellKeyDown(key(' ', { shiftKey: true }), 7, 2, d)
+    expect(opened).toHaveLength(2)
+    expect(d.setSelectedRowIds).toHaveBeenCalled()
+    off()
   })
 
   it('Ctrl+A selects only the records on screen, not those inside collapsed groups (AUDIT-139)', () => {
