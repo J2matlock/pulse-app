@@ -197,7 +197,8 @@ function SortableGridItem({
               ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium'
               : 'text-slate-700 dark:text-slate-300'}
           `}
-          style={{ minHeight: NAV_ROW, paddingLeft: !collapsed && canDrag ? '1.5rem' : undefined }}
+          // Room on the right for the "…" button, so a long name truncates before it instead of under it
+          style={{ minHeight: NAV_ROW, paddingLeft: !collapsed && canDrag ? '1.5rem' : undefined, paddingRight: collapsed ? undefined : '2.25rem' }}
           title={collapsed ? grid.name : undefined}
           aria-current={isActive ? 'page' : undefined}
         >

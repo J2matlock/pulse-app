@@ -170,11 +170,11 @@ export default function SettingsView(): React.ReactElement {
           tabIndex={0}
           className="flex-1 overflow-y-auto focus:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500"
         >
-          <div className="max-w-xl mx-auto px-8 py-8 space-y-8">
-            {/* What the open tab covers, in one line (it used to sit under every tab's name) */}
-            <p className="text-base text-slate-500 dark:text-slate-400 -mb-4">
-              {navItems.find(i => i.id === activeSection)?.desc}
-            </p>
+          {/* What the open tab covers, in one line (it used to sit under every tab's name) */}
+          <p className="max-w-xl mx-auto px-8 pt-5 text-base text-slate-500 dark:text-slate-400">
+            {navItems.find(i => i.id === activeSection)?.desc}
+          </p>
+          <div className="max-w-xl mx-auto px-8 pt-2 pb-8 space-y-8">
 
             {activeSection === 'profile' && (
               <ProfileSection
