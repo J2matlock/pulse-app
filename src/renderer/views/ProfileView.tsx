@@ -502,7 +502,7 @@ export default function ProfileView(): React.ReactElement {
       <div key={rowId} className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar — Checklist + ScratchPad, scrolls independently */}
-        <div className="w-[28%] min-w-[300px] max-w-[420px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
+        <div className="w-[28%] min-w-[340px] max-w-[420px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
           <div className="p-4 space-y-4">
             {showChecklists && (
               <div data-tour="checklist">
