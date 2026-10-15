@@ -3,14 +3,13 @@
  *
  * Welcome → your name → how do you want to start?
  *   • from an example (the example gallery),
- *   • bring in a spreadsheet (import, then "What are these rows?" and
- *     "Which of these dates repeat?"),
+ *   • bring in a spreadsheet (choose the file, then one summary: setup/SpreadsheetStart.tsx),
  *   • or start blank (a guided, step-by-step first list).
  * The example path adds sample data by default, so there's no separate
  * "just looking" entry (UX-A-17). Only new workspaces see this; existing
  * installs never do.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileSpreadsheet, LayoutTemplate, Pencil, User } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
@@ -18,14 +17,15 @@ import { PRODUCT_NAME } from '../../shared/constants'
 import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
 import type { Column, RecordKind } from '../../shared/types'
 import { guessArticle } from '../../shared/vocab'
-import { NEUTRAL_WORDS, ownWordsProblem, wordsFromListName } from '../../shared/listWords'
+import { ownWordsProblem } from '../../shared/listWords'
 
 import { safeInvoke } from '../utils/safeInvoke'
 import { useWorkspaceStore } from '../stores/workspaceStore'
-import { ImportWizard } from '../components/grid/ImportWizard'
 import { ApplyStarterDialog } from '../components/starters/ApplyStarterDialog'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRepeatPicker'
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
+import { SpreadsheetStart } from './setup/SpreadsheetStart'
+import { KINDS, ROW_CHOICES, guessRows, type RowsAnswer } from './setup/rowWords'
 import { UpdateCheckChoice } from './setup/UpdateCheckChoice'
 import { friendlyError } from '../utils/friendlyError'
 
@@ -40,52 +40,13 @@ interface Props {
   onStartTour: () => void
 }
 
-/** "What are these rows?" choices: the word for one and many, and what the list holds */
-export const ROW_CHOICES: Array<{ one: string; many: string; kind: RecordKind }> = [
-  { one: 'client', many: 'clients', kind: 'person' },
-  { one: 'customer', many: 'customers', kind: 'person' },
-  { one: 'student', many: 'students', kind: 'person' },
-  { one: 'patient', many: 'patients', kind: 'person' },
-  { one: 'staff member', many: 'staff', kind: 'person' },
-  { one: 'vehicle', many: 'vehicles', kind: 'thing' },
-  { one: 'property', many: 'properties', kind: 'thing' },
-  { one: 'piece of equipment', many: 'equipment', kind: 'thing' },
-  { one: 'job', many: 'jobs', kind: 'job' },
-]
-
-type RowsAnswer = {
-  choice: number | 'other' | null
-  one: string
-  many: string
-  kind: RecordKind
-  /** A guess from the list's name, offered as a suggestion — never filled in silently (UX-A-01) */
-  suggested?: { one: string; many: string }
-}
-
-const NO_ANSWER: RowsAnswer = { choice: null, one: '', many: '', kind: 'person' }
-
-/**
- * "What are these rows?" starts from the list's name: a known word ("Customers") is ticked,
- * an unknown one ("Tenants") is only suggested, and a generic name ("My caseload") asks.
- */
-export function guessRows(listName: string): RowsAnswer {
-  const g = wordsFromListName(listName)
-  if (g.one === NEUTRAL_WORDS.one) return NO_ANSWER
-  const i = ROW_CHOICES.findIndex(c => c.one === g.one || c.many === g.many)
-  if (i >= 0) return { ...NO_ANSWER, choice: i, kind: ROW_CHOICES[i]!.kind }
-  return { ...NO_ANSWER, suggested: g }
-}
+// Moved to setup/rowWords.ts (shared with the spreadsheet start); tests import them from here
+export { ROW_CHOICES, guessRows } from './setup/rowWords'
 
 /** Remember where setup is, so a lock or a closed window picks it up again */
 function saveProgress(progress: SetupProgress | null): void {
   void safeInvoke(IPC.ONBOARDING_SAVE_PROGRESS, progress).catch(() => { /* resuming is a nicety */ })
 }
-
-const KINDS: Array<{ kind: RecordKind; label: string; example: string }> = [
-  { kind: 'person', label: 'People', example: 'clients, students, staff' },
-  { kind: 'thing', label: 'Things', example: 'vehicles, equipment, properties' },
-  { kind: 'job', label: 'Jobs or tasks', example: 'work orders, cases, projects' },
-]
 
 const card = 'bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden'
 const h2 = 'text-2xl font-bold text-slate-900 dark:text-slate-100'
@@ -125,8 +86,6 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
   const [showExamples, setShowExamples] = useState(start === 'examples')
   const [listName, setListName] = useState('')
   const [gridId, setGridId] = useState<number | null>(null)
-  const importDone = useRef(false)
-  const importUndone = useRef(false)
   const [rows, setRows] = useState<RowsAnswer>({ choice: null, one: '', many: '', kind: 'person' })
   const [resumeBlank, setResumeBlank] = useState<{ gridId: number; name: string; kind: RecordKind; one: string; many: string } | null>(null)
   const [resumed, setResumed] = useState(false)
@@ -149,7 +108,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       setResumed(true)
       setGridId(p.gridId)
       if (p.listName) setListName(p.listName)
-      if (p.step === 'sheet-import') { importDone.current = false; setStep('sheet-import') }
+      if (p.step === 'sheet-import') setStep('sheet-import')
       else if (p.step === 'sheet-rows') { setRows(guessRows(p.listName ?? '')); setStep('sheet-rows') }
       else if (p.blank) { setResumeBlank({ gridId: p.gridId, ...p.blank }); setStep('blank') }
     }).catch(() => { /* start from the beginning */ })
@@ -172,33 +131,6 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
 
 
   // ── Spreadsheet path ──────────────────────────────────────────────────────
-
-  async function createListForImport() {
-    setBusy(true)
-    try {
-      const res = await safeInvoke(IPC.GRID_CREATE, listName.trim())
-      if (!res.ok) { setError("We couldn't create the list — try again"); return }
-      importDone.current = false
-      setGridId(res.data)
-      saveProgress({ step: 'sheet-import', gridId: res.data, listName: listName.trim() })
-      go('sheet-import')
-    } finally { setBusy(false) }
-  }
-
-  function cancelImport() {
-    if (importDone.current) return
-    if (gridId !== null) {
-      const id = gridId
-      // The list was made only for this import. Left empty, it's removed for good rather than
-      // piling up "My list" entries in the Trash; after an undone import its records wait there.
-      const keep = importUndone.current
-      void safeInvoke(IPC.GRID_DELETE, id).then(r => { if (r.ok && !keep) void safeInvoke(IPC.GRID_PURGE, id) })
-    }
-    importUndone.current = false
-    saveProgress(null)
-    setGridId(null)
-    go('sheet-name')
-  }
 
   async function saveRows() {
     if (gridId === null) return
@@ -241,21 +173,10 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
     } finally { setBusy(false) }
   }
 
-  useEffect(() => { if (step === 'sheet-name') setListName(n => n || 'My list') }, [step])
-
-  if (step === 'sheet-import' && gridId !== null) {
-    return (
-      <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
-        <ImportWizard open gridId={gridId} onClose={cancelImport} onImported={r => {
-          // "Undo this import" then close: nothing to describe, so it's like cancelling
-          if (r.undone) { importUndone.current = true; return }
-          importDone.current = true
-          setRows(guessRows(listName))
-          saveProgress({ step: 'sheet-rows', gridId, listName: listName.trim() })
-          go('sheet-rows')
-        }} />
-      </div>
-    )
+  // The file chooser, then the import summary (UX Q1a); a resumed setup reopens it on its list
+  if (step === 'sheet-name' || step === 'sheet-import') {
+    return <SpreadsheetStart resume={step === 'sheet-import' && gridId !== null ? { gridId, listName } : undefined}
+      onCancel={() => go('start')} onFinished={finish} onProgress={saveProgress} />
   }
 
   return (
@@ -319,25 +240,6 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
           )}
           {step === 'blank' && <GuidedBlankStart onBack={() => go('start')} onFinished={finish} resume={resumeBlank ?? undefined}
             onProgress={blank => saveProgress({ step: 'blank', gridId: blank.gridId, blank: { name: blank.name, kind: blank.kind, one: blank.one, many: blank.many } })} />}
-
-          {step === 'sheet-name' && (
-            <div className="p-8 space-y-5">
-              <h2 className={h2}>Name the list for your spreadsheet</h2>
-              <p className={lead}>Next you'll pick the file and match its columns.</p>
-              <div>
-                <label htmlFor="setup-list-name" className="block text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">List name</label>
-                <input id="setup-list-name" className={field} value={listName} autoFocus maxLength={200} onChange={e => setListName(e.target.value)} />
-              </div>
-              {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
-              <div className="flex items-center justify-between">
-                <Back onClick={() => go('start')} />
-                <button type="button" className="btn-primary inline-flex items-center gap-2" disabled={busy || !listName.trim()}
-                  onClick={() => void createListForImport()}>
-                  {busy ? 'Working…' : 'Choose file'} {!busy && <ArrowRight className="w-4 h-4" aria-hidden="true" />}
-                </button>
-              </div>
-            </div>
-          )}
 
           {step === 'sheet-rows' && (
             <div className="p-8 space-y-5">

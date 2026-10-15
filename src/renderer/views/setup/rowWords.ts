@@ -18,6 +18,13 @@ export const ROW_CHOICES: Array<{ one: string; many: string; kind: RecordKind }>
   { one: 'job', many: 'jobs', kind: 'job' },
 ]
 
+/** "Something else": are they people, things or jobs */
+export const KINDS: Array<{ kind: RecordKind; label: string; example: string }> = [
+  { kind: 'person', label: 'People', example: 'clients, students, staff' },
+  { kind: 'thing', label: 'Things', example: 'vehicles, equipment, properties' },
+  { kind: 'job', label: 'Jobs or tasks', example: 'work orders, cases, projects' },
+]
+
 export type RowsAnswer = {
   choice: number | 'other' | null
   one: string
