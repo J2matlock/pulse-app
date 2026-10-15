@@ -91,7 +91,7 @@ describe('TaskItem', () => {
   it('shows high priority badge', () => {
     const task = makeTask({ priority: 'high' })
     render(<TaskItem task={task} {...baseProps} />)
-    expect(screen.getByText('High')).toBeDefined()
+    expect(screen.getByText('High priority')).toBeDefined()
   })
 
   it('applies overdue border styling', () => {
@@ -115,10 +115,22 @@ describe('TaskItem', () => {
     expect(screen.getByText(/Snoozed until Wed, Oct 14 ×/)).toBeDefined()
   })
 
-  it('shows its row actions when tabbed to, not only on hover', () => {
-    render(<TaskItem task={makeTask()} {...baseProps} />)
-    const edit = screen.getByTitle('Edit (full dialog)')
-    expect(edit.closest('div')!.className).toContain('group-focus-within:opacity-100')
+  it('keeps its row actions in view under one named ⋯ menu, not only on hover (UX D-12)', () => {
+    render(<TaskItem task={makeTask({ title: 'Call insurance' })} {...baseProps} />)
+    const more = screen.getByRole('button', { name: 'More for Call insurance' })
+    expect(more.closest('div')!.className).not.toContain('opacity-0')
+    fireEvent.click(more)
+    const items = screen.getAllByRole('menuitem').map(b => b.textContent)
+    expect(items).toEqual(['Edit', 'Snooze…', 'Repeat…', 'Delete'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Snooze…' }))
+    expect(baseProps.onSnooze).toHaveBeenCalled()
+  })
+
+  it('offers Wake up in the ⋯ menu for a snoozed task', () => {
+    render(<TaskItem task={makeTask({ title: 'Call insurance', snoozed_until: '2099-10-14' })} {...baseProps} />)
+    fireEvent.click(screen.getByRole('button', { name: 'More for Call insurance' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Wake up' }))
+    expect(baseProps.onUpdate).toHaveBeenCalledWith({ snoozed_until: null })
   })
 
   it('the Clear date button stays put when the date box loses focus to it (bug sweep S2)', () => {
@@ -145,7 +157,7 @@ describe('TaskItem', () => {
 
   it('a monthly task that remembers its day still shows Monthly as chosen', () => {
     render(<TaskItem task={makeTask({ due_date: '2027-02-28', recurrence_rule: '{"type":"monthly","interval":1,"day":31}' })} {...baseProps} />)
-    fireEvent.click(screen.getByTitle('Change recurrence'))
+    fireEvent.click(screen.getByTitle('Repeats: change how'))
     expect(screen.getByText('Monthly').className).toContain('font-semibold')
   })
 })

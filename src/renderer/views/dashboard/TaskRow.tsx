@@ -27,9 +27,11 @@ export function TaskRow({
     ? shortYmd(task.due_date!)
     : '—'
 
+  // The dot has a name as well as a colour (UX D-42)
   const priorityDot =
     task.priority === 'high' || task.priority === 'urgent' ? '🔴' :
     task.priority === 'normal' ? '🟡' : '⚪'
+  const priorityWord = task.priority === 'urgent' ? 'Urgent' : task.priority === 'high' ? 'High priority' : task.priority === 'low' ? 'Low priority' : 'Normal priority'
 
   async function handleComplete() {
     setCompleting(true)
@@ -65,7 +67,7 @@ export function TaskRow({
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm">{priorityDot}</span>
+          <span className="text-sm" role="img" aria-label={priorityWord} title={priorityWord}>{priorityDot}</span>
           <span className="font-medium text-slate-800 dark:text-slate-100 truncate">{task.title}</span>
           <span className="text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-sm flex-shrink-0">task</span>
         </div>

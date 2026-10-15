@@ -48,6 +48,11 @@ import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { useToday } from '../hooks/useToday'
 
+/** The progress bar waits for a list worth measuring (UX D-43) */
+const PROGRESS_FROM = 5
+/** Whether the notes pane is open; '0' when folded away (UX D-32) */
+const NOTES_OPEN_KEY = 'tasks_notes_open'
+
 export default function TasksView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
   const { t: w } = useVocab(null)
@@ -73,6 +78,15 @@ export default function TasksView(): React.ReactElement {
   const [snoozeTaskId, setSnoozeTaskId] = useState<number | null>(null)
   const [urgentItems, setUrgentItems] = useState<UrgentChecklistItem[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
+  // The notes pane folds away and stays folded (UX D-32)
+  const [notesOpen, setNotesOpenState] = useState(true)
+  useEffect(() => {
+    void safeInvoke<string | null>(IPC.SETTINGS_GET, NOTES_OPEN_KEY).then(r => { if (r.ok && r.data === '0') setNotesOpenState(false) })
+  }, [])
+  const setNotesOpen = async (open: boolean) => {
+    setNotesOpenState(open)
+    await safeInvoke(IPC.SETTINGS_UPDATE, NOTES_OPEN_KEY, open ? '1' : '0')
+  }
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showSpinner, setShowSpinner] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
@@ -539,13 +553,14 @@ export default function TasksView(): React.ReactElement {
           title={modHelp('Add a new task (Ctrl+Shift+T)')}
           className="btn-compact-primary"
         >
-          + Add Task
+          + Add task
         </button>
 
+        {/* "Order", since "as I arranged" isn't a sort (UX D-43) */}
         <label className="flex items-center gap-1.5 text-base text-slate-600 dark:text-slate-300">
-          Sort:
+          Order:
           <select className="input" style={{ minHeight: 36 }} value={sortMode} onChange={e => setSortMode(e.target.value as TaskSortMode)}>
-            <option value="manual">My order</option>
+            <option value="manual">As I arranged</option>
             <option value="due_date">Due date</option>
             <option value="priority">Priority</option>
           </select>
@@ -556,22 +571,22 @@ export default function TasksView(): React.ReactElement {
           title="Add a group to organize tasks"
           className="btn-compact-secondary"
         >
-          <FolderPlus className="w-3.5 h-3.5" />
-          Group
+          <FolderPlus className="w-3.5 h-3.5" aria-hidden="true" />
+          Add a group
         </button>
 
         <button
           onClick={() => setShowTemplates(true)}
-          title="Apply a checklist template"
+          title="Add the tasks from a saved set"
           className="btn-compact-soft"
         >
-          Templates
+          Add a set of tasks…
         </button>
         </div>
       </div>
 
-      {/* Progress bar */}
-      {!loading && totalAll > 0 && (
+      {/* Progress bar, once there's enough to measure (UX D-43) */}
+      {!loading && totalAll >= PROGRESS_FROM && (
         <div className="px-6 py-2 bg-slate-50 dark:bg-slate-800/50">
           <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden max-w-3xl">
             <div
@@ -876,9 +891,15 @@ export default function TasksView(): React.ReactElement {
           )}
         </div>
 
-        {/* Scrap Notes — right column */}
-        <div className="w-[480px] min-w-[400px] flex-shrink-0 border-l border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50 p-4">
-          <ScratchPad globalScope="tasks" />
+        {/* Notes to myself — right column; can be folded away, and stays so (UX D-32) */}
+        <div className={`${notesOpen ? 'w-[480px] min-w-[400px]' : 'w-auto'} flex-shrink-0 border-l border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50 p-4`}>
+          <button type="button" onClick={() => void setNotesOpen(!notesOpen)} aria-expanded={notesOpen}
+            className="hit-44 flex items-center gap-2 text-base font-medium text-slate-700 dark:text-slate-200 rounded-sm focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 mb-2"
+            style={{ minHeight: 44 }}>
+            {notesOpen ? <ChevronDown className="w-4 h-4" aria-hidden="true" /> : <ChevronRight className="w-4 h-4" aria-hidden="true" />}
+            {notesOpen ? 'Hide notes' : 'Notes to myself'}
+          </button>
+          {notesOpen && <ScratchPad globalScope="tasks" heading={`Notes to myself (not about ${w('record', { article: true })})`} />}
         </div>
       </div>
 
@@ -925,6 +946,8 @@ export default function TasksView(): React.ReactElement {
       {/* Checklist template manager */}
       {showTemplates && (
         <TemplateManager
+          title="Add a set of tasks"
+          footer="Adds these tasks to your list."
           onApply={(templateId) => {
             setPendingTemplateId(templateId)
             setShowTemplates(false)

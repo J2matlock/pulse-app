@@ -29,6 +29,8 @@ interface Props {
   globalScope?: string
   /** Pre-loaded snippets from parent (avoids duplicate fetch when CaseLog also needs them) */
   snippets?: Snippet[]
+  /** The header's words; "Scratch notes" when left out (the Tasks page says whose they are, UX D-32) */
+  heading?: string
 }
 
 const NO_SNIPPETS: Snippet[] = []
@@ -39,7 +41,7 @@ function persistPad(globalScope: string | undefined, rowId: number | undefined, 
   return Promise.resolve({ ok: true, data: null })
 }
 
-export function ScratchPad({ rowId, clientName, globalScope, snippets: externalSnippets }: Props) {
+export function ScratchPad({ rowId, clientName, globalScope, snippets: externalSnippets, heading = 'Scratch notes' }: Props) {
   const snippetsOn = useFeature('snippets')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
@@ -81,7 +83,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   useEffect(() => {
     if (externalSnippets) return // Skip fetch when parent provides snippets
     safeInvoke<Snippet[]>(IPC.SNIPPET_GET_ALL).then(res => {
-      if (res.ok) setInternalSnippets(res.data)
+      if (res.ok && Array.isArray(res.data)) setInternalSnippets(res.data)
     })
   }, [externalSnippets])
 
@@ -297,7 +299,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     <section className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
         <StickyNote className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-        <span className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-1">Scratch notes</span>
+        <span className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-1">{heading}</span>
         {saving && <span className="text-sm text-slate-500 dark:text-slate-400 italic">Saving…</span>}
         {saveError && !saving && <span role="alert" className="text-base text-red-700 dark:text-red-400">We couldn't save this — keep typing to try again</span>}
       </div>
@@ -315,7 +317,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" aria-hidden="true" />
         {toolbarBtn(active?.bulletList ?? false, () => editor?.chain().focus().toggleBulletList().run(), <List className="w-4 h-4" />, modHelp('Bullet list (Ctrl+Shift+8)'))}
         {toolbarBtn(active?.orderedList ?? false, () => editor?.chain().focus().toggleOrderedList().run(), <ListOrdered className="w-4 h-4" />, modHelp('Numbered list (Ctrl+Shift+7)'))}
-        {snippetsOn && <div className="ml-2 text-base text-slate-500 dark:text-slate-400 whitespace-nowrap">Type / for snippets</div>}
+        {/* Only once there's a snippet to find (UX D-32) */}
+        {snippetsOn && snippets.length > 0 && <div className="ml-2 text-base text-slate-500 dark:text-slate-400 whitespace-nowrap">Type / for snippets</div>}
       </div>
 
       {/* onKeyDownCapture fires before tiptap sees the event */}

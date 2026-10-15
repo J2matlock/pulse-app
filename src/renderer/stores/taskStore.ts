@@ -234,7 +234,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set(state => ({
       tasks: state.tasks.map(t => t.id === id ? { ...t, snoozed_until: until } : t)
     }))
-    useUndoStore.getState().push({
+    // With a toast, so the row that just vanished can be brought back (UX D-34)
+    useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Snoozed task "${task?.title ?? ''}"`,
       timestamp: Date.now(),

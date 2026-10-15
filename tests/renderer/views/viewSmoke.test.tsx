@@ -483,10 +483,10 @@ describe('TasksView', () => {
     expect(heading.tagName).toBe('H1')
   })
 
-  it('renders the Templates button', async () => {
+  it('renders the Add a set of tasks button (UX D-33)', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Templates')).toBeDefined()
+    expect(screen.getByText('Add a set of tasks…')).toBeDefined()
   })
 
   it('shows empty state when no tasks exist', async () => {

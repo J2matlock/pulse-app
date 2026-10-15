@@ -70,6 +70,7 @@ vi.mock('../../../../src/renderer/utils/snippetExpander', () => ({
 import { ScratchPad } from '../../../../src/renderer/components/profile/ScratchPad'
 import { setWords } from '../../vocabFixture'
 import { renderSettled } from '../../renderSettled'
+import type { Snippet } from '../../../../src/shared/types'
 
 beforeEach(() => { setWords() })
 
@@ -103,9 +104,15 @@ describe('ScratchPad', () => {
     expect(screen.getByTitle('Numbered list (Ctrl+Shift+7)')).toBeTruthy()
   })
 
-  it('shows snippet hint text', async () => {
-    await renderSettled(<ScratchPad rowId={1} />)
+  it('shows snippet hint text once there is a snippet (UX D-32)', async () => {
+    const snippets: Snippet[] = [{ id: 1, trigger_text: 'hv', expansion: 'Met at home', category: null, created_at: '' }]
+    await renderSettled(<ScratchPad rowId={1} snippets={snippets} />)
     expect(screen.getByText('Type / for snippets')).toBeTruthy()
+  })
+
+  it('leaves the snippet hint out when there are no snippets (UX D-32)', async () => {
+    await renderSettled(<ScratchPad rowId={1} snippets={[]} />)
+    expect(screen.queryByText('Type / for snippets')).toBeNull()
   })
 
   it('loads content from IPC on mount for rowId', async () => {
