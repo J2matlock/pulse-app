@@ -48,6 +48,8 @@ import type { Form } from '../../shared/forms'
 import { stageColumnOf } from '../../shared/stages'
 import { escapeBelongsElsewhere } from '../utils/domHelpers'
 import { getClientName } from '../utils/clientName'
+import { suggestedNote } from '../utils/suggestedNote'
+import { useActivityTypes } from '../hooks/useActivityTypes'
 
 const NO_FORMS: Form[] = []
 
@@ -230,6 +232,11 @@ export default function ProfileView(): React.ReactElement {
   const clientName = knownName ?? `Unknown ${t('record')}`
   // "Client details (4 filled)": how many typed-in columns have something in them (C-02)
   const filledCount = useMemo(() => row ? [...columns, ...hiddenColumns].filter(c => !isEmptyCell(c, (row[`col_${c.id}` as keyof GridRow] as string | null) ?? null)).length : 0, [row, columns, hiddenColumns])
+  // A late contact-like deadline opens the note box with the kind that brings it up to date (Q2)
+  const noteTypes = useActivityTypes().active
+  const noteSuggestion = useMemo(() => row && !isArchived && alertsLoaded
+    ? suggestedNote(row, [...columns, ...hiddenColumns], new Map(alertRules.map(r => [r.id, r])), noteTypes)
+    : null, [row, isArchived, alertsLoaded, columns, hiddenColumns, alertRules, noteTypes])
 
   // Track as recently visited: once per record, and again when its name loads,
   // not every time the list of lists reloads
@@ -555,7 +562,7 @@ export default function ProfileView(): React.ReactElement {
             {/* Note box, deadlines, then the notes log: "what happened last time?" is why the
                 page was opened, so the details block comes after it, collapsed (C-02) */}
             <div data-tour="case-log" className="space-y-6">
-              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={
+              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} suggestion={noteSuggestion} between={
                 <div data-tour="deadline-panel">
                   <DeadlinePanel
                     row={row}

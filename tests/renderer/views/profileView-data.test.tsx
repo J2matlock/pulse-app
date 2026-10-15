@@ -122,8 +122,8 @@ vi.mock('../../../src/renderer/components/profile/DeadlinePanel', () => ({
 }))
 vi.mock('../../../src/renderer/components/profile/CaseLog', () => ({
   // The record page puts deadlines and details between the note box and past notes
-  CaseLog: ({ rowId, between }: { rowId?: number; between?: React.ReactNode }) => (
-    <><div data-testid="case-log" data-row-id={rowId}>Case Log</div>{between}</>
+  CaseLog: ({ rowId, between, suggestion }: { rowId?: number; between?: React.ReactNode; suggestion?: unknown }) => (
+    <><div data-testid="case-log" data-row-id={rowId} data-suggestion={JSON.stringify(suggestion ?? null)}>Case Log</div>{between}</>
   ),
 }))
 vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({
@@ -198,6 +198,29 @@ describe('ProfileView — data smoke tests (1 client)', () => {
     renderProfile()
     await flushEffects()
     expect(screen.getByTestId('case-log')).toBeDefined()
+  })
+
+  it('a late review suggests no note: no note meets it (Q2)', async () => {
+    renderProfile()
+    await flushEffects()
+    // "Next Review" is late but no note meets it
+    expect(screen.getByTestId('case-log').getAttribute('data-suggestion')).toBe('null')
+  })
+
+  it('passes the suggestion when the late column is moved by Visit notes (Q2)', async () => {
+    const col = sampleColumns[1]!
+    const before = col.config
+    col.config = '{"alert_rule_id":1,"note_updates":["visit"]}'
+    try {
+      renderProfile()
+      await flushEffects()
+      const got = JSON.parse(screen.getByTestId('case-log').getAttribute('data-suggestion') ?? 'null') as { typeKey: string; columnName: string; daysLate: number }
+      expect(got.typeKey).toBe('visit')
+      expect(got.columnName).toBe('Next Review')
+      expect(got.daysLate).toBeGreaterThan(0)
+    } finally {
+      col.config = before
+    }
   })
 
   it('renders grid data summary section', async () => {
