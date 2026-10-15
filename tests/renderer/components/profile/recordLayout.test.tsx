@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** 3.4: the note box first, one timeline of notes, and sections that say what's inside. */
+/** 3.4: the note box first, one log of notes, and sections that say what's inside. */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import React, { useRef } from 'react'
@@ -31,6 +31,11 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, data: includeVoided
         ? [note({ id: 6, content: 'Wrong person', voided_at: '2026-10-09 11:00:00', voided_reason: 'Entered on the wrong record' }), note({ edited_at: '2026-10-09 12:00:00', updated_at: '2026-10-09 12:00:00' })]
         : [note({ edited_at: '2026-10-09 12:00:00', updated_at: '2026-10-09 12:00:00' })] })
+    }
+    if (channel === 'case-log:count') {
+      const [, , includeVoided, opts] = args as [number, boolean, boolean, { logType?: string } | undefined]
+      // Three change entries, one voided note, one live note
+      return Promise.resolve({ ok: true, data: opts?.logType === 'system' ? 3 : includeVoided ? 5 : 4 })
     }
     return Promise.resolve({ ok: true, data: null })
   })
@@ -65,7 +70,7 @@ describe('the note box', () => {
   })
 })
 
-describe('one timeline', () => {
+describe('one log', () => {
   it('shows earlier versions on the note itself', async () => {
     render(<CaseLog rowId={10} />)
     expect(await screen.findByText(/show earlier versions/)).toBeTruthy()
@@ -75,10 +80,31 @@ describe('one timeline', () => {
     render(<CaseLog rowId={10} />)
     await screen.findByText('Called about rent')
     expect(screen.queryByText('Wrong person')).toBeNull()
-    await act(async () => { fireEvent.click(screen.getByLabelText(/Show voided/)) })
+    await act(async () => { fireEvent.click(await screen.findByLabelText('Show 1 voided case note')) })
     expect(await screen.findByText('Wrong person')).toBeTruthy()
     expect(screen.getByText('Voided: Entered on the wrong record')).toBeTruthy()
     expect(screen.getByText('Wrong person').className).toContain('line-through')
+  })
+
+  it('offers "Show voided" only when a voided note exists (C-26)', async () => {
+    mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: [note()] })
+      if (channel === 'case-log:count') return Promise.resolve({ ok: true, data: (args[3] as { logType?: string } | undefined)?.logType === 'system' ? 0 : 1 })
+      return Promise.resolve({ ok: true, data: null })
+    })
+    render(<CaseLog rowId={10} />)
+    await screen.findByText('Called about rent')
+    expect(screen.queryByLabelText(/Show .* voided/)).toBeNull()
+    expect(screen.queryByText(/hidden —/)).toBeNull()
+  })
+
+  it('says how many changes the filter hides and shows them on request (C-01)', async () => {
+    render(<CaseLog rowId={10} />)
+    expect(await screen.findByText('3 changes are hidden —')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Show them' })) })
+    expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 0, { query: '', oldestFirst: false })
+    expect((screen.getByLabelText('What to show') as HTMLSelectElement).value).toBe('everything')
+    expect(screen.queryByText('3 changes are hidden —')).toBeNull()
   })
 
   it('includes changes the app made when asked', async () => {

@@ -12,7 +12,7 @@ import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
 
 /**
  * A letter for this record (3.6, R-24): pick a template, adjust the text,
- * then copy it or save it as a PDF. With "Note it on the timeline" ticked,
+ * then copy it or save it as a PDF. With "Note it in the log" ticked,
  * the first copy or save adds "Letter: <template>" to the record's notes.
  */
 export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
@@ -57,7 +57,7 @@ export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
     }
   }
 
-  /** Once per letter: Pulse's own entry on the timeline that it was sent. Not a user note, so it
+  /** Once per letter: Pulse's own entry in the notes log that it was sent. Not a user note, so it
    *  neither counts toward requirements nor moves date columns that follow notes. */
   async function noteIt() {
     if (!logIt || loggedRef.current || !template) return

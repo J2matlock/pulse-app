@@ -225,17 +225,30 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     return () => clearTimeout(id)
   }, [search])
   const [total, setTotal] = useState<number | null>(null)
-  // One timeline (3.4): notes by default; changes the app made, one kind, or voided notes on request
+  // One log (3.4): notes by default; changes the app recorded, one kind, or voided notes on request
   const [show, setShow] = useState<string>('notes')
   const [showVoided, setShowVoided] = useState(false)
   const includeSystem = show === 'everything' || show === 'changes'
   const kindFilter = show === 'changes' ? 'system' : show === 'notes' || show === 'everything' ? undefined : show
+  // What the current filter hides: change entries (C-01) and voided notes (C-26), so the
+  // page can say "3 changes are hidden" and offer "Show voided" only when there's one
+  const [hidden, setHidden] = useState<{ changes: number; voided: number }>({ changes: 0, voided: 0 })
+  const refreshHidden = useCallback(async () => {
+    const [changes, all, live] = await Promise.all([
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, false, { logType: 'system' }),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, true),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, true, false),
+    ])
+    const n = (r: { ok: boolean; data?: unknown }) => r.ok && typeof r.data === 'number' ? r.data : 0
+    setHidden({ changes: n(changes), voided: Math.max(0, n(all) - n(live)) })
+  }, [rowId])
   const load = useCallback(async () => {
     setLoading(true)
     const opts = { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) }
     const [res, count] = await Promise.all([
       safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, 0, opts),
       safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, includeSystem, showVoided, opts),
+      refreshHidden(),
     ])
     if (res.ok) {
       const data = res.data
@@ -244,7 +257,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     }
     setTotal(count.ok ? count.data : null)
     setLoading(false)
-  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
+  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter, refreshHidden])
 
   // One page at a time: a second click before the first page arrives would ask for the same page again (AUDIT-136)
   const loadingMoreRef = useRef(false)
@@ -518,6 +531,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     if (!res.ok) { toast.error(`We couldn't void that ${t('activity')}. Please try again.`); return }
     setEntries(prev => prev.filter(e => e.id !== id))
     showDateChanges(rowId, res.data)
+    void refreshHidden()
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Voided ${t('activity')}`,
@@ -536,6 +550,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     setEntries(prev => prev.map(e => e.id === id ? { ...e, voided_at: null, voided_reason: null } : e))
     // Counting again, it moves its dates again (Track B)
     showDateChanges(rowId, res.data)
+    void refreshHidden()
     const reason = entry?.voided_reason ?? 'Voided'
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
@@ -832,22 +847,39 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         </button>
       </div>
 
-      {/* What the timeline shows */}
+      {/* What the log shows: a view, or one kind of note (C-23) */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
         <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200">
           Show:
           <select className="input w-auto" value={show} onChange={e => setShow(e.target.value)} aria-label="What to show">
-            <option value="notes">All {t('activity', { many: true })}</option>
-            <option value="everything">{t('activity', { many: true, cap: true })} and changes</option>
-            <option value="changes">Changes only</option>
-            {activity.all.map(k => <option key={k.key} value={k.key}>{k.label}{k.is_archived ? ' (archived)' : ''}</option>)}
+            <optgroup label="Show">
+              <option value="notes">{t('activity', { many: true, cap: true })} only</option>
+              <option value="everything">{t('activity', { many: true, cap: true })} and column changes</option>
+              <option value="changes">Column changes only</option>
+            </optgroup>
+            <optgroup label="Only one kind">
+              {activity.all.map(k => <option key={k.key} value={k.key}>{k.label}{k.is_archived ? ' (archived)' : ''}</option>)}
+            </optgroup>
           </select>
         </label>
-        <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
-          <input type="checkbox" className="w-5 h-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
-          Show voided {t('activity', { many: true })}
-        </label>
+        {/* Only when there is a voided note to show (C-26) */}
+        {(hidden.voided > 0 || showVoided) && (
+          <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
+            Show {hidden.voided} voided {t('activity', { many: hidden.voided !== 1 })}
+          </label>
+        )}
       </div>
+      {/* Changes a column keeps a history of are findable even when the filter hides them (C-01) */}
+      {show === 'notes' && hidden.changes > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 px-4 py-1 border-b border-slate-100 dark:border-slate-700/50 text-base text-slate-600 dark:text-slate-300" role="status">
+          <span>{hidden.changes} {hidden.changes === 1 ? 'change is' : 'changes are'} hidden —</span>
+          <button type="button" onClick={() => setShow('everything')}
+            className="hit-44 text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+            Show {hidden.changes === 1 ? 'it' : 'them'}
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
@@ -878,7 +910,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             {search ? 'No entries match your search.'
               : show === 'notes' || show === 'everything' ? `No ${t('activity', { many: true })} yet.`
               // "Changes only" or one note type: the record may have plenty of other entries
-              : `Nothing of this kind yet. Choose "All ${t('activity', { many: true })}" under Show to see the rest.`}
+              : `Nothing of this kind yet. Choose "${t('activity', { many: true, cap: true })} only" under Show to see the rest.`}
           </p>
         )}
 

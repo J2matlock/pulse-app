@@ -43,7 +43,7 @@ vi.mock('../src/main/database', () => ({
 }))
 
 import { isValidLogType, userTypeKeys } from '../src/main/activity-types'
-import { keyFromLabel, labelFor } from '../src/shared/activityTypes'
+import { changeHeading, keyFromLabel, labelFor } from '../src/shared/activityTypes'
 
 const fakeEvent = { senderFrame: { parent: null } }
 async function invoke(channel: string, ...args: unknown[]): Promise<{ ok: boolean; data?: any; error?: string }> {
@@ -82,6 +82,16 @@ describe('note type keys and labels', () => {
     expect(labelFor(list, 'session')).toBe('Session')
     expect(labelFor(list, 'followup')).toBe('Follow-up')
     expect(labelFor(list, 'home_check')).toBe('Home check')
+    // Pulse's own entries are "changes" in the notes log, not "System" (C-01)
+    expect(labelFor(list, 'system')).toBe('Change')
+  })
+
+  it('reads the column off a change entry for its heading', () => {
+    expect(changeHeading('Program changed from Housing to Behavioral Health')).toBe('Program changed')
+    expect(changeHeading('Status changed to "Open"')).toBe('Status changed')
+    expect(changeHeading('Phone cleared (was 555)')).toBe('Phone cleared')
+    expect(changeHeading('Completed checklist item: Intake')).toBeNull()
+    expect(changeHeading('Client moved to the Trash')).toBeNull()
   })
 })
 

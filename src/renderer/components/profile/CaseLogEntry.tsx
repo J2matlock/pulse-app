@@ -10,6 +10,7 @@ import { formatMinutes, formatMiles, unitsFor } from '../../../shared/timeMileag
 import type { NoteTracking } from '../../hooks/useNoteTracking'
 import { isMod } from '../../utils/keys'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
+import { changeHeading } from '../../../shared/activityTypes'
 import { useMeasures } from '../../hooks/useMeasures'
 import { MeasureInput } from './MeasureInput'
 import { useVocab } from '../../hooks/useVocab'
@@ -106,9 +107,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
     icon: activity.icon(entry.log_type),
     bgClass: activity.bgClass(entry.log_type),
   }
-  // Only text and day edits set edited_at; ticking a follow-up or undoing a delete touch updated_at too
-  const isEdited = entry.edited_at != null
   const isSystem = entry.log_type === 'system'
+  // "Program changed": the column a change entry is about (C-01)
+  const heading = isSystem ? changeHeading(entry.content) : null
   const isVoided = entry.voided_at != null
 
   // Moves on at midnight while the profile stays open (Q-031)
@@ -151,6 +152,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
       <div className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-slate-700/50 ${config.bgClass}`}>
         <span className="text-base leading-none" aria-hidden>{config.icon}</span>
         <span className="text-sm font-medium text-slate-600 dark:text-slate-400">{config.label}</span>
+        {heading && <span className="text-base font-semibold text-slate-700 dark:text-slate-200 truncate">{heading}</span>}
 
         {entry.is_pinned === 1 && (
           <Pin className="w-3 h-3 text-amber-500 dark:text-amber-400 fill-amber-400" />
@@ -158,11 +160,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
 
         <div className="flex-1" />
 
-        {isEdited && (
-          <span className="text-sm text-slate-500 dark:text-slate-400 italic" title={`Edited ${formatDateTime(entry.edited_at ?? entry.updated_at)}`}>
-            edited
-          </span>
-        )}
+        {/* An edited note says so once, on the expandable "Edited … — show earlier versions" line below (C-32) */}
 
         {days.backdated ? (
           // Written up later: show the day it happened, and when it was written for the record
@@ -196,7 +194,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             className="hit-44 p-2 rounded-sm text-slate-500 hover:text-blue-600 hover:bg-slate-100
                        dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </button>
         )}
 
@@ -210,7 +208,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               className="hit-44 p-2 rounded-sm text-slate-500 hover:text-amber-500 hover:bg-slate-100
                          dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             >
-              {entry.is_pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+              {entry.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
             </button>
             <button
               onClick={startEdit}
@@ -219,7 +217,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               className="hit-44 p-2 rounded-sm text-slate-500 hover:text-blue-500 hover:bg-slate-100
                          dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <Pencil className="w-4 h-4" />
             </button>
             {confirmDelete && canDelete ? (
               <>
@@ -236,7 +234,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                   className="hit-44 p-2 rounded-sm text-slate-500 hover:text-slate-600 hover:bg-slate-100
                              dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </>
             ) : confirmDelete ? (
@@ -268,7 +266,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                   className="hit-44 p-2 rounded-sm text-slate-500 hover:text-slate-600 hover:bg-slate-100
                              dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </form>
             ) : (
@@ -279,7 +277,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                 className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-500 hover:bg-slate-100
                            dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
               >
-                {canDelete ? <Trash2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                {canDelete ? <Trash2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
               </button>
             )}
           </div>
@@ -288,7 +286,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
 
       {confirmDelete && !canDelete && (
         <p className="px-3 pt-2 text-base text-slate-600 dark:text-slate-300">
-          {t('activity', { many: true, cap: true })} older than {CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted: voiding keeps it in the record, hidden, and you can restore it later.
+          {t('activity', { many: true, cap: true })} older than {CASE_NOTE_DELETE_WINDOW_MINUTES} minutes aren't deleted — voiding hides this one and keeps it in the record, and you can restore it later. Say why (optional):
         </p>
       )}
 
