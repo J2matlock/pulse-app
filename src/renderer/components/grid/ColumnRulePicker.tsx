@@ -1,7 +1,9 @@
-import React, { useId } from 'react'
+import React, { useId, useMemo, useRef } from 'react'
 import { BellOff, Plus } from 'lucide-react'
-import type { Column, ParsedAlertRule } from '../../../shared/types'
+import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
 import { ruleSummary } from '../../../shared/ruleSummary'
+import { conditionBlank, conditionHolds, engineRuleFrom, type Condition } from '../../../shared/deadlineEngine'
+import { useGridStore } from '../../stores/gridStore'
 import { RuleColorKey } from '../alerts/RuleColorKey'
 import { Dialog } from '../ui/Dialog'
 import { SecondaryButton } from '../ui/Button'
@@ -21,6 +23,30 @@ export interface ColumnRuleDialogProps {
   onClose: () => void
 }
 
+/** "is Yes", "is filled in"…: what an "only when" condition asks of its column */
+function conditionWords(cond: Condition): string {
+  const list = (cond.values ?? []).join(' or ')
+  switch (cond.op) {
+    case 'is': return `is ${list}`
+    case 'is_not': return `isn't ${list}`
+    case 'empty': return 'is blank'
+    case 'not_empty': return 'is filled in'
+  }
+}
+
+/** How the list's records stand against a condition right now: matching, blank (counted anyway), not matching */
+export function conditionCounts(cond: Condition, rows: GridRow[]): { match: number; blank: number; noMatch: number } {
+  let match = 0, blank = 0, noMatch = 0
+  for (const row of rows) {
+    if (row.is_active === 0) continue
+    const values = { [cond.columnId]: row[`col_${cond.columnId}`] ?? null }
+    if (conditionHolds(cond, values)) match++
+    else if (conditionBlank(cond, values)) blank++
+    else noMatch++
+  }
+  return { match, blank, noMatch }
+}
+
 /**
  * "Deadline rule…" for a date column (B-12): the rule it uses with its color key,
  * the other rules as a radio list, a new rule, or none. Changing or deleting a
@@ -32,12 +58,18 @@ export function ColumnRuleDialog({
 }: ColumnRuleDialogProps): React.ReactElement {
   const { t } = useVocab()
   const titleId = useId()
+  const closeRef = useRef<HTMLButtonElement>(null)
   const columnName = (id: number) => allColumns.find(c => c.id === id)?.name
   const others = fittingRules.filter(r => r.id !== currentAlertRule?.id)
+  const rows = useGridStore(s => s.rows)
+  const condition = useMemo(() => currentAlertRule ? engineRuleFrom(currentAlertRule).condition : null, [currentAlertRule])
+  // Why some records show no color: the persona study found a blank "only when" column hid an expired check (R4)
+  const counts = useMemo(() => condition ? conditionCounts(condition, rows) : null, [condition, rows])
+  const blankCounts = condition ? condition.op === 'is' || condition.op === 'not_empty' : false
 
   return (
-    <Dialog open onClose={onClose} title={<>Deadline rule for “{column.name}”</>} size="lg"
-      footer={<SecondaryButton onClick={onClose}>Close</SecondaryButton>}>
+    <Dialog open onClose={onClose} title={<>Deadline rule for “{column.name}”</>} size="lg" initialFocus={closeRef}
+      footer={<SecondaryButton ref={closeRef} onClick={onClose}>Close</SecondaryButton>}>
       <div className="space-y-5">
         {currentAlertRule ? (
           <section aria-labelledby={`${titleId}-current`}>
@@ -45,14 +77,16 @@ export function ColumnRuleDialog({
             <div className="rounded-lg border-2 border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/20 p-3 space-y-2">
               <p className="text-base font-semibold text-slate-800 dark:text-slate-100">{currentAlertRule.name}</p>
               <p className="text-sm text-slate-600 dark:text-slate-300">{ruleSummary(currentAlertRule, columnName)}</p>
+              {condition && counts && (
+                <p className="text-sm text-slate-700 dark:text-slate-200" data-testid="rule-condition-counts">
+                  Only for {t('record', { many: true })} whose {columnName(condition.columnId) ?? 'other column'} {conditionWords(condition)}.
+                  {' '}Right now: {counts.match} match
+                  {blankCounts && <>, {counts.blank} {counts.blank === 1 ? 'is' : 'are'} blank (counted anyway)</>}
+                  , {counts.noMatch} {counts.noMatch === 1 ? "doesn't" : "don't"} match ({condition.whenFalse === 'pause' ? 'paused' : 'no color'}).
+                </p>
+              )}
               <RuleColorKey rule={currentAlertRule} compact shapes />
             </div>
-            <button type="button"
-              className="hit-44 mt-2 flex items-center gap-2 px-2 py-1.5 text-base text-slate-700 dark:text-slate-300 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => onSetRule(null)}>
-              <BellOff className="w-4 h-4" />
-              Remove from this column
-            </button>
           </section>
         ) : (
           <p className="text-base text-slate-700 dark:text-slate-200">
@@ -103,6 +137,16 @@ export function ColumnRuleDialog({
               ))}
             </ul>
           </details>
+        )}
+
+        {currentAlertRule && (
+          // After the other rules, so a Tab from the top doesn't land on it first (R4)
+          <button type="button"
+            className="hit-44 flex items-center gap-2 px-2 py-1.5 text-base text-slate-700 dark:text-slate-300 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={() => onSetRule(null)}>
+            <BellOff className="w-4 h-4" />
+            Remove from this column
+          </button>
         )}
 
         <p className="text-sm text-slate-500 dark:text-slate-400">
