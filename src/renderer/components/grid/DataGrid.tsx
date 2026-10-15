@@ -56,6 +56,8 @@ import { pulseEvents } from '../../events'
 import { useFeature } from '../../hooks/useFeature'
 import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
 
+const COLUMN_DRAG_SENSOR = { activationConstraint: { distance: 5 } }
+
 // ── Main DataGrid ─────────────────────────────────────────────────────────────
 
 export function DataGrid(): React.ReactElement {
@@ -300,8 +302,10 @@ export function DataGrid(): React.ReactElement {
     handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveRow, handleUnarchiveRow,
   } = useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow, deleteRow, setSelectedRowIds })
 
-  // Sensors: 5px distance threshold so single clicks still work (column reorder only)
-  const colSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // Sensors: 5px distance threshold so single clicks still work (column reorder only).
+  // The options are a constant: a new object each render made new sensors, which redrew
+  // every column header on every scroll frame and every edit (UX pass Q9b)
+  const colSensors = useSensors(useSensor(PointerSensor, COLUMN_DRAG_SENSOR))
 
   // Links changed somewhere (W04): refresh just the link columns
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, () => { void useGridStore.getState().refreshLinkValues() }), [])
@@ -368,6 +372,10 @@ export function DataGrid(): React.ReactElement {
 
   const tableRows = table.getRowModel().rows
   const headerGroups = table.getHeaderGroups()
+  // Without the synthetic _acuity_points header. The same array until the headers change, so a
+  // scroll or an edit doesn't redraw the header row (UX pass Q9b)
+  const headers = useMemo(() => (headerGroups[0]?.headers ?? []).filter(h => h.id !== '_acuity_points'), [headerGroups])
+  const hideTagsColumn = useCallback(() => setShowTagsColumn(false), [setShowTagsColumn])
 
   // The rows the filter and search leave, in screen order: export, Find & Replace and
   // the counts act on these (G-05, G-24). Select-all and Ctrl+A use visualRowIds, which
@@ -382,9 +390,11 @@ export function DataGrid(): React.ReactElement {
 
   // A filter or search that hides selected records also unselects them, so bulk actions only touch what's shown
   useEffect(() => {
+    // Nothing picked (the usual case): nothing to check, so an edit doesn't walk every record
+    if (selectedRowIdsRef.current.size === 0) return
     const shown = new Set(visibleRows.map(r => r.row_id))
     setSelectedRowIds(prev => [...prev].every(id => shown.has(id)) ? prev : new Set([...prev].filter(id => shown.has(id))))
-  }, [visibleRows, setSelectedRowIds])
+  }, [visibleRows, setSelectedRowIds, selectedRowIdsRef])
 
   // Grouping (extracted hook)
   const {
@@ -589,8 +599,6 @@ export function DataGrid(): React.ReactElement {
       onAddColumn={() => pulseEvents.emit('grid:add-column')} />
   }
 
-  // Filter out synthetic _acuity_points header
-  const headers = (headerGroups[0]?.headers ?? []).filter(h => h.id !== '_acuity_points')
   const isGrouped = isGroupedFromHook
   // Screen readers pair each cell with its header by these numbers, and hear how many
   // records there are while only some are drawn (AUDIT-012, AUDIT-042)
@@ -637,7 +645,7 @@ export function DataGrid(): React.ReactElement {
             selectableRowIds={visualRowIds}
             setSelectedRowIds={setSelectedRowIds}
             showTags={showTagsColumn}
-            onHideTags={() => setShowTagsColumn(false)}
+            onHideTags={hideTagsColumn}
             onAddColumn={openAddColumn}
             colSensors={colSensors}
             onColumnDragEnd={handleColumnDragEnd}

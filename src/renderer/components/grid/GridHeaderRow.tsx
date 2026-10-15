@@ -117,7 +117,63 @@ export interface GridHeaderRowProps {
   flashColumnId?: number | null
 }
 
-export function GridHeaderRow({
+interface SortableColumnHeadersProps {
+  headers: GridTableHeader[]
+  columns: Column[]
+  columnIds: string[]
+  leadingColCount: number
+  rowHeight: number
+  colSensors: SensorDescriptor<SensorOptions>[]
+  onColumnDragEnd: (event: DragEndEvent) => void
+  autoFitColumn: (colId: number) => void
+  frozenLeftOffsets: Map<number, number>
+  frozenColumnCount: number
+  flashColumnId: number | null
+}
+
+/**
+ * The list's own columns, draggable to reorder. A memo of its own: every header listens to the
+ * drag context, so redrawing the context redraws all of them, and nothing here changes when a
+ * record changes, the selection changes or the list scrolls (UX pass Q9b)
+ */
+const SortableColumnHeaders = React.memo(function SortableColumnHeaders({
+  headers, columns, columnIds, leadingColCount, rowHeight, colSensors, onColumnDragEnd,
+  autoFitColumn, frozenLeftOffsets, frozenColumnCount, flashColumnId,
+}: SortableColumnHeadersProps): React.ReactElement {
+  // A dragged column is read out by name, not its id (AUDIT-049)
+  const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
+  return (
+    <DndContext
+      sensors={colSensors}
+      collisionDetection={closestCenter}
+      onDragEnd={onColumnDragEnd}
+      accessibility={dragA11y}
+    >
+      <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+        {headers.map((header, i) => {
+          const col = columns[i]
+          if (!col) return null
+          return (
+            <SortableColHeader
+              key={header.id}
+              header={header}
+              col={col}
+              colIndex={leadingColCount + i + 1}
+              onAutoFit={autoFitColumn}
+              rowHeight={rowHeight}
+              frozenLeft={frozenLeftOffsets.get(col.id)}
+              isLastFrozen={frozenLeftOffsets.has(col.id) && i === frozenColumnCount - 1}
+              flash={flashColumnId === col.id}
+            />
+          )
+        })}
+      </SortableContext>
+    </DndContext>
+  )
+})
+
+/** Redrawn only when one of its props changes: not on a scroll (UX pass Q9b) */
+export const GridHeaderRow = React.memo(function GridHeaderRow({
   headers,
   columns,
   columnIds,
@@ -142,194 +198,179 @@ export function GridHeaderRow({
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
   const leadingColCount = 4 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
-  // A dragged column is read out by name, not its id (AUDIT-049)
-  const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
   // Every record on screen is ticked (records hidden in a collapsed group don't count)
   const allSelected = selectableRowIds.length > 0 && selectableRowIds.every(id => selectedRowIds.has(id))
   return (
-    <DndContext
-      sensors={colSensors}
-      collisionDetection={closestCenter}
-      onDragEnd={onColumnDragEnd}
-      accessibility={dragA11y}
-    >
-      <div role="rowgroup" className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
-        <div className="flex" role="row" aria-rowindex={1}>
-          {/* Select-all checkbox in header */}
-          <div
-            role="columnheader"
-            aria-colindex={1}
-            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
-            style={{
-              width: HANDLE_WIDTH, height: rowHeight,
-              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: 0, zIndex: 12 } : {}),
-            }}
-          >
-            <button
-              onClick={() => {
-                if (allSelected) {
-                  setSelectedRowIds(new Set())
-                } else {
-                  setSelectedRowIds(new Set(selectableRowIds))
-                }
-              }}
-              className={`hit-44 w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
-                ${selectableRowIds.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
-                ${selectedRowIds.size > 0 ? 'opacity-100!' : ''}
-                transition-opacity`}
-              tabIndex={-1}
-              role="checkbox"
-              aria-checked={
-                allSelected
-                  ? 'true'
-                  : selectedRowIds.size > 0
-                    ? 'mixed'
-                    : 'false'
+    <div role="rowgroup" className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
+      <div className="flex" role="row" aria-rowindex={1}>
+        {/* Select-all checkbox in header */}
+        <div
+          role="columnheader"
+          aria-colindex={1}
+          className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+          style={{
+            width: HANDLE_WIDTH, height: rowHeight,
+            ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: 0, zIndex: 12 } : {}),
+          }}
+        >
+          <button
+            onClick={() => {
+              if (allSelected) {
+                setSelectedRowIds(new Set())
+              } else {
+                setSelectedRowIds(new Set(selectableRowIds))
               }
-              aria-label={allSelected ? `Deselect all ${t('record', { many: true })}` : `Select all ${t('record', { many: true })}`}
-              title={allSelected ? 'Deselect all' : 'Select all'}
-            >
-              <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center transition-colors
-                ${allSelected
-                  ? 'bg-blue-500 border-blue-500'
-                  : selectedRowIds.size > 0
-                    ? 'bg-blue-200 border-blue-400'
-                    : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800'}`
-              }>
-                {selectedRowIds.size > 0 && (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
-                    {allSelected
-                      ? <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      : <path d="M3 6h6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                    }
-                  </svg>
-                )}
-              </div>
-            </button>
-          </div>
-          {/* Open-record column header */}
-          <div
-            role="columnheader"
-            aria-colindex={2}
-            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
-            style={{
-              width: OPEN_COL_WIDTH, height: rowHeight,
-              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 12 } : {}),
             }}
-            aria-label={`${t('record', { cap: true })}'s page`}
-            title={`The person icon opens the ${t('record')}'s page`}
+            className={`hit-44 w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
+              ${selectableRowIds.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
+              ${selectedRowIds.size > 0 ? 'opacity-100!' : ''}
+              transition-opacity`}
+            tabIndex={-1}
+            role="checkbox"
+            aria-checked={
+              allSelected
+                ? 'true'
+                : selectedRowIds.size > 0
+                  ? 'mixed'
+                  : 'false'
+            }
+            aria-label={allSelected ? `Deselect all ${t('record', { many: true })}` : `Select all ${t('record', { many: true })}`}
+            title={allSelected ? 'Deselect all' : 'Select all'}
           >
-            <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
-          </div>
-          {/* Star column header */}
-          <div
-            role="columnheader"
-            aria-colindex={3}
-            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
-            style={{
-              width: STAR_COL_WIDTH, height: rowHeight,
-              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 12 } : {}),
-            }}
-            aria-label="Starred"
-            title={`Star ${t('record', { article: true })} to find them quickly with the Starred button above`}
-          >
-            <Star className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
-          </div>
-          {/* Row menu column header (UX-B-01) */}
-          <div
-            role="columnheader"
-            aria-colindex={4}
-            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
-            style={{
-              width: MENU_COL_WIDTH, height: rowHeight,
-              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH + STAR_COL_WIDTH, zIndex: 12 } : {}),
-            }}
-            aria-label="Actions"
-            title={`The ⋯ has more for each ${t('record')}: duplicate, archive, move and more`}
-          >
-            <MoreHorizontal className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
-          </div>
-          {/* Acuity column header — clickable to sort */}
-          {acuityEnabled && (
-            <div
-              role="columnheader"
-              aria-colindex={5}
-              aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
-              className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
-                         hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
-              style={{
-                width: ACUITY_BADGE_WIDTH, height: rowHeight,
-                ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH, zIndex: 12 } : {}),
-              }}
-              title={acuitySortDir === 'desc' ? 'Sorted: high \u2192 low (click for low \u2192 high)' : acuitySortDir === 'asc' ? 'Sorted: low \u2192 high (click to clear)' : `Click to sort by ${t('priority')}`}
-              onClick={() => setAcuitySortDir(prev => prev === null ? 'desc' : prev === 'desc' ? 'asc' : null)}
-            >
-              <span className={acuitySortDir ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}>Level</span>
-              {acuitySortDir && (
-                <svg className="w-3 h-3 ml-0.5 text-blue-600 dark:text-blue-400" viewBox="0 0 12 12" fill="currentColor">
-                  {acuitySortDir === 'desc'
-                    ? <path d="M6 8L2 4h8L6 8z" />
-                    : <path d="M6 4L2 8h8L6 4z" />
+            <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center transition-colors
+              ${allSelected
+                ? 'bg-blue-500 border-blue-500'
+                : selectedRowIds.size > 0
+                  ? 'bg-blue-200 border-blue-400'
+                  : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800'}`
+            }>
+              {selectedRowIds.size > 0 && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
+                  {allSelected
+                    ? <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    : <path d="M3 6h6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                   }
                 </svg>
               )}
             </div>
-          )}
-          {showTags && (
-            <div role="columnheader" aria-colindex={5 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
-              style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
-              <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
-              {onHideTags && (
-                <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500"
-                  onClick={onHideTags} aria-label="Hide the Tags column" title="Hide the Tags column">
-                  <EyeOff className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          )}
-          <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-            {headers.map((header, i) => {
-              const col = columns[i]
-              if (!col) return null
-              return (
-                <SortableColHeader
-                  key={header.id}
-                  header={header}
-                  col={col}
-                  colIndex={leadingColCount + i + 1}
-                  onAutoFit={autoFitColumn}
-                  rowHeight={rowHeight}
-                  frozenLeft={frozenLeftOffsets.get(col.id)}
-                  isLastFrozen={frozenLeftOffsets.has(col.id) && i === frozenColumnCount - 1}
-                  flash={flashColumnId === col.id}
-                />
-              )
-            })}
-          </SortableContext>
-          {/* Where a spreadsheet's next empty column would be: a "+" that adds one (UX-B-03).
-              A header of its own (the rows have no cell under it), so the grid's shape stays honest */}
-          {onAddColumn && (
-            <div
-              role="columnheader"
-              aria-colindex={leadingColCount + headers.length + 1}
-              aria-label="Add a column"
-              className="flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
-              style={{ width: ADD_COL_WIDTH, height: rowHeight }}
-            >
-              <button
-                type="button"
-                onClick={onAddColumn}
-                className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                aria-label="Add a column"
-                title="Add a column"
-                data-testid="add-column-header"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          </button>
         </div>
+        {/* Open-record column header */}
+        <div
+          role="columnheader"
+          aria-colindex={2}
+          className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+          style={{
+            width: OPEN_COL_WIDTH, height: rowHeight,
+            ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 12 } : {}),
+          }}
+          aria-label={`${t('record', { cap: true })}'s page`}
+          title={`The person icon opens the ${t('record')}'s page`}
+        >
+          <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+        </div>
+        {/* Star column header */}
+        <div
+          role="columnheader"
+          aria-colindex={3}
+          className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+          style={{
+            width: STAR_COL_WIDTH, height: rowHeight,
+            ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 12 } : {}),
+          }}
+          aria-label="Starred"
+          title={`Star ${t('record', { article: true })} to find them quickly with the Starred button above`}
+        >
+          <Star className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+        </div>
+        {/* Row menu column header (UX-B-01) */}
+        <div
+          role="columnheader"
+          aria-colindex={4}
+          className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+          style={{
+            width: MENU_COL_WIDTH, height: rowHeight,
+            ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH + STAR_COL_WIDTH, zIndex: 12 } : {}),
+          }}
+          aria-label="Actions"
+          title={`The ⋯ has more for each ${t('record')}: duplicate, archive, move and more`}
+        >
+          <MoreHorizontal className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+        </div>
+        {/* Acuity column header — clickable to sort */}
+        {acuityEnabled && (
+          <div
+            role="columnheader"
+            aria-colindex={5}
+            aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
+            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
+                       hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
+            style={{
+              width: ACUITY_BADGE_WIDTH, height: rowHeight,
+              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH, zIndex: 12 } : {}),
+            }}
+            title={acuitySortDir === 'desc' ? 'Sorted: high \u2192 low (click for low \u2192 high)' : acuitySortDir === 'asc' ? 'Sorted: low \u2192 high (click to clear)' : `Click to sort by ${t('priority')}`}
+            onClick={() => setAcuitySortDir(prev => prev === null ? 'desc' : prev === 'desc' ? 'asc' : null)}
+          >
+            <span className={acuitySortDir ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}>Level</span>
+            {acuitySortDir && (
+              <svg className="w-3 h-3 ml-0.5 text-blue-600 dark:text-blue-400" viewBox="0 0 12 12" fill="currentColor">
+                {acuitySortDir === 'desc'
+                  ? <path d="M6 8L2 4h8L6 8z" />
+                  : <path d="M6 4L2 8h8L6 4z" />
+                }
+              </svg>
+            )}
+          </div>
+        )}
+        {showTags && (
+          <div role="columnheader" aria-colindex={5 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+            style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
+            <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
+            {onHideTags && (
+              <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500"
+                onClick={onHideTags} aria-label="Hide the Tags column" title="Hide the Tags column">
+                <EyeOff className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+        <SortableColumnHeaders
+          headers={headers}
+          columns={columns}
+          columnIds={columnIds}
+          leadingColCount={leadingColCount}
+          rowHeight={rowHeight}
+          colSensors={colSensors}
+          onColumnDragEnd={onColumnDragEnd}
+          autoFitColumn={autoFitColumn}
+          frozenLeftOffsets={frozenLeftOffsets}
+          frozenColumnCount={frozenColumnCount}
+          flashColumnId={flashColumnId}
+        />
+        {/* Where a spreadsheet's next empty column would be: a "+" that adds one (UX-B-03).
+            A header of its own (the rows have no cell under it), so the grid's shape stays honest */}
+        {onAddColumn && (
+          <div
+            role="columnheader"
+            aria-colindex={leadingColCount + headers.length + 1}
+            aria-label="Add a column"
+            className="flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+            style={{ width: ADD_COL_WIDTH, height: rowHeight }}
+          >
+            <button
+              type="button"
+              onClick={onAddColumn}
+              className="hit-44 flex items-center justify-center w-7 h-7 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+              aria-label="Add a column"
+              title="Add a column"
+              data-testid="add-column-header"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
-    </DndContext>
+    </div>
   )
-}
+})

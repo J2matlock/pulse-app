@@ -73,7 +73,7 @@ import { useGridStore } from '../../src/renderer/stores/gridStore'
 import { pulseEvents } from '../../src/renderer/events'
 import { DataGrid } from '../../src/renderer/components/grid/DataGrid'
 import { setWords } from '../renderer/vocabFixture'
-import { RECORDS, COLUMNS, RUNS, OUT_DIR, columns, rows, setupGridStore, record as recordTo, timingTable, type Timing } from './gridFixture'
+import { RECORDS, COLUMNS, RUNS, OUT_DIR, columns, rows, setupGridStore, record as recordTo, timingTable, cpuProfiled, type Timing } from './gridFixture'
 
 const results: Timing[] = []
 const record = (name: string, samples: number[], note?: string) => recordTo(results, name, samples, note)
@@ -116,15 +116,17 @@ describe(`DataGrid at ${RECORDS} records × ${COLUMNS} columns (jsdom)`, () => {
       expect(view.container.querySelectorAll('[role="row"][data-row-index]').length).toBe(virtual.rendered)
 
       // An edit, as the optimistic update does it: one record's object replaced
-      for (let k = 0; k < 5; k++) {
-        const target = rows[k * 3]!
-        commitMs = 0
-        drawn.cells = 0
-        const t1 = performance.now()
-        act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === target.row_id ? { ...r, col_3: `Edited ${run}-${k}` } : r) })) })
-        await settle()
-        edit.push(performance.now() - t1); editCommit.push(commitMs); editRows.push(drawn.cells / columns.length)
-      }
+      await cpuProfiled(`edit-${run}`, async () => {
+        for (let k = 0; k < 5; k++) {
+          const target = rows[k * 3]!
+          commitMs = 0
+          drawn.cells = 0
+          const t1 = performance.now()
+          act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === target.row_id ? { ...r, col_3: `Edited ${run}-${k}` } : r) })) })
+          await settle()
+          edit.push(performance.now() - t1); editCommit.push(commitMs); editRows.push(drawn.cells / columns.length)
+        }
+      })
       view.unmount()
       cleanup()
     }
@@ -141,22 +143,49 @@ describe(`DataGrid at ${RECORDS} records × ${COLUMNS} columns (jsdom)`, () => {
       const view = mountGrid()
       await settle()
       // Five screens down from a different place each run, so no window repeats
-      for (let k = 1; k <= 5; k++) {
-        const start = (run * 5 + k) * VISIBLE_ROWS
-        commitMs = 0
-        drawn.cells = 0
-        const t0 = performance.now()
-        act(() => { virtual.scrollTo(start) })
-        await settle()
-        wall.push(performance.now() - t0); commit.push(commitMs); mounted.push(drawn.cells / columns.length)
-        expect(view.container.querySelector(`[role="row"][data-row-index="${start}"]`)).not.toBeNull()
-      }
+      await cpuProfiled(`scroll-screen-${run}`, async () => {
+        for (let k = 1; k <= 5; k++) {
+          const start = (run * 5 + k) * VISIBLE_ROWS
+          commitMs = 0
+          drawn.cells = 0
+          const t0 = performance.now()
+          act(() => { virtual.scrollTo(start) })
+          await settle()
+          wall.push(performance.now() - t0); commit.push(commitMs); mounted.push(drawn.cells / columns.length)
+          expect(view.container.querySelector(`[role="row"][data-row-index="${start}"]`)).not.toBeNull()
+        }
+      })
       view.unmount()
       cleanup()
     }
     record('Scroll one screen (wall clock)', wall)
     record('Scroll one screen (React commit time)', commit)
     record('Records mounted per screen scrolled (count, not ms)', mounted)
+  })
+
+  // What one frame of a real scroll does: the window moves a row or two, so the grid
+  // redraws itself and mounts one record. Its cost is mostly the grid's own render
+  it('scrolls one row at a time', async () => {
+    const wall: number[] = [], commit: number[] = []
+    for (let run = 0; run < RUNS; run++) {
+      const view = mountGrid()
+      await settle()
+      await cpuProfiled(`scroll-row-${run}`, async () => {
+        for (let k = 1; k <= 20; k++) {
+          const start = run * 400 + k
+          commitMs = 0
+          const t0 = performance.now()
+          act(() => { virtual.scrollTo(start) })
+          await settle()
+          wall.push(performance.now() - t0); commit.push(commitMs)
+        }
+      })
+      expect(view.container.querySelector(`[role="row"][data-row-index="${run * 400 + 20}"]`)).not.toBeNull()
+      view.unmount()
+      cleanup()
+    }
+    record('Scroll one row (wall clock)', wall)
+    record('Scroll one row (React commit time)', commit)
   })
 
   it('filters on a search keystroke', async () => {

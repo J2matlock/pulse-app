@@ -78,3 +78,29 @@ export function timingTable(results: Timing[]): string {
   return ['| Measure | Median ms | Min | Max | Runs |', '|-|-|-|-|-|',
     ...results.map(r => `| ${r.name}${r.note ? ` (${r.note})` : ''} | ${r.medianMs} | ${r.minMs} | ${r.maxMs} | ${r.runs} |`)].join('\n')
 }
+
+/**
+ * With PERF_CPU_PROFILE=<dir>, `fn` runs under the V8 profiler and its profile is written to
+ * <dir>/<name>.cpuprofile (open it in Chrome DevTools → Performance, or read it with a script),
+ * to find what a slow measure spends its time on. Without it, `fn` just runs.
+ */
+export async function cpuProfiled<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const dir = process.env.PERF_CPU_PROFILE
+  if (!dir) return fn()
+  const { Session } = await import('node:inspector/promises')
+  const { mkdirSync: mkdir, writeFileSync: write } = await import('fs')
+  const { join: joinPath } = await import('path')
+  const session = new Session()
+  session.connect()
+  await session.post('Profiler.enable')
+  await session.post('Profiler.setSamplingInterval', { interval: 100 })
+  await session.post('Profiler.start')
+  try {
+    return await fn()
+  } finally {
+    const { profile } = await session.post('Profiler.stop')
+    mkdir(dir, { recursive: true })
+    write(joinPath(dir, `${name.replace(/[^\w-]+/g, '-')}.cpuprofile`), JSON.stringify(profile))
+    session.disconnect()
+  }
+}
