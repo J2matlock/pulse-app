@@ -15,8 +15,8 @@ import { localDateString, shortDate } from '../../shared/dates'
 /** A rule's interval, or (older callers) a bare number of days. */
 export type IntervalInput = RuleInterval | number | null | undefined
 
-/** "Oct 6", made once: a new formatter per deadline cell drawn was most of a scroll frame (UX pass Q9b) */
-const MONTH_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+/** For "Oct 6" from local parts: a new formatter per cell was most of a scroll frame, and a cached one keeps its time zone (UX pass Q9b) */
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
 /** Threshold constants for formatCalculatedDays display tiers */
 const DAYS_FAR_FUTURE = 30
@@ -130,7 +130,7 @@ export function deadlineChipText(res: DeadlineResult, storedValue: string | null
   if (shown === res.due) return when
   const dueDate = ymdToDate(res.due)
   // format() throws on an invalid date, where toLocaleDateString gave its own words
-  const due = isNaN(dueDate.getTime()) ? String(dueDate) : MONTH_DAY.format(dueDate)
+  const due = isNaN(dueDate.getTime()) ? String(dueDate) : `${SHORT_MONTHS[dueDate.getMonth()]} ${dueDate.getDate()}`
   return d === 0 ? `due today (${due})` : `due ${due} · ${when}`
 }
 
